@@ -229,7 +229,7 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
 .tile.sel { background: #fff; outline: 2px solid #fff; }
 .tile.sel.run { color: #1f5a96; } .tile.sel.wait { color: #b86e00; } .tile.sel.done { color: #24803d; } .tile.sel.idle { color: #444b53; }
 .board2 + .tbar { border-radius: 0 0 var(--r) var(--r); }
-.screen { display: grid; grid-template-columns: minmax(150px, 13rem) 1fr; grid-template-rows: auto 1fr; background: #1b2128; border-radius: var(--r); overflow: hidden; font-family: var(--f-mono); font-size: var(--s-1); min-height: 300px; }
+.screen { display: grid; background: #16181d !important; grid-template-columns: minmax(150px, 13rem) 1fr; grid-template-rows: auto 1fr; background: #1b2128; border-radius: var(--r); overflow: hidden; font-family: var(--f-mono); font-size: var(--s-1); min-height: 300px; }
 .screen > .tbar { grid-column: 1 / -1; border-radius: 0; }
 .side { background: #262c33; display: flex; flex-direction: column; gap: 2px; padding: 4px 0; border-right: 1px solid #3a434d; min-width: 0; }
 .side .sh { padding: 2px 8px; font-weight: 700; }
@@ -238,30 +238,35 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
 .side .grp.cur { background: #af00af; }
 .side .tile { margin: 0; border-radius: 0; }
 .side .foot { margin-top: auto; padding: 6px 8px 2px; color: #7d8893; }
-.side2 { background: #1c1c1c; display: flex; flex-direction: column; padding: 6px 0; border-right: 1px solid #3a3a3a; min-width: 0; font-size: 0.78rem; }
-.side2 .hd { display: flex; justify-content: space-between; padding: 2px 10px 6px; color: #d0d0d0; font-weight: 700; border-bottom: 1px solid #444; }
-.side2 .hd span { color: #8a8a8a; font-weight: 400; }
-.side2 .pj { display: flex; justify-content: space-between; margin-top: 10px; padding: 2px 10px 2px 6px; background: #262626; color: #dadada; font-weight: 700; border-left: 3px solid #af87ff; }
-.side2 .pj.cur { background: #3a3a3a; color: #fff; border-left-color: #ff87ff; }
-.side2 .pj span { color: #808080; font-weight: 400; }
-.side2 .cd { display: grid; grid-template-columns: 1.6em 1fr auto; column-gap: 4px; padding: 2px 10px 2px 6px; background: #303030; border-left: 3px solid #585858; color: #fff; }
-.side2 .cd b { color: #767676; } .side2 .cd .t { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.side2 .cd .s { grid-column: 2; } .side2 .cd .a { grid-column: 3; grid-row: 2; color: #a8a8a8; }
-.side2 .cd.run { border-left-color: #5fafff; } .side2 .cd.run .s { color: #87d7ff; }
-.side2 .cd.done { border-left-color: #5fd787; } .side2 .cd.done .s { color: #87d787; }
-.side2 .cd.idle .s { color: #8a8a8a; }
-.side2 .cd.wait { background: #875f00; border-left-color: #ffaf00; } .side2 .cd.wait b { color: #fff; } .side2 .cd.wait .s { color: #ffd787; font-weight: 700; } .side2 .cd.wait .a { color: #ffffd7; }
-.side2 .cd.sel { background: #4e4e4e; } .side2 .cd.sel b { color: #ff87ff; }
-.side2 .cd.run { position: relative; overflow: hidden; }
-.side2 .cd.run::after { content: ""; position: absolute; inset: 0 auto 0 -30%; width: 30%; background: linear-gradient(90deg, transparent, rgba(95,175,255,.35), rgba(135,255,255,.55), rgba(95,175,255,.35), transparent); animation: sweep 1.6s linear infinite; pointer-events: none; }
-.side2 .cd.run { animation: pulse 1.2s ease-in-out infinite; }
-.side2 .cd.wait { animation: blink 1.4s ease-in-out infinite; }
+.side2 { background: #16181d; display: flex; flex-direction: column; gap: 0; padding: 10px 0 8px; border-right: 1px solid #23262e; min-width: 0; font-size: 0.78rem; color: #9aa3b2; }
+.side2 .hd { display: flex; align-items: center; gap: 8px; padding: 0 12px; color: #e6e9ef; font-weight: 700; }
+.side2 .hd em { font-style: normal; font-weight: 400; color: #626a78; }
+.side2 .hd .n { margin-left: auto; background: #2a2f3a; color: #e6e9ef; padding: 0 7px; border-radius: 3px; }
+.side2 .sum { padding: 8px 12px 8px; display: flex; gap: 12px; border-bottom: 1px solid #2c3039; margin: 0 12px; padding-inline: 0; }
+.side2 .sum .r { color: #5aa9ff; } .side2 .sum .w { color: #f5a524; font-weight: 700; }
+.side2 .pj { display: flex; align-items: center; gap: 6px; padding: 12px 12px 4px; color: #9aa3b2; }
+.side2 .pj i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.side2 .pj.cur { color: #e6e9ef; font-weight: 700; }
+.side2 .pj span { margin-left: auto; color: #626a78; font-weight: 400; }
+.side2 .cd { margin: 0 8px 6px 12px; display: grid; grid-template-columns: 1fr auto; column-gap: 6px; padding: 3px 8px; background: #1e2128; border-left: 2px solid #5c6370; color: #e6e9ef; }
+.side2 .cd .t { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side2 .cd b { color: #626a78; font-weight: 400; }
+.side2 .cd .a { color: #9aa3b2; }
+.side2 .cd.run { border-left-color: #5aa9ff; } .side2 .cd.run .s { color: #5aa9ff; }
+.side2 .cd.done { border-left-color: #3ecf8e; } .side2 .cd.done .s { color: #3ecf8e; }
+.side2 .cd.idle .s { color: #626a78; } .side2 .cd.idle .t { color: #9aa3b2; }
+.side2 .cd.wait { background: #342812; border-left-color: #f5a524; } .side2 .cd.wait .s { color: #f5a524; font-weight: 700; } .side2 .cd.wait .a { color: #f5a524; }
+.side2 .cd.sel { background: #2a2f3a; border-left-width: 4px; } .side2 .cd.sel b { color: #e6e9ef; }
+.side2 .cd.run { position: relative; overflow: hidden; animation: pulse 1.6s ease-in-out infinite; }
+.side2 .cd.run::after { content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 40%; background: radial-gradient(ellipse at center, rgba(52,104,168,.75), transparent 70%); animation: sweep 1.8s linear infinite; pointer-events: none; }
+.side2 .cd.wait { animation: blink 2.2s ease-in-out infinite; }
 @keyframes sweep { to { left: 110%; } }
-@keyframes pulse { 0%,100% { border-left-color: #005fff; } 50% { border-left-color: #87ffff; } }
-@keyframes blink { 0%,100% { background: #875f00; } 50% { background: #d75f00; } }
+@keyframes pulse { 0%,100% { border-left-color: #5aa9ff; } 50% { border-left-color: #aad7ff; } }
+@keyframes blink { 0%,100% { background: #342812; } 50% { background: #4e3a14; } }
 @media (prefers-reduced-motion: reduce) { .side2 .cd.run, .side2 .cd.wait, .side2 .cd.run::after { animation: none; } }
-.side2 .ft { margin-top: auto; padding: 6px 10px 0; border-top: 1px solid #444; color: #767676; display: grid; gap: 2px; }
-.side2 .ft .w { color: #ffaf00; font-weight: 700; }
+.side2 .ft { margin-top: auto; margin-inline: 12px; padding-top: 8px; border-top: 1px solid #2c3039; display: grid; gap: 4px; color: #626a78; }
+.side2 .ft kbd { background: #2a2f3a; color: #e6e9ef; border: 0; font-size: 0.75rem; padding: 0 5px; min-width: 0; }
+.side2 .ft .w kbd { background: #f5a524; color: #16181d; } .side2 .ft .w { color: #f5a524; }
 .mainpane { padding: 10px 12px; color: #c9d4de; min-width: 0; overflow-wrap: anywhere; }
 .mainpane .p { color: #6f8396; } .mainpane .hl { color: #f0b154; }
 @media (max-width: 560px) { .screen { grid-template-columns: 1fr; } .side { border-right: 0; border-bottom: 1px solid #3a434d; } }
@@ -341,17 +346,18 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
       <div class="screen" role="img" aria-label="tmux 화면 예시: 맨 위 창 목록, 왼쪽 사이드바, 오른쪽 작업 칸">
         <div class="tbar"><span class="sess">web</span><span class="win">1:claude <span class="st-wait">⏳</span></span><span class="win">2:shell</span><span class="win cur">3:login-bug <span class="st-wait">⏳</span></span><span class="grow"></span><span class="clock">10-06 11:20</span></div>
         <div class="side2">
-          <div class="hd">CLAUDE<span>5 세션</span></div>
-          <div class="pj">api<span>1</span></div>
-          <div class="cd run"><b>&nbsp;1</b><span class="t">인증 모듈 리팩터링</span><span></span><span class="s">⠹ 작업 중</span><span class="a">4m</span></div>
-          <div class="pj">docs<span>1</span></div>
-          <div class="cd done"><b>&nbsp;2</b><span class="t">API 문서 정리</span><span></span><span class="s">✓ 완료</span><span class="a">1m</span></div>
-          <div class="pj cur">web<span>2</span></div>
-          <div class="cd wait"><b>&nbsp;3</b><span class="t">결제 페이지 개선</span><span></span><span class="s">● 입력 필요</span><span class="a">2m</span></div>
-          <div class="cd wait sel"><b>▶4</b><span class="t">로그인 리다이렉트 버그 수정</span><span></span><span class="s">● 입력 필요</span><span class="a">40s</span></div>
-          <div class="pj">wayfinder<span>1</span></div>
-          <div class="cd idle"><b>&nbsp;5</b><span class="t">단계 관리 기능</span><span></span><span class="s">○ 대기</span><span class="a"></span></div>
-          <div class="ft"><span class="w">● 입력 필요 2 &nbsp;⌥0 바로 가기</span><span>⌥1-9 이동 · 클릭</span></div>
+          <div class="hd">Claude <em>세션</em><span class="n">5</span></div>
+          <div class="sum"><span class="r">◐ 1 작업 중</span><span class="w">● 2 입력 필요</span></div>
+          <div class="pj"><i style="background:#a78bfa"></i>api<span>1</span></div>
+          <div class="cd run"><span class="t">인증 모듈 리팩터링</span><b>⌥1</b><span class="s">⠹ 작업 중</span><span class="a">4m</span></div>
+          <div class="pj"><i style="background:#2dd4bf"></i>docs<span>1</span></div>
+          <div class="cd done"><span class="t">API 문서 정리</span><b>⌥2</b><span class="s">✓ 완료</span><span class="a">1m</span></div>
+          <div class="pj cur"><i style="background:#f472b6"></i>web<span>2</span></div>
+          <div class="cd wait"><span class="t">결제 페이지 개선</span><b>⌥3</b><span class="s">● 입력 필요</span><span class="a">2m</span></div>
+          <div class="cd wait sel"><span class="t">로그인 리다이렉트 버그 수정</span><b>⌥4</b><span class="s">● 입력 필요</span><span class="a">40s</span></div>
+          <div class="pj"><i style="background:#fb923c"></i>wayfinder<span>1</span></div>
+          <div class="cd idle"><span class="t">단계 관리 기능</span><b>⌥5</b><span class="s">○ 대기</span><span class="a"></span></div>
+          <div class="ft"><span class="w"><kbd>⌥0</kbd> 기다리는 작업으로</span><span><kbd>⌥1-9</kbd> 이동 · 우클릭 이름</span></div>
         </div>
         <div class="mainpane"><span class="p">~/project/web ❯</span> claude -n login-bug<br><br><span class="hl">Allow edit to src/routes/+page.svelte?</span><br>❯ 1. Yes<br>&nbsp;&nbsp;2. No</div>
       </div>
@@ -409,17 +415,18 @@ claude -c
   <div class="screen" role="img" aria-label="tmux 화면 예시: 맨 위 창 목록, 왼쪽 사이드바, 오른쪽 작업 칸">
         <div class="tbar"><span class="sess">web</span><span class="win">1:claude <span class="st-wait">⏳</span></span><span class="win">2:shell</span><span class="win cur">3:login-bug <span class="st-wait">⏳</span></span><span class="grow"></span><span class="clock">10-06 11:20</span></div>
         <div class="side2">
-          <div class="hd">CLAUDE<span>5 세션</span></div>
-          <div class="pj">api<span>1</span></div>
-          <div class="cd run"><b>&nbsp;1</b><span class="t">인증 모듈 리팩터링</span><span></span><span class="s">⠹ 작업 중</span><span class="a">4m</span></div>
-          <div class="pj">docs<span>1</span></div>
-          <div class="cd done"><b>&nbsp;2</b><span class="t">API 문서 정리</span><span></span><span class="s">✓ 완료</span><span class="a">1m</span></div>
-          <div class="pj cur">web<span>2</span></div>
-          <div class="cd wait"><b>&nbsp;3</b><span class="t">결제 페이지 개선</span><span></span><span class="s">● 입력 필요</span><span class="a">2m</span></div>
-          <div class="cd wait sel"><b>▶4</b><span class="t">로그인 리다이렉트 버그 수정</span><span></span><span class="s">● 입력 필요</span><span class="a">40s</span></div>
-          <div class="pj">wayfinder<span>1</span></div>
-          <div class="cd idle"><b>&nbsp;5</b><span class="t">단계 관리 기능</span><span></span><span class="s">○ 대기</span><span class="a"></span></div>
-          <div class="ft"><span class="w">● 입력 필요 2 &nbsp;⌥0 바로 가기</span><span>⌥1-9 이동 · 클릭</span></div>
+          <div class="hd">Claude <em>세션</em><span class="n">5</span></div>
+          <div class="sum"><span class="r">◐ 1 작업 중</span><span class="w">● 2 입력 필요</span></div>
+          <div class="pj"><i style="background:#a78bfa"></i>api<span>1</span></div>
+          <div class="cd run"><span class="t">인증 모듈 리팩터링</span><b>⌥1</b><span class="s">⠹ 작업 중</span><span class="a">4m</span></div>
+          <div class="pj"><i style="background:#2dd4bf"></i>docs<span>1</span></div>
+          <div class="cd done"><span class="t">API 문서 정리</span><b>⌥2</b><span class="s">✓ 완료</span><span class="a">1m</span></div>
+          <div class="pj cur"><i style="background:#f472b6"></i>web<span>2</span></div>
+          <div class="cd wait"><span class="t">결제 페이지 개선</span><b>⌥3</b><span class="s">● 입력 필요</span><span class="a">2m</span></div>
+          <div class="cd wait sel"><span class="t">로그인 리다이렉트 버그 수정</span><b>⌥4</b><span class="s">● 입력 필요</span><span class="a">40s</span></div>
+          <div class="pj"><i style="background:#fb923c"></i>wayfinder<span>1</span></div>
+          <div class="cd idle"><span class="t">단계 관리 기능</span><b>⌥5</b><span class="s">○ 대기</span><span class="a"></span></div>
+          <div class="ft"><span class="w"><kbd>⌥0</kbd> 기다리는 작업으로</span><span><kbd>⌥1-9</kbd> 이동 · 우클릭 이름</span></div>
         </div>
         <div class="mainpane"><span class="p">~/project/web ❯</span> claude -n login-bug<br><br><span class="hl">Allow edit to src/routes/+page.svelte?</span><br>❯ 1. Yes<br>&nbsp;&nbsp;2. No</div>
       </div>
