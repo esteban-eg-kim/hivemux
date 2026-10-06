@@ -1,0 +1,202 @@
+#!/usr/bin/python3
+"""경로 골라 열기 팝업 (tmux display-popup 안에서 실행).
+
+  claude-open-ui <pane_id>
+
+그 칸의 최근 출력에서 실제로 있는 파일/폴더 경로를 모아 최근 것부터 보여 준다.
+  ↑↓ / Ctrl+P N   고르기        글자 입력   걸러 보기
+  Enter           편집기로 열기 (VS Code, 줄 번호 포함)
+  Tab             기본 앱으로 열기       Ctrl+F  Finder에서 보기
+  Ctrl+Y          경로 복사              Esc     닫기
+"""
+import os, re, subprocess, sys, termios, tty, unicodedata, urllib.parse
+
+TMUX = "/opt/homebrew/bin/tmux"
+if not os.path.exists(TMUX):
+    TMUX = "tmux"
+PANE = sys.argv[1] if len(sys.argv) > 1 else ""
+VSCODE = os.path.exists("/Applications/Visual Studio Code.app")
+
+TEXT, T2, T3 = (230, 233, 239), (154, 163, 178), (98, 106, 120)
+ACC, SEL_BG, BG = (90, 169, 255), (42, 47, 58), (30, 33, 40)
+
+
+def fg(c): return "\x1b[38;2;%d;%d;%dm" % c
+def bg(c): return "\x1b[48;2;%d;%d;%dm" % c
+RST, BOLD = "\x1b[0m", "\x1b[1m"
+
+
+def tmux(*a):
+    return subprocess.run([TMUX, *a], capture_output=True, text=True).stdout
+
+
+def width(s):
+    return sum(0 if unicodedata.combining(c) else 2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
+
+
+def cut_left(s, w):
+    """앞을 줄여서(…) 폭 w에 맞춘다. 경로는 끝부분이 중요하다."""
+    if width(s) <= w:
+        return s
+    out = ""
+    for c in reversed(s):
+        if width(out) + width(c) > w - 1:
+            break
+        out = c + out
+    return "…" + out
+
+
+# 경로 후보: /abs, ~/home, ./rel, ../rel, 또는 슬래시가 있는 a/b.ext, 또는 이름.ext
+PATH_RE = re.compile(
+    r"(?<![\w/~.@-])("
+    r"(?:~|\.{1,2})?/[^\s'\"`<>()\[\]{},;|:]+"       # /abs  ~/x  ./x  ../x
+    r"|[\w.@-]+(?:/[^\s'\"`<>()\[\]{},;|:]+)+/?"      # a/b/c  dir/
+    r"|[\w@-][\w.@-]*\.[A-Za-z][\w]{0,7}"            # name.ext
+    r")(?::(\d+))?(?::(\d+))?")
+
+
+def candidates(pane):
+    cwd = tmux("display", "-p", "-t", pane, "#{pane_current_path}").strip()
+    ccwd = tmux("show", "-pqv", "-t", pane, "@claude_cwd").strip()
+    bases = [b for b in (ccwd, cwd) if b]
+    text = tmux("capture-pane", "-p", "-J", "-S", "-3000", "-t", pane)
+    seen, out = set(), []
+    for line in reversed(text.splitlines()):
+        for m in reversed(list(PATH_RE.finditer(line))):
+            raw = m.group(1).rstrip(".:")
+            if raw.startswith("http") or "://" in line[max(0, m.start() - 8):m.start() + 3]:
+                continue
+            path = os.path.expanduser(raw)
+            full = None
+            if os.path.isabs(path):
+                full = path if os.path.exists(path) else None
+            else:
+                for b in bases:
+                    c = os.path.normpath(os.path.join(b, path))
+                    if os.path.exists(c):
+                        full = c
+                        break
+            if not full or full in ("/", os.path.expanduser("~")):
+                continue
+            # 셸 프롬프트에 찍힌 작업 폴더(와 그 상위 폴더)는 뺀다
+            if os.path.isdir(full) and any(b == full or b.startswith(full.rstrip("/") + "/") for b in bases):
+                continue
+            ln, col = m.group(2), m.group(3)
+            key = (full, ln)
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(dict(full=full, line=ln, col=col, shown=raw + (f":{ln}" if ln else ""),
+                            isdir=os.path.isdir(full)))
+            if len(out) >= 200:
+                return out, bases
+    return out, bases
+
+
+def run(cmd, **kw):
+    dry = os.environ.get("CLAUDE_OPEN_DRYRUN")
+    if dry:  # 테스트용: 실행하지 않고 기록만
+        with open(dry, "a") as f:
+            f.write(" ".join(cmd) + "\n")
+        return
+    subprocess.run(cmd, **kw)
+
+
+def open_editor(it):
+    if it["isdir"]:
+        target = it["full"]
+        if VSCODE:
+            run(["open", "-a", "Visual Studio Code", target])
+        else:
+            run(["open", target])
+        return
+    if VSCODE:
+        url = "vscode://file" + urllib.parse.quote(it["full"])
+        if it["line"]:
+            url += f":{it['line']}" + (f":{it['col']}" if it["col"] else "")
+        run(["open", url])
+    else:
+        run(["open", "-t", it["full"]])
+
+
+def main():
+    items, bases = candidates(PANE)
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    tty.setraw(fd)
+    out = sys.stdout
+    q, sel, top, msg = "", 0, 0, ""
+    try:
+        while True:
+            cols, rows = os.get_terminal_size()
+            shown = [it for it in items if q.lower() in it["shown"].lower()] if q else items
+            sel = max(0, min(sel, len(shown) - 1))
+            list_h = max(1, rows - 5)
+            if sel < top:
+                top = sel
+            if sel >= top + list_h:
+                top = sel - list_h + 1
+            buf = ["\x1b[H\x1b[2J", bg(BG)]
+            head = f"  {fg(T3)}찾기 {fg(TEXT)}{BOLD}{q}{RST}{bg(BG)}{fg(ACC)}▏{RST}{bg(BG)}"
+            cnt = f"{len(shown)}개"
+            buf.append(head + " " * max(1, cols - width(f"  찾기 {q}▏") - width(cnt) - 2) + fg(T3) + cnt + "  \r\n")
+            buf.append(fg((44, 48, 57)) + "  " + "─" * (cols - 4) + "  \r\n")
+            if not shown:
+                buf.append(f"  {fg(T2)}" + ("이 칸의 최근 출력에 열 수 있는 경로가 없습니다" if not q else "맞는 경로가 없습니다") + "\r\n")
+            for i in range(top, min(len(shown), top + list_h)):
+                it = shown[i]
+                icon = "▸" if it["isdir"] else "•"
+                name = cut_left(it["shown"] + ("/" if it["isdir"] else ""), cols - 8)
+                if i == sel:
+                    line = f"{bg(SEL_BG)}{fg(ACC)} ▌{fg(TEXT)}{BOLD} {icon} {name}{RST}{bg(SEL_BG)}"
+                    line += " " * max(0, cols - 5 - width(name)) + RST + bg(BG)
+                else:
+                    line = f"{bg(BG)}   {fg(T3)}{icon} {fg(T2)}{name}"
+                buf.append(line + "\r\n")
+            buf.append(f"\x1b[{rows - 1};1H{fg((44, 48, 57))}  " + "─" * (cols - 4) + "\r\n")
+            hint = msg or (f"{fg(TEXT)}Enter{fg(T3)} {'VS Code' if VSCODE else '편집기'}   "
+                           f"{fg(TEXT)}Tab{fg(T3)} 기본 앱   {fg(TEXT)}^F{fg(T3)} Finder   "
+                           f"{fg(TEXT)}^Y{fg(T3)} 복사   {fg(TEXT)}Esc{fg(T3)} 닫기")
+            buf.append("  " + hint + RST)
+            out.write("".join(buf))
+            out.flush()
+            msg = ""
+            ch = os.read(fd, 32).decode(errors="ignore")
+            if ch in ("\x1b", "\x03") or ch == "\x1bq":
+                return
+            if ch in ("\x1b[A", "\x10", "\x1bOA"):
+                sel -= 1
+            elif ch in ("\x1b[B", "\x0e", "\x1bOB"):
+                sel += 1
+            elif ch in ("\x1b[5~",):
+                sel -= list_h
+            elif ch in ("\x1b[6~",):
+                sel += list_h
+            elif ch in ("\r", "\n") and shown:
+                open_editor(shown[sel]); return
+            elif ch == "\t" and shown:
+                run(["open", shown[sel]["full"]]); return
+            elif ch == "\x06" and shown:
+                run(["open", "-R", shown[sel]["full"]]); return
+            elif ch == "\x19" and shown:
+                run(["pbcopy"], input=shown[sel]["full"].encode())
+                msg = f"{fg(ACC)}복사했습니다  {fg(T2)}{cut_left(shown[sel]['full'], cols - 14)}"
+            elif ch in ("\x7f", "\x08"):
+                q = q[:-1]; sel = 0
+            elif ch == "\x15":
+                q = ""; sel = 0
+            elif ch.isprintable() and not ch.startswith("\x1b"):
+                q += ch; sel = 0
+    finally:
+        out.write(RST + "\x1b[2J")
+        out.flush()
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 2 and sys.argv[2] == "--list":
+        its, _ = candidates(PANE)
+        for it in its:
+            print(it["shown"], "->", it["full"])
+        sys.exit(0)
+    main()

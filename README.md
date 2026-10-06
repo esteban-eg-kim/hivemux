@@ -51,6 +51,8 @@ Ghostty + tmux + Claude Code 세션 영속화 + 폰 원격 제어.
 | `Option+0` / `prefix Space` | 가장 오래 기다린 Claude, 없으면 안 본 완료 작업 |
 | 사이드바 타일 클릭 / 사이드바에서 숫자 | 그 Claude로 이동 |
 | `prefix b` | 사이드바 숨기기 / 보이기 |
+| `Option+O` | 지금 칸 출력에서 파일 경로 골라 열기 (Enter VS Code 줄 번호, Tab 기본 앱, ^F Finder, ^Y 복사) |
+| `⌘+클릭` | Claude가 링크로 낸 경로/주소 열기 (tmux hyperlinks + `FORCE_HYPERLINK=1`) |
 
 ## 폰에서 쓰기
 - **이미 돌고 있는 세션**: Claude 앱 → Code 탭에 자동으로 보인다. 터미널에서 `/remote-control` 로 QR 표시 가능.
@@ -83,6 +85,7 @@ tmux set-environment -g CLAUDE_PANES_NO_RESUME 1   # 레이아웃만 복원, Cla
 - `bin/claude-sidebar` 사이드바 칸 생성/폭 유지/정리/복원 후 재생성
 - `bin/claude-sidebar-view` 사이드바 화면 (타일, 클릭, 숫자 키)
 - `bin/claude-rename` 사이드바에서 이름 변경 → `/rename` 전송 (작업 중이면 Stop 때 전송)
+- `bin/claude-open`, `bin/claude-open-ui` Option+O 경로 열기 팝업
 - `bin/claude-agents` 번호 이동, 기다리는 작업 이동 (`claude-agents list`로 글자 목록)
 - `bin/tp` 프로젝트 폴더 하나 = tmux 세션 하나. 만들거나 이동
 - `bin/claude-win` `prefix Shift+C`. 이름을 받아 Claude 창을 연다

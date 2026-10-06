@@ -488,6 +488,14 @@ claude -c
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>b</kbd></span><span class="d">사이드바 모두 숨기기 / 다시 보이기</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Space</kbd></span><span class="d">Option+0과 같음</span></div>
     </div>
+    <h3>파일 경로 열기</h3>
+    <div class="keys">
+      <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>O</kbd></span><span class="d">지금 칸의 최근 출력에서 파일 경로를 골라 열기 팝업</span></div>
+      <div class="key"><span class="combo">팝업에서 글자 입력</span><span class="d">경로 걸러 보기</span></div>
+      <div class="key"><span class="combo"><kbd>Enter</kbd></span><span class="d">VS Code에서 열기. 줄 번호가 있으면 그 줄로</span></div>
+      <div class="key"><span class="combo"><kbd>Tab</kbd> / <kbd>Ctrl</kbd>+<kbd>F</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></span><span class="d">기본 앱으로 열기 / Finder에서 보기 / 경로 복사</span></div>
+      <div class="key"><span class="combo"><kbd>⌘</kbd>+클릭</span><span class="d">Claude가 링크로 내보낸 경로와 주소를 바로 열기</span></div>
+    </div>
     <h3>프로젝트(세션)</h3>
     <div class="keys">
       <div class="key"><span class="combo"><code>tp 폴더</code></span><span class="d">프로젝트 세션을 만들거나 그 세션으로 이동</span></div>
@@ -629,6 +637,10 @@ claude-sidebar fix</pre></div>
     <details class="issue" data-c="term"><summary>Option+숫자를 눌러도 이동하지 않는다<span class="pill part tag">터미널</span></summary><div class="body">
       <p>Ghostty가 Option 키를 Alt로 보내야 합니다. 설정에 들어 있지만 Ghostty를 설정 변경 전부터 켜 두었다면 완전히 종료하고 다시 여세요. 그래도 안 되면 <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>Space</kbd>를 쓰거나 사이드바 타일을 클릭하세요.</p>
     </div></details>
+    <details class="issue" data-c="term"><summary>Claude가 알려 준 파일을 바로 열고 싶다<span class="pill part tag">터미널</span></summary><div class="body">
+      <p><kbd>Option</kbd>+<kbd>O</kbd>를 누르면 그 칸의 최근 출력에 나온 파일 경로가 최근 것부터 나옵니다. 실제로 있는 파일만 보여 주고, 상대 경로는 Claude의 작업 폴더 기준으로 찾습니다. <code>파일:42</code>처럼 줄 번호가 붙어 있으면 VS Code에서 그 줄로 엽니다.</p>
+      <p class="why">⌘+클릭은 Claude가 경로를 링크로 내보낼 때만 됩니다. 링크 설정은 Ghostty를 다시 열어 tmux에 새로 붙고, Claude를 새로 시작한 뒤부터 적용됩니다.</p>
+    </div></details>
     <details class="issue" data-c="term"><summary>Shift+Enter가 줄바꿈 대신 전송된다<span class="pill part tag">터미널</span></summary><div class="body">
       <p>tmux 확장 키 설정이 아직 적용되지 않은 서버입니다. 설정을 다시 읽거나 Ghostty를 새로 여세요. 급하면 <kbd>Ctrl</kbd>+<kbd>J</kbd>로 줄바꿈할 수 있습니다.</p>
       <div class="code"><button class="copy" type="button">복사</button><pre>tmux source-file ~/.tmux.conf</pre></div>
@@ -694,6 +706,7 @@ claude-sidebar fix</pre></div>
     <div><code>bin/claude-sidebar-view</code><span>사이드바 화면. 카드를 그리고 클릭, 더블클릭, 오른쪽 클릭, 숫자 키를 받습니다</span></div>
     <div><code>bin/claude-rename</code><span>사이드바에서 작업 이름을 바꾸고 그 Claude에 /rename을 보냅니다</span></div>
     <div><code>bin/claude-rename-ui</code><span>이름 바꾸기 팝업 화면</span></div>
+    <div><code>bin/claude-open</code>, <code>bin/claude-open-ui</code><span>Option+O 경로 열기 팝업</span></div>
     <div><code>bin/claude-agents</code><span>Option+번호 이동, 기다리는 작업으로 이동, 목록 출력</span></div>
     <div><code>bin/tp</code><span>프로젝트 폴더 하나에 tmux 세션 하나를 만들거나 그 세션으로 이동합니다</span></div>
     <div><code>bin/claude-win</code><span>Ctrl+A Shift+C. 이름을 받아 Claude 창을 엽니다</span></div>
