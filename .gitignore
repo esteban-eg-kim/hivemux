@@ -1,0 +1,5 @@
+# install.sh 가 만든 개인 설정 백업 (.zshrc, ~/.claude/settings.json 등)
+backups/
+__pycache__/
+*.pyc
+.DS_Store

@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<title>ghostty-tumx 가이드</title>
+<meta name="description" content="Ghostty + tmux + Claude Code 세션 유지와 폰 원격 제어 사용법, 문제 해결">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a single reading column framed like a terminal session; tmux status-bar strips act as section dividers and live diagrams. */
+:root {
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --ink: #18212b;
+  --muted: #5a6875;
+  --line: #d3dae1;
+  --bar: #1f2a35;
+  --bar-ink: #c9d4de;
+  --accent: #2f6fb3;
+  --accent-soft: #dce8f5;
+  --run: #2f6fb3;
+  --wait: #b86e00;
+  --done: #2e8a57;
+  --off: #b3402f;
+  --wait-soft: #fbefd9;
+  --done-soft: #ddf1e5;
+  --off-soft: #f8e1dc;
+  --code-bg: #f5f7f9;
+  --f-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --s-1: 0.8125rem; --s0: 1rem; --s1: 1.1875rem; --s2: 1.5rem; --s3: 2.125rem;
+  --r: 6px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12181e; --surface: #1a222a; --ink: #e3e9ef; --muted: #93a1ae; --line: #2c3742;
+  --bar: #0b1015; --bar-ink: #b4c1cd; --accent: #79aee6; --accent-soft: #1d3247;
+  --run: #79aee6; --wait: #f0b154; --done: #6cc893; --off: #ee8a78;
+  --wait-soft: #3a2c14; --done-soft: #17352a; --off-soft: #3e1f1a; --code-bg: #141b21; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #12181e; --surface: #1a222a; --ink: #e3e9ef; --muted: #93a1ae; --line: #2c3742;
+  --bar: #0b1015; --bar-ink: #b4c1cd; --accent: #79aee6; --accent-soft: #1d3247;
+  --run: #79aee6; --wait: #f0b154; --done: #6cc893; --off: #ee8a78;
+  --wait-soft: #3a2c14; --done-soft: #17352a; --off-soft: #3e1f1a; --code-bg: #141b21; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: var(--s0); line-height: 1.7; padding-inline: 16px; padding-block: 0 64px; }
+.wrap { max-width: 860px; margin: 0 auto; display: grid; gap: 56px; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.3; margin: 0; }
+h1 { font-size: var(--s3); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: var(--s2); font-weight: 700; }
+h3 { font-size: var(--s1); font-weight: 500; }
+p { margin: 0; max-width: 65ch; }
+a { color: var(--accent); }
+code, kbd, .mono { font-family: var(--f-mono); font-size: 0.88em; }
+:not(pre) > code { background: var(--code-bg); border: 1px solid var(--line); border-radius: 4px; padding: 0 0.35em; overflow-wrap: anywhere; }
+.label { font-family: var(--f-mono); font-size: var(--s-1); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+section { display: grid; gap: 20px; scroll-margin-top: 64px; }
+.lede { color: var(--muted); font-size: var(--s1); }
+
+/* tmux status bar strip */
+.tbar { background: var(--bar); color: var(--bar-ink); font-family: var(--f-mono); font-size: var(--s-1); display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; border-radius: var(--r); overflow: hidden; }
+.tbar .sess { background: var(--accent); color: var(--bar); font-weight: 600; padding: 4px 12px; }
+.tbar .win { padding: 4px 10px; }
+.tbar .win.cur { background: #2e3c4a; color: #fff; font-weight: 600; }
+.tbar .grow { flex: 1; }
+.tbar .clock { padding: 4px 12px; opacity: 0.75; }
+.st-run { color: var(--run); } .st-wait { color: var(--wait); } .st-done { color: var(--done); }
+.tbar .st-run { color: #8fc0f0; } .tbar .st-wait { color: #f0b154; } .tbar .st-done { color: #6cc893; }
+
+/* top nav */
+nav.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; margin-inline: -16px; padding: 10px 16px; background: var(--bg); border-bottom: 1px solid var(--line); }
+nav.top .tbar a { color: inherit; text-decoration: none; padding: 4px 10px; }
+nav.top .tbar a:hover, nav.top .tbar a:focus-visible { background: #2e3c4a; color: #fff; outline: none; }
+
+header.hero { display: grid; gap: 14px; padding-top: 32px; }
+
+/* layer stack */
+.stack { display: grid; gap: 6px; }
+.layer { display: grid; grid-template-columns: 9.5rem 1fr; gap: 16px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 16px; }
+.layer > * { min-width: 0; }
+.layer .name { font-family: var(--f-mono); font-weight: 600; font-size: var(--s-1); }
+.layer .what { font-size: 0.95rem; }
+.layer .keeps { display: block; color: var(--muted); font-size: var(--s-1); }
+.layer.l1 { border-left: 4px solid var(--muted); }
+.layer.l2 { border-left: 4px solid var(--accent); }
+.layer.l3 { border-left: 4px solid var(--accent); }
+.layer.l4 { border-left: 4px solid var(--done); }
+.layer.l5 { border-left: 4px solid var(--wait); }
+@media (max-width: 560px) { .layer { grid-template-columns: 1fr; gap: 4px; } }
+
+/* survival matrix */
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.93rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
+th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 500; color: var(--muted); font-size: var(--s-1); }
+tr:last-child td { border-bottom: 0; }
+.pill { display: inline-block; font-family: var(--f-mono); font-size: 0.78rem; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.yes { background: var(--done-soft); color: var(--done); }
+.no { background: var(--off-soft); color: var(--off); }
+.part { background: var(--wait-soft); color: var(--wait); }
+
+/* flow */
+.flow { display: grid; gap: 0; counter-reset: step; }
+.step { display: grid; grid-template-columns: 2.25rem 1fr; gap: 14px; position: relative; padding-bottom: 18px; }
+.step::before { counter-increment: step; content: counter(step); width: 2.25rem; height: 2.25rem; border-radius: 50%; background: var(--surface); border: 2px solid var(--accent); color: var(--accent); font-family: var(--f-mono); font-weight: 600; display: grid; place-items: center; }
+.step:not(:last-child)::after { content: ""; position: absolute; left: calc(1.125rem - 1px); top: 2.25rem; bottom: 0; width: 2px; background: var(--line); }
+.step > div { min-width: 0; padding-top: 4px; display: grid; gap: 4px; }
+.step .who { font-family: var(--f-mono); font-size: var(--s-1); color: var(--muted); }
+
+/* panes mock */
+.panes { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background: var(--bar); padding: 2px; border-radius: var(--r) var(--r) 0 0; font-family: var(--f-mono); font-size: 0.78rem; color: var(--bar-ink); }
+.pane { background: #16202a; padding: 10px 12px; min-height: 92px; min-width: 0; overflow-wrap: anywhere; }
+.pane .p { color: #6f8396; }
+.pane .c { color: #e8eef4; }
+.pane .hl { color: #8fc0f0; }
+.mock { display: grid; gap: 0; }
+.mock .tbar { border-radius: 0 0 var(--r) var(--r); }
+@media (max-width: 560px) { .panes { grid-template-columns: 1fr; } }
+
+/* legend */
+.legend { display: flex; flex-wrap: wrap; gap: 10px 20px; }
+.legend div { display: flex; gap: 8px; align-items: baseline; }
+.legend b { font-family: var(--f-mono); font-size: 1.05rem; }
+
+/* keys */
+.keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.key { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; display: grid; gap: 6px; }
+.combo { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; color: var(--muted); font-size: var(--s-1); }
+kbd { display: inline-block; min-width: 1.9em; text-align: center; padding: 2px 7px; border: 1px solid var(--line); border-bottom-width: 3px; border-radius: 5px; background: var(--code-bg); color: var(--ink); font-weight: 600; }
+.key .d { font-size: 0.93rem; }
+
+/* phone section */
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.phone-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-family: var(--f-mono); font-size: var(--s-1); }
+.node { border: 1px solid var(--line); background: var(--surface); padding: 6px 10px; border-radius: var(--r); }
+.node.hot { border-color: var(--accent); background: var(--accent-soft); }
+.arrow { color: var(--muted); }
+
+/* code blocks */
+.code { position: relative; background: var(--code-bg); border: 1px solid var(--line); border-radius: var(--r); }
+.code pre { margin: 0; padding: 12px 14px; overflow-x: auto; font-family: var(--f-mono); font-size: 0.84rem; line-height: 1.6; }
+.code .cmt { color: var(--muted); }
+.copy { position: absolute; top: 6px; right: 6px; font: 500 0.75rem var(--f-body); background: var(--surface); color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 2px 8px; cursor: pointer; }
+.copy:hover, .copy:focus-visible { color: var(--ink); border-color: var(--accent); outline: none; }
+
+/* troubleshooting */
+.filter { display: flex; flex-wrap: wrap; gap: 8px; }
+.filter button { font: 500 var(--s-1) var(--f-body); padding: 4px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.filter button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.filter button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.issues { display: grid; gap: 8px; }
+details.issue { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
+details.issue summary { cursor: pointer; padding: 12px 16px; display: flex; gap: 10px; align-items: baseline; list-style: none; }
+details.issue summary::-webkit-details-marker { display: none; }
+details.issue summary::before { content: "▸"; color: var(--muted); font-size: 0.8rem; }
+details.issue[open] summary::before { content: "▾"; }
+details.issue summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+details.issue .tag { margin-left: auto; }
+details.issue .body { padding: 0 16px 16px 34px; display: grid; gap: 10px; }
+.body .why { color: var(--muted); font-size: 0.93rem; }
+
+/* files */
+.files { display: grid; gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); font-size: 0.93rem; }
+.files div { display: grid; grid-template-columns: minmax(0, 15rem) 1fr; gap: 12px; padding: 9px 14px; border-bottom: 1px solid var(--line); }
+.files div:last-child { border-bottom: 0; }
+.files code { background: none; border: 0; padding: 0; }
+@media (max-width: 560px) { .files div { grid-template-columns: 1fr; gap: 0; } }
+
+
+/* nested concept boxes */
+.nest { display: grid; gap: 10px; }
+.box { border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; display: grid; gap: 10px; background: var(--surface); min-width: 0; }
+.box > .bh { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.box > .bh b { font-family: var(--f-mono); font-size: var(--s-1); }
+.box > .bh span { color: var(--muted); font-size: var(--s-1); }
+.box.b1 { border-color: var(--muted); }
+.box.b2 { border-color: var(--accent); background: var(--accent-soft); }
+.row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.box.b4 { background: var(--code-bg); border-style: dashed; padding: 8px 10px; font-size: var(--s-1); font-family: var(--f-mono); }
+/* annotated status bar */
+.anno { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.anno div { display: grid; gap: 2px; font-size: 0.93rem; }
+.anno b { font-family: var(--f-mono); font-size: var(--s-1); color: var(--accent); }
+/* step guide */
+.steps { display: grid; gap: 0; counter-reset: st; }
+.st { display: grid; grid-template-columns: 2.5rem 1fr; gap: 16px; position: relative; padding-bottom: 28px; }
+.st::before { counter-increment: st; content: counter(st); width: 2.5rem; height: 2.5rem; border-radius: 50%; background: var(--accent); color: var(--surface); font-family: var(--f-mono); font-weight: 600; display: grid; place-items: center; }
+.st:not(:last-child)::after { content: ""; position: absolute; left: calc(1.25rem - 1px); top: 2.5rem; bottom: 0; width: 2px; background: var(--line); }
+.st > div { min-width: 0; display: grid; gap: 10px; padding-top: 6px; }
+.st h3 { font-weight: 700; }
+.result { font-size: 0.93rem; color: var(--muted); }
+.result b { color: var(--ink); font-weight: 500; }
+.cmp { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.cmp .card h3 { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.tip { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 10px 14px; border-radius: 0 var(--r) var(--r) 0; font-size: 0.93rem; }
+.keygroup { display: grid; gap: 12px; }
+.tbar .prompt { padding: 4px 10px; } .tbar .prompt i { font-style: normal; color: #fff; }
+ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
+
+.tbar.board { background: #262c33; border-radius: 0 0 var(--r) var(--r); margin-top: -2px; }
+.tbar + .tbar.board { border-top: 1px solid #3a434d; }
+.tbar.top-of-two { border-radius: var(--r) var(--r) 0 0; }
+.bi { padding: 4px 8px; white-space: nowrap; }
+.bi.wait { background: #e09a2b; color: #111; font-weight: 600; }
+.bi.run { color: #8fc0f0; }
+.bi.done { background: #1f5a33; color: #9ff0b8; font-weight: 600; }
+.bi.idle { color: #7d8893; }
+.bi.head { color: #c9d4de; font-weight: 600; }
+.bi.head em { font-style: normal; color: #f0b154; }
+.sep { color: #56616c; padding: 4px 0; }
+.board2 { background: #262c33; border-radius: var(--r) var(--r) 0 0; padding: 4px 6px; display: flex; flex-wrap: wrap; gap: 6px; font-family: var(--f-mono); font-size: var(--s-1); }
+.tile { display: grid; padding: 3px 10px; line-height: 1.45; border-radius: 2px; min-width: 0; }
+.tile b { font-weight: 700; white-space: nowrap; }
+.tile span { white-space: nowrap; }
+.tile.wait { background: #e09a2b; color: #111; }
+.tile.run { background: #1f5a96; color: #fff; }
+.tile.done { background: #24803d; color: #fff; }
+.tile.idle { background: #444b53; color: #c3cad1; }
+.tile.head { background: #e09a2b; color: #111; }
+.tile.sel { background: #fff; outline: 2px solid #fff; }
+.tile.sel.run { color: #1f5a96; } .tile.sel.wait { color: #b86e00; } .tile.sel.done { color: #24803d; } .tile.sel.idle { color: #444b53; }
+.board2 + .tbar { border-radius: 0 0 var(--r) var(--r); }
+.screen { display: grid; grid-template-columns: minmax(150px, 13rem) 1fr; grid-template-rows: auto 1fr; background: #1b2128; border-radius: var(--r); overflow: hidden; font-family: var(--f-mono); font-size: var(--s-1); min-height: 300px; }
+.screen > .tbar { grid-column: 1 / -1; border-radius: 0; }
+.side { background: #262c33; display: flex; flex-direction: column; gap: 2px; padding: 4px 0; border-right: 1px solid #3a434d; min-width: 0; }
+.side .sh { padding: 2px 8px; font-weight: 700; }
+.side .sh.wait { background: #e09a2b; color: #111; } .side .sh.ok { background: #555d66; color: #fff; }
+.side .grp { margin-top: 8px; padding: 2px 8px; background: #5f0087; color: #fff; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side .grp.cur { background: #af00af; }
+.side .tile { margin: 0; border-radius: 0; }
+.side .foot { margin-top: auto; padding: 6px 8px 2px; color: #7d8893; }
+.side2 { background: #1c1c1c; display: flex; flex-direction: column; padding: 6px 0; border-right: 1px solid #3a3a3a; min-width: 0; font-size: 0.78rem; }
+.side2 .hd { display: flex; justify-content: space-between; padding: 2px 10px 6px; color: #d0d0d0; font-weight: 700; border-bottom: 1px solid #444; }
+.side2 .hd span { color: #8a8a8a; font-weight: 400; }
+.side2 .pj { display: flex; justify-content: space-between; margin-top: 10px; padding: 2px 10px 2px 6px; background: #262626; color: #dadada; font-weight: 700; border-left: 3px solid #af87ff; }
+.side2 .pj.cur { background: #3a3a3a; color: #fff; border-left-color: #ff87ff; }
+.side2 .pj span { color: #808080; font-weight: 400; }
+.side2 .cd { display: grid; grid-template-columns: 1.6em 1fr auto; column-gap: 4px; padding: 2px 10px 2px 6px; background: #303030; border-left: 3px solid #585858; color: #fff; }
+.side2 .cd b { color: #767676; } .side2 .cd .t { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side2 .cd .s { grid-column: 2; } .side2 .cd .a { grid-column: 3; grid-row: 2; color: #a8a8a8; }
+.side2 .cd.run { border-left-color: #5fafff; } .side2 .cd.run .s { color: #87d7ff; }
+.side2 .cd.done { border-left-color: #5fd787; } .side2 .cd.done .s { color: #87d787; }
+.side2 .cd.idle .s { color: #8a8a8a; }
+.side2 .cd.wait { background: #875f00; border-left-color: #ffaf00; } .side2 .cd.wait b { color: #fff; } .side2 .cd.wait .s { color: #ffd787; font-weight: 700; } .side2 .cd.wait .a { color: #ffffd7; }
+.side2 .cd.sel { background: #4e4e4e; } .side2 .cd.sel b { color: #ff87ff; }
+.side2 .cd.run { position: relative; overflow: hidden; }
+.side2 .cd.run::after { content: ""; position: absolute; inset: 0 auto 0 -30%; width: 30%; background: linear-gradient(90deg, transparent, rgba(95,175,255,.35), rgba(135,255,255,.55), rgba(95,175,255,.35), transparent); animation: sweep 1.6s linear infinite; pointer-events: none; }
+.side2 .cd.run { animation: pulse 1.2s ease-in-out infinite; }
+.side2 .cd.wait { animation: blink 1.4s ease-in-out infinite; }
+@keyframes sweep { to { left: 110%; } }
+@keyframes pulse { 0%,100% { border-left-color: #005fff; } 50% { border-left-color: #87ffff; } }
+@keyframes blink { 0%,100% { background: #875f00; } 50% { background: #d75f00; } }
+@media (prefers-reduced-motion: reduce) { .side2 .cd.run, .side2 .cd.wait, .side2 .cd.run::after { animation: none; } }
+.side2 .ft { margin-top: auto; padding: 6px 10px 0; border-top: 1px solid #444; color: #767676; display: grid; gap: 2px; }
+.side2 .ft .w { color: #ffaf00; font-weight: 700; }
+.mainpane { padding: 10px 12px; color: #c9d4de; min-width: 0; overflow-wrap: anywhere; }
+.mainpane .p { color: #6f8396; } .mainpane .hl { color: #f0b154; }
+@media (max-width: 560px) { .screen { grid-template-columns: 1fr; } .side { border-right: 0; border-bottom: 1px solid #3a434d; } }
+.note { border-left: 3px solid var(--wait); background: var(--wait-soft); padding: 10px 14px; border-radius: 0 var(--r) var(--r) 0; font-size: 0.93rem; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav class="top" aria-label="섹션">
+  <div class="tbar">
+    <span class="sess">guide</span>
+    <a class="win" href="#start">1:시작하기</a>
+    <a class="win" href="#concept">2:화면 구성</a>
+    <a class="win" href="#keys">3:단축키</a>
+    <a class="win" href="#font">4:글꼴</a>
+    <a class="win" href="#phone">5:폰</a>
+    <a class="win" href="#fix">6:문제 해결</a>
+    <a class="win" href="#how">7:동작 원리</a>
+    <a class="win" href="#files">8:파일</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <span class="label">Ghostty · tmux · Claude Code</span>
+  <h1>터미널 세션 유지와 폰 원격 제어</h1>
+  <p class="lede">Ghostty 창을 닫거나 Mac을 재부팅해도 프로젝트별 작업 화면과 Claude Code 대화가 유지됩니다. 밖에서는 폰의 Claude 앱으로 같은 세션을 이어서 쓸 수 있습니다.</p>
+  <div class="tip">처음이라면 1번 시작하기를 위에서부터 그대로 따라 하세요. 단축키는 모두 <kbd>Ctrl</kbd>+<kbd>A</kbd>를 먼저 눌렀다 떼고, 그다음 키를 누르는 방식입니다.</div>
+</header>
+
+<section id="start">
+  <span class="label">1 · 시작하기</span>
+  <h2>처음 사용하는 순서</h2>
+  <p>예시로 <code>~/project/claude</code>와 <code>~/project/web</code> 두 프로젝트를 씁니다. 실제 폴더 경로로 바꿔서 입력하세요.</p>
+  <div class="steps">
+    <div class="st"><div>
+      <h3>Ghostty 실행</h3>
+      <p>Dock이나 Spotlight(<kbd>⌘</kbd>+<kbd>Space</kbd> 후 Ghostty 입력)에서 엽니다. 화면 맨 위에 어두운 상태줄이, 왼쪽에 사이드바가 보이면 tmux 안에 들어온 것입니다.</p>
+      <div class="tbar"><span class="sess">main</span><span class="win cur">1:zsh</span><span class="grow"></span><span class="clock">10-06 11:02</span></div>
+      <p class="result">맨 위 줄은 창 목록이고, 왼쪽의 <b>main</b>은 기본 세션 이름입니다. 왼쪽 사이드바에는 아직 Claude가 없다고 나옵니다. 여기서 바로 프로젝트를 열면 됩니다.</p>
+    </div></div>
+
+    <div class="st"><div>
+      <h3>첫 프로젝트 열기</h3>
+      <p><code>tp</code> 뒤에 프로젝트 폴더를 적습니다. 이미 프로젝트 폴더 안에 있다면 <code>tp</code>만 입력해도 됩니다.</p>
+      <div class="code"><button class="copy" type="button">복사</button><pre>tp ~/project/claude</pre></div>
+      <div class="tbar"><span class="sess">claude</span><span class="win cur">1:claude</span><span class="win">2:shell</span><span class="grow"></span><span class="clock">10-06 11:03</span></div>
+      <p class="result">폴더 이름으로 세션이 만들어지고 창 두 개가 생깁니다. <b>1:claude</b> 창에서는 Claude가 <code>claude -n claude</code>로 이름이 붙은 채 실행됩니다. <b>2:shell</b> 창은 git이나 개발 서버 같은 명령을 실행하는 용도입니다.</p>
+    </div></div>
+
+    <div class="st"><div>
+      <h3>두 번째 프로젝트 열기</h3>
+      <p>아무 셸 창에서 다른 폴더로 <code>tp</code>를 입력합니다. 예를 들어 <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>2</kbd>로 shell 창으로 간 뒤 입력하세요.</p>
+      <div class="code"><button class="copy" type="button">복사</button><pre>tp ~/project/web</pre></div>
+      <div class="tbar"><span class="sess">web</span><span class="win cur">1:claude</span><span class="win">2:shell</span><span class="grow"></span><span class="clock">10-06 11:05</span></div>
+      <p class="result">화면이 <b>web</b> 세션으로 바뀝니다. 앞의 claude 프로젝트는 닫히지 않고 뒤에서 계속 실행됩니다.</p>
+    </div></div>
+
+    <div class="st"><div>
+      <h3>프로젝트 사이 이동</h3>
+      <p><kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>s</kbd>를 누르면 세션 목록이 뜹니다. 화살표로 고르고 <kbd>Enter</kbd>를 누릅니다.</p>
+      <div class="code"><pre>(0) + claude: 2 windows
+(1) + main: 1 windows
+(2) + web: 2 windows (attached)</pre></div>
+      <p class="result">이미 있는 프로젝트에 <code>tp</code>를 다시 입력해도 됩니다. 새로 만들지 않고 그 세션으로 이동만 합니다. 바로 앞뒤 세션으로는 <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>(</kbd> 또는 <kbd>)</kbd>로 이동합니다.</p>
+    </div></div>
+
+    <div class="st"><div>
+      <h3>프로젝트 안에서 창 이동</h3>
+      <p>상태줄 가운데의 창 목록이 탭 역할을 합니다. <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 창 번호를 누르세요. 마우스로 상태줄의 창 이름을 클릭해도 됩니다.</p>
+      <p class="result"><kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>1</kbd>은 claude 창, <kbd>2</kbd>는 shell 창입니다. <kbd>n</kbd>과 <kbd>p</kbd>는 다음 창과 이전 창입니다.</p>
+    </div></div>
+
+    <div class="st"><div>
+      <h3>모든 작업 상태 보기와 바로 이동</h3>
+      <p>화면 왼쪽의 <b>사이드바</b>가 작업 상태판입니다. 어느 프로젝트를 보고 있든 모든 프로젝트의 Claude가 프로젝트별로 묶여 작업 이름과 함께 카드로 항상 표시됩니다. 카드 왼쪽 선의 색이 상태이고, 입력이 필요한 작업은 카드 전체가 호박색입니다. 지금 보고 있는 작업은 <b>밝은 카드와 ▶</b>로 표시됩니다.</p>
+      <div class="screen" role="img" aria-label="tmux 화면 예시: 맨 위 창 목록, 왼쪽 사이드바, 오른쪽 작업 칸">
+        <div class="tbar"><span class="sess">web</span><span class="win">1:claude <span class="st-wait">⏳</span></span><span class="win">2:shell</span><span class="win cur">3:login-bug <span class="st-wait">⏳</span></span><span class="grow"></span><span class="clock">10-06 11:20</span></div>
+        <div class="side2">
+          <div class="hd">CLAUDE<span>5 세션</span></div>
+          <div class="pj">api<span>1</span></div>
+          <div class="cd run"><b>&nbsp;1</b><span class="t">인증 모듈 리팩터링</span><span></span><span class="s">⠹ 작업 중</span><span class="a">4m</span></div>
+          <div class="pj">docs<span>1</span></div>
+          <div class="cd done"><b>&nbsp;2</b><span class="t">API 문서 정리</span><span></span><span class="s">✓ 완료</span><span class="a">1m</span></div>
+          <div class="pj cur">web<span>2</span></div>
+          <div class="cd wait"><b>&nbsp;3</b><span class="t">결제 페이지 개선</span><span></span><span class="s">● 입력 필요</span><span class="a">2m</span></div>
+          <div class="cd wait sel"><b>▶4</b><span class="t">로그인 리다이렉트 버그 수정</span><span></span><span class="s">● 입력 필요</span><span class="a">40s</span></div>
+          <div class="pj">wayfinder<span>1</span></div>
+          <div class="cd idle"><b>&nbsp;5</b><span class="t">단계 관리 기능</span><span></span><span class="s">○ 대기</span><span class="a"></span></div>
+          <div class="ft"><span class="w">● 입력 필요 2 &nbsp;⌥0 바로 가기</span><span>⌥1-9 이동 · 클릭</span></div>
+        </div>
+        <div class="mainpane"><span class="p">~/project/web ❯</span> claude -n login-bug<br><br><span class="hl">Allow edit to src/routes/+page.svelte?</span><br>❯ 1. Yes<br>&nbsp;&nbsp;2. No</div>
+      </div>
+      <p><kbd>Option</kbd>+번호를 누르면 그 Claude로 바로 갑니다. 프로젝트가 달라도 한 번에 이동합니다. 사이드바의 타일을 클릭해도 됩니다.</p>
+      <p><kbd>Option</kbd>+<kbd>0</kbd>은 가장 오래 기다린 Claude로 갑니다. 주황색 항목이 없으면 끝났는데 아직 안 본 초록색 항목으로 갑니다. 이 키만 반복해서 누르면 기다리는 작업을 차례로 처리할 수 있습니다.</p>
+      <p class="result">작업 중인 카드는 밝은 빛 띠가 계속 훑고 지나가고 스피너가 돕니다. 입력이 필요한 카드는 호박색으로 깜빡입니다. 맨 위 창 목록에서도 작업 중인 창 옆에 스피너가 돕니다. 번호는 프로젝트 이름순으로 매겨지고 작업이 바뀌어도 그대로라서 손에 익습니다. 타일 아랫줄에 상태와 경과 시간이 보여서 무엇을 먼저 볼지 정할 수 있습니다. 작업이 많아 세로로 다 들어가지 않으면 타일이 한 줄로 줄어듭니다. 사이드바가 거슬리면 <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>b</kbd>로 숨기고 다시 보일 수 있습니다.</p>
+    </div></div>
+
+    <div class="st"><div>
+      <h3>같은 프로젝트에 Claude 하나 더 열기</h3>
+      <p><kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>Shift</kbd>+<kbd>C</kbd>를 누릅니다. 상태줄에 이름 입력 칸이 뜨면 작업 내용을 알 수 있는 이름을 적고 <kbd>Enter</kbd>를 누릅니다.</p>
+      <div class="tbar"><span class="prompt">Claude 이름: <i>login-bug</i></span></div>
+      <p class="result">입력 칸에는 <b>web-3</b>처럼 기본 이름이 미리 채워져 있어서 그대로 <kbd>Enter</kbd>를 눌러도 됩니다. 입력한 이름이 창 이름이 되고 <code>claude -n login-bug</code>로 실행됩니다.</p>
+    </div></div>
+
+    <div class="st"><div>
+      <h3>하루를 마칠 때</h3>
+      <p>Ghostty를 그냥 닫으면 됩니다. 실행 중인 Claude는 계속 일합니다. 다음에 Ghostty를 열면 닫을 때의 화면으로 돌아옵니다. 재부팅한 뒤에도 각 창의 Claude 대화가 자동으로 다시 열립니다.</p>
+    </div></div>
+  </div>
+
+  <h3>작업 이름 붙이기와 바꾸기 (권장)</h3>
+  <p>이름은 Claude 입력창 위, <code>/resume</code> 목록, 폰의 Claude 앱 목록, 터미널 제목에 표시됩니다. 세션이 여러 개일 때 이름이 없으면 어느 것이 어떤 작업인지 구분하기 어렵습니다. <code>tp</code>는 폴더 이름을, <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>Shift</kbd>+<kbd>C</kbd>는 입력한 이름을 자동으로 붙입니다. 셸에서 직접 실행할 때는 아래처럼 붙이세요. 이름을 정하지 않으면 Claude가 대화 내용을 보고 제목을 자동으로 붙입니다.</p>
+  <div class="tip"><b>사이드바에서 바꾸기:</b> 카드를 <b>더블클릭</b>하거나 <b>오른쪽 클릭</b>하면 맨 위에 "작업 이름:" 입력 칸이 뜹니다. 지금 이름이 채워져 있으니 고치고 <kbd>Enter</kbd>를 누르세요. 취소는 <kbd>Esc</kbd>입니다. 사이드바 이름은 바로 바뀌고, 그 Claude에 <code>/rename</code>이 자동으로 입력되어 폰 앱과 <code>/resume</code> 목록에도 반영됩니다. Claude가 작업 중이거나 승인을 기다리는 중이면 입력이 대답으로 들어가지 않도록 기다렸다가 응답이 끝나면 보냅니다. 그 Claude의 입력창에 쓰다 만 글이 있으면 그 뒤에 붙으니 비워 두세요.</div>
+  <div class="code"><button class="copy" type="button">복사</button><pre><span class="cmt"># 직접 실행할 때</span>
+claude -n login-bug
+<span class="cmt"># 이 폴더의 최근 대화 이어가기</span>
+claude -c
+<span class="cmt"># 실행 중에 이름 바꾸기: 사이드바 카드를 더블클릭 또는 오른쪽 클릭하거나,</span>
+<span class="cmt"># 그 Claude의 입력창에서</span>
+/rename 로그인 버그 수정</pre></div>
+</section>
+
+<section id="concept">
+  <span class="label">2 · 화면 구성</span>
+  <h2>세션, 창, 분할의 관계</h2>
+  <p>탭은 Ghostty가 아니라 tmux 맨 위 상태줄에 생깁니다. 모든 창의 왼쪽에는 전체 작업 사이드바가 붙습니다. Ghostty 창은 하나만 열어 두고, 그 안에서 프로젝트와 창을 바꾸는 방식이 가장 단순합니다.</p>
+  <div class="nest" role="img" aria-label="Ghostty 창 안에 tmux 세션, 세션 안에 창, 창 안에 분할이 들어가는 구조">
+    <div class="box b1">
+      <div class="bh"><b>Ghostty 창</b><span>화면을 보여 주는 틀. 닫아도 안의 작업은 유지됩니다</span></div>
+      <div class="box b2">
+        <div class="bh"><b>tmux 세션 = 프로젝트 (web)</b><span>상태줄 왼쪽 이름. tp 폴더로 만들고 Ctrl+A s로 바꿉니다</span></div>
+        <div class="row">
+          <div class="box"><div class="bh"><b>창 1:claude</b><span>탭 역할. Ctrl+A 1</span></div><div class="box b4">claude -n web</div></div>
+          <div class="box"><div class="bh"><b>창 2:shell</b><span>Ctrl+A 2</span></div><div class="box b4">npm run dev</div></div>
+          <div class="box"><div class="bh"><b>창 3:login-bug</b><span>Ctrl+A Shift+C로 추가, 좌우 분할</span></div><div class="row"><div class="box b4">claude -n login-bug</div><div class="box b4">git diff</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>사이드바와 상태줄 읽는 법</h3>
+  <p>모든 창의 왼쪽에 사이드바가 있고, 화면 맨 위 한 줄은 지금 프로젝트의 창 목록입니다. 사이드바는 어느 창으로 옮겨도 같은 내용을 보여 줍니다.</p>
+  <div>
+  <div class="screen" role="img" aria-label="tmux 화면 예시: 맨 위 창 목록, 왼쪽 사이드바, 오른쪽 작업 칸">
+        <div class="tbar"><span class="sess">web</span><span class="win">1:claude <span class="st-wait">⏳</span></span><span class="win">2:shell</span><span class="win cur">3:login-bug <span class="st-wait">⏳</span></span><span class="grow"></span><span class="clock">10-06 11:20</span></div>
+        <div class="side2">
+          <div class="hd">CLAUDE<span>5 세션</span></div>
+          <div class="pj">api<span>1</span></div>
+          <div class="cd run"><b>&nbsp;1</b><span class="t">인증 모듈 리팩터링</span><span></span><span class="s">⠹ 작업 중</span><span class="a">4m</span></div>
+          <div class="pj">docs<span>1</span></div>
+          <div class="cd done"><b>&nbsp;2</b><span class="t">API 문서 정리</span><span></span><span class="s">✓ 완료</span><span class="a">1m</span></div>
+          <div class="pj cur">web<span>2</span></div>
+          <div class="cd wait"><b>&nbsp;3</b><span class="t">결제 페이지 개선</span><span></span><span class="s">● 입력 필요</span><span class="a">2m</span></div>
+          <div class="cd wait sel"><b>▶4</b><span class="t">로그인 리다이렉트 버그 수정</span><span></span><span class="s">● 입력 필요</span><span class="a">40s</span></div>
+          <div class="pj">wayfinder<span>1</span></div>
+          <div class="cd idle"><b>&nbsp;5</b><span class="t">단계 관리 기능</span><span></span><span class="s">○ 대기</span><span class="a"></span></div>
+          <div class="ft"><span class="w">● 입력 필요 2 &nbsp;⌥0 바로 가기</span><span>⌥1-9 이동 · 클릭</span></div>
+        </div>
+        <div class="mainpane"><span class="p">~/project/web ❯</span> claude -n login-bug<br><br><span class="hl">Allow edit to src/routes/+page.svelte?</span><br>❯ 1. Yes<br>&nbsp;&nbsp;2. No</div>
+      </div>
+  <div class="tbar">
+    <span class="sess">web</span>
+    <span class="win">1:claude <span class="st-run">⚙</span></span>
+    <span class="win">2:shell</span>
+    <span class="win cur">3:login-bug <span class="st-wait">⏳</span></span>
+    <span class="grow"></span>
+    <span class="clock">10-06 11:20</span>
+  </div>
+  
+  </div>
+  <div class="anno">
+    <div><b>CLAUDE 5 세션</b><span>사이드바 맨 위. tmux 안에서 실행 중인 Claude 세션 수</span></div>
+    <div><b>▍api  1</b><span>보라색 선이 붙은 줄이 프로젝트(세션) 이름과 그 안의 Claude 수. 지금 보는 프로젝트는 분홍 선과 밝은 배경</span></div>
+    <div><b>작업 이름</b><span>Claude가 정한 대화 제목이나 -n 이름. 대화가 진행되면 Claude가 제목을 바꿉니다</span></div>
+    <div><b>타일 앞 번호</b><span>Option+번호로 이동할 때 쓰는 번호</span></div>
+    <div><b>▶ 밝은 카드</b><span>지금 보고 있는 작업</span></div>
+    <div><b>맨 위 줄 web 1:claude …</b><span>지금 프로젝트 이름과 창 목록. 밝게 표시된 것이 현재 창</span></div>
+  </div>
+  <div class="scroll"><table>
+    <thead><tr><th>카드</th><th>뜻</th><th>할 일</th></tr></thead>
+    <tbody>
+      <tr><td><span class="pill" style="background:#875f00;color:#ffd787">● 입력 필요</span></td><td>승인이나 답을 기다림. 카드 전체가 호박색으로 깜빡임. 오른쪽 숫자는 기다린 시간</td><td>가장 먼저 보기. Option+0</td></tr>
+      <tr><td><span class="pill" style="background:#303030;color:#87d787;border-left:3px solid #5fd787">✓ 완료</span></td><td>응답을 끝냈고 아직 안 봄. 초록 선</td><td>결과 확인. 열어 보면 대기로 바뀜</td></tr>
+      <tr><td><span class="pill" style="background:#303030;color:#87d7ff;border-left:3px solid #5fafff">◐ 작업 중</span></td><td>작업 중. 빛 띠가 훑고 지나가고 파란 선이 맥박처럼 밝아짐. 오른쪽 숫자는 작업 시간</td><td>기다리기</td></tr>
+      <tr><td><span class="pill" style="background:#303030;color:#8a8a8a;border-left:3px solid #585858">○ 대기</span></td><td>다음 지시를 기다리는 상태. 결과는 이미 봄</td><td>새 지시를 줄 때 이동</td></tr>
+      <tr><td><span class="pill" style="background:#4e4e4e;color:#ff87ff">▶ 밝은 카드</span></td><td>지금 보고 있는 작업</td><td>없음</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Ghostty 새 탭과 새 창</h3>
+  <p>필수는 아닙니다. 두 프로젝트를 나란히 보고 싶을 때만 쓰세요. Ghostty에서 <kbd>⌘</kbd>+<kbd>T</kbd>나 <kbd>⌘</kbd>+<kbd>N</kbd>을 누르면 다음 규칙으로 tmux에 연결됩니다.</p>
+  <ul>
+    <li>다른 Ghostty 탭에 표시되지 않은 세션이 있으면 그 세션을 보여 줍니다. <code>main</code>을 먼저 고릅니다.</li>
+    <li>모든 세션이 이미 표시 중이면 숫자 이름의 빈 세션을 새로 만듭니다. 거기서 <code>tp 폴더</code>를 입력하면 원하는 프로젝트로 바뀝니다.</li>
+  </ul>
+</section>
+
+<section id="keys">
+  <span class="label">3 · 단축키</span>
+  <h2>단축키 (접두키 Ctrl+A)</h2>
+  <p><kbd>Ctrl</kbd>+<kbd>A</kbd>를 눌렀다 뗀 뒤 다음 키를 누릅니다. Claude Code가 Ctrl+B를 쓰기 때문에 tmux 기본값 대신 Ctrl+A로 바꿨습니다. 대문자와 소문자는 다른 키입니다.</p>
+
+  <h3>소문자 c와 대문자 C의 차이</h3>
+  <div class="cmp">
+    <div class="card"><h3><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>c</kbd></h3><p>현재 폴더에서 <b>셸</b>이 열린 새 창을 만듭니다. git, 테스트, 개발 서버처럼 명령을 직접 입력할 때 씁니다.</p><p class="result">창 이름은 실행 중인 프로그램 이름(zsh 등)으로 자동 표시됩니다.</p></div>
+    <div class="card"><h3><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Shift</kbd>+<kbd>C</kbd></h3><p>이름을 물어본 뒤, 현재 폴더에서 그 이름으로 <b>Claude</b>를 실행한 새 창을 만듭니다.</p><p class="result">입력한 이름이 창 이름이 됩니다. Claude를 끝내도 창은 셸 상태로 남습니다.</p></div>
+  </div>
+
+  <div class="keygroup">
+    <h3>작업 사이드바 (접두키 없이 바로)</h3>
+    <div class="keys">
+      <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>1</kbd>…<kbd>9</kbd></span><span class="d">사이드바의 그 번호 Claude로 바로 이동</span></div>
+      <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>0</kbd></span><span class="d">가장 오래 기다린 Claude로 이동. 없으면 안 본 완료 작업</span></div>
+      <div class="key"><span class="combo">사이드바 카드 클릭</span><span class="d">그 Claude로 이동</span></div>
+      <div class="key"><span class="combo">카드 더블클릭 / 오른쪽 클릭</span><span class="d">작업 이름 바꾸기</span></div>
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>b</kbd></span><span class="d">사이드바 모두 숨기기 / 다시 보이기</span></div>
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Space</kbd></span><span class="d">Option+0과 같음</span></div>
+    </div>
+    <h3>프로젝트(세션)</h3>
+    <div class="keys">
+      <div class="key"><span class="combo"><code>tp 폴더</code></span><span class="d">프로젝트 세션을 만들거나 그 세션으로 이동</span></div>
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>s</kbd></span><span class="d">세션 목록에서 골라 이동</span></div>
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>(</kbd> / <kbd>)</kbd></span><span class="d">이전 / 다음 세션</span></div>
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Shift</kbd>+<kbd>S</kbd></span><span class="d">모든 세션의 창까지 펼친 트리</span></div>
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>d</kbd></span><span class="d">화면에서 분리. 작업은 계속 실행됨</span></div>
+    </div>
+    <h3>창(탭)</h3>
+    <div class="keys">
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>1</kbd>…<kbd>9</kbd></span><span class="d">번호로 창 이동</span></div>
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>n</kbd> / <kbd>p</kbd></span><span class="d">다음 / 이전 창</span></div>
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>c</kbd></span><span class="d">셸 새 창</span></div>
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Shift</kbd>+<kbd>C</kbd></span><span class="d">이름 붙인 Claude 새 창</span></div>
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>,</kbd></span><span class="d">현재 창 이름 바꾸기</span></div>
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>&amp;</kbd></span><span class="d">현재 창 닫기 (y로 확인)</span></div>
+    </div>
+    <h3>분할</h3>
+    <div class="keys">
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>|</kbd></span><span class="d">좌우로 분할. 현재 폴더 유지</span></div>
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>-</kbd></span><span class="d">상하로 분할. 현재 폴더 유지</span></div>
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → 화살표</span><span class="d">분할된 칸 사이 이동. 마우스 클릭도 됨</span></div>
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>z</kbd></span><span class="d">현재 칸 전체 화면 / 되돌리기</span></div>
+    </div>
+    <h3>저장과 기타</h3>
+    <div class="keys">
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Ctrl</kbd>+<kbd>S</kbd></span><span class="d">지금 바로 저장 (자동 저장은 5분마다)</span></div>
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Ctrl</kbd>+<kbd>R</kbd></span><span class="d">마지막 저장으로 수동 복원</span></div>
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Shift</kbd>+<kbd>R</kbd></span><span class="d">Remote Control 서버 창 (폰에서 새 세션 시작용)</span></div>
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>r</kbd></span><span class="d">tmux 설정 다시 읽기</span></div>
+    </div>
+  </div>
+</section>
+<section id="font">
+  <span class="label">4 · 글꼴</span>
+  <h2>글꼴 바꾸기</h2>
+  <p>글꼴은 Ghostty 설정에서 바꿉니다. 터미널 전체에 적용되며 사이드바나 상태줄만 따로 키울 수는 없습니다. 지정하지 않으면 Ghostty 내장 글꼴인 JetBrains Mono가 쓰이고, 한글은 시스템 글꼴로 대신 표시됩니다.</p>
+  <div class="steps">
+    <div class="st"><div>
+      <h3>설치된 글꼴 이름 확인</h3>
+      <div class="code"><button class="copy" type="button">복사</button><pre>/Applications/Ghostty.app/Contents/MacOS/ghostty +list-fonts | grep -v "^ " | sort -u</pre></div>
+      <p class="result">이 Mac에는 <b>D2Coding</b>, <b>D2Coding ligature</b>, <b>Fira Code</b>, <b>Menlo</b>가 있습니다. 한글과 영문 폭이 잘 맞는 D2Coding을 권장합니다.</p>
+    </div></div>
+    <div class="st"><div>
+      <h3>설정 파일에 추가</h3>
+      <p><code>~/project/claude/tools/ghostty-tumx/ghostty/config</code>를 열어 아래 줄을 넣습니다. <code>~/.config/ghostty/config</code>는 이 파일을 가리키는 링크라서 어느 쪽을 고쳐도 같습니다.</p>
+      <div class="code"><button class="copy" type="button">복사</button><pre>font-family = "D2Coding"
+font-size = 15
+<span class="cmt"># 한글만 다른 글꼴로 쓰려면 한 줄 더 (앞 글꼴에 없는 글자를 뒤 글꼴로)</span>
+<span class="cmt"># font-family = "Apple SD Gothic Neo"</span></pre></div>
+    </div></div>
+    <div class="st"><div>
+      <h3>바로 적용</h3>
+      <p>Ghostty에서 <kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>,</kbd>를 누르면 설정을 다시 읽습니다. 크기만 잠깐 바꾸려면 <kbd>⌘</kbd>+<kbd>+</kbd>, <kbd>⌘</kbd>+<kbd>-</kbd>, <kbd>⌘</kbd>+<kbd>0</kbd>을 쓰세요.</p>
+      <p class="result">글꼴을 키우면 한 화면에 들어가는 칸이 줄어 사이드바가 상대적으로 넓어집니다. 그때는 사이드바 폭을 줄이세요.</p>
+    </div></div>
+  </div>
+</section>
+
+<section id="phone">
+  <span class="label">5 · 폰</span>
+  <h2>폰에서 원격 제어</h2>
+  <div class="cols">
+    <div class="card"><h3>설치할 앱</h3><p>Anthropic이 만든 공식 <b>Claude</b> 앱을 씁니다. iPhone은 App Store, Android는 Google Play에서 "Claude"를 검색하세요. 개발사가 Anthropic인지 확인하세요.</p></div>
+    <div class="card"><h3>로그인과 위치</h3><p>Mac의 Claude Code와 <b>같은 claude.ai 계정</b>으로 로그인합니다. 앱 메뉴의 <b>Code</b>에서 Mac의 세션 목록이 보입니다. 브라우저에서는 <code>claude.ai/code</code>로 들어가도 됩니다.</p></div>
+    <div class="card"><h3>요금제</h3><p>Pro, Max, Team, Enterprise 구독에서 쓸 수 있습니다. API 키 로그인으로는 쓸 수 없습니다.</p></div>
+  </div>
+  <div class="phone-flow" aria-label="연결 경로">
+    <span class="node">Mac의 tmux 창</span><span class="arrow">→</span>
+    <span class="node">claude 프로세스</span><span class="arrow">→</span>
+    <span class="node hot">Remote Control</span><span class="arrow">→</span>
+    <span class="node">Claude 앱 · claude.ai/code</span>
+  </div>
+  <p>코드 실행과 파일 접근은 Mac에서 처리됩니다. 폰에서는 대화를 보고 메시지를 보냅니다.</p>
+  <div class="cols">
+    <div class="card"><h3>실행 중인 세션 이어가기</h3><p>설정에서 모든 세션을 자동 연결하도록 켜 두었습니다. Claude 앱의 Code 목록에 바로 보입니다. 터미널에서 <code>/remote-control</code>을 입력하면 QR 코드도 볼 수 있습니다.</p></div>
+    <div class="card"><h3>폰에서 새 세션 시작</h3><p>그 폴더에서 <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>Shift</kbd>+<kbd>R</kbd>로 서버 창을 열어 두세요. git 저장소면 세션마다 별도 worktree를 만들어 서로 충돌하지 않습니다.</p></div>
+    <div class="card"><h3>승인 알림 받기</h3><p>Claude Code에서 <code>/config</code>를 열고 Push when actions required를 켜세요. 승인이 필요할 때 폰으로 알림이 옵니다.</p></div>
+  </div>
+  <div class="note">Mac이 잠들면 폰에서 연결이 끊깁니다. 시스템 잠자기는 꺼져 있지만 노트북 덮개를 닫으면 잠듭니다. 전원과 외부 디스플레이를 연결하거나 아래 명령을 돌려 두세요.</div>
+  <div class="code"><button class="copy" type="button">복사</button><pre>caffeinate -dis</pre></div>
+</section>
+
+<section id="fix">
+  <span class="label">6 · 문제 해결</span>
+  <h2>증상별 문제 해결</h2>
+  <div class="filter" role="group" aria-label="분류">
+    <button type="button" data-f="all" aria-pressed="true">전체</button>
+    <button type="button" data-f="restore" aria-pressed="false">복원</button>
+    <button type="button" data-f="phone" aria-pressed="false">폰</button>
+    <button type="button" data-f="term" aria-pressed="false">터미널</button>
+  </div>
+  <div class="issues">
+    <details class="issue" data-c="restore"><summary>재부팅 후 Claude가 다시 열리지 않았다<span class="pill part tag">복원</span></summary><div class="body">
+      <p>먼저 기억 중인 목록과 재개 기록을 보세요. 목록에 없으면 마지막 저장 전에 시작했거나 <code>/exit</code>로 끝낸 세션입니다.</p>
+      <div class="code"><button class="copy" type="button">복사</button><pre>claude-panes list
+cat ~/.local/share/tmux/claude-panes.log</pre></div>
+      <p class="why">기록에 <code>busy</code>가 있으면 그 창이 셸 프롬프트가 아니어서 건너뛴 것입니다. <code>pane missing</code>이면 배치가 바뀌어 창이 없어진 것입니다. 이럴 땐 그 폴더에서 <code>claude -c</code>로 이어가면 됩니다.</p>
+    </div></details>
+    <details class="issue" data-c="restore"><summary>방금 만든 창이 복원 목록에 없다<span class="pill part tag">복원</span></summary><div class="body">
+      <p>자동 저장은 5분마다 일어납니다. 중요한 작업을 시작했다면 바로 저장하세요.</p>
+      <p><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Ctrl</kbd>+<kbd>S</kbd></p>
+    </div></details>
+    <details class="issue" data-c="restore"><summary>이번 한 번은 복원 없이 깨끗하게 시작하고 싶다<span class="pill part tag">복원</span></summary><div class="body">
+      <div class="code"><button class="copy" type="button">복사</button><pre><span class="cmt"># 다음 시작 때 복원 끄기. 지우면 다시 켜집니다</span>
+touch ~/tmux_no_auto_restore
+<span class="cmt"># 배치만 복원하고 Claude는 재개하지 않기 (tmux 서버가 떠 있을 때)</span>
+tmux set-environment -g CLAUDE_PANES_NO_RESUME 1</pre></div>
+    </div></details>
+    <details class="issue" data-c="restore"><summary>상태줄 표시가 계속 남아 있다<span class="pill part tag">복원</span></summary><div class="body">
+      <p>맨 위 창 목록의 아이콘은 창 단위라서 한 창을 분할해 Claude를 여럿 띄우면 마지막으로 바뀐 상태만 보입니다. 사이드바는 칸 단위라서 각각 따로 보입니다. Claude를 끝내면 표시가 지워집니다.</p>
+    </div></details>
+    <details class="issue" data-c="phone"><summary>폰 앱에 세션이 안 보인다<span class="pill part tag">폰</span></summary><div class="body">
+      <p>Remote Control은 claude.ai 구독 로그인이 필요하고 API 키로는 안 됩니다. 로그인 상태를 확인하세요. 설정이 켜지기 전에 시작한 세션은 자동 연결되지 않으니 그 세션에서 <code>/remote-control</code>을 입력하세요.</p>
+      <div class="code"><button class="copy" type="button">복사</button><pre>claude auth status</pre></div>
+      <p class="why">Mac이 잠들었거나 네트워크가 바뀌면 잠시 오프라인으로 보입니다. 깨어나면 자동으로 다시 연결됩니다.</p>
+    </div></details>
+    <details class="issue" data-c="phone"><summary>폰에서 새 세션 만들기 버튼이 없다<span class="pill part tag">폰</span></summary><div class="body">
+      <p>새 세션은 서버 모드 창이 있어야 만들 수 있습니다. 그 폴더에서 <kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Shift</kbd>+<kbd>R</kbd>을 누르세요. 처음에는 Remote Control 사용과 폴더 신뢰를 묻는데 둘 다 <code>y</code>로 답합니다.</p>
+    </div></details>
+    <details class="issue" data-c="phone"><summary>폰으로 알림이 안 온다<span class="pill part tag">폰</span></summary><div class="body">
+      <p><code>/config</code>에서 푸시 항목을 켰는지 보세요. No mobile registered가 보이면 폰에서 Claude 앱을 한 번 여세요. iOS 집중 모드가 알림을 막을 수도 있습니다. 터미널을 보고 있는 동안에는 일부러 보내지 않습니다.</p>
+    </div></details>
+    <details class="issue" data-c="term"><summary>사이드바에 Claude가 안 보이거나 상태가 늦게 바뀐다<span class="pill part tag">터미널</span></summary><div class="body">
+      <p>사이드바는 Claude 훅이 기록한 값을 1초마다 읽습니다. 사이드바 기능을 넣기 전에 시작한 Claude는 다음 프롬프트를 보내거나 도구를 실행하면 나타납니다. tmux 밖에서 실행한 Claude는 표시되지 않습니다.</p>
+      <div class="code"><button class="copy" type="button">복사</button><pre><span class="cmt"># 사이드바 내용을 글자로 보기</span>
+claude-agents list</pre></div>
+    </div></details>
+    <details class="issue" data-c="term"><summary>사이드바가 없거나 폭이 이상하다<span class="pill part tag">터미널</span></summary><div class="body">
+      <p><kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>b</kbd>를 두 번 누르면 모든 창의 사이드바를 다시 만듭니다. 폭은 기본 32칸이고 아래처럼 바꿀 수 있습니다. 영구히 바꾸려면 <code>tmux/tmux.conf</code>의 <code>@sidebar-width</code> 값을 고치세요.</p>
+      <div class="code"><button class="copy" type="button">복사</button><pre>tmux set -g @sidebar-width 40
+claude-sidebar fix</pre></div>
+      <p class="why">사이드바 칸으로 입력 초점이 옮겨졌다면 <kbd>q</kbd>나 <kbd>Esc</kbd>를 누르면 원래 칸으로 돌아갑니다. 사이드바에서 숫자 키를 눌러도 그 작업으로 이동합니다.</p>
+    </div></details>
+    <details class="issue" data-c="term"><summary>깜빡이는 효과를 끄고 싶다<span class="pill part tag">터미널</span></summary><div class="body">
+      <p>아래 명령을 실행하면 1초 안에 멈춥니다. 영구히 끄려면 <code>tmux/tmux.conf</code>의 <code>@sidebar-anim</code>을 <code>off</code>로 바꾸세요. 다시 켜려면 <code>on</code>으로 설정합니다.</p>
+      <div class="code"><button class="copy" type="button">복사</button><pre>tmux set -g @sidebar-anim off</pre></div>
+    </div></details>
+    <details class="issue" data-c="term"><summary>Option+숫자를 눌러도 이동하지 않는다<span class="pill part tag">터미널</span></summary><div class="body">
+      <p>Ghostty가 Option 키를 Alt로 보내야 합니다. 설정에 들어 있지만 Ghostty를 설정 변경 전부터 켜 두었다면 완전히 종료하고 다시 여세요. 그래도 안 되면 <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>Space</kbd>를 쓰거나 사이드바 타일을 클릭하세요.</p>
+    </div></details>
+    <details class="issue" data-c="term"><summary>Shift+Enter가 줄바꿈 대신 전송된다<span class="pill part tag">터미널</span></summary><div class="body">
+      <p>tmux 확장 키 설정이 아직 적용되지 않은 서버입니다. 설정을 다시 읽거나 Ghostty를 새로 여세요. 급하면 <kbd>Ctrl</kbd>+<kbd>J</kbd>로 줄바꿈할 수 있습니다.</p>
+      <div class="code"><button class="copy" type="button">복사</button><pre>tmux source-file ~/.tmux.conf</pre></div>
+    </div></details>
+    <details class="issue" data-c="term"><summary>Ghostty 새 탭이 같은 화면을 보여 준다<span class="pill part tag">터미널</span></summary><div class="body">
+      <p>새 탭은 분리된 세션이 있으면 거기에 붙고, 없으면 새 세션을 만듭니다. 모든 세션이 이미 다른 탭에 붙어 있으면 새 세션이 생깁니다. 원하는 세션으로 옮기려면 <kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>s</kbd>를 쓰세요.</p>
+    </div></details>
+    <details class="issue" data-c="term"><summary>tmux 창에서 claude 명령을 못 찾는다<span class="pill part tag">터미널</span></summary><div class="body">
+      <p>tmux 서버는 처음 띄운 환경의 PATH를 물려받습니다. Ghostty가 아닌 곳에서 서버를 먼저 띄웠다면 생길 수 있습니다. 서버를 끝내고 Ghostty로 다시 여세요. 실행 중인 작업이 모두 끝나니 주의하세요.</p>
+      <div class="code"><button class="copy" type="button">복사</button><pre>tmux kill-server</pre></div>
+    </div></details>
+    <details class="issue" data-c="term"><summary>설정을 되돌리고 싶다<span class="pill part tag">터미널</span></summary><div class="body">
+      <p>설치 스크립트가 바꾼 파일은 시각별로 백업 폴더에 있습니다. 파일 이름은 홈 기준 경로의 슬래시를 밑줄 두 개로 바꾼 형태입니다.</p>
+      <div class="code"><button class="copy" type="button">복사</button><pre>ls -la ~/project/claude/tools/ghostty-tumx/backups/*/</pre></div>
+    </div></details>
+  </div>
+</section>
+
+<section id="how">
+  <span class="label">7 · 동작 원리</span>
+  <h2>구성 요소별 역할</h2>
+  <div class="stack">
+    <div class="layer l1"><span class="name">Ghostty</span><span class="what">화면만 담당합니다. 모든 창과 탭이 시작 스크립트로 tmux에 붙습니다.<span class="keeps">창을 닫아도 작업은 tmux에서 계속 실행됩니다</span></span></div>
+    <div class="layer l2"><span class="name">tmux</span><span class="what">Claude 프로세스를 살려 둡니다. 연결을 끊었다 다시 붙어도 그대로입니다.<span class="keeps">재부팅하면 서버가 사라집니다</span></span></div>
+    <div class="layer l3"><span class="name">resurrect · continuum</span><span class="what">5분마다 세션, 창, 분할 배치, 작업 폴더를 저장하고 다음 시작 때 복원합니다.<span class="keeps">실행 중이던 Claude 대화는 모릅니다</span></span></div>
+    <div class="layer l4"><span class="name">Claude 훅</span><span class="what">세션이 시작될 때마다 세션 ID와 폴더를 해당 tmux 창에 적어 둡니다. 복원 때 그 ID로 대화를 재개합니다.<span class="keeps">tmux 창과 Claude 대화를 연결합니다</span></span></div>
+    <div class="layer l5"><span class="name">Remote Control</span><span class="what">모든 Claude 세션이 폰의 Claude 앱에 자동으로 나타납니다.<span class="keeps">Mac이 켜져 있고 깨어 있어야 합니다</span></span></div>
+  </div>
+
+  <h3>상황별 유지 범위</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>상황</th><th>tmux 세션과 배치</th><th>Claude 대화</th><th>폰 연결</th></tr></thead>
+    <tbody>
+      <tr><td>Ghostty 창 닫기</td><td><span class="pill yes">그대로</span></td><td><span class="pill yes">계속 실행</span></td><td><span class="pill yes">유지</span></td></tr>
+      <tr><td>Ghostty 앱 종료</td><td><span class="pill yes">그대로</span></td><td><span class="pill yes">계속 실행</span></td><td><span class="pill yes">유지</span></td></tr>
+      <tr><td>Mac 잠자기 (덮개 닫기)</td><td><span class="pill yes">그대로</span></td><td><span class="pill part">멈춤 후 이어감</span></td><td><span class="pill part">깨면 재연결</span></td></tr>
+      <tr><td>재부팅, 강제 종료</td><td><span class="pill part">마지막 저장 시점으로 복원</span></td><td><span class="pill part">자동 재개</span></td><td><span class="pill part">재개 후 다시 등록</span></td></tr>
+      <tr><td><code>/exit</code> 또는 Ctrl+D로 종료</td><td><span class="pill yes">창은 남음</span></td><td><span class="pill no">재개 대상에서 빠짐</span></td><td><span class="pill no">종료</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>재부팅 후 복원 순서</h3>
+  <div class="flow">
+    <div class="step"><div><span class="who">bin/tmx</span><p>tmux 서버가 없으면 임시 세션 하나로 서버를 띄웁니다.</p></div></div>
+    <div class="step"><div><span class="who">tmux-resurrect</span><p>마지막 스냅샷으로 세션, 창, 분할, 폴더를 다시 만들고 임시 세션을 지웁니다.</p></div></div>
+    <div class="step"><div><span class="who">bin/claude-panes restore</span><p>저장해 둔 창과 세션 ID 목록을 읽습니다. 셸 프롬프트 상태인 창에만 원래 폴더로 이동해 <code>claude --resume &lt;ID&gt;</code>를 입력합니다.</p></div></div>
+    <div class="step"><div><span class="who">Claude Code</span><p>대화가 열리고 Remote Control에 자동 등록되어 폰에도 다시 나타납니다.</p></div></div>
+    <div class="step"><div><span class="who">bin/tmx</span><p>분리된 세션에 붙습니다. <code>main</code>이 있으면 먼저 고르고, 두 번째 Ghostty 창은 다음 분리된 세션에 붙습니다.</p></div></div>
+  </div>
+</section>
+
+<section id="files">
+  <span class="label">8 · 파일</span>
+  <h2>파일 위치</h2>
+  <p>원본 폴더는 <code>~/project/claude/tools/ghostty-tumx</code>입니다. 설정 파일은 이 폴더를 가리키는 링크입니다. <code>./install.sh</code>는 다시 실행해도 안전합니다.</p>
+  <div class="files">
+    <div><code>bin/tmx</code><span>Ghostty 진입점. 서버가 없으면 복원 후 붙고, 있으면 분리된 세션에 붙습니다</span></div>
+    <div><code>bin/claude-tmux-hook</code><span>Claude 훅. 세션 ID, 폴더, 상태를 tmux 창에 기록합니다</span></div>
+    <div><code>bin/claude-panes</code><span>저장 때 창과 세션 ID 목록을 남기고, 복원 때 재개 명령을 입력합니다</span></div>
+    <div><code>bin/claude-sidebar</code><span>모든 창 왼쪽에 사이드바 칸을 만들고 폭을 유지하고 정리합니다</span></div>
+    <div><code>bin/claude-sidebar-view</code><span>사이드바 화면. 카드를 그리고 클릭, 더블클릭, 오른쪽 클릭, 숫자 키를 받습니다</span></div>
+    <div><code>bin/claude-rename</code><span>사이드바에서 작업 이름을 바꾸고 그 Claude에 /rename을 보냅니다</span></div>
+    <div><code>bin/claude-agents</code><span>Option+번호 이동, 기다리는 작업으로 이동, 목록 출력</span></div>
+    <div><code>bin/tp</code><span>프로젝트 폴더 하나에 tmux 세션 하나를 만들거나 그 세션으로 이동합니다</span></div>
+    <div><code>bin/claude-win</code><span>Ctrl+A Shift+C. 이름을 받아 Claude 창을 엽니다</span></div>
+    <div><code>bin/claude-rc</code><span>Remote Control 서버 모드 창을 엽니다</span></div>
+    <div><code>tmux/tmux.conf</code><span><code>~/.tmux.conf</code>가 가리키는 tmux 설정</span></div>
+    <div><code>ghostty/config</code><span><code>~/.config/ghostty/config</code>가 가리키는 Ghostty 설정</span></div>
+    <div><code>~/.claude/settings.json</code><span>훅 여섯 개와 모든 세션 Remote Control 자동 연결</span></div>
+    <div><code>~/.local/share/tmux/</code><span>resurrect 스냅샷, 창과 세션 목록, 재개 기록</span></div>
+  </div>
+</section>
+</div>
+
+<script>
+document.querySelectorAll('.copy').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var pre = b.parentElement.querySelector('pre');
+    var text = Array.from(pre.childNodes).filter(function (n) { return !(n.classList && n.classList.contains('cmt')); }).map(function (n) { return n.textContent; }).join('').replace(/^\n+/gm, '').trim();
+    var done = function () { b.textContent = '복사됨'; setTimeout(function () { b.textContent = '복사'; }, 1400); };
+    var fallback = function () { var r = document.createRange(); r.selectNodeContents(pre); var s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = '선택됨'; setTimeout(function () { b.textContent = '복사'; }, 1400); };
+    try { navigator.clipboard.writeText(text).then(done, fallback); } catch (e) { fallback(); }
+  });
+});
+var fbtns = document.querySelectorAll('.filter button');
+fbtns.forEach(function (b) {
+  b.addEventListener('click', function () {
+    var f = b.dataset.f;
+    fbtns.forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+    document.querySelectorAll('details.issue').forEach(function (d) { d.hidden = !(f === 'all' || d.dataset.c === f); });
+  });
+});
+</script>
+</body>
+</html>

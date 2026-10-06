@@ -1,0 +1,54 @@
+#!/bin/bash
+# Called by tmux-resurrect hooks.
+#   claude-panes save     snapshot "pane -> Claude session id" (after every save)
+#   claude-panes restore  run `claude --resume <id>` in each restored pane
+#   claude-panes list     show the current snapshot
+# Set CLAUDE_PANES_NO_RESUME=1 (tmux global env or shell) to skip auto-resume.
+
+TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+STATE_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/tmux"
+MAP="$STATE_DIR/claude-panes.tsv"
+LOG="$STATE_DIR/claude-panes.log"
+mkdir -p "$STATE_DIR"
+log() { printf '%s %s\n' "$(date '+%F %T')" "$*" >> "$LOG"; }
+
+save() {
+  local tmp="$MAP.tmp.$$"
+  "$TMUX_BIN" list-panes -a -F \
+    '#{session_name}:#{window_index}.#{pane_index}	#{@claude_session}	#{@claude_cwd}' 2>/dev/null |
+    awk -F '\t' '$2 != ""' > "$tmp"
+  mv -f "$tmp" "$MAP"
+}
+
+restore() {
+  [ -f "$MAP" ] || exit 0
+  if [ -n "$CLAUDE_PANES_NO_RESUME" ] || "$TMUX_BIN" show-environment -g CLAUDE_PANES_NO_RESUME >/dev/null 2>&1; then
+    log "restore skipped (CLAUDE_PANES_NO_RESUME)"; exit 0
+  fi
+  local claude_cmd="${CLAUDE_PANES_CLAUDE:-$("$TMUX_BIN" show-environment -g CLAUDE_PANES_CLAUDE 2>/dev/null | sed -n 's/^CLAUDE_PANES_CLAUDE=//p')}"
+  claude_cmd="${claude_cmd:-claude}"
+  local target sid cwd cmd
+  while IFS=$'\t' read -r target sid cwd; do
+    [ -n "$target" ] && [ -n "$sid" ] || continue
+    cmd="$("$TMUX_BIN" display-message -p -t "$target" '#{pane_current_command}' 2>/dev/null)" || {
+      log "skip $target: pane missing"; continue; }
+    case "$cmd" in
+      zsh|bash|fish|sh|-zsh|-bash|login|cat) ;;
+      *) log "skip $target: busy ($cmd)"; continue ;;
+    esac
+    [ -d "$cwd" ] || cwd=""
+    if [ -n "$cwd" ]; then
+      "$TMUX_BIN" send-keys -t "$target" "cd $(printf '%q' "$cwd") && $claude_cmd --resume $sid" Enter
+    else
+      "$TMUX_BIN" send-keys -t "$target" "$claude_cmd --resume $sid" Enter
+    fi
+    log "resume $target -> $sid ($cwd)"
+  done < "$MAP"
+}
+
+case "$1" in
+  save) save ;;
+  restore) restore ;;
+  list) column -t -s $'\t' "$MAP" 2>/dev/null || cat "$MAP" ;;
+  *) echo "usage: $0 save|restore|list" >&2; exit 2 ;;
+esac

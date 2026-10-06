@@ -1,0 +1,10 @@
+#!/bin/bash
+# prefix + C 에서 호출: 이름을 물어본 뒤 현재 폴더에 Claude 창을 연다.
+# 기본 이름은 "<세션이름>-<다음 창 번호>". 창 이름도 같은 이름이 된다. 창에는 셸이 남으므로 Claude를 끝내도 창은 유지된다.
+dir="$1"
+TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+sess="$("$TMUX_BIN" display -p '#{session_name}')"
+n="$("$TMUX_BIN" list-windows | wc -l | tr -d ' ')"
+default="$sess-$((n + 1))"
+"$TMUX_BIN" command-prompt -I "$default" -p "Claude 이름:" \
+  "new-window -c \"$dir\" -n \"%1\" ; send-keys \"claude -n '%1'\" Enter"

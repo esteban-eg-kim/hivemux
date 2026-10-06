@@ -1,0 +1,50 @@
+#!/bin/bash
+# 사이드바에서 작업 이름 바꾸기.
+#   claude-rename prompt <pane_id> <client>   이름 입력 칸 띄우기 (지금 이름이 채워짐)
+#   claude-rename apply  <pane_id>            입력값(@claude_name_new) 적용
+#   claude-rename flush  <pane_id>            보류된 이름 보내기 (Stop 훅에서 호출)
+# 적용: 사이드바 표시 이름(@claude_name)을 바로 바꾸고, Claude에 "/rename 이름"을 보낸다.
+# Claude가 작업 중이거나 승인을 기다리면 키 입력이 대답으로 들어갈 수 있으므로
+# 보류(@claude_rename_pending)했다가 응답이 끝날 때(Stop) 보낸다.
+R="$(cd "$(dirname "$0")/.." && pwd)"
+TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+t() { "$TMUX_BIN" "$@"; }
+pane="%${2#%}"   # 입력 칸 명령 안에서는 %1..%9 가 입력값으로 바뀌므로 숫자만 주고받는다
+num="${pane#%}"
+
+send_rename() {
+  local name="$1"
+  t send-keys -t "$pane" -l "/rename $name"
+  t send-keys -t "$pane" Enter
+  t set -pu -t "$pane" @claude_rename_pending
+}
+
+case "$1" in
+  prompt)
+    client="$3"
+    cur="$(t show -pqv -t "$pane" @claude_name)"
+    [ -z "$cur" ] && cur="$("$R/bin/claude-sidebar-view" --name "$pane" 2>/dev/null)"
+    t command-prompt ${client:+-t "$client"} -I "$cur" -p "작업 이름:" \
+      "set -g @claude_name_input-$num '%%' ; run-shell -b '$R/bin/claude-rename apply $num'"
+    ;;
+  apply)
+    name="$(t show -gqv "@claude_name_input-$num" | tr -d '\n' | sed 's/^ *//; s/ *$//')"
+    t set -gu "@claude_name_input-$num"
+    [ -n "$name" ] || exit 0
+    t set -p -t "$pane" @claude_name "$name"
+    st="$(t show -pqv -t "$pane" @claude_state)"
+    case "$st" in
+      idle|done) send_rename "$name"; t display -d 1500 "이름 변경: $name" ;;
+      *) t set -p -t "$pane" @claude_rename_pending "$name"
+         t display -d 2500 "Claude가 작업 중이라 끝나면 이름을 보냅니다: $name" ;;
+    esac
+    ;;
+  flush)
+    name="$(t show -pqv -t "$pane" @claude_rename_pending)"
+    [ -n "$name" ] || exit 0
+    sleep 1.5   # 응답이 끝나고 입력창이 돌아올 때까지
+    [ "$(t show -pqv -t "$pane" @claude_state)" = done ] || [ "$(t show -pqv -t "$pane" @claude_state)" = idle ] || exit 0
+    send_rename "$name"
+    ;;
+  *) echo "usage: $0 prompt <pane> [client] | apply <pane> | flush <pane>" >&2; exit 2 ;;
+esac

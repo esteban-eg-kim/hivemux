@@ -1,0 +1,60 @@
+#!/bin/bash
+# Claude Code hook -> tmux bridge.
+# Usage (from ~/.claude/settings.json hooks): claude-tmux-hook <EventName>
+# - 칸(pane)에 Claude 세션 id 기록 (@claude_session, @claude_cwd) -> 재부팅 후 재개용
+# - 칸과 창에 상태 기록 (@claude_state: run | wait | done | idle, @claude_state_at)
+#   -> 상태줄 창 목록 아이콘, 둘째 줄 전체 상태판(bin/claude-agents)
+# Never blocks Claude: always exits 0 and prints nothing.
+
+event="$1"
+input="$(cat)"
+[ -n "$TMUX" ] && [ -n "$TMUX_PANE" ] || exit 0
+TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+t() { "$TMUX_BIN" "$@" >/dev/null 2>&1; }
+field() { printf '%s' "$input" | /usr/bin/jq -r --arg k "$1" '.[$k] // empty' 2>/dev/null; }
+
+state() { # state <run|wait|done|idle>
+  local cur; cur="$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_state 2>/dev/null)"
+  [ "$cur" = "$1" ] && return   # 같은 상태면 시각 유지 (도구 호출마다 갱신 방지)
+  t set -p -t "$TMUX_PANE" @claude_state "$1"
+  t set -p -t "$TMUX_PANE" @claude_state_at "$(date +%s)"
+  t set -w -t "$TMUX_PANE" @claude_state "$1"
+  "$TMUX_BIN" list-clients -F '#{client_name}' 2>/dev/null | while read -r c; do t refresh-client -t "$c" -S; done
+}
+
+case "$event" in
+  SessionStart)
+    sid="$(field session_id)"; cwd="$(field cwd)"
+    [ -n "$sid" ] && t set -p -t "$TMUX_PANE" @claude_session "$sid"
+    [ -n "$cwd" ] && t set -p -t "$TMUX_PANE" @claude_cwd "$cwd"
+    title="$(field session_title)"; [ -n "$title" ] && t set -p -t "$TMUX_PANE" @claude_title "$title"
+    state idle
+    ;;
+  UserPromptSubmit|PostToolUse)
+    state run
+    ;;
+  Notification)
+    case "$(field notification_type)" in
+      permission_prompt|elicitation_dialog|elicitation_url_dialog|agent_needs_input) state wait ;;
+    esac
+    ;;
+  Stop)
+    state done
+    # 사이드바에서 바꾼 이름이 보류 중이면 응답이 끝난 지금 보낸다
+    [ -n "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_rename_pending 2>/dev/null)" ] &&
+      ( "$(dirname "$0")/claude-rename" flush "$TMUX_PANE" >/dev/null 2>&1 & )
+    ;;
+  SessionEnd)
+    t set -pu -t "$TMUX_PANE" @claude_state
+    t set -pu -t "$TMUX_PANE" @claude_state_at
+    t set -wu -t "$TMUX_PANE" @claude_state
+    # 직접 종료했을 때만 매핑 삭제 -> 재부팅/강제 종료는 재개된다
+    case "$(field reason)" in
+      prompt_input_exit|logout)
+        t set -pu -t "$TMUX_PANE" @claude_session
+        t set -pu -t "$TMUX_PANE" @claude_cwd ;;
+    esac
+    "$TMUX_BIN" list-clients -F '#{client_name}' 2>/dev/null | while read -r c; do t refresh-client -t "$c" -S; done
+    ;;
+esac
+exit 0

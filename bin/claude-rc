@@ -1,0 +1,14 @@
+#!/bin/bash
+# Open (or focus) a tmux window running Claude Remote Control server mode.
+# From the Claude app on your phone you can then start NEW sessions in this dir.
+dir="${1:-$PWD}"
+TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+name="rc:$(basename "$dir")"
+existing="$("$TMUX_BIN" list-windows -a -F '#{session_name}:#{window_index}	#{window_name}' | awk -F '\t' -v n="$name" '$2==n{print $1; exit}')"
+if [ -n "$existing" ]; then
+  "$TMUX_BIN" switch-client -t "$existing" 2>/dev/null || "$TMUX_BIN" select-window -t "$existing"
+  exit 0
+fi
+spawn=same-dir
+git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1 && spawn=worktree
+"$TMUX_BIN" new-window -c "$dir" -n "$name" "claude remote-control --spawn $spawn; echo; echo 'remote-control exited. Enter to close.'; read"

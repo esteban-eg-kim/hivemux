@@ -1,0 +1,74 @@
+#!/bin/bash
+# 각 tmux 창 왼쪽에 Claude 상태 사이드바 칸을 유지한다.
+#   claude-sidebar ensure [window_id]   그 창(기본: 모든 창)에 사이드바가 없으면 만든다
+#   claude-sidebar fix                  모든 사이드바 폭을 @sidebar-width 로 되돌린다
+#   claude-sidebar reap                 사이드바만 남은 창을 닫는다
+#   claude-sidebar rebuild              복원 직후: 셸로 복원된 사이드바 칸을 지우고 다시 만든다
+#   claude-sidebar toggle               모두 숨기기 / 다시 보이기 (@sidebar on|off)
+# 사이드바 칸은 칸 제목 "claude-sidebar" 로 구분한다 (tmux-resurrect 가 제목을 저장/복원).
+R="$(cd "$(dirname "$0")/.." && pwd)"
+TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+t() { "$TMUX_BIN" "$@"; }
+TITLE=claude-sidebar
+W="$(t show -gqv @sidebar-width)"; W="${W:-32}"
+ON="$(t show -gqv @sidebar)"; ON="${ON:-on}"
+
+sidebars_in() { t list-panes -t "$1" -F '#{pane_id} #{pane_title}' 2>/dev/null | awk -v T="$TITLE" '$2==T{print $1}'; }
+
+ensure_one() {
+  local win="$1" n
+  [ "$ON" = on ] || return 0
+  [ -n "$(t show -gqv @sidebar-suspend)" ] && return 0          # 복원 중
+  [ "$(t display -p -t "$win" '#{session_name}' 2>/dev/null)" = 0 ] && return 0   # bin/tmx 부트스트랩 세션
+  [ -n "$(sidebars_in "$win")" ] && return 0
+  n="$(t list-panes -t "$win" 2>/dev/null | wc -l | tr -d ' ')"; [ "${n:-0}" -ge 1 ] || return 0
+  local first; first="$(t list-panes -t "$win" -F '#{pane_id}' | head -1)"
+  local pid
+  pid="$(t split-window -hbdf -l "$W" -t "$first" -P -F '#{pane_id}' "exec $R/bin/claude-sidebar-view")" || return 0
+  t select-pane -t "$pid" -T "$TITLE"
+  t set -p -t "$pid" allow-set-title off 2>/dev/null
+  t set -p -t "$pid" allow-rename off 2>/dev/null
+}
+
+case "$1" in
+  ensure)
+    if [ -n "$2" ]; then ensure_one "$2"
+    else t list-windows -a -F '#{window_id}' | while read -r w; do ensure_one "$w"; done; fi ;;
+  fix)
+    t list-panes -a -F '#{pane_id} #{pane_title} #{pane_width}' | awk -v T="$TITLE" -v W="$W" '$2==T && $3!=W{print $1}' |
+      while read -r p; do t resize-pane -t "$p" -x "$W"; done ;;
+  reap)
+    t list-windows -a -F '#{window_id}' | while read -r w; do
+      total="$(t list-panes -t "$w" | wc -l | tr -d ' ')"; side="$(sidebars_in "$w" | wc -l | tr -d ' ')"
+      [ "$total" -gt 0 ] && [ "$total" = "$side" ] && t kill-window -t "$w"
+    done ;;
+  rebuild)
+    # 복원 직후 (bin/claude-panes restore 다음에 호출).
+    # tmux-resurrect 는 저장 당시 사이드바 칸을 일반 셸로 되살리고, 셸이 칸 제목을 덮어쓴다.
+    # 그래서 제목이 아니라 저장본 파일에서 "사이드바였던 칸 번호"를 읽어 지운다.
+    # 칸 id 를 먼저 모두 구한 뒤 지워야 번호가 밀리지 않는다.
+    dir="$(t show -gqv @resurrect-dir)"; dir="${dir/#\~/$HOME}"
+    [ -n "$dir" ] || { [ -d "$HOME/.tmux/resurrect" ] && dir="$HOME/.tmux/resurrect" || dir="${XDG_DATA_HOME:-$HOME/.local/share}/tmux/resurrect"; }
+    ghosts=""
+    if [ -f "$dir/last" ]; then
+      while read -r target; do
+        id="$(t display -p -t "$target" '#{pane_id} #{pane_current_command}' 2>/dev/null)" || continue
+        case "${id#* }" in Python|python3) continue ;; zsh|bash|fish|sh|cat) ghosts+="${id%% *} " ;; esac
+      done < <(awk -F '\t' -v T="$TITLE" '$1=="pane" && ($7==T || $10=="Python" || $10=="python3") {print $2":"$3"."$6}' "$dir/last")
+    fi
+    # 제목이 남아 있는 경우도 함께
+    ghosts+="$(t list-panes -a -F '#{pane_id} #{pane_title} #{pane_current_command}' |
+      awk -v T="$TITLE" '$2==T && $3!="Python" && $3!="python3"{printf "%s ", $1}')"
+    for p in $ghosts; do t kill-pane -t "$p" 2>/dev/null; done
+    "$0" ensure ;;
+  toggle)
+    if [ "$ON" = on ]; then
+      t set -g @sidebar off
+      t list-panes -a -F '#{pane_id} #{pane_title}' | awk -v T="$TITLE" '$2==T{print $1}' | while read -r p; do t kill-pane -t "$p"; done
+      t display -d 1500 "사이드바 숨김 (Ctrl+A b 로 다시 보기)"
+    else
+      t set -g @sidebar on; ON=on; "$0" ensure
+    fi ;;
+  *) echo "usage: $0 ensure [win]|fix|reap|rebuild|toggle" >&2; exit 2 ;;
+esac
+exit 0

@@ -1,0 +1,44 @@
+#!/bin/bash
+# Ghostty entry point: every window/tab attaches to tmux, so closing Ghostty
+# never kills work.
+# - No tmux server: start one, restore the last tmux-resurrect snapshot
+#   (which also resumes Claude sessions via bin/claude-panes), then attach.
+# - Server running: attach the first detached session (prefer "main"),
+#   otherwise create a new session.
+# Skip restore once: touch ~/tmux_no_auto_restore
+
+# tmux server inherits this env; make sure claude/brew are on PATH
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+TMUX_BIN=/opt/homebrew/bin/tmux
+[ -x "$TMUX_BIN" ] || TMUX_BIN="$(command -v tmux)"
+RESTORE="$HOME/.tmux/plugins/tmux-resurrect/scripts/restore.sh"
+R="$(cd "$(dirname "$0")/.." && pwd)"
+# TMX_SOCKET=name selects a separate tmux socket (used for testing)
+t() { "$TMUX_BIN" ${TMX_SOCKET:+-L "$TMX_SOCKET"} ${TMX_CONF:+-f "$TMX_CONF"} "$@"; }
+
+if ! t has-session 2>/dev/null; then
+  # Bootstrap session "0": tmux-resurrect deletes it after a from-scratch restore.
+  if t new-session -d -s 0 2>/dev/null; then
+    if [ -x "$RESTORE" ] && [ ! -f "$HOME/tmux_no_auto_restore" ]; then
+      t run-shell "$RESTORE"
+    fi
+    if t has-session -t '=0' 2>/dev/null; then
+      t has-session -t '=main' 2>/dev/null || t rename-session -t '=0' main
+    fi
+    t set -g @tmx_ready 1
+    t run-shell -b "/Users/esteban/project/claude/tools/ghostty-tumx/bin/claude-sidebar ensure"
+  fi
+fi
+
+# Another window may be restoring right now (bootstrap "0" still there,
+# not ready yet): wait for it, max ~20s.
+for _ in $(seq 1 40); do
+  t has-session -t '=0' 2>/dev/null || break
+  [ "$(t show -gqv @tmx_ready 2>/dev/null)" = 1 ] && break
+  sleep 0.5
+done
+
+pick="$(t list-sessions -F '#{session_attached} #{session_name}' 2>/dev/null |
+  awk '$1==0 {print $2}' | awk 'NR==1{first=$0} $0=="main"{m=1} END{print (m?"main":first)}')"
+[ -n "$pick" ] && exec "$TMUX_BIN" ${TMX_SOCKET:+-L "$TMX_SOCKET"} attach-session -t "=$pick"
+exec "$TMUX_BIN" ${TMX_SOCKET:+-L "$TMX_SOCKET"} new-session
