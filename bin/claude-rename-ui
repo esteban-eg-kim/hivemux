@@ -35,3 +35,4 @@ if vared -p "  $(c $ACC)$(b)›$(r) " name 2>/dev/null; then
   "$TMUX_BIN" set -g "@claude_name_input-$num" "$name"
   "$R/bin/claude-rename" apply "$num"
 fi
+exit 0
