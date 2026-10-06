@@ -119,10 +119,9 @@ confirm-close-surface = false"
   else warn "Ghostty not installed, skipped (run tmux and it still works)"; fi
 
   # PATH for git installs (Homebrew already links bin/)
-  if ! command -v hm >/dev/null 2>&1 || [ "$(realpath "$(command -v hm)")" != "$HM_BIN/hm" ]; then
-    case "$HM_BIN" in /opt/homebrew/*|/usr/local/*) ;; *)
-      put_block "$HOME/.zshrc" "export PATH=\"$HM_BIN:\$PATH\""; ok "added $HM_BIN to PATH in ~/.zshrc" ;; esac
-  fi
+  # (decided by install location, not the current PATH, which may be stale)
+  case "$HM_BIN" in /opt/homebrew/*|/usr/local/*) ;; *)
+    put_block "$HOME/.zshrc" "export PATH=\"$HM_BIN:\$PATH\""; ok "added $HM_BIN to PATH in ~/.zshrc" ;; esac
 
   if tmux has-session 2>/dev/null; then tmux source-file "$TMUX_CONF" && ok "reloaded running tmux"; fi
   echo
