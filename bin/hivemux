@@ -1,0 +1,176 @@
+#!/bin/bash
+# hivemux — Claude Code session board for tmux + Ghostty
+set -uo pipefail
+VERSION="0.1.0"
+HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
+HM_ROOT="$(cd "$HM_BIN/.." && pwd)"
+# Homebrew: use the version-independent opt path so upgrades keep working
+case "$HM_ROOT" in */Cellar/hivemux/*/libexec) HM_ROOT="${HM_ROOT%%/Cellar/*}/opt/hivemux/libexec"; HM_BIN="$HM_ROOT/bin" ;; esac
+SHARE="$HM_ROOT/share"
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux"
+TMUX_CONF="${HIVEMUX_TMUX_CONF:-$HOME/.tmux.conf}"
+GHOSTTY_CONF="${HIVEMUX_GHOSTTY_CONF:-${XDG_CONFIG_HOME:-$HOME/.config}/ghostty/config}"
+CLAUDE_SETTINGS="${HIVEMUX_CLAUDE_SETTINGS:-$HOME/.claude/settings.json}"
+BEGIN="# >>> hivemux >>>"; END="# <<< hivemux <<<"
+HOOK_EVENTS='["SessionStart","UserPromptSubmit","PostToolUse","Notification","Stop","SessionEnd"]'
+
+if [ -t 1 ]; then B=$'\e[1m'; D=$'\e[2m'; G=$'\e[32m'; Y=$'\e[33m'; RD=$'\e[31m'; X=$'\e[0m'; else B= D= G= Y= RD= X=; fi
+ok()   { echo "  ${G}✓${X} $*"; }
+warn() { echo "  ${Y}!${X} $*"; }
+bad()  { echo "  ${RD}✗${X} $*"; }
+step() { echo; echo "${B}$*${X}"; }
+
+usage() {
+  cat <<U
+hivemux $VERSION — see every Claude Code session in one tmux sidebar
+
+Usage:
+  hivemux setup [--yes] [--no-keys] [--no-ghostty] [--no-remote] [--lang=en|ko]
+                       install plugins and add hivemux to tmux, Ghostty and Claude Code
+  hivemux uninstall    remove everything setup added (your own config stays)
+  hivemux doctor       check dependencies and wiring
+  hivemux version
+  hm [dir] [name]      open (or jump to) a project: one tmux session per folder
+
+Keys inside tmux: Option+1..9 jump · Option+0 oldest waiting · Option+O open path
+                  prefix C new named Claude · prefix b hide sidebar
+U
+}
+
+ask() { # ask "question" default(y|n) -> 0 yes
+  local q="$1" def="$2" a
+  if [ "$YES" = 1 ] || [ ! -t 0 ]; then [ "$def" = y ]; return; fi
+  read -r -p "  $q [$( [ "$def" = y ] && echo Y/n || echo y/N )] " a
+  a="${a:-$def}"; [[ "$a" =~ ^[Yy] ]]
+}
+
+backup() { [ -e "$1" ] || return 0; mkdir -p "$DATA/backups"; cp -P "$1" "$DATA/backups/$(basename "$1").$(date +%Y%m%d-%H%M%S)"; }
+
+remove_block() { # remove_block file
+  [ -f "$1" ] || return 0
+  awk -v b="$BEGIN" -v e="$END" '$0==b{skip=1;next} $0==e{skip=0;next} !skip' "$1" > "$1.hivemux.tmp" && mv "$1.hivemux.tmp" "$1"
+}
+
+put_block() { # put_block file "content"
+  local f="$1" content="$2"
+  mkdir -p "$(dirname "$f")"
+  if [ -L "$f" ]; then backup "$f"; cp "$(realpath "$f")" "$f.hivemux.tmp" 2>/dev/null || : > "$f.hivemux.tmp"; rm -f "$f"; mv "$f.hivemux.tmp" "$f"; fi
+  [ -f "$f" ] || : > "$f"
+  backup "$f"; remove_block "$f"
+  { [ -s "$f" ] && [ -n "$(tail -c1 "$f")" ] && echo; printf '%s\n%s\n%s\n' "$BEGIN" "$content" "$END"; } >> "$f"
+}
+
+need() { command -v "$1" >/dev/null 2>&1; }
+
+setup() {
+  YES=0; KEYS=ask; GHOSTTY=ask; REMOTE=ask; HLANG=""
+  for a in "$@"; do case "$a" in
+    --yes|-y) YES=1 ;; --lang=*) HLANG="${a#--lang=}" ;; --no-keys) KEYS=no ;; --no-ghostty) GHOSTTY=no ;; --no-remote) REMOTE=no ;;
+    *) echo "unknown option: $a" >&2; exit 2 ;; esac; done
+  mkdir -p "$DATA"
+
+  step "1/5 Dependencies"
+  local missing=0
+  for c in tmux jq python3 git; do if need "$c"; then ok "$c"; else bad "$c not found"; missing=1; fi; done
+  [ $missing = 0 ] || { echo "  install with: brew install tmux jq git (python3 comes with Xcode Command Line Tools)"; exit 1; }
+  local tv; tv="$(tmux -V | sed 's/[^0-9.]//g')"
+  awk -v v="$tv" 'BEGIN{split(v,a,"."); exit !((a[1]>3)||(a[1]==3&&a[2]>=3))}' && ok "tmux $tv" || { bad "tmux $tv: need 3.3 or newer"; exit 1; }
+  need claude && ok "claude $(claude --version 2>/dev/null | head -1)" || warn "claude not found (install Claude Code first)"
+
+  step "2/5 tmux plugins (resurrect + continuum)"
+  "$HM_BIN/hivemux-plugins" install || { bad "could not download plugins"; exit 1; }
+
+  step "3/5 tmux ($TMUX_CONF)"
+  [ -n "$HLANG" ] || { case "${LC_ALL:-${LANG:-}}" in ko*) HLANG=ko ;; *) HLANG=en ;; esac; }
+  local block="set -g @hivemux-lang $HLANG
+source-file \"$SHARE/hivemux.tmux\""
+  if [ "$KEYS" = ask ] && ask "Use recommended keys? (prefix Ctrl+A, since Claude Code uses Ctrl+B; | and - splits)" y; then KEYS=yes; fi
+  [ "$KEYS" = yes ] && block="$block
+source-file \"$SHARE/keys.tmux\""
+  put_block "$TMUX_CONF" "$block"; ok "added hivemux block (language: $HLANG)"
+
+  step "4/5 Claude Code hooks ($CLAUDE_SETTINGS)"
+  mkdir -p "$(dirname "$CLAUDE_SETTINGS")"; [ -f "$CLAUDE_SETTINGS" ] || echo '{}' > "$CLAUDE_SETTINGS"
+  backup "$CLAUDE_SETTINGS"
+  local remote=false
+  if [ "$REMOTE" = ask ] && ask "Enable Remote Control for every session? (continue from the Claude phone app)" y; then remote=true; fi
+  local tmp; tmp="$(mktemp)"
+  jq --arg h "$HM_BIN/hivemux-hook" --argjson evs "$HOOK_EVENTS" --argjson remote "$remote" '
+    def mine: (.command // "") | (contains("hivemux-hook") or contains("claude-tmux-hook"));
+    .hooks = (.hooks // {})
+    | reduce $evs[] as $ev (.;
+        .hooks[$ev] = (((.hooks[$ev] // []) | map(.hooks = ((.hooks // []) | map(select(mine | not)))) | map(select((.hooks|length) > 0)))
+                       + [{hooks: [{type: "command", command: ($h + " " + $ev), timeout: 5}]}]))
+    | if $remote then .remoteControlAtStartup = true else . end
+  ' "$CLAUDE_SETTINGS" > "$tmp" && jq empty "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS" || { bad "could not update settings"; exit 1; }
+  ok "hooks for ${HOOK_EVENTS//\"/}"
+  [ "$remote" = true ] && ok "Remote Control for all sessions" && echo "remote" >> "$DATA/setup-flags"
+
+  step "5/5 Ghostty ($GHOSTTY_CONF)"
+  if [ -d /Applications/Ghostty.app ] || need ghostty; then
+    if [ "$GHOSTTY" = ask ] && ask "Make every Ghostty window open inside tmux (hivemux-attach)?" y; then GHOSTTY=yes; fi
+    if [ "$GHOSTTY" = yes ]; then
+      put_block "$GHOSTTY_CONF" "command = $HM_BIN/hivemux-attach
+macos-option-as-alt = true
+window-save-state = always
+confirm-close-surface = false"
+      ok "Ghostty windows attach to tmux"
+    else warn "skipped"; fi
+  else warn "Ghostty not installed, skipped (run tmux and it still works)"; fi
+
+  # PATH for git installs (Homebrew already links bin/)
+  if ! command -v hm >/dev/null 2>&1 || [ "$(realpath "$(command -v hm)")" != "$HM_BIN/hm" ]; then
+    case "$HM_BIN" in /opt/homebrew/*|/usr/local/*) ;; *)
+      put_block "$HOME/.zshrc" "export PATH=\"$HM_BIN:\$PATH\""; ok "added $HM_BIN to PATH in ~/.zshrc" ;; esac
+  fi
+
+  if tmux has-session 2>/dev/null; then tmux source-file "$TMUX_CONF" && ok "reloaded running tmux"; fi
+  echo
+  echo "${B}Done.${X} Open a new Ghostty window (or run ${B}tmux${X}), then ${B}hm ~/your/project${X}."
+  echo "${D}Phone push for approvals: in Claude Code run /config → Push when actions required.${X}"
+}
+
+uninstall() {
+  step "Removing hivemux"
+  remove_block "$TMUX_CONF" && ok "tmux block removed"
+  remove_block "$GHOSTTY_CONF" && ok "Ghostty block removed"
+  remove_block "$HOME/.zshrc" && ok "PATH block removed"
+  if [ -f "$CLAUDE_SETTINGS" ]; then
+    backup "$CLAUDE_SETTINGS"; local tmp; tmp="$(mktemp)"
+    local rm_remote=false; grep -qx remote "$DATA/setup-flags" 2>/dev/null && rm_remote=true
+    jq --argjson rr "$rm_remote" '
+      def mine: (.command // "") | (contains("hivemux-hook") or contains("claude-tmux-hook"));
+      if .hooks then .hooks |= (with_entries(.value |= (map(.hooks = ((.hooks // []) | map(select(mine | not)))) | map(select((.hooks|length) > 0))))
+                              | with_entries(select(.value|length > 0))) else . end
+      | if $rr then del(.remoteControlAtStartup) else . end
+    ' "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS" && ok "Claude Code hooks removed"
+  fi
+  if tmux has-session 2>/dev/null; then
+    tmux list-panes -a -F '#{pane_id} #{pane_title}' | awk '$2=="hivemux-sidebar"{print $1}' | while read -r p; do tmux kill-pane -t "$p"; done
+    ok "closed sidebars (restart tmux to drop the remaining bindings)"
+  fi
+  echo "  ${D}kept: $DATA (saved layouts, plugins, backups). Delete it to remove everything.${X}"
+}
+
+doctor() {
+  step "hivemux $VERSION ($HM_ROOT)"
+  for c in tmux jq python3 git claude; do need "$c" && ok "$c: $(command -v "$c")" || bad "$c not found"; done
+  [ -n "$("$HM_BIN/hivemux-plugins" dir 2>/dev/null)" ] && ok "plugins: $("$HM_BIN/hivemux-plugins" dir)" || bad "plugins missing (hivemux setup)"
+  grep -qF "$BEGIN" "$TMUX_CONF" 2>/dev/null && ok "tmux: $TMUX_CONF" || bad "tmux: block missing in $TMUX_CONF"
+  grep -qF "hivemux-attach" "$GHOSTTY_CONF" 2>/dev/null && ok "Ghostty: $GHOSTTY_CONF" || warn "Ghostty: not attached to tmux"
+  local n; n="$(jq '[.hooks[]?[]?.hooks[]? | select(.command|contains("hivemux-hook"))] | length' "$CLAUDE_SETTINGS" 2>/dev/null || echo 0)"
+  [ "$n" -ge 6 ] && ok "Claude hooks: $n" || bad "Claude hooks: $n of 6 (hivemux setup)"
+  if tmux has-session 2>/dev/null; then
+    [ -n "$(tmux show -gqv @hivemux-bin)" ] && ok "tmux server: hivemux loaded" || warn "tmux server running without hivemux (tmux source-file ~/.tmux.conf)"
+    ok "sidebars: $(tmux list-panes -a -F '#{pane_title}' | grep -c hivemux-sidebar)  claude sessions: $(tmux list-panes -a -F '#{@claude_session}' | grep -c .)"
+  else warn "tmux server not running"; fi
+}
+
+case "${1:-help}" in
+  setup) shift; setup "$@" ;;
+  uninstall) uninstall ;;
+  doctor) doctor ;;
+  version|-v|--version) echo "hivemux $VERSION" ;;
+  help|-h|--help) usage ;;
+  *) usage; exit 2 ;;
+esac

@@ -3,8 +3,10 @@
 # 기본 이름은 "<세션이름>-<다음 창 번호>". 창 이름도 같은 이름이 된다. 창에는 셸이 남으므로 Claude를 끝내도 창은 유지된다.
 dir="$1"
 TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+# 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG
+say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
 sess="$("$TMUX_BIN" display -p '#{session_name}')"
 n="$("$TMUX_BIN" list-windows | wc -l | tr -d ' ')"
 default="$sess-$((n + 1))"
-"$TMUX_BIN" command-prompt -I "$default" -p "Claude 이름:" \
+"$TMUX_BIN" command-prompt -I "$default" -p "$(say "Claude 이름:" "Claude name:")" \
   "new-window -c \"$dir\" -n \"%1\" ; send-keys \"claude -n '%1'\" Enter"

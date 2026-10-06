@@ -2,34 +2,33 @@
 # Ghostty entry point: every window/tab attaches to tmux, so closing Ghostty
 # never kills work.
 # - No tmux server: start one, restore the last tmux-resurrect snapshot
-#   (which also resumes Claude sessions via bin/claude-panes), then attach.
+#   (which also resumes Claude sessions via bin/hivemux-panes), then attach.
 # - Server running: attach the most recently used detached session,
 #   otherwise create a new session.
 # Skip restore once: touch ~/tmux_no_auto_restore
 
 # tmux server inherits this env; make sure claude/brew are on PATH
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
-TMUX_BIN=/opt/homebrew/bin/tmux
-[ -x "$TMUX_BIN" ] || TMUX_BIN="$(command -v tmux)"
-RESTORE="$HOME/.tmux/plugins/tmux-resurrect/scripts/restore.sh"
-R="$(cd "$(dirname "$0")/.." && pwd)"
-# TMX_SOCKET=name selects a separate tmux socket (used for testing)
-t() { "$TMUX_BIN" ${TMX_SOCKET:+-L "$TMX_SOCKET"} ${TMX_CONF:+-f "$TMX_CONF"} "$@"; }
+TMUX_BIN="$(command -v tmux)" || { echo "hivemux: tmux not found (brew install tmux)" >&2; exec "${SHELL:-/bin/zsh}" -l; }
+HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
+# HIVEMUX_SOCKET=name selects a separate tmux socket (used for testing)
+t() { "$TMUX_BIN" ${HIVEMUX_SOCKET:+-L "$HIVEMUX_SOCKET"} ${HIVEMUX_CONF:+-f "$HIVEMUX_CONF"} "$@"; }
 
 if ! t has-session 2>/dev/null; then
   # Bootstrap session "0": tmux-resurrect deletes it after a from-scratch restore.
   if t new-session -d -s 0 2>/dev/null; then
-    if [ -x "$RESTORE" ] && [ ! -f "$HOME/tmux_no_auto_restore" ]; then
+    RESTORE="$(t show -gqv @resurrect-restore-script-path)"   # hivemux.tmux 가 resurrect 를 불러오면 생긴다
+    if [ -n "$RESTORE" ] && [ -x "$RESTORE" ] && [ ! -f "$HOME/tmux_no_auto_restore" ]; then
       t run-shell "$RESTORE"
       last_file="$(t show -gqv @resurrect-dir)"; last_file="${last_file:-${XDG_DATA_HOME:-$HOME/.local/share}/tmux/resurrect}/last"
       st="$(awk -F '\t' '$1=="state"{print $2; exit}' "$last_file" 2>/dev/null)"
-      [ -n "$st" ] && t set -g @tmx_last_session "$st"
+      [ -n "$st" ] && t set -g @hivemux-last-session "$st"
     fi
     if t has-session -t '=0' 2>/dev/null; then
       t has-session -t '=main' 2>/dev/null || t rename-session -t '=0' main
     fi
-    t set -g @tmx_ready 1
-    t run-shell -b "/Users/esteban/project/claude/tools/ghostty-tumx/bin/claude-sidebar ensure"
+    t set -g @hivemux-ready 1
+    t run-shell -b "$HM_BIN/hivemux-sidebar ensure"
   fi
 fi
 
@@ -37,7 +36,7 @@ fi
 # not ready yet): wait for it, max ~20s.
 for _ in $(seq 1 40); do
   t has-session -t '=0' 2>/dev/null || break
-  [ "$(t show -gqv @tmx_ready 2>/dev/null)" = 1 ] && break
+  [ "$(t show -gqv @hivemux-ready 2>/dev/null)" = 1 ] && break
   sleep 0.5
 done
 
@@ -46,10 +45,10 @@ done
 detached="$(t list-sessions -F '#{session_attached} #{session_last_attached} #{session_name}' 2>/dev/null |
   awk '$1==0' | sort -k2,2nr | cut -d' ' -f3-)"
 pick=""
-want="$(t show -gqv @tmx_last_session 2>/dev/null)"
+want="$(t show -gqv @hivemux-last-session 2>/dev/null)"
 if [ -n "$want" ] && printf '%s\n' "$detached" | grep -qxF "$want"; then
-  pick="$want"; t set -gu @tmx_last_session
+  pick="$want"; t set -gu @hivemux-last-session
 fi
 [ -z "$pick" ] && pick="$(printf '%s\n' "$detached" | head -1)"
-[ -n "$pick" ] && exec "$TMUX_BIN" ${TMX_SOCKET:+-L "$TMX_SOCKET"} attach-session -t "=$pick"
-exec "$TMUX_BIN" ${TMX_SOCKET:+-L "$TMX_SOCKET"} new-session
+[ -n "$pick" ] && exec "$TMUX_BIN" ${HIVEMUX_SOCKET:+-L "$HIVEMUX_SOCKET"} attach-session -t "=$pick"
+exec "$TMUX_BIN" ${HIVEMUX_SOCKET:+-L "$HIVEMUX_SOCKET"} new-session

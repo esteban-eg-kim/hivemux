@@ -1,7 +1,7 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 """경로 골라 열기 팝업 (tmux display-popup 안에서 실행).
 
-  claude-open-ui <pane_id>
+  hivemux-open-ui <pane_id>
 
 그 칸의 최근 출력에서 실제로 있는 파일/폴더 경로를 모아 최근 것부터 보여 준다.
   ↑↓ / Ctrl+P N   고르기        글자 입력   걸러 보기
@@ -9,11 +9,23 @@
   Tab             기본 앱으로 열기       Ctrl+F  Finder에서 보기
   Ctrl+Y          경로 복사              Esc     닫기
 """
-import os, re, subprocess, sys, termios, tty, unicodedata, urllib.parse
+import shutil, os, re, subprocess, sys, termios, tty, unicodedata, urllib.parse
 
-TMUX = "/opt/homebrew/bin/tmux"
-if not os.path.exists(TMUX):
-    TMUX = "tmux"
+TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
+
+
+def _is_ko():
+    """화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG"""
+    v = os.environ.get("HIVEMUX_LANG") or subprocess.run([TMUX, "show", "-gqv", "@hivemux-lang"],
+                                                          capture_output=True, text=True).stdout.strip()
+    return (v or os.environ.get("LANG", "")).startswith("ko")
+
+
+KO = _is_ko()
+
+
+def tr(ko, en):
+    return ko if KO else en
 PANE = sys.argv[1] if len(sys.argv) > 1 else ""
 VSCODE = os.path.exists("/Applications/Visual Studio Code.app")
 
@@ -94,7 +106,7 @@ def candidates(pane):
 
 
 def run(cmd, **kw):
-    dry = os.environ.get("CLAUDE_OPEN_DRYRUN")
+    dry = os.environ.get("HIVEMUX_DRYRUN")
     if dry:  # 테스트용: 실행하지 않고 기록만
         with open(dry, "a") as f:
             f.write(" ".join(cmd) + "\n")
@@ -137,12 +149,12 @@ def main():
             if sel >= top + list_h:
                 top = sel - list_h + 1
             buf = ["\x1b[H\x1b[2J", bg(BG)]
-            head = f"  {fg(T3)}찾기 {fg(TEXT)}{BOLD}{q}{RST}{bg(BG)}{fg(ACC)}▏{RST}{bg(BG)}"
-            cnt = f"{len(shown)}개"
-            buf.append(head + " " * max(1, cols - width(f"  찾기 {q}▏") - width(cnt) - 2) + fg(T3) + cnt + "  \r\n")
+            head = f"  {fg(T3)}{tr('찾기', 'filter')} {fg(TEXT)}{BOLD}{q}{RST}{bg(BG)}{fg(ACC)}▏{RST}{bg(BG)}"
+            cnt = tr(f"{len(shown)}개", f"{len(shown)}")
+            buf.append(head + " " * max(1, cols - width(f"  {tr('찾기', 'filter')} {q}▏") - width(cnt) - 2) + fg(T3) + cnt + "  \r\n")
             buf.append(fg((44, 48, 57)) + "  " + "─" * (cols - 4) + "  \r\n")
             if not shown:
-                buf.append(f"  {fg(T2)}" + ("이 칸의 최근 출력에 열 수 있는 경로가 없습니다" if not q else "맞는 경로가 없습니다") + "\r\n")
+                buf.append(f"  {fg(T2)}" + (tr("이 칸의 최근 출력에 열 수 있는 경로가 없습니다", "No openable paths in this pane's recent output") if not q else tr("맞는 경로가 없습니다", "No matching paths")) + "\r\n")
             for i in range(top, min(len(shown), top + list_h)):
                 it = shown[i]
                 icon = "▸" if it["isdir"] else "•"
@@ -154,9 +166,9 @@ def main():
                     line = f"{bg(BG)}   {fg(T3)}{icon} {fg(T2)}{name}"
                 buf.append(line + "\r\n")
             buf.append(f"\x1b[{rows - 1};1H{fg((44, 48, 57))}  " + "─" * (cols - 4) + "\r\n")
-            hint = msg or (f"{fg(TEXT)}Enter{fg(T3)} {'VS Code' if VSCODE else '편집기'}   "
-                           f"{fg(TEXT)}Tab{fg(T3)} 기본 앱   {fg(TEXT)}^F{fg(T3)} Finder   "
-                           f"{fg(TEXT)}^Y{fg(T3)} 복사   {fg(TEXT)}Esc{fg(T3)} 닫기")
+            hint = msg or (f"{fg(TEXT)}Enter{fg(T3)} {'VS Code' if VSCODE else tr('편집기', 'editor')}   "
+                           f"{fg(TEXT)}Tab{fg(T3)} {tr('기본 앱', 'default app')}   {fg(TEXT)}^F{fg(T3)} Finder   "
+                           f"{fg(TEXT)}^Y{fg(T3)} {tr('복사', 'copy')}   {fg(TEXT)}Esc{fg(T3)} {tr('닫기', 'close')}")
             buf.append("  " + hint + RST)
             out.write("".join(buf))
             out.flush()
@@ -180,7 +192,7 @@ def main():
                 run(["open", "-R", shown[sel]["full"]]); return
             elif ch == "\x19" and shown:
                 run(["pbcopy"], input=shown[sel]["full"].encode())
-                msg = f"{fg(ACC)}복사했습니다  {fg(T2)}{cut_left(shown[sel]['full'], cols - 14)}"
+                msg = f"{fg(ACC)}{tr('복사했습니다', 'Copied')}  {fg(T2)}{cut_left(shown[sel]['full'], cols - 14)}"
             elif ch in ("\x7f", "\x08"):
                 q = q[:-1]; sel = 0
             elif ch == "\x15":

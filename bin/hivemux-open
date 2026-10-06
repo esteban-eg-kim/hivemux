@@ -1,0 +1,21 @@
+#!/bin/bash
+# Option+O : 지금 칸의 최근 출력에서 파일 경로를 골라 연다 (bin/hivemux-open-ui 팝업).
+#   hivemux-open <pane_id> [client]
+# 사이드바 칸에서 누르면 같은 창의 작업 칸을 대상으로 한다.
+HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
+TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+# 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG
+say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
+t() { "$TMUX_BIN" "$@"; }
+pane="$1"; client="$2"
+if [ "$(t display -p -t "$pane" '#{pane_title}')" = hivemux-sidebar ]; then
+  pane="$(t list-panes -t "$pane" -F '#{pane_id} #{pane_title} #{pane_last}' | awk '$2!="hivemux-sidebar"{print $1}' | head -1)"
+fi
+[ -n "$pane" ] || exit 0
+title="$(t display -p -t "$pane" '#{session_name}')"
+pause="/tmp/hivemux-pause-$(id -u)"
+: > "$pause"; trap 'rm -f "$pause"' EXIT
+t display-popup ${client:+-c "$client"} -E -w 80% -h 60% -b rounded \
+  -T "#[fg=#e6e9ef,bold] $(say "경로 열기" "Open path") #[fg=#626a78,nobold]· $title " -S "fg=#5aa9ff" -s "bg=#1e2128" \
+  "$HM_BIN/hivemux-open-ui" "$pane" 2>/dev/null || true
+exit 0

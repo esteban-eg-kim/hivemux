@@ -1,0 +1,20 @@
+#!/bin/bash
+# hm [dir] [name]  -- 프로젝트 하나 = tmux 세션 하나
+# - 세션이 없으면 만든다: 1번 창 "claude" (claude -n <이름> 실행), 2번 창 "shell"
+# - 세션이 있으면 그 세션으로 이동만 한다
+# tmux 안에서 실행하면 화면이 그 세션으로 바뀌고, 밖에서 실행하면 붙는다.
+TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+# 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG
+say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
+t() { "$TMUX_BIN" ${HIVEMUX_SOCKET:+-L "$HIVEMUX_SOCKET"} "$@"; }
+dir="${1:-$PWD}"
+dir="$(cd "$dir" 2>/dev/null && pwd)" || { echo "hm: $(say "폴더가 없습니다" "no such directory"): $1" >&2; exit 1; }
+name="${2:-$(basename "$dir")}"
+name="$(printf '%s' "$name" | tr '.: ' '---')"   # tmux 세션 이름에 . : 공백 불가
+if ! t has-session -t "=$name" 2>/dev/null; then
+  t new-session -d -s "$name" -c "$dir" -n claude
+  t send-keys -t "=$name:claude" "claude -n $(printf '%q' "$name")" Enter
+  t new-window -d -t "=$name:" -c "$dir" -n shell
+  echo "hm: $(say "새 세션" "new session") '$name' ($dir)"
+fi
+if [ -n "$TMUX" ]; then t switch-client -t "=$name"; else exec "$TMUX_BIN" ${HIVEMUX_SOCKET:+-L "$HIVEMUX_SOCKET"} attach-session -t "=$name"; fi

@@ -1,14 +1,14 @@
 #!/bin/bash
 # Called by tmux-resurrect hooks.
-#   claude-panes save     snapshot "pane -> Claude session id" (after every save)
-#   claude-panes restore  run `claude --resume <id>` in each restored pane
-#   claude-panes list     show the current snapshot
-# Set CLAUDE_PANES_NO_RESUME=1 (tmux global env or shell) to skip auto-resume.
+#   hivemux-panes save     snapshot "pane -> Claude session id" (after every save)
+#   hivemux-panes restore  run `claude --resume <id>` in each restored pane
+#   hivemux-panes list     show the current snapshot
+# Set HIVEMUX_NO_RESUME=1 (tmux global env or shell) to skip auto-resume.
 
 TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
-STATE_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/tmux"
-MAP="$STATE_DIR/claude-panes.tsv"
-LOG="$STATE_DIR/claude-panes.log"
+STATE_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux"
+MAP="$STATE_DIR/panes.tsv"
+LOG="$STATE_DIR/panes.log"
 mkdir -p "$STATE_DIR"
 log() { printf '%s %s\n' "$(date '+%F %T')" "$*" >> "$LOG"; }
 
@@ -22,10 +22,10 @@ save() {
 
 restore() {
   [ -f "$MAP" ] || exit 0
-  if [ -n "$CLAUDE_PANES_NO_RESUME" ] || "$TMUX_BIN" show-environment -g CLAUDE_PANES_NO_RESUME >/dev/null 2>&1; then
-    log "restore skipped (CLAUDE_PANES_NO_RESUME)"; exit 0
+  if [ -n "$HIVEMUX_NO_RESUME" ] || "$TMUX_BIN" show-environment -g HIVEMUX_NO_RESUME >/dev/null 2>&1; then
+    log "restore skipped (HIVEMUX_NO_RESUME)"; exit 0
   fi
-  local claude_cmd="${CLAUDE_PANES_CLAUDE:-$("$TMUX_BIN" show-environment -g CLAUDE_PANES_CLAUDE 2>/dev/null | sed -n 's/^CLAUDE_PANES_CLAUDE=//p')}"
+  local claude_cmd="${HIVEMUX_CLAUDE:-$("$TMUX_BIN" show-environment -g HIVEMUX_CLAUDE 2>/dev/null | sed -n 's/^HIVEMUX_CLAUDE=//p')}"
   claude_cmd="${claude_cmd:-claude}"
   local target sid cwd cmd
   while IFS=$'\t' read -r target sid cwd; do

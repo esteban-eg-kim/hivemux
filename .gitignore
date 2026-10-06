@@ -3,3 +3,9 @@ backups/
 __pycache__/
 *.pyc
 .DS_Store
+# 이전 설치(ghostty-tumx)용 임시 호환 링크. 공개 저장소에는 넣지 않는다
+/bin/tmx
+/bin/tp
+/bin/claude-*
+/tmux/
+/ghostty/

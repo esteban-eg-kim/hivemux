@@ -1,0 +1,37 @@
+#!/bin/bash
+# tmux-resurrect / tmux-continuum 을 찾아 불러온다.
+#   hivemux-plugins install   없으면 $XDG_DATA_HOME/hivemux/plugins 에 내려받는다
+#   hivemux-plugins load      (share/hivemux.tmux 에서 호출) 불러오고 자동 저장을 연결한다
+#   hivemux-plugins dir       쓰고 있는 플러그인 폴더 출력
+# 이미 ~/.tmux/plugins 에 있으면(TPM 사용자) 그것을 쓰고, 이미 불러와져 있으면 다시 부르지 않는다.
+TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+t() { "$TMUX_BIN" "$@"; }
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux"
+OWN="$DATA/plugins"
+
+plugin_dir() {
+  for d in "$HOME/.tmux/plugins" "${XDG_CONFIG_HOME:-$HOME/.config}/tmux/plugins" "$OWN"; do
+    [ -f "$d/tmux-resurrect/resurrect.tmux" ] && [ -f "$d/tmux-continuum/continuum.tmux" ] && { echo "$d"; return; }
+  done
+  return 1
+}
+
+case "$1" in
+  install)
+    plugin_dir >/dev/null && { echo "  ok     plugins in $(plugin_dir)"; exit 0; }
+    mkdir -p "$OWN"
+    for p in tmux-resurrect tmux-continuum; do
+      [ -d "$OWN/$p" ] || git clone -q --depth 1 "https://github.com/tmux-plugins/$p" "$OWN/$p" || exit 1
+    done
+    echo "  ok     plugins in $OWN" ;;
+  load)
+    d="$(plugin_dir)" || { t display -d 4000 "hivemux: run 'hivemux setup' to install tmux-resurrect/continuum"; exit 0; }
+    [ -n "$(t show -gqv @resurrect-save-script-path)" ] || "$d/tmux-resurrect/resurrect.tmux"
+    [ -n "$(t show -gqv @hivemux-continuum-loaded)" ] || { "$d/tmux-continuum/continuum.tmux"; t set -g @hivemux-continuum-loaded 1; }
+    t set -g @hivemux-continuum-save "$d/tmux-continuum/scripts/continuum_save.sh"
+    # 처음 자동 저장은 한 주기 뒤에: 갓 띄운 서버가 복원 전에 저장본을 덮어쓰지 않게
+    t show -gqv @continuum-save-last-timestamp | grep -q . || t set -g @continuum-save-last-timestamp "$(date +%s)" ;;
+  dir) plugin_dir ;;
+  *) echo "usage: $0 install|load|dir" >&2; exit 2 ;;
+esac
+exit 0

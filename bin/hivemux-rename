@@ -1,13 +1,15 @@
 #!/bin/bash
 # 사이드바에서 작업 이름 바꾸기.
-#   claude-rename prompt <pane_id> <client>   이름 입력 칸 띄우기 (지금 이름이 채워짐)
-#   claude-rename apply  <pane_id>            입력값(@claude_name_new) 적용
-#   claude-rename flush  <pane_id>            보류된 이름 보내기 (Stop 훅에서 호출)
+#   hivemux-rename prompt <pane_id> <client>   이름 입력 칸 띄우기 (지금 이름이 채워짐)
+#   hivemux-rename apply  <pane_id>            입력값(@claude_name_new) 적용
+#   hivemux-rename flush  <pane_id>            보류된 이름 보내기 (Stop 훅에서 호출)
 # 적용: 사이드바 표시 이름(@claude_name)을 바로 바꾸고, Claude에 "/rename 이름"을 보낸다.
 # Claude가 작업 중이거나 승인을 기다리면 키 입력이 대답으로 들어갈 수 있으므로
 # 보류(@claude_rename_pending)했다가 응답이 끝날 때(Stop) 보낸다.
-R="$(cd "$(dirname "$0")/.." && pwd)"
+HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
 TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+# 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG
+say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
 t() { "$TMUX_BIN" "$@"; }
 pane="%${2#%}"   # 입력 칸 명령 안에서는 %1..%9 가 입력값으로 바뀌므로 숫자만 주고받는다
 num="${pane#%}"
@@ -23,33 +25,33 @@ case "$1" in
   prompt)
     client="$3"
     cur="$(t show -pqv -t "$pane" @claude_name)"
-    [ -z "$cur" ] && cur="$("$R/bin/claude-sidebar-view" --name "$pane" 2>/dev/null)"
+    [ -z "$cur" ] && cur="$("$HM_BIN/hivemux-sidebar-view" --name "$pane" 2>/dev/null)"
     proj="$(t display -p -t "$pane" '#{session_name}')"
     st="$(t show -pqv -t "$pane" @claude_state)"
     # 화면 가운데 팝업 (tmux 3.3+). 안 되면 상태줄 입력 칸으로.
     # 팝업이 끝난 결과(취소 포함)로 판단하지 않고, 팝업 기능이 있는지로만 고른다
     if t list-commands display-popup 2>/dev/null | grep -q -- '-b border-lines'; then
       # 팝업이 떠 있는 동안 사이드바 애니메이션을 멈춘다 (다시 그릴 때마다 팝업이 깜빡이므로)
-      pause="/tmp/claude-sidebar-pause-$(id -u)"
+      pause="/tmp/hivemux-pause-$(id -u)"
       : > "$pause"; trap 'rm -f "$pause"' EXIT
       t display-popup ${client:+-c "$client"} -E -w 64 -h 11 -b rounded \
-        -T "#[fg=#e6e9ef,bold] 작업 이름 바꾸기 " -S "fg=#5aa9ff" -s "bg=#1e2128" \
-        "$R/bin/claude-rename-ui" "$num" "$cur" "$proj" "$st" 2>/dev/null || true   # 취소(Esc)도 정상 종료
+        -T "#[fg=#e6e9ef,bold] $(say "작업 이름 바꾸기" "Rename task") " -S "fg=#5aa9ff" -s "bg=#1e2128" \
+        "$HM_BIN/hivemux-rename-ui" "$num" "$cur" "$proj" "$st" 2>/dev/null || true   # 취소(Esc)도 정상 종료
     else
-      t command-prompt ${client:+-t "$client"} -I "$cur" -p "작업 이름:" \
-        "set -g @claude_name_input-$num '%%' ; run-shell -b '$R/bin/claude-rename apply $num'"
+      t command-prompt ${client:+-t "$client"} -I "$cur" -p "$(say "작업 이름:" "Task name:")" \
+        "set -g @hivemux-name-input-$num '%%' ; run-shell -b '$HM_BIN/hivemux-rename apply $num'"
     fi
     ;;
   apply)
-    name="$(t show -gqv "@claude_name_input-$num" | tr -d '\n' | sed 's/^ *//; s/ *$//')"
-    t set -gu "@claude_name_input-$num"
+    name="$(t show -gqv "@hivemux-name-input-$num" | tr -d '\n' | sed 's/^ *//; s/ *$//')"
+    t set -gu "@hivemux-name-input-$num"
     [ -n "$name" ] || exit 0
     t set -p -t "$pane" @claude_name "$name"
     st="$(t show -pqv -t "$pane" @claude_state)"
     case "$st" in
-      idle|done) send_rename "$name"; t display -d 1500 "이름 변경: $name" ;;
+      idle|done) send_rename "$name"; t display -d 1500 "$(say "이름 변경" "Renamed"): $name" ;;
       *) t set -p -t "$pane" @claude_rename_pending "$name"
-         t display -d 2500 "Claude가 작업 중이라 끝나면 이름을 보냅니다: $name" ;;
+         t display -d 2500 "$(say "Claude가 작업 중이라 끝나면 이름을 보냅니다" "Claude is busy; will rename when it finishes"): $name" ;;
     esac
     ;;
   flush)
