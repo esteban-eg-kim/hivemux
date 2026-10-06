@@ -42,7 +42,7 @@ Ghostty + tmux + Claude Code 세션 영속화 + 폰 원격 제어.
 
 - 왼쪽 사이드바 (`bin/claude-sidebar`, `bin/claude-sidebar-view`): 모든 창 왼쪽 32칸. 모든 세션의 Claude를 프로젝트별로 묶어 번호 붙은 두 줄 타일로 표시.
   작업 이름(Claude 대화 제목) 카드. 왼쪽 선 색 = 상태(파랑 작업 중, 초록 완료·안 봄, 회색 대기), 입력 필요는 카드 전체 호박색. ▶ 밝은 카드 = 지금 보는 작업. 오른쪽에 경과 시간.
-  작업 중 카드는 빛 띠가 훑고 스피너가 돌며, 입력 필요 카드는 깜빡인다(`tmux set -g @sidebar-anim off`로 끔). `prefix b` 숨기기/보이기. 폭: 경계선을 마우스로 끌면 모든 창에 맞추고 `~/.local/share/tmux/claude-sidebar-width`에 저장(끄는 동안 포인터 ↔, 경계선 강조). 명령: `tmux set -g @sidebar-width 40; claude-sidebar fix`. 복원 중에는 생성을 멈추고 복원 뒤 다시 만든다.
+  작업 중 카드는 빛 띠가 훑고 스피너가 돌며, 입력 필요 카드는 깜빡인다(`tmux set -g @sidebar-anim off`로 끔). `prefix b` 숨기기/보이기. 폭: 오른쪽 끝 ⋮ 핸들이나 경계선을 마우스로 끌면 모든 창에 맞추고 `~/.local/share/tmux/claude-sidebar-width`에 저장(끄는 동안 포인터 ↔, 경계선 강조). 명령: `tmux set -g @sidebar-width 40; claude-sidebar fix`. 복원 중에는 생성을 멈추고 복원 뒤 다시 만든다.
 - 맨 위 상태줄 (현재 세션 창 목록): `⚙` 작업 중, `⏳` 입력/승인 필요, `✓` 끝남.
 
 | 키 | 동작 |

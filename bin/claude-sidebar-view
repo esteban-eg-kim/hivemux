@@ -286,6 +286,14 @@ def render(items, current, w, h, cur_sess=""):
         k.put(" ⌥0 ", C["text"], C["card_hi"], True).put("  기다리는 작업", C["text3"])
     lines.append(k)
     lines.append(L().put("  ").put(" ⌥1-9 ", C["text"], C["card_hi"], True).put("  이동 · 우클릭 이름", C["text3"]))
+    # 오른쪽 끝 칸: 폭 조절 핸들 (세로 가운데 점 세 줄, 끄는 중엔 파란 막대)
+    mid = h // 2
+    for y in range(h):
+        ln = lines[y]
+        ln.fill(w)
+        ch, bg_, fg_, b_ = ln.cells[-1]
+        if mid - 1 <= y <= mid + 1:
+            ln.cells[-1] = ("⋮", bg_, C["text3"], True)
     return [l.render() for l in lines], targets
 
 
@@ -316,6 +324,7 @@ def main():
     resized = [True]
     signal.signal(signal.SIGWINCH, lambda *_: resized.__setitem__(0, True))
     global FRAME, ANIM
+    border = os.path.join(os.path.dirname(os.path.abspath(__file__)), "claude-border")
     targets, buf = {}, ""
     snap, last_poll, last_spin = None, 0.0, None
     try:
@@ -360,8 +369,11 @@ def main():
             last_poll = 0  # 클릭/키 입력 뒤에는 바로 새로 읽는다
             buf += os.read(fd, 1024).decode(errors="ignore")
             for m in re.finditer(r"\x1b\[<(\d+);(\d+);(\d+)([Mm])", buf):
-                b, y, kind = int(m.group(1)), int(m.group(3)), m.group(4)
-                if kind != "M" or (y - 1) not in targets:
+                b, x, y, kind = int(m.group(1)), int(m.group(2)), int(m.group(3)), m.group(4)
+                w_now = os.get_terminal_size()[0]
+                if x >= w_now:          # 오른쪽 끝 핸들: 끌기는 tmux 가 처리한다 (tmux.conf)
+                    continue
+                if kind != "M" or b not in (0, 2) or (y - 1) not in targets:
                     continue
                 pid = targets[y - 1]
                 if b == 2:                      # 오른쪽 클릭: 이름 바꾸기
