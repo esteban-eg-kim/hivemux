@@ -10,6 +10,7 @@ import math, os, re, socket, select, signal, subprocess, sys, termios, time, tty
 
 TMUX = "/opt/homebrew/bin/tmux"
 ME = os.environ.get("TMUX_PANE", "")
+PAUSE = f"/tmp/claude-sidebar-pause-{os.getuid()}"
 US = "\x1f"
 FIELDS = ["pane_id", "session_name", "window_index", "window_name", "@claude_state",
           "@claude_state_at", "@claude_session", "window_id", "pane_active", "pane_last",
@@ -327,6 +328,11 @@ def main():
                     break
                 ANIM = tmux("show", "-gqv", "@sidebar-anim").strip() != "off"
             items, current, visible, cur_sess = snap
+            if os.path.exists(PAUSE):          # 이름 바꾸기 팝업이 열려 있음: 그리지 않는다
+                r, _, _ = select.select([fd], [], [], 0.2)
+                if r:
+                    os.read(fd, 1024)
+                continue
             animating = visible and ANIM and any(p["@claude_state"] in ("run", "wait") for p in items)
             FRAME += 1
             if visible:

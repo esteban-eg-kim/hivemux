@@ -29,6 +29,9 @@ case "$1" in
     # 화면 가운데 팝업 (tmux 3.3+). 안 되면 상태줄 입력 칸으로.
     # 팝업이 끝난 결과(취소 포함)로 판단하지 않고, 팝업 기능이 있는지로만 고른다
     if t list-commands display-popup 2>/dev/null | grep -q -- '-b border-lines'; then
+      # 팝업이 떠 있는 동안 사이드바 애니메이션을 멈춘다 (다시 그릴 때마다 팝업이 깜빡이므로)
+      pause="/tmp/claude-sidebar-pause-$(id -u)"
+      : > "$pause"; trap 'rm -f "$pause"' EXIT
       t display-popup ${client:+-c "$client"} -E -w 64 -h 11 -b rounded \
         -T "#[fg=#e6e9ef,bold] 작업 이름 바꾸기 " -S "fg=#5aa9ff" -s "bg=#1e2128" \
         "$R/bin/claude-rename-ui" "$num" "$cur" "$proj" "$st" 2>/dev/null || true   # 취소(Esc)도 정상 종료
