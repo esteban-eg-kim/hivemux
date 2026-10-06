@@ -9,7 +9,11 @@ t() { "$TMUX_BIN" "$@"; }
 tty="$2"
 shape() { [ -w "$tty" ] && printf '\033]22;%s\033\\' "$1" > "$tty"; }
 GRIP="/tmp/claude-sidebar-grip-$(id -u)"
-wake() { pkill -USR1 -f 'bin/claude-sidebar-view$' 2>/dev/null; }   # 사이드바 핸들 색 바로 갱신
+# 사이드바 핸들 색 바로 갱신: 이 tmux 서버의 사이드바 프로세스에만 신호를 보낸다
+wake() {
+  t list-panes -a -F '#{pane_pid} #{pane_title}' 2>/dev/null | awk '$2=="claude-sidebar"{print $1}' |
+    while read -r p; do kill -USR1 "$p" 2>/dev/null; done
+}
 case "$1" in
   down)
     shape ew-resize

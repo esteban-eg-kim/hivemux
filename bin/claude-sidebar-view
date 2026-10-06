@@ -8,6 +8,9 @@ bin/claude-sidebar 가 각 창 왼쪽 칸에서 실행한다.
 """
 import math, os, re, socket, select, signal, subprocess, sys, termios, time, tty, unicodedata
 
+# 바로 다시 그리기 신호(SIGUSR1)를 처리기 등록 전에 받아도 종료되지 않게 먼저 무시한다
+signal.signal(signal.SIGUSR1, signal.SIG_IGN)
+
 TMUX = "/opt/homebrew/bin/tmux"
 ME = os.environ.get("TMUX_PANE", "")
 PAUSE = f"/tmp/claude-sidebar-pause-{os.getuid()}"
