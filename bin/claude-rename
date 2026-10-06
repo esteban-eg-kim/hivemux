@@ -31,7 +31,7 @@ case "$1" in
     if t list-commands display-popup 2>/dev/null | grep -q -- '-b border-lines'; then
       t display-popup ${client:+-c "$client"} -E -w 64 -h 11 -b rounded \
         -T "#[fg=#e6e9ef,bold] 작업 이름 바꾸기 " -S "fg=#5aa9ff" -s "bg=#1e2128" \
-        "$R/bin/claude-rename-ui" "$num" "$cur" "$proj" "$st" 2>/dev/null
+        "$R/bin/claude-rename-ui" "$num" "$cur" "$proj" "$st" 2>/dev/null || true   # 취소(Esc)도 정상 종료
     else
       t command-prompt ${client:+-t "$client"} -I "$cur" -p "작업 이름:" \
         "set -g @claude_name_input-$num '%%' ; run-shell -b '$R/bin/claude-rename apply $num'"
@@ -58,3 +58,4 @@ case "$1" in
     ;;
   *) echo "usage: $0 prompt <pane> [client] | apply <pane> | flush <pane>" >&2; exit 2 ;;
 esac
+exit 0
