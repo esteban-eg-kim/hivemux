@@ -485,7 +485,7 @@ claude -c
       <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>0</kbd></span><span class="d">가장 오래 기다린 Claude로 이동. 없으면 안 본 완료 작업</span></div>
       <div class="key"><span class="combo">사이드바 카드 클릭</span><span class="d">그 Claude로 이동</span></div>
       <div class="key"><span class="combo">카드 더블클릭 / 오른쪽 클릭</span><span class="d">작업 이름 바꾸기</span></div>
-      <div class="key"><span class="combo">⋮ 핸들 끌기</span><span class="d">⋮ 핸들이나 경계선을 끌어 사이드바 폭 바꾸기. 모든 창에 맞추고 저장</span></div>
+      <div class="key"><span class="combo">핸들 막대 끌기</span><span class="d">핸들 막대나 경계선을 끌어 사이드바 폭 바꾸기. 모든 창에 맞추고 저장</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>b</kbd></span><span class="d">사이드바 모두 숨기기 / 다시 보이기</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Space</kbd></span><span class="d">Option+0과 같음</span></div>
     </div>
@@ -626,7 +626,7 @@ tmux set-environment -g CLAUDE_PANES_NO_RESUME 1</pre></div>
 claude-agents list</pre></div>
     </div></details>
     <details class="issue" data-c="term"><summary>사이드바가 없거나 폭이 이상하다<span class="pill part tag">터미널</span></summary><div class="body">
-      <p><kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>b</kbd>를 두 번 누르면 모든 창의 사이드바를 다시 만듭니다. 폭은 사이드바 오른쪽 끝 세로 가운데의 <b>⋮ 핸들</b>이나 경계선을 마우스로 끌어서 바꾸세요. 누르는 동안 경계선이 파랗게 바뀌고 포인터가 좌우 크기 조절 모양이 됩니다. 손을 놓으면 모든 창의 사이드바가 같은 폭으로 맞춰지고, 그 폭이 저장되어 재시작 뒤에도 유지됩니다. 기본 폭은 32칸입니다. 명령으로 바꾸려면 아래처럼 하세요.</p>
+      <p><kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>b</kbd>를 두 번 누르면 모든 창의 사이드바를 다시 만듭니다. 폭은 사이드바 오른쪽 끝 세로 가운데의 <b>핸들 막대</b>(밝은 세로 막대에 ⠿ 무늬, 잡으면 파랗게 바뀜)이나 경계선을 마우스로 끌어서 바꾸세요. 누르는 동안 경계선이 파랗게 바뀌고 포인터가 좌우 크기 조절 모양이 됩니다. 손을 놓으면 모든 창의 사이드바가 같은 폭으로 맞춰지고, 그 폭이 저장되어 재시작 뒤에도 유지됩니다. 기본 폭은 32칸입니다. 명령으로 바꾸려면 아래처럼 하세요.</p>
       <div class="code"><button class="copy" type="button">복사</button><pre>tmux set -g @sidebar-width 40
 claude-sidebar fix
 <span class="cmt"># 저장한 폭을 지우고 기본 32칸으로</span>

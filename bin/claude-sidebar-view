@@ -11,6 +11,11 @@ import math, os, re, socket, select, signal, subprocess, sys, termios, time, tty
 TMUX = "/opt/homebrew/bin/tmux"
 ME = os.environ.get("TMUX_PANE", "")
 PAUSE = f"/tmp/claude-sidebar-pause-{os.getuid()}"
+GRIP = f"/tmp/claude-sidebar-grip-{os.getuid()}"     # 핸들을 끄는 중 (bin/claude-border 가 만든다)
+
+
+class Wake(Exception):
+    """SIGUSR1: 바로 다시 그리기 (핸들 누름/놓음)"""
 US = "\x1f"
 FIELDS = ["pane_id", "session_name", "window_index", "window_name", "@claude_state",
           "@claude_state_at", "@claude_session", "window_id", "pane_active", "pane_last",
@@ -286,14 +291,23 @@ def render(items, current, w, h, cur_sess=""):
         k.put(" ⌥0 ", C["text"], C["card_hi"], True).put("  기다리는 작업", C["text3"])
     lines.append(k)
     lines.append(L().put("  ").put(" ⌥1-9 ", C["text"], C["card_hi"], True).put("  이동 · 우클릭 이름", C["text3"]))
-    # 오른쪽 끝 칸: 폭 조절 핸들 (세로 가운데 점 세 줄, 끄는 중엔 파란 막대)
+    # 오른쪽 끝 칸: 폭 조절 핸들. 세로 가운데 7줄짜리 알약 모양 막대
+    #   ▄  둥근 위끝 / 밝은 막대 + 가운데 점무늬 / ▀ 둥근 아래끝. 끄는 중엔 파랗게
     mid = h // 2
+    drag = os.path.exists(GRIP)
+    pill = C["run"] if drag else (66, 72, 86)
+    dots = (240, 246, 255) if drag else C["text2"]
     for y in range(h):
         ln = lines[y]
         ln.fill(w)
         ch, bg_, fg_, b_ = ln.cells[-1]
-        if mid - 1 <= y <= mid + 1:
-            ln.cells[-1] = ("⋮", bg_, C["text3"], True)
+        d = y - mid
+        if d == -3:
+            ln.cells[-1] = ("▄", BG, pill, False)
+        elif d == 3:
+            ln.cells[-1] = ("▀", BG, pill, False)
+        elif -2 <= d <= 2:
+            ln.cells[-1] = ("⠿" if -1 <= d <= 1 else " ", pill, dots, False)
     return [l.render() for l in lines], targets
 
 
@@ -321,6 +335,9 @@ def main():
     out = sys.stdout
     out.write("\x1b[?1049h\x1b[?25l\x1b[?7l\x1b[?1000h\x1b[?1006h")
     out.flush()
+    def _wake(*_):
+        raise Wake()
+    signal.signal(signal.SIGUSR1, _wake)
     resized = [True]
     signal.signal(signal.SIGWINCH, lambda *_: resized.__setitem__(0, True))
     global FRAME, ANIM
@@ -363,7 +380,10 @@ def main():
                 lines, targets = render(items, current, w, h, cur_sess)
                 out.write("\x1b[H" + "\r\n".join(lines) + "\x1b[0m")
                 out.flush()
-            r, _, _ = select.select([fd], [], [], TICK if animating else (1.0 if visible else 3.0))
+            try:
+                r, _, _ = select.select([fd], [], [], TICK if animating else (1.0 if visible else 3.0))
+            except Wake:
+                continue
             if not r:
                 continue
             last_poll = 0  # 클릭/키 입력 뒤에는 바로 새로 읽는다

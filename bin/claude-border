@@ -8,12 +8,16 @@ TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
 t() { "$TMUX_BIN" "$@"; }
 tty="$2"
 shape() { [ -w "$tty" ] && printf '\033]22;%s\033\\' "$1" > "$tty"; }
+GRIP="/tmp/claude-sidebar-grip-$(id -u)"
+wake() { pkill -USR1 -f 'bin/claude-sidebar-view$' 2>/dev/null; }   # 사이드바 핸들 색 바로 갱신
 case "$1" in
   down)
     shape ew-resize
+    : > "$GRIP"; wake
     t set -g pane-border-style "fg=#5aa9ff"; t set -g pane-active-border-style "fg=#5aa9ff" ;;
   up)
     shape default
+    rm -f "$GRIP"; wake
     t set -g pane-border-style "fg=#23262e"; t set -g pane-active-border-style "fg=#2c3039"
     w="$(t list-panes -t "$3" -F '#{pane_title} #{pane_width}' 2>/dev/null | awk '$1=="claude-sidebar"{print $2; exit}')"
     if [ -n "$w" ] && [ "$w" != "$(t show -gqv @sidebar-width)" ] && [ "$w" -ge 16 ]; then
