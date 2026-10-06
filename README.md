@@ -79,11 +79,12 @@ tmux set-environment -g CLAUDE_PANES_NO_RESUME 1   # 레이아웃만 복원, Cla
 - 마지막 저장 이후 5분 이내에 시작한 세션은 복원 목록에 없을 수 있다. 중요하면 `prefix Ctrl+S`.
 
 ## 파일
-- `bin/tmx` Ghostty 진입점. 서버 없으면 복원 후 붙고, 있으면 분리된 세션에 붙음
+- `bin/tmx` Ghostty 진입점. 서버 없으면 복원 후 마지막으로 보던 세션에, 있으면 가장 최근에 본 분리된 세션에 붙음
 - `bin/claude-tmux-hook` Claude 훅 → tmux 창 옵션(@claude_session, @claude_state)
 - `bin/claude-panes` resurrect 저장/복원 훅. 매핑 저장, 복원 시 `claude --resume`
 - `bin/claude-sidebar` 사이드바 칸 생성/폭 유지/정리/복원 후 재생성
 - `bin/claude-sidebar-view` 사이드바 화면 (타일, 클릭, 숫자 키)
+- `bin/claude-rename-ui` 이름 바꾸기 팝업 화면
 - `bin/claude-rename` 사이드바에서 이름 변경 → `/rename` 전송 (작업 중이면 Stop 때 전송)
 - `bin/claude-open`, `bin/claude-open-ui` Option+O 경로 열기 팝업
 - `bin/claude-agents` 번호 이동, 기다리는 작업 이동 (`claude-agents list`로 글자 목록)

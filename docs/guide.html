@@ -306,7 +306,7 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
       <h3>Ghostty 실행</h3>
       <p>Dock이나 Spotlight(<kbd>⌘</kbd>+<kbd>Space</kbd> 후 Ghostty 입력)에서 엽니다. 화면 맨 위에 어두운 상태줄이, 왼쪽에 사이드바가 보이면 tmux 안에 들어온 것입니다.</p>
       <div class="tbar"><span class="sess">main</span><span class="win cur">1:zsh</span><span class="grow"></span><span class="clock">10-06 11:02</span></div>
-      <p class="result">맨 위 줄은 창 목록이고, 왼쪽의 <b>main</b>은 기본 세션 이름입니다. 왼쪽 사이드바에는 아직 Claude가 없다고 나옵니다. 여기서 바로 프로젝트를 열면 됩니다.</p>
+      <p class="result">맨 위 줄은 창 목록이고, 왼쪽의 <b>main</b>은 기본 세션 이름입니다. 왼쪽 사이드바에는 아직 Claude가 없다고 나옵니다. 여기서 바로 프로젝트를 열면 됩니다. 다음부터는 Ghostty를 열면 마지막으로 보던 프로젝트가 바로 열립니다.</p>
     </div></div>
 
     <div class="st"><div>
@@ -462,7 +462,7 @@ claude -c
   <h3>Ghostty 새 탭과 새 창</h3>
   <p>필수는 아닙니다. 두 프로젝트를 나란히 보고 싶을 때만 쓰세요. Ghostty에서 <kbd>⌘</kbd>+<kbd>T</kbd>나 <kbd>⌘</kbd>+<kbd>N</kbd>을 누르면 다음 규칙으로 tmux에 연결됩니다.</p>
   <ul>
-    <li>다른 Ghostty 탭에 표시되지 않은 세션이 있으면 그 세션을 보여 줍니다. <code>main</code>을 먼저 고릅니다.</li>
+    <li>다른 Ghostty 탭에 표시되지 않은 세션이 있으면 그중 마지막으로 보던 세션을 보여 줍니다.</li>
     <li>모든 세션이 이미 표시 중이면 숫자 이름의 빈 세션을 새로 만듭니다. 거기서 <code>tp 폴더</code>를 입력하면 원하는 프로젝트로 바뀝니다.</li>
   </ul>
 </section>
@@ -690,7 +690,7 @@ claude-sidebar fix</pre></div>
     <div class="step"><div><span class="who">tmux-resurrect</span><p>마지막 스냅샷으로 세션, 창, 분할, 폴더를 다시 만들고 임시 세션을 지웁니다.</p></div></div>
     <div class="step"><div><span class="who">bin/claude-panes restore</span><p>저장해 둔 창과 세션 ID 목록을 읽습니다. 셸 프롬프트 상태인 창에만 원래 폴더로 이동해 <code>claude --resume &lt;ID&gt;</code>를 입력합니다.</p></div></div>
     <div class="step"><div><span class="who">Claude Code</span><p>대화가 열리고 Remote Control에 자동 등록되어 폰에도 다시 나타납니다.</p></div></div>
-    <div class="step"><div><span class="who">bin/tmx</span><p>분리된 세션에 붙습니다. <code>main</code>이 있으면 먼저 고르고, 두 번째 Ghostty 창은 다음 분리된 세션에 붙습니다.</p></div></div>
+    <div class="step"><div><span class="who">bin/tmx</span><p>복원 전에 마지막으로 보던 세션에 붙고, 입력 초점이 사이드바에 있는 창은 작업 칸으로 옮깁니다. 두 번째 Ghostty 창은 그다음으로 최근에 본 세션에 붙습니다.</p></div></div>
   </div>
 </section>
 
