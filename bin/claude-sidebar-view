@@ -376,6 +376,10 @@ def main():
                         rename(pid)
                     else:
                         goto(pid)
+            # 클릭하면 tmux가 초점을 사이드바로 옮긴다. 이 창의 작업 칸으로 돌려놓는다
+            # (안 그러면 초점이 사이드바에 남은 채 저장/복원되고 창 이름도 Python이 된다)
+            if re.search(r"\x1b\[<\d+;\d+;\d+M", buf) and current:
+                tmux("select-pane", "-t", current)
             buf = re.sub(r"\x1b\[<\d+;\d+;\d+[Mm]", "", buf)
             for ch in buf:
                 if ch.isdigit() and ch != "0":

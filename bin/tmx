@@ -3,7 +3,7 @@
 # never kills work.
 # - No tmux server: start one, restore the last tmux-resurrect snapshot
 #   (which also resumes Claude sessions via bin/claude-panes), then attach.
-# - Server running: attach the first detached session (prefer "main"),
+# - Server running: attach the most recently used detached session,
 #   otherwise create a new session.
 # Skip restore once: touch ~/tmux_no_auto_restore
 
@@ -21,6 +21,9 @@ if ! t has-session 2>/dev/null; then
   if t new-session -d -s 0 2>/dev/null; then
     if [ -x "$RESTORE" ] && [ ! -f "$HOME/tmux_no_auto_restore" ]; then
       t run-shell "$RESTORE"
+      last_file="$(t show -gqv @resurrect-dir)"; last_file="${last_file:-${XDG_DATA_HOME:-$HOME/.local/share}/tmux/resurrect}/last"
+      st="$(awk -F '\t' '$1=="state"{print $2; exit}' "$last_file" 2>/dev/null)"
+      [ -n "$st" ] && t set -g @tmx_last_session "$st"
     fi
     if t has-session -t '=0' 2>/dev/null; then
       t has-session -t '=main' 2>/dev/null || t rename-session -t '=0' main
@@ -38,7 +41,15 @@ for _ in $(seq 1 40); do
   sleep 0.5
 done
 
-pick="$(t list-sessions -F '#{session_attached} #{session_name}' 2>/dev/null |
-  awk '$1==0 {print $2}' | awk 'NR==1{first=$0} $0=="main"{m=1} END{print (m?"main":first)}')"
+# 붙을 세션: 아무 탭에도 안 붙은 세션 중 마지막으로 보던 것.
+# 방금 복원했다면 저장본의 "마지막으로 보던 세션"을 먼저 쓴다.
+detached="$(t list-sessions -F '#{session_attached} #{session_last_attached} #{session_name}' 2>/dev/null |
+  awk '$1==0' | sort -k2,2nr | cut -d' ' -f3-)"
+pick=""
+want="$(t show -gqv @tmx_last_session 2>/dev/null)"
+if [ -n "$want" ] && printf '%s\n' "$detached" | grep -qxF "$want"; then
+  pick="$want"; t set -gu @tmx_last_session
+fi
+[ -z "$pick" ] && pick="$(printf '%s\n' "$detached" | head -1)"
 [ -n "$pick" ] && exec "$TMUX_BIN" ${TMX_SOCKET:+-L "$TMX_SOCKET"} attach-session -t "=$pick"
 exec "$TMUX_BIN" ${TMX_SOCKET:+-L "$TMX_SOCKET"} new-session

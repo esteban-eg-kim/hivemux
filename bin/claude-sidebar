@@ -4,6 +4,7 @@
 #   claude-sidebar fix                  모든 사이드바 폭을 @sidebar-width 로 되돌린다
 #   claude-sidebar reap                 사이드바만 남은 창을 닫는다
 #   claude-sidebar rebuild              복원 직후: 셸로 복원된 사이드바 칸을 지우고 다시 만든다
+#   claude-sidebar focus                초점이 사이드바에 있는 창은 작업 칸으로 옮긴다
 #   claude-sidebar toggle               모두 숨기기 / 다시 보이기 (@sidebar on|off)
 # 사이드바 칸은 칸 제목 "claude-sidebar" 로 구분한다 (tmux-resurrect 가 제목을 저장/복원).
 R="$(cd "$(dirname "$0")/.." && pwd)"
@@ -60,7 +61,14 @@ case "$1" in
     ghosts+="$(t list-panes -a -F '#{pane_id} #{pane_title} #{pane_current_command}' |
       awk -v T="$TITLE" '$2==T && $3!="Python" && $3!="python3"{printf "%s ", $1}')"
     for p in $ghosts; do t kill-pane -t "$p" 2>/dev/null; done
-    "$0" ensure ;;
+    "$0" ensure
+    "$0" focus ;;
+  focus)
+    # 초점이 사이드바에 있는 창은 가장 넓은 작업 칸으로 옮긴다
+    t list-windows -a -F '#{window_id} #{pane_title}' | awk -v T="$TITLE" '$2==T{print $1}' | while read -r w; do
+      p="$(t list-panes -t "$w" -F '#{pane_width} #{pane_id} #{pane_title}' | awk -v T="$TITLE" '$3!=T' | sort -rn | head -1 | awk '{print $2}')"
+      [ -n "$p" ] && t select-pane -t "$p"
+    done ;;
   toggle)
     if [ "$ON" = on ]; then
       t set -g @sidebar off
