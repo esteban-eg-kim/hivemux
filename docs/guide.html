@@ -381,7 +381,7 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
 
   <h3>작업 이름 붙이기와 바꾸기 (권장)</h3>
   <p>이름은 Claude 입력창 위, <code>/resume</code> 목록, 폰의 Claude 앱 목록, 터미널 제목에 표시됩니다. 세션이 여러 개일 때 이름이 없으면 어느 것이 어떤 작업인지 구분하기 어렵습니다. <code>tp</code>는 폴더 이름을, <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>Shift</kbd>+<kbd>C</kbd>는 입력한 이름을 자동으로 붙입니다. 셸에서 직접 실행할 때는 아래처럼 붙이세요. 이름을 정하지 않으면 Claude가 대화 내용을 보고 제목을 자동으로 붙입니다.</p>
-  <div class="tip"><b>사이드바에서 바꾸기:</b> 카드를 <b>더블클릭</b>하거나 <b>오른쪽 클릭</b>하면 맨 위에 "작업 이름:" 입력 칸이 뜹니다. 지금 이름이 채워져 있으니 고치고 <kbd>Enter</kbd>를 누르세요. 취소는 <kbd>Esc</kbd>입니다. 사이드바 이름은 바로 바뀌고, 그 Claude에 <code>/rename</code>이 자동으로 입력되어 폰 앱과 <code>/resume</code> 목록에도 반영됩니다. Claude가 작업 중이거나 승인을 기다리는 중이면 입력이 대답으로 들어가지 않도록 기다렸다가 응답이 끝나면 보냅니다. 그 Claude의 입력창에 쓰다 만 글이 있으면 그 뒤에 붙으니 비워 두세요.</div>
+  <div class="tip"><b>사이드바에서 바꾸기:</b> 카드를 <b>더블클릭</b>하거나 <b>오른쪽 클릭</b>하면 화면 가운데에 "작업 이름 바꾸기" 팝업이 뜹니다. 프로젝트와 지금 이름이 보이고, 맨 아래 입력 줄에 지금 이름이 채워져 있습니다. 고치고 <kbd>Enter</kbd>를 누르면 저장, <kbd>Esc</kbd>를 누르면 취소입니다. 사이드바 이름은 바로 바뀌고, 그 Claude에 <code>/rename</code>이 자동으로 입력되어 폰 앱과 <code>/resume</code> 목록에도 반영됩니다. Claude가 작업 중이거나 승인을 기다리는 중이면 입력이 대답으로 들어가지 않도록 기다렸다가 응답이 끝나면 보냅니다. 그 Claude의 입력창에 쓰다 만 글이 있으면 그 뒤에 붙으니 비워 두세요.</div>
   <div class="code"><button class="copy" type="button">복사</button><pre><span class="cmt"># 직접 실행할 때</span>
 claude -n login-bug
 <span class="cmt"># 이 폴더의 최근 대화 이어가기</span>
@@ -693,6 +693,7 @@ claude-sidebar fix</pre></div>
     <div><code>bin/claude-sidebar</code><span>모든 창 왼쪽에 사이드바 칸을 만들고 폭을 유지하고 정리합니다</span></div>
     <div><code>bin/claude-sidebar-view</code><span>사이드바 화면. 카드를 그리고 클릭, 더블클릭, 오른쪽 클릭, 숫자 키를 받습니다</span></div>
     <div><code>bin/claude-rename</code><span>사이드바에서 작업 이름을 바꾸고 그 Claude에 /rename을 보냅니다</span></div>
+    <div><code>bin/claude-rename-ui</code><span>이름 바꾸기 팝업 화면</span></div>
     <div><code>bin/claude-agents</code><span>Option+번호 이동, 기다리는 작업으로 이동, 목록 출력</span></div>
     <div><code>bin/tp</code><span>프로젝트 폴더 하나에 tmux 세션 하나를 만들거나 그 세션으로 이동합니다</span></div>
     <div><code>bin/claude-win</code><span>Ctrl+A Shift+C. 이름을 받아 Claude 창을 엽니다</span></div>

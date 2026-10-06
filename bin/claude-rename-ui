@@ -1,0 +1,37 @@
+#!/bin/zsh
+# claude-rename 팝업 화면. tmux display-popup 안에서 실행된다.
+#   claude-rename-ui <pane_num> <지금 이름> <프로젝트> <상태>
+# 저장하면 @claude_name_input-<num> 에 넣고 claude-rename apply 를 부른다.
+num="$1"; cur="$2"; proj="$3"; st="$4"
+R="${0:A:h:h}"
+TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+
+c()  { printf '\e[38;2;%sm' "$1"; }
+b()  { printf '\e[1m'; }
+r()  { printf '\e[0m'; }
+TEXT='230;233;239'; T2='154;163;178'; T3='98;106;120'; ACC='90;169;255'; WAIT='245;165;36'
+
+case "$st" in
+  run|wait) note="$(c $WAIT)Claude가 작업 중이라 응답이 끝나면 이름이 적용됩니다$(r)" ;;
+  *)        note="$(c $T3)Claude에 /rename 으로 전달되어 폰 앱에도 반영됩니다$(r)" ;;
+esac
+
+printf '\e[?25h'
+print
+print "  $(c $T3)프로젝트$(r)   $(c $T2)$proj$(r)"
+print "  $(c $T3)지금 이름$(r)  $(c $TEXT)$cur$(r)"
+print
+print "  $note"
+print "  $(c $T2)$(b)Enter$(r)$(c $T3) 저장    $(c $T2)$(b)Esc$(r)$(c $T3) 취소$(r)"
+print
+# 입력 줄은 맨 아래 (편집기가 커서 아래를 지우기 때문)
+KEYTIMEOUT=1
+bindkey -e
+bindkey '\e' send-break
+name="$cur"
+if vared -p "  $(c $ACC)$(b)›$(r) " name 2>/dev/null; then
+  name="${name## }"; name="${name%% }"
+  [ -n "$name" ] && [ "$name" != "$cur" ] || exit 0
+  "$TMUX_BIN" set -g "@claude_name_input-$num" "$name"
+  "$R/bin/claude-rename" apply "$num"
+fi
