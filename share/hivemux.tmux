@@ -27,8 +27,9 @@ set -g status on
 set -g status-position top
 set -g status-interval 5
 set -g status-style "bg=#16181d,fg=#9aa3b2"
-set -g status-left-length 30
-set -g status-left "#[bg=#16181d]  #[fg=#e6e9ef,bold]#S#[nobold]  #[fg=#2c3039]│ "
+set -g status-left-length 40
+# session (project) name on a blue badge, as in the README preview
+set -g status-left "#[bg=#2f6fb3,fg=#e6e9ef,bold]  #S  #[default]#[bg=#16181d] "
 set -g status-right-length 60
 # continuum autosave is triggered from status-right (see Persistence below)
 set -g status-right "#(#{@hivemux-continuum-save})#{?client_prefix,#[bg=#f5a524 fg=#16181d bold] PREFIX #[default] ,}#[fg=#626a78]%m-%d  %H:%M  "
