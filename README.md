@@ -1,5 +1,7 @@
 # hivemux
 
+**English** · [한국어](README.ko.md)
+
 **Run five Claude Code sessions at once and always know which one needs you.**
 
 hivemux adds a sidebar to every tmux window that lists every Claude Code session
@@ -70,7 +72,7 @@ hivemux setup
 
 | Question | What it changes |
 |---|---|
-| Recommended keys | prefix `Ctrl+A` (Claude Code uses `Ctrl+B`), `|` / `-` splits |
+| Recommended keys | prefix `Ctrl+A` (Claude Code uses `Ctrl+B`), `\|` / `-` splits |
 | Ghostty attaches to tmux | `command = hivemux-attach` in Ghostty config |
 | Remote Control for all sessions | `remoteControlAtStartup` in `~/.claude/settings.json` |
 
@@ -126,7 +128,7 @@ tmux set -g @hivemux-anim off          # stop animations
 touch ~/tmux_no_auto_restore           # skip restore on next launch
 ```
 
-More in the illustrated guide: [`docs/guide.html`](docs/guide.html) (Korean).
+More in the illustrated guide: [`docs/guide.html`](docs/guide.html) (Korean; download and open it in a browser).
 
 ## Uninstall
 
