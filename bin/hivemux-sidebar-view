@@ -429,13 +429,16 @@ def main():
                 # Draw only rows that changed since the last frame; a full redraw only on
                 # the first frame or a resize. Cuts what tmux has to parse by ~10x.
                 # 직전 프레임과 달라진 줄만 그린다. 첫 프레임과 크기 변경 때만 전체를 그린다.
+                # NOTE: keep this separate from the input buffer `buf` (mixing them made the
+                # sidebar parse its own output as keys and jump around)
+                # 주의: 입력 버퍼 `buf` 와 다른 변수를 쓴다 (섞이면 자기 출력을 키로 읽어 마구 이동한다)
                 if prev is None or prev_size != (w, h) or resized[0]:
-                    buf = "\x1b[H" + "\r\n".join(lines)
+                    frame = "\x1b[H" + "\r\n".join(lines)
                     resized[0] = False
                 else:
-                    buf = "".join(f"\x1b[{i + 1};1H{ln}" for i, ln in enumerate(lines) if i >= len(prev) or prev[i] != ln)
-                if buf:
-                    out.write(buf + "\x1b[0m")
+                    frame = "".join(f"\x1b[{i + 1};1H{ln}" for i, ln in enumerate(lines) if i >= len(prev) or prev[i] != ln)
+                if frame:
+                    out.write(frame + "\x1b[0m")
                     out.flush()
                 prev, prev_size = lines, (w, h)
             try:
@@ -445,7 +448,11 @@ def main():
             if not r:
                 continue
             last_poll = 0  # re-read right after a click or key / 클릭/키 입력 뒤에는 바로 새로 읽는다
-            buf += os.read(fd, 1024).decode(errors="ignore")
+            chunk = os.read(fd, 1024).decode(errors="ignore")
+            if os.environ.get("HIVEMUX_DEBUG_INPUT"):   # debug: log raw input / 디버그: 받은 입력 기록
+                with open(os.environ["HIVEMUX_DEBUG_INPUT"], "a") as dbg:
+                    dbg.write(f"{time.time():.3f} {ME} {chunk!r}\n")
+            buf += chunk
             for m in re.finditer(r"\x1b\[<(\d+);(\d+);(\d+)([Mm])", buf):
                 b, x, y, kind = int(m.group(1)), int(m.group(2)), int(m.group(3)), m.group(4)
                 w_now = os.get_terminal_size()[0]
@@ -473,13 +480,21 @@ def main():
             # (안 그러면 초점이 사이드바에 남은 채 저장/복원되고 창 이름도 Python이 된다)
             if re.search(r"\x1b\[<\d+;\d+;\d+M", buf) and current:
                 tmux("select-pane", "-t", current)
-            buf = re.sub(r"\x1b\[<\d+;\d+;\d+[Mm]", "", buf)
-            for ch in buf:
-                if ch.isdigit() and ch != "0":
-                    tmux("run-shell", "-b", os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-agents") + f" jump {ch}")
-                elif ch in ("q", "\x1b"):
-                    tmux("select-pane", "-t", "{last}")
+            rest = re.sub(r"\x1b\[<\d+;\d+;\d+[Mm]", "", buf)
             buf = ""
+            # Keys are honoured only when a single key arrives on its own. Anything else
+            # (escape sequences, pasted or injected text) is ignored, so stray input can
+            # never fire a burst of jumps.
+            # 키는 한 글자가 단독으로 들어왔을 때만 처리한다. 제어 신호, 붙여넣기, 다른 곳에서
+            # 들어온 글자는 무시해서 엉뚱한 입력이 연속 이동을 일으키지 못하게 한다.
+            if rest and len(rest) == 1:
+                if "1" <= rest <= "9":
+                    tmux("run-shell", "-b", os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-agents") + f" jump {rest}")
+                elif rest in ("q", "\x1b"):
+                    tmux("select-pane", "-t", "{last}")
+            elif rest and os.environ.get("HIVEMUX_DEBUG_INPUT"):
+                with open(os.environ["HIVEMUX_DEBUG_INPUT"], "a") as dbg:
+                    dbg.write(f"{time.time():.3f} {ME} IGNORED {rest!r}\n")
     finally:
         out.write("\x1b[?1000l\x1b[?1006l\x1b[?7h\x1b[?25h\x1b[?1049l\x1b[0m")
         out.flush()
