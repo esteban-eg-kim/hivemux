@@ -637,7 +637,9 @@ rm ~/.local/share/hivemux/sidebar-width</pre></div>
     </div></details>
     <details class="issue" data-c="term"><summary>깜빡이는 효과를 끄고 싶다<span class="pill part tag">터미널</span></summary><div class="body">
       <p>아래 명령을 실행하면 1초 안에 멈춥니다. 영구히 끄려면 <code>~/.tmux.conf</code>에서 hivemux 블록 아래에 <code>@hivemux-anim</code>을 <code>off</code>로 바꾸세요. 다시 켜려면 <code>on</code>으로 설정합니다.</p>
-      <div class="code"><button class="copy" type="button">복사</button><pre>tmux set -g @hivemux-anim off</pre></div>
+      <div class="code"><button class="copy" type="button">복사</button><pre>tmux set -g @hivemux-anim off
+<span class="cmt"># 끄지 않고 CPU만 줄이려면 초당 프레임을 낮추세요 (기본 30)</span>
+tmux set -g @hivemux-fps 15</pre></div>
     </div></details>
     <details class="issue" data-c="term"><summary>Option+숫자를 눌러도 이동하지 않는다<span class="pill part tag">터미널</span></summary><div class="body">
       <p>Ghostty가 Option 키를 Alt로 보내야 합니다. 설정에 들어 있지만 Ghostty를 설정 변경 전부터 켜 두었다면 완전히 종료하고 다시 여세요. 그래도 안 되면 <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>Space</kbd>를 쓰거나 사이드바 타일을 클릭하세요.</p>

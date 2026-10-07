@@ -49,6 +49,8 @@ set -g automatic-rename-format "#{?#{==:#{pane_title},hivemux-sidebar},#{window_
 run-shell 'w=$(cat "#{@hivemux-data}/sidebar-width" 2>/dev/null); tmux set -g @hivemux-sidebar-width "${w:-32}"'
 # running/waiting animations; set to off to disable
 set -gq @hivemux-anim on
+# animation frames per second (5-60); lower it to save CPU, e.g. 15
+set -gq @hivemux-fps 30
 set-hook -g after-new-window       'run-shell -b "#{@hivemux-bin}/hivemux-sidebar ensure #{window_id}"'
 set-hook -g after-new-session      'run-shell -b "#{@hivemux-bin}/hivemux-sidebar ensure #{window_id}"'
 set-hook -g client-session-changed 'run-shell -b "#{@hivemux-bin}/hivemux-sidebar ensure #{window_id}"'

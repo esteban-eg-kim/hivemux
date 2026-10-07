@@ -628,7 +628,9 @@ rm ~/.local/share/hivemux/sidebar-width</pre></div>
     </div></details>
     <details class="issue" data-c="term"><summary>Turn off the animations<span class="pill part tag">Terminal</span></summary><div class="body">
       <p>The command below stops them within a second. To keep them off, add it below the hivemux block in <code>~/.tmux.conf</code>. Set it to <code>on</code> to turn them back on.</p>
-      <div class="code"><button class="copy" type="button">Copy</button><pre>tmux set -g @hivemux-anim off</pre></div>
+      <div class="code"><button class="copy" type="button">Copy</button><pre>tmux set -g @hivemux-anim off
+<span class="cmt"># or keep them and use less CPU with fewer frames (default 30)</span>
+tmux set -g @hivemux-fps 15</pre></div>
     </div></details>
     <details class="issue" data-c="term"><summary>Option+number does nothing<span class="pill part tag">Terminal</span></summary><div class="body">
       <p>Ghostty has to send Option as Alt. <code>hivemux setup</code> sets this, but a Ghostty that was open before needs a full quit and restart. Otherwise use <kbd>Ctrl</kbd>+<kbd>A</kbd> then <kbd>Space</kbd>, or click a card.</p>

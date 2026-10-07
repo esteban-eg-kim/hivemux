@@ -113,6 +113,7 @@ On restore, `hivemux-panes` maps saved panes to Claude session ids and types
 hivemux doctor                         # check dependencies and wiring
 hivemux-panes list                     # panes hivemux will resume after reboot
 tmux set -g @hivemux-anim off          # stop animations
+tmux set -g @hivemux-fps 15            # fewer animation frames, less CPU (default 30)
 touch ~/tmux_no_auto_restore           # skip restore on next launch
 ```
 

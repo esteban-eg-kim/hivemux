@@ -96,6 +96,7 @@ tmux-resurrect와 tmux-continuum도 받아 옵니다. 이미 `~/.tmux/plugins`�
 hivemux doctor                     # 의존성과 연결 점검
 hivemux-panes list                 # 재부팅 후 재개할 칸 목록
 tmux set -g @hivemux-anim off      # 애니메이션 끄기
+tmux set -g @hivemux-fps 15        # 애니메이션 프레임 줄이기, CPU 절약 (기본 30)
 touch ~/tmux_no_auto_restore       # 다음 시작 때 복원 건너뛰기
 ```
 
