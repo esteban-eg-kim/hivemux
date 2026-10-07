@@ -13,7 +13,7 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
 <p align="center">
   <img src="docs/preview-en.png" alt="hivemux sidebar preview" width="880">
   <br>
-  <sub>Illustration of the hivemux layout, not a real terminal capture. The sidebar in tmux is drawn with text characters.</sub>
+  <sub>A real hivemux screen with made-up sessions, rendered from a tmux capture (<code>docs/preview/make.sh</code>). Session names and Claude output are examples.</sub>
 </p>
 
 ## Features

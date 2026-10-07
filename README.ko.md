@@ -9,7 +9,7 @@ hivemux는 모든 tmux 창 왼쪽에 사이드바를 붙입니다. 사이드바�
 <p align="center">
   <img src="docs/preview-ko.png" alt="hivemux 사이드바 미리보기" width="880">
   <br>
-  <sub>hivemux 화면 구성을 보여 주는 그림이며, 실제 터미널 실행 화면이 아닙니다. tmux에서는 사이드바를 글자로 그립니다.</sub>
+  <sub>가짜 세션으로 띄운 실제 hivemux 화면을 tmux에서 캡처해 만든 이미지입니다 (<code>docs/preview/make.sh</code>). 세션 이름과 Claude 출력은 예시입니다.</sub>
 </p>
 
 ## 기능
