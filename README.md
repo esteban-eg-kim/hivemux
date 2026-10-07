@@ -10,21 +10,11 @@ your approval, or done, and for how long. Press `Option+3` to jump to the third
 one, or `Option+0` to jump to whichever has waited longest. Close the terminal or
 reboot the Mac and everything comes back, with each Claude resumed in its pane.
 
-<!-- TODO: add a real screenshot / GIF: docs/screenshot.png -->
-
-```
-  Claude  sessions          5
-  ◐ 1 running   ● 2 need input
-  ────────────────────────────
-  ● api                     1
-  ▎ Refactor auth module   ⌥1
-  ▎ ⠹ running             4m
-  ● web                     2
-  ▎ Checkout page          ⌥3
-  ▎ ● needs input          2m
-  ▌ Login redirect bug     ⌥4
-  ▌ ● needs input         40s
-```
+<p align="center">
+  <img src="docs/preview-en.png" alt="hivemux sidebar preview" width="880">
+  <br>
+  <sub>Illustration of the hivemux layout, not a real terminal capture. The sidebar in tmux is drawn with text characters.</sub>
+</p>
 
 ## Features
 
