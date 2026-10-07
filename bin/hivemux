@@ -120,7 +120,7 @@ confirm-close-surface = false"
 
   # PATH for git installs (Homebrew already links bin/)
   # (decided by install location, not the current PATH, which may be stale)
-  case "$HM_BIN" in /opt/homebrew/*|/usr/local/*) ;; *)
+  case "$HM_BIN" in /opt/homebrew/*|/usr/local/*|*/opt/hivemux/libexec/bin) ;; *)
     put_block "$HOME/.zshrc" "export PATH=\"$HM_BIN:\$PATH\""; ok "added $HM_BIN to PATH in ~/.zshrc" ;; esac
 
   if tmux has-session 2>/dev/null; then tmux source-file "$TMUX_CONF" && ok "reloaded running tmux"; fi

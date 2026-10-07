@@ -32,7 +32,7 @@ curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install
 
 hivemux를 `~/.local/share/hivemux/src`에 받고 `hivemux setup`을 실행합니다. 같은 명령을 다시 실행하면 업데이트됩니다.
 
-Homebrew (준비 중):
+Homebrew:
 
 ```sh
 brew install esteban-eg-kim/tap/hivemux

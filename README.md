@@ -59,7 +59,7 @@ curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install
 This clones hivemux into `~/.local/share/hivemux/src` and runs `hivemux setup`.
 Run the same command again to update.
 
-Homebrew (coming soon):
+Homebrew:
 
 ```sh
 brew install esteban-eg-kim/tap/hivemux
