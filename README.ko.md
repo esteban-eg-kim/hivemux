@@ -8,8 +8,6 @@ hivemux는 모든 tmux 창 왼쪽에 사이드바를 붙입니다. 사이드바�
 
 <p align="center">
   <img src="docs/preview-ko.png" alt="hivemux 사이드바 미리보기" width="880">
-  <br>
-  <sub>가짜 세션으로 띄운 실제 hivemux 화면을 tmux에서 캡처해 만든 이미지입니다 (<code>docs/preview/make.sh</code>). 세션 이름과 Claude 출력은 예시입니다.</sub>
 </p>
 
 ## 기능
@@ -101,7 +99,7 @@ tmux set -g @hivemux-anim off      # 애니메이션 끄기
 touch ~/tmux_no_auto_restore       # 다음 시작 때 복원 건너뛰기
 ```
 
-자세한 내용은 그림 가이드 [`docs/guide.html`](docs/guide.html)에 있습니다. 내려받아 브라우저로 여세요.
+자세한 내용은 그림 가이드 [`docs/guide.html`](docs/guide.html)([English](docs/guide.en.html))에 있습니다. 내려받아 브라우저로 여세요.
 
 ## 제거
 

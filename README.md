@@ -12,8 +12,6 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
 
 <p align="center">
   <img src="docs/preview-en.png" alt="hivemux sidebar preview" width="880">
-  <br>
-  <sub>A real hivemux screen with made-up sessions, rendered from a tmux capture (<code>docs/preview/make.sh</code>). Session names and Claude output are examples.</sub>
 </p>
 
 ## Features
@@ -118,7 +116,7 @@ tmux set -g @hivemux-anim off          # stop animations
 touch ~/tmux_no_auto_restore           # skip restore on next launch
 ```
 
-More in the illustrated guide: [`docs/guide.html`](docs/guide.html) (Korean; download and open it in a browser).
+More in the illustrated guide: [`docs/guide.en.html`](docs/guide.en.html) ([한국어](docs/guide.html)); download it and open it in a browser.
 
 ## Uninstall
 

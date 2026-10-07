@@ -287,6 +287,8 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
     <a class="win" href="#fix">6:문제 해결</a>
     <a class="win" href="#how">7:동작 원리</a>
     <a class="win" href="#files">8:파일</a>
+    <span class="grow"></span>
+    <a class="win" href="guide.en.html" lang="en">English</a>
   </div>
 </nav>
 
@@ -344,7 +346,7 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
       <h3>모든 작업 상태 보기와 바로 이동</h3>
       <p>화면 왼쪽의 <b>사이드바</b>가 작업 상태판입니다. 어느 프로젝트를 보고 있든 모든 프로젝트의 Claude가 프로젝트별로 묶여 작업 이름과 함께 카드로 항상 표시됩니다. 카드 왼쪽 선의 색이 상태이고, 입력이 필요한 작업은 카드 전체가 호박색입니다. 지금 보고 있는 작업은 <b>밝은 카드와 ▶</b>로 표시됩니다.</p>
       <div class="screen" role="img" aria-label="tmux 화면 예시: 맨 위 창 목록, 왼쪽 사이드바, 오른쪽 작업 칸">
-        <div class="tbar"><span class="sess">web</span><span class="win">1:claude <span class="st-wait">⏳</span></span><span class="win">2:shell</span><span class="win cur">3:login-bug <span class="st-wait">⏳</span></span><span class="grow"></span><span class="clock">10-06 11:20</span></div>
+        <div class="tbar"><span class="sess">web</span><span class="win">1:claude <span class="st-wait">●</span></span><span class="win">2:shell</span><span class="win cur">3:login-bug <span class="st-wait">●</span></span><span class="grow"></span><span class="clock">10-06 11:20</span></div>
         <div class="side2">
           <div class="hd">Claude <em>세션</em><span class="n">5</span></div>
           <div class="sum"><span class="r">◐ 1 작업 중</span><span class="w">● 2 입력 필요</span></div>
@@ -413,7 +415,7 @@ claude -c
   <p>모든 창의 왼쪽에 사이드바가 있고, 화면 맨 위 한 줄은 지금 프로젝트의 창 목록입니다. 사이드바는 어느 창으로 옮겨도 같은 내용을 보여 줍니다.</p>
   <div>
   <div class="screen" role="img" aria-label="tmux 화면 예시: 맨 위 창 목록, 왼쪽 사이드바, 오른쪽 작업 칸">
-        <div class="tbar"><span class="sess">web</span><span class="win">1:claude <span class="st-wait">⏳</span></span><span class="win">2:shell</span><span class="win cur">3:login-bug <span class="st-wait">⏳</span></span><span class="grow"></span><span class="clock">10-06 11:20</span></div>
+        <div class="tbar"><span class="sess">web</span><span class="win">1:claude <span class="st-wait">●</span></span><span class="win">2:shell</span><span class="win cur">3:login-bug <span class="st-wait">●</span></span><span class="grow"></span><span class="clock">10-06 11:20</span></div>
         <div class="side2">
           <div class="hd">Claude <em>세션</em><span class="n">5</span></div>
           <div class="sum"><span class="r">◐ 1 작업 중</span><span class="w">● 2 입력 필요</span></div>
@@ -432,17 +434,17 @@ claude -c
       </div>
   <div class="tbar">
     <span class="sess">web</span>
-    <span class="win">1:claude <span class="st-run">⚙</span></span>
+    <span class="win">1:claude <span class="st-run">◐</span></span>
     <span class="win">2:shell</span>
-    <span class="win cur">3:login-bug <span class="st-wait">⏳</span></span>
+    <span class="win cur">3:login-bug <span class="st-wait">●</span></span>
     <span class="grow"></span>
     <span class="clock">10-06 11:20</span>
   </div>
   
   </div>
   <div class="anno">
-    <div><b>CLAUDE 5 세션</b><span>사이드바 맨 위. tmux 안에서 실행 중인 Claude 세션 수</span></div>
-    <div><b>▍api  1</b><span>보라색 선이 붙은 줄이 프로젝트(세션) 이름과 그 안의 Claude 수. 지금 보는 프로젝트는 분홍 선과 밝은 배경</span></div>
+    <div><b>Claude 세션 5</b><span>사이드바 맨 위. tmux 안에서 실행 중인 Claude 세션 수</span></div>
+    <div><b>● api  1</b><span>색 점이 붙은 줄이 프로젝트(세션) 이름과 그 안의 Claude 수. 지금 보는 프로젝트는 더 밝게 표시</span></div>
     <div><b>작업 이름</b><span>Claude가 정한 대화 제목이나 -n 이름. 대화가 진행되면 Claude가 제목을 바꿉니다</span></div>
     <div><b>타일 앞 번호</b><span>Option+번호로 이동할 때 쓰는 번호</span></div>
     <div><b>▶ 밝은 카드</b><span>지금 보고 있는 작업</span></div>
