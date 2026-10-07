@@ -13,7 +13,6 @@ class Hivemux < Formula
   depends_on "jq"
   depends_on :macos
   depends_on "tmux"
-  uses_from_macos "python", since: :catalina
 
   def install
     libexec.install "bin", "share", "docs", "examples"
