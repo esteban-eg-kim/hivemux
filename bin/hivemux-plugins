@@ -1,8 +1,13 @@
 #!/bin/bash
+# Find and load tmux-resurrect / tmux-continuum.
 # tmux-resurrect / tmux-continuum 을 찾아 불러온다.
-#   hivemux-plugins install   없으면 $XDG_DATA_HOME/hivemux/plugins 에 내려받는다
-#   hivemux-plugins load      (share/hivemux.tmux 에서 호출) 불러오고 자동 저장을 연결한다
-#   hivemux-plugins dir       쓰고 있는 플러그인 폴더 출력
+#   hivemux-plugins install   download into $XDG_DATA_HOME/hivemux/plugins if missing
+#                             없으면 $XDG_DATA_HOME/hivemux/plugins 에 내려받는다
+#   hivemux-plugins load      (called from share/hivemux.tmux) load them and wire autosave
+#                             (share/hivemux.tmux 에서 호출) 불러오고 자동 저장을 연결한다
+#   hivemux-plugins dir       print the plugin directory in use
+#                             쓰고 있는 플러그인 폴더 출력
+# Uses ~/.tmux/plugins when present (TPM users) and never loads a plugin twice.
 # 이미 ~/.tmux/plugins 에 있으면(TPM 사용자) 그것을 쓰고, 이미 불러와져 있으면 다시 부르지 않는다.
 TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
 t() { "$TMUX_BIN" "$@"; }
@@ -29,6 +34,7 @@ case "$1" in
     [ -n "$(t show -gqv @resurrect-save-script-path)" ] || "$d/tmux-resurrect/resurrect.tmux"
     [ -n "$(t show -gqv @hivemux-continuum-loaded)" ] || { "$d/tmux-continuum/continuum.tmux"; t set -g @hivemux-continuum-loaded 1; }
     t set -g @hivemux-continuum-save "$d/tmux-continuum/scripts/continuum_save.sh"
+    # First autosave after one interval, so a fresh server never overwrites the snapshot before restoring it
     # 처음 자동 저장은 한 주기 뒤에: 갓 띄운 서버가 복원 전에 저장본을 덮어쓰지 않게
     t show -gqv @continuum-save-last-timestamp | grep -q . || t set -g @continuum-save-last-timestamp "$(date +%s)" ;;
   dir) plugin_dir ;;

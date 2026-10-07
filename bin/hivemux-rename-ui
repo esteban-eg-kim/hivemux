@@ -1,10 +1,14 @@
 #!/bin/zsh
+# Popup for hivemux-rename; runs inside tmux display-popup.
 # hivemux-rename 팝업 화면. tmux display-popup 안에서 실행된다.
+#   hivemux-rename-ui <pane_num> <current name> <project> <state>
 #   hivemux-rename-ui <pane_num> <지금 이름> <프로젝트> <상태>
+# On save it stores @hivemux-name-input-<num> and calls hivemux-rename apply.
 # 저장하면 @hivemux-name-input-<num> 에 넣고 hivemux-rename apply 를 부른다.
 num="$1"; cur="$2"; proj="$3"; st="$4"
 HM_BIN="${0:A:h}"
 TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+# UI language: HIVEMUX_LANG > tmux @hivemux-lang > LANG
 # 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang > LANG
 say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then print -rn -- "$1"; else print -rn -- "$2"; fi; }
 
@@ -26,6 +30,7 @@ print
 print "  $note"
 print "  $(c $T2)$(b)Enter$(r)$(c $T3) $(say 저장 save)    $(c $T2)$(b)Esc$(r)$(c $T3) $(say 취소 cancel)$(r)"
 print
+# input line goes last (the line editor clears everything below the cursor)
 # 입력 줄은 맨 아래 (편집기가 커서 아래를 지우기 때문)
 KEYTIMEOUT=1
 bindkey -e

@@ -701,9 +701,8 @@ ls -la ~/.local/share/hivemux/backups/</pre></div>
 <section id="files">
   <span class="label">8 · 파일</span>
   <h2>설치, 제거, 파일 위치</h2>
-  <div class="code"><button class="copy" type="button">복사</button><pre><span class="cmt"># 설치 (Homebrew)</span>
-brew install OWNER/tap/hivemux
-hivemux setup
+  <div class="code"><button class="copy" type="button">복사</button><pre><span class="cmt"># 설치</span>
+curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install.sh | bash
 <span class="cmt"># 점검 / 제거</span>
 hivemux doctor
 hivemux uninstall</pre></div>

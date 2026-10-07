@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
-"""tmux 왼쪽 사이드바: 모든 세션의 Claude 상태판.
+"""Left tmux sidebar: Claude status board for every session.
+tmux 왼쪽 사이드바: 모든 세션의 Claude 상태판.
 
+Run by bin/hivemux-sidebar in the left pane of each window.
 bin/hivemux-sidebar 가 각 창 왼쪽 칸에서 실행한다.
-- 프로젝트(세션)별로 묶어 작업마다 두 줄 타일로 표시
-- 지금 보고 있는 작업은 흰 타일 + ▶
-- 클릭하거나 숫자 1-9 를 누르면 그 작업으로 이동, q 또는 Esc 는 원래 칸으로
+- one card per task, grouped by project (tmux session)
+  프로젝트(세션)별로 묶어 작업마다 카드로 표시
+- the task you are looking at is highlighted with ▶
+  지금 보고 있는 작업은 밝은 카드 + ▶
+- click or press 1-9 to jump; double/right click to rename; q or Esc returns focus
+  클릭하거나 1-9 를 누르면 이동, 더블/오른쪽 클릭은 이름 바꾸기, q 나 Esc 는 원래 칸으로
 """
 import math, os, re, socket, select, shutil, signal, subprocess, sys, termios, time, tty, unicodedata
 
+# Ignore the redraw signal (SIGUSR1) first, so it cannot kill us before the handler is installed
 # 바로 다시 그리기 신호(SIGUSR1)를 처리기 등록 전에 받아도 종료되지 않게 먼저 무시한다
 signal.signal(signal.SIGUSR1, signal.SIG_IGN)
 
@@ -15,7 +21,7 @@ TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
 
 
 def _is_ko():
-    """화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG"""
+    """UI language: HIVEMUX_LANG > tmux @hivemux-lang (set by hivemux setup) > LANG / 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG"""
     v = os.environ.get("HIVEMUX_LANG") or subprocess.run([TMUX, "show", "-gqv", "@hivemux-lang"],
                                                           capture_output=True, text=True).stdout.strip()
     return (v or os.environ.get("LANG", "")).startswith("ko")
@@ -28,11 +34,11 @@ def tr(ko, en):
     return ko if KO else en
 ME = os.environ.get("TMUX_PANE", "")
 PAUSE = f"/tmp/hivemux-pause-{os.getuid()}"
-GRIP = f"/tmp/hivemux-grip-{os.getuid()}"     # 핸들을 끄는 중 (bin/hivemux-border 가 만든다)
+GRIP = f"/tmp/hivemux-grip-{os.getuid()}"     # grip is being dragged (created by bin/hivemux-border) / 핸들을 끄는 중 (bin/hivemux-border 가 만든다)
 
 
 class Wake(Exception):
-    """SIGUSR1: 바로 다시 그리기 (핸들 누름/놓음)"""
+    """SIGUSR1: redraw now (grip pressed/released) / SIGUSR1: 바로 다시 그리기 (핸들 누름/놓음)"""
 US = "\x1f"
 FIELDS = ["pane_id", "session_name", "window_index", "window_name", "@claude_state",
           "@claude_state_at", "@claude_session", "window_id", "pane_active", "pane_last",
@@ -69,18 +75,18 @@ def age(at, now):
 
 
 
-# ── 디자인 토큰 (24비트 색) ──────────────────────────────────────────
+# ── Design tokens (24-bit color) / 디자인 토큰 (24비트 색) ──────────────
 C = {
-    "bg":      (22, 24, 29),     # 사이드바 바탕
-    "card":    (30, 33, 40),     # 카드
-    "card_hi": (42, 47, 58),     # 선택된 카드
-    "rule":    (44, 48, 57),     # 구분선
-    "text":    (230, 233, 239),  # 본문
-    "text2":   (154, 163, 178),  # 보조
-    "text3":   (98, 106, 120),   # 흐림
+    "bg":      (22, 24, 29),     # sidebar background / 사이드바 바탕
+    "card":    (30, 33, 40),     # card / 카드
+    "card_hi": (42, 47, 58),     # selected card / 선택된 카드
+    "rule":    (44, 48, 57),     # divider / 구분선
+    "text":    (230, 233, 239),  # text / 본문
+    "text2":   (154, 163, 178),  # secondary text / 보조
+    "text3":   (98, 106, 120),   # dim text / 흐림
     "run":     (90, 169, 255),
     "run_hi":  (170, 215, 255),
-    "glow":    (52, 104, 168),   # 작업 중 빛 띠
+    "glow":    (52, 104, 168),   # glow band for running cards / 작업 중 빛 띠
     "wait":    (245, 165, 36),
     "wait_bg": (52, 40, 18),
     "wait_hi": (78, 58, 20),
@@ -89,6 +95,7 @@ C = {
 }
 STATE_TEXT = {"wait": tr("입력 필요", "needs input"), "run": tr("작업 중", "running"), "done": tr("완료", "done"), "idle": tr("대기", "idle")}
 STATE_ICON = {"wait": "●", "run": "◐", "done": "✓", "idle": "○"}
+# Project dot colors (fixed by a hash of the name)
 # 프로젝트 점 색 (이름 해시로 고정)
 PROJECT_HUES = [(167, 139, 250), (244, 114, 182), (45, 212, 191), (251, 146, 60),
                 (96, 165, 250), (163, 230, 53), (250, 204, 21), (232, 121, 249)]
@@ -134,7 +141,7 @@ LEAD_RE = re.compile(r"^[^\w가-힣]+")
 
 
 def task_name(p):
-    """작업 이름: 사이드바에서 바꾼 이름 > Claude가 보낸 터미널 제목 > -n 이름 > 창 이름."""
+    """Task name: name set in the sidebar > terminal title sent by Claude > -n name > window name. / 작업 이름: 사이드바에서 바꾼 이름 > Claude가 보낸 터미널 제목 > -n 이름 > 창 이름."""
     if p.get("@claude_name"):
         return p["@claude_name"]
     t = LEAD_RE.sub("", p.get("pane_title", "")).strip()
@@ -149,7 +156,7 @@ def task_name(p):
 
 
 class Line:
-    """한 줄을 (글자, 바탕, 글자색, 굵게) 칸 단위로 쌓아 폭 w에 맞춰 출력한다."""
+    """Build one line cell by cell (char, bg, fg, bold) and render it to width w. / 한 줄을 (글자, 바탕, 글자색, 굵게) 칸 단위로 쌓아 폭 w에 맞춰 출력한다."""
 
     def __init__(self, w, bg):
         self.w, self.bg, self.cells = w, bg, []
@@ -178,7 +185,7 @@ class Line:
         return self.put(text, fg, bg, bold)
 
     def glow(self, start, end, pos, base, color, radius=3.2):
-        """start~end 열 바탕에 pos 중심의 부드러운 빛을 섞는다."""
+        """Blend a soft glow centered at pos into the background of columns start..end. / start~end 열 바탕에 pos 중심의 부드러운 빛을 섞는다."""
         out, col = [], 0
         for ch, bg, fg, b in self.cells:
             if start <= col < end and bg == base:
@@ -209,6 +216,7 @@ def render(items, current, w, h, cur_sess=""):
     n_wait = sum(1 for p in items if p["@claude_state"] == "wait")
     n_run = sum(1 for p in items if p["@claude_state"] == "run")
 
+    # Header: title + count
     # 머리: 제목 + 개수
     hd = L().put("  Claude", C["text"], bold=True).put(tr("  세션", "  sessions"), C["text3"])
     hd.right(f" {len(items)} ", C["text"], C["card_hi"], True, margin=2)
@@ -255,7 +263,7 @@ def render(items, current, w, h, cur_sess=""):
                 key = f"⌥{i}" if i <= 9 else ""
                 name = task_name(p)
                 bar_ch = "▌" if sel else "▎"
-                x0, x1 = 2, w - 1          # 카드 가로 범위 (좌 여백 2, 우 여백 1)
+                x0, x1 = 2, w - 1          # card columns (left margin 2, right margin 1) / 카드 가로 범위 (좌 여백 2, 우 여백 1)
 
                 def card_line():
                     return L().put("  ").put(bar_ch, bar, card)
@@ -308,7 +316,9 @@ def render(items, current, w, h, cur_sess=""):
         k.put(" ⌥0 ", C["text"], C["card_hi"], True).put(tr("  기다리는 작업", "  next waiting"), C["text3"])
     lines.append(k)
     lines.append(L().put("  ").put(" ⌥1-9 ", C["text"], C["card_hi"], True).put(tr("  이동 · 우클릭 이름", "  jump · r-click rename"), C["text3"]))
+    # Rightmost column: resize grip, a 7-row pill at the vertical middle
     # 오른쪽 끝 칸: 폭 조절 핸들. 세로 가운데 7줄짜리 알약 모양 막대
+    #   ▄ rounded top / lighter bar with grip dots / ▀ rounded bottom; blue while dragging
     #   ▄  둥근 위끝 / 밝은 막대 + 가운데 점무늬 / ▀ 둥근 아래끝. 끄는 중엔 파랗게
     mid = h // 2
     drag = os.path.exists(GRIP)
@@ -371,7 +381,7 @@ def main():
                     break
                 ANIM = tmux("show", "-gqv", "@hivemux-anim").strip() != "off"
             items, current, visible, cur_sess = snap
-            if os.path.exists(PAUSE):          # 이름 바꾸기 팝업이 열려 있음: 그리지 않는다
+            if os.path.exists(PAUSE):          # rename popup is open: do not draw / 이름 바꾸기 팝업이 열려 있음: 그리지 않는다
                 r, _, _ = select.select([fd], [], [], 0.2)
                 if r:
                     os.read(fd, 1024)
@@ -379,6 +389,7 @@ def main():
             animating = visible and ANIM and any(p["@claude_state"] in ("run", "wait") for p in items)
             FRAME += 1
             if visible:
+                # Spinner for running windows in the top status line (driven by the visible sidebar)
                 # 맨 위 창 목록의 작업 중 스피너 (보이는 사이드바 하나가 맡는다)
                 spin = SPIN[(FRAME // 2) % len(SPIN)] if animating and any(p["@claude_state"] == "run" for p in items) else ""
                 if spin != last_spin and (FRAME % 2 == 0 or not spin):
@@ -388,7 +399,7 @@ def main():
                         tmux("set", "-gu", "@claude_spin")
                     tmux("refresh-client", "-S")
                     last_spin = spin
-                for p in items:  # 보고 있는 완료 작업은 "봤음"
+                for p in items:  # a finished task you are looking at becomes "seen" / 보고 있는 완료 작업은 "봤음"
                     if p["pane_id"] == current and p["@claude_state"] == "done":
                         tmux("set", "-p", "-t", current, "@claude_state", "idle")
                         tmux("set", "-w", "-t", current, "@claude_state", "idle")
@@ -403,19 +414,20 @@ def main():
                 continue
             if not r:
                 continue
-            last_poll = 0  # 클릭/키 입력 뒤에는 바로 새로 읽는다
+            last_poll = 0  # re-read right after a click or key / 클릭/키 입력 뒤에는 바로 새로 읽는다
             buf += os.read(fd, 1024).decode(errors="ignore")
             for m in re.finditer(r"\x1b\[<(\d+);(\d+);(\d+)([Mm])", buf):
                 b, x, y, kind = int(m.group(1)), int(m.group(2)), int(m.group(3)), m.group(4)
                 w_now = os.get_terminal_size()[0]
-                if x >= w_now:          # 오른쪽 끝 핸들: 끌기는 tmux 가 처리한다 (tmux.conf)
+                if x >= w_now:          # grip column: tmux handles the drag (see hivemux.tmux) / 오른쪽 끝 핸들: 끌기는 tmux 가 처리한다 (tmux.conf)
                     continue
                 if kind != "M" or b not in (0, 2) or (y - 1) not in targets:
                     continue
                 pid = targets[y - 1]
-                if b == 2:                      # 오른쪽 클릭: 이름 바꾸기
+                if b == 2:                      # right click: rename / 오른쪽 클릭: 이름 바꾸기
                     rename(pid)
                 elif b == 0:
+                    # Double click: the first click may switch sessions, so remember it in a tmux global option
                     # 더블클릭: 첫 클릭이 다른 세션으로 이동시키므로 기록은 tmux 전역 옵션에 둔다
                     last = tmux("show", "-gqv", "@hivemux-lastclick").split()
                     t = time.time()
@@ -425,7 +437,9 @@ def main():
                         rename(pid)
                     else:
                         goto(pid)
+            # A click moves tmux focus to the sidebar; give it back to this window's work pane
             # 클릭하면 tmux가 초점을 사이드바로 옮긴다. 이 창의 작업 칸으로 돌려놓는다
+            # (otherwise the sidebar is saved/restored as active and the window gets named Python)
             # (안 그러면 초점이 사이드바에 남은 채 저장/복원되고 창 이름도 Python이 된다)
             if re.search(r"\x1b\[<\d+;\d+;\d+M", buf) and current:
                 tmux("select-pane", "-t", current)

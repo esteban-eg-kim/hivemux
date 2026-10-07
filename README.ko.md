@@ -27,14 +27,16 @@ hivemux는 모든 tmux 창 왼쪽에 사이드바를 붙입니다. 사이드바�
 ## 설치
 
 ```sh
-brew install OWNER/tap/hivemux
-hivemux setup
+curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install.sh | bash
 ```
 
-git으로 설치하려면 아래 명령을 실행하세요.
+hivemux를 `~/.local/share/hivemux/src`에 받고 `hivemux setup`을 실행합니다. 같은 명령을 다시 실행하면 업데이트됩니다.
+
+Homebrew (준비 중):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/OWNER/hivemux/main/install.sh | bash
+brew install esteban-eg-kim/tap/hivemux
+hivemux setup
 ```
 
 `hivemux setup`은 세 가지를 묻고, 기본값은 모두 "예"입니다.

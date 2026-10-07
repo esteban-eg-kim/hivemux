@@ -1,8 +1,11 @@
 #!/bin/bash
+# Called by prefix + C: ask for a name, then open a Claude window in the current folder.
 # prefix + C 에서 호출: 이름을 물어본 뒤 현재 폴더에 Claude 창을 연다.
+# Default name is "<session>-<next window number>" and becomes the window name. A shell stays, so the window survives when Claude exits.
 # 기본 이름은 "<세션이름>-<다음 창 번호>". 창 이름도 같은 이름이 된다. 창에는 셸이 남으므로 Claude를 끝내도 창은 유지된다.
 dir="$1"
 TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+# UI language: HIVEMUX_LANG > tmux @hivemux-lang (set by hivemux setup) > LANG
 # 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG
 say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
 sess="$("$TMUX_BIN" display -p '#{session_name}')"

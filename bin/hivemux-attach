@@ -17,7 +17,7 @@ t() { "$TMUX_BIN" ${HIVEMUX_SOCKET:+-L "$HIVEMUX_SOCKET"} ${HIVEMUX_CONF:+-f "$H
 if ! t has-session 2>/dev/null; then
   # Bootstrap session "0": tmux-resurrect deletes it after a from-scratch restore.
   if t new-session -d -s 0 2>/dev/null; then
-    RESTORE="$(t show -gqv @resurrect-restore-script-path)"   # hivemux.tmux 가 resurrect 를 불러오면 생긴다
+    RESTORE="$(t show -gqv @resurrect-restore-script-path)"   # set once hivemux.tmux has loaded resurrect / hivemux.tmux 가 resurrect 를 불러오면 생긴다
     if [ -n "$RESTORE" ] && [ -x "$RESTORE" ] && [ ! -f "$HOME/tmux_no_auto_restore" ]; then
       t run-shell "$RESTORE"
       last_file="$(t show -gqv @resurrect-dir)"; last_file="${last_file:-${XDG_DATA_HOME:-$HOME/.local/share}/tmux/resurrect}/last"
@@ -40,7 +40,9 @@ for _ in $(seq 1 40); do
   sleep 0.5
 done
 
+# Session to attach: the most recently used one not shown in another tab.
 # 붙을 세션: 아무 탭에도 안 붙은 세션 중 마지막으로 보던 것.
+# Right after a restore, prefer the last session recorded in the snapshot.
 # 방금 복원했다면 저장본의 "마지막으로 보던 세션"을 먼저 쓴다.
 detached="$(t list-sessions -F '#{session_attached} #{session_last_attached} #{session_name}' 2>/dev/null |
   awk '$1==0' | sort -k2,2nr | cut -d' ' -f3-)"

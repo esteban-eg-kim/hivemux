@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""경로 골라 열기 팝업 (tmux display-popup 안에서 실행).
+"""Open-path popup (runs inside tmux display-popup).
+경로 골라 열기 팝업 (tmux display-popup 안에서 실행).
 
   hivemux-open-ui <pane_id>
 
+Lists existing file/dir paths found in that pane's recent output, newest first.
 그 칸의 최근 출력에서 실제로 있는 파일/폴더 경로를 모아 최근 것부터 보여 준다.
-  ↑↓ / Ctrl+P N   고르기        글자 입력   걸러 보기
-  Enter           편집기로 열기 (VS Code, 줄 번호 포함)
-  Tab             기본 앱으로 열기       Ctrl+F  Finder에서 보기
-  Ctrl+Y          경로 복사              Esc     닫기
+  ↑↓ / Ctrl+P N   select / 고르기       type   filter / 걸러 보기
+  Enter           open in editor (VS Code, at the line) / 편집기로 열기
+  Tab             default app / 기본 앱     Ctrl+F  reveal in Finder / Finder에서 보기
+  Ctrl+Y          copy path / 경로 복사     Esc     close / 닫기
 """
 import shutil, os, re, subprocess, sys, termios, tty, unicodedata, urllib.parse
 
@@ -15,7 +17,7 @@ TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
 
 
 def _is_ko():
-    """화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG"""
+    """UI language: HIVEMUX_LANG > tmux @hivemux-lang (set by hivemux setup) > LANG / 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG"""
     v = os.environ.get("HIVEMUX_LANG") or subprocess.run([TMUX, "show", "-gqv", "@hivemux-lang"],
                                                           capture_output=True, text=True).stdout.strip()
     return (v or os.environ.get("LANG", "")).startswith("ko")
@@ -47,7 +49,7 @@ def width(s):
 
 
 def cut_left(s, w):
-    """앞을 줄여서(…) 폭 w에 맞춘다. 경로는 끝부분이 중요하다."""
+    """Shorten from the left (…) to width w; the end of a path matters most. / 앞을 줄여서(…) 폭 w에 맞춘다. 경로는 끝부분이 중요하다."""
     if width(s) <= w:
         return s
     out = ""
@@ -58,6 +60,7 @@ def cut_left(s, w):
     return "…" + out
 
 
+# Path candidates: /abs, ~/home, ./rel, ../rel, a/b with a slash, or name.ext
 # 경로 후보: /abs, ~/home, ./rel, ../rel, 또는 슬래시가 있는 a/b.ext, 또는 이름.ext
 PATH_RE = re.compile(
     r"(?<![\w/~.@-])("
@@ -90,6 +93,7 @@ def candidates(pane):
                         break
             if not full or full in ("/", os.path.expanduser("~")):
                 continue
+            # skip the working directory shown in the shell prompt (and its parents)
             # 셸 프롬프트에 찍힌 작업 폴더(와 그 상위 폴더)는 뺀다
             if os.path.isdir(full) and any(b == full or b.startswith(full.rstrip("/") + "/") for b in bases):
                 continue
@@ -107,7 +111,7 @@ def candidates(pane):
 
 def run(cmd, **kw):
     dry = os.environ.get("HIVEMUX_DRYRUN")
-    if dry:  # 테스트용: 실행하지 않고 기록만
+    if dry:  # for tests: record instead of running / 테스트용: 실행하지 않고 기록만
         with open(dry, "a") as f:
             f.write(" ".join(cmd) + "\n")
         return

@@ -1,9 +1,12 @@
 #!/bin/bash
+# Option+O: pick a file path from this pane's recent output and open it (bin/hivemux-open-ui popup).
 # Option+O : 지금 칸의 최근 출력에서 파일 경로를 골라 연다 (bin/hivemux-open-ui 팝업).
 #   hivemux-open <pane_id> [client]
+# Pressed in the sidebar, it targets the work pane of the same window.
 # 사이드바 칸에서 누르면 같은 창의 작업 칸을 대상으로 한다.
 HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
 TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+# UI language: HIVEMUX_LANG > tmux @hivemux-lang (set by hivemux setup) > LANG
 # 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG
 say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
 t() { "$TMUX_BIN" "$@"; }

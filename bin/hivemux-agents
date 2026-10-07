@@ -1,30 +1,38 @@
 #!/bin/bash
+# Claude status across all tmux sessions.
 # 모든 tmux 세션의 Claude 상태판.
-#   hivemux-agents bar        상태줄 둘째 줄 출력 (tmux가 2초마다 호출)
-#   hivemux-agents jump N [client]  N번 Claude 칸으로 이동
-#   hivemux-agents next [client]      가장 오래 기다린 칸으로 이동 (없으면 끝난 칸)
-#   hivemux-agents list       터미널에 목록 출력
+#   hivemux-agents bar        status-line text (legacy one-line board)
+#                             상태줄 둘째 줄 출력 (tmux가 2초마다 호출)
+#   hivemux-agents jump N [client]  jump to Claude #N
+#                                   N번 Claude 칸으로 이동
+#   hivemux-agents next [client]      jump to the longest waiting (else oldest finished)
+#                                     가장 오래 기다린 칸으로 이동 (없으면 끝난 칸)
+#   hivemux-agents list       print the list
+#                             터미널에 목록 출력
+# State (@claude_state, per pane): run working | wait needs input | done finished, unseen | idle seen
 # 상태(@claude_state, 칸 단위): run 작업 중 | wait 입력 필요 | done 끝남(안 봄) | idle 대기(봤음)
 TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+# UI language: HIVEMUX_LANG > tmux @hivemux-lang (set by hivemux setup) > LANG
 # 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG
 say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
 t() { "$TMUX_BIN" "$@"; }
 now=$(date +%s)
-US=$'\x1f'   # 구분자. 탭은 빈 값이 겹치면 칸이 밀린다
+US=$'\x1f'   # field separator; tabs collapse empty fields / 구분자. 탭은 빈 값이 겹치면 칸이 밀린다
 
+# Numbering: session name, window index, pane index (stable numbers are easy to learn)
 # 번호 순서: 세션 이름, 창 번호, 칸 번호 (안정적인 번호 = 손에 익는 번호)
 rows() {
   t list-panes -a -F "$(printf '%s\x1f' '#{pane_id}' '#{session_name}' '#{window_index}' '#{window_name}' '#{@claude_state}' '#{@claude_state_at}' '#{@claude_session}' '#{pane_active}' '#{window_active}' '#{session_attached}')" 2>/dev/null |
     awk -F "$US" '$7 != "" && $5 != ""'
 }
 
-age() { # 초 -> 짧은 표기 (값이 없으면 빈 문자열)
+age() { # seconds -> short form (empty if unknown) / 초 -> 짧은 표기 (값이 없으면 빈 문자열)
   case "$1" in ''|*[!0-9]*) echo ""; return ;; esac
   local s=$(( now - $1 )); [ $s -lt 0 ] && s=0
   if [ $s -lt 60 ]; then echo "${s}s"; elif [ $s -lt 3600 ]; then echo "$((s/60))m"; else echo "$((s/3600))h"; fi
 }
 
-label() { # 세션/창 이름. 창 이름이 claude면 세션 이름만
+label() { # session/window label; just the session when the window is "claude" / 세션/창 이름. 창 이름이 claude면 세션 이름만
   local sess="$1" win="$2"
   if [ "$win" = claude ] || [ "$win" = "$sess" ]; then echo "$sess"; else echo "$sess/$win"; fi
 }
@@ -34,6 +42,7 @@ bar() {
   local n_wait=0 n_run=0 n_done=0
   while IFS="$US" read -r pid sess widx wname st at sid pact wact satt; do
     i=$((i+1))
+    # a finished pane you are looking at becomes "seen"
     # 끝난 칸을 지금 보고 있으면 "봤음"으로
     if [ "$st" = done ] && [ "$pact" = 1 ] && [ "$wact" = 1 ] && [ "${satt:-0}" -gt 0 ]; then
       t set -p -t "$pid" @claude_state idle; t set -w -t "$pid" @claude_state idle; st=idle
@@ -58,7 +67,7 @@ bar() {
 }
 
 CLIENT=""
-goto() { # pane_id 로 이동 (세션 전환 + 창 + 칸)
+goto() { # go to pane_id (switch session, window, pane) / pane_id 로 이동 (세션 전환 + 창 + 칸)
   local pid="$1" sess win
   sess="$(t display -p -t "$pid" '#{session_name}')" || return 1
   win="$(t display -p -t "$pid" '#{window_id}')"
@@ -74,6 +83,7 @@ jump() {
 
 next() {
   local pid
+  # longest waiting "wait", else oldest "done"
   # 가장 오래 기다린 wait, 없으면 가장 오래된 done
   pid="$(rows | awk -F "$US" '$5=="wait"{print ($6==""?0:$6)"\t"$1}' | sort -n | head -1 | cut -f2)"
   [ -z "$pid" ] && pid="$(rows | awk -F "$US" '$5=="done"{print ($6==""?0:$6)"\t"$1}' | sort -n | head -1 | cut -f2)"

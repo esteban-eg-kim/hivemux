@@ -1,14 +1,14 @@
-# Homebrew formula. Put this in a tap repository named OWNER/homebrew-tap
-# (Formula/hivemux.rb), then:  brew install OWNER/tap/hivemux && hivemux setup
+# Homebrew formula. Put this in a tap repository named esteban-eg-kim/homebrew-tap
+# (Formula/hivemux.rb), then:  brew install esteban-eg-kim/tap/hivemux && hivemux setup
 # Update url + sha256 for each release:
-#   curl -sL https://github.com/OWNER/hivemux/archive/refs/tags/vX.Y.Z.tar.gz | shasum -a 256
+#   curl -sL https://github.com/esteban-eg-kim/hivemux/archive/refs/tags/vX.Y.Z.tar.gz | shasum -a 256
 class Hivemux < Formula
   desc "See and switch between every Claude Code session from one tmux sidebar"
-  homepage "https://github.com/OWNER/hivemux"
-  url "https://github.com/OWNER/hivemux/archive/refs/tags/v0.1.0.tar.gz"
+  homepage "https://github.com/esteban-eg-kim/hivemux"
+  url "https://github.com/esteban-eg-kim/hivemux/archive/refs/tags/v0.1.0.tar.gz"
   sha256 "REPLACE_WITH_SHA256"
   license "MIT"
-  head "https://github.com/OWNER/hivemux.git", branch: "main"
+  head "https://github.com/esteban-eg-kim/hivemux.git", branch: "main"
 
   depends_on "jq"
   depends_on :macos

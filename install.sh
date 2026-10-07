@@ -1,9 +1,9 @@
 #!/bin/bash
-# hivemux installer (git based). Homebrew users: brew install OWNER/tap/hivemux && hivemux setup
-#   curl -fsSL https://raw.githubusercontent.com/OWNER/hivemux/main/install.sh | bash
+# hivemux installer (git based). Homebrew users: brew install esteban-eg-kim/tap/hivemux && hivemux setup
+#   curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install.sh | bash
 # Options are passed to "hivemux setup" (e.g. bash -s -- --no-keys).
 set -euo pipefail
-REPO="${HIVEMUX_REPO:-https://github.com/OWNER/hivemux.git}"
+REPO="${HIVEMUX_REPO:-https://github.com/esteban-eg-kim/hivemux.git}"
 DIR="${HIVEMUX_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/hivemux/src}"
 command -v git >/dev/null || { echo "hivemux: git is required" >&2; exit 1; }
 if [ -d "$DIR/.git" ]; then

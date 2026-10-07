@@ -8,8 +8,7 @@ your approval, or done, and for how long. Press `Option+3` to jump to the third
 one, or `Option+0` to jump to whichever has waited longest. Close the terminal or
 reboot the Mac and everything comes back, with each Claude resumed in its pane.
 
-<!-- TODO: replace with a real screenshot / GIF -->
-<p align="center"><img src="docs/screenshot.png" alt="hivemux sidebar" width="860"></p>
+<!-- TODO: add a real screenshot / GIF: docs/screenshot.png -->
 
 ```
   Claude  sessions          5
@@ -53,17 +52,18 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
 
 ## Install
 
-Homebrew:
-
 ```sh
-brew install OWNER/tap/hivemux
-hivemux setup
+curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install.sh | bash
 ```
 
-Or with git:
+This clones hivemux into `~/.local/share/hivemux/src` and runs `hivemux setup`.
+Run the same command again to update.
+
+Homebrew (coming soon):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/OWNER/hivemux/main/install.sh | bash
+brew install esteban-eg-kim/tap/hivemux
+hivemux setup
 ```
 
 `hivemux setup` asks three questions (all default to yes):
