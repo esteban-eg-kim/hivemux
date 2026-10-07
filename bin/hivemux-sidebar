@@ -33,13 +33,29 @@ ensure_one() {
   [ -n "$(t show -gqv @hivemux-suspend)" ] && return 0          # restore in progress / 복원 중
   [ "$(t display -p -t "$win" '#{session_name}' 2>/dev/null)" = 0 ] && return 0   # hivemux-attach bootstrap session / hivemux-attach 부트스트랩 세션
   [ -n "$(sidebars_in "$win")" ] && return 0
-  n="$(t list-panes -t "$win" 2>/dev/null | wc -l | tr -d ' ')"; [ "${n:-0}" -ge 1 ] || return 0
-  local first; first="$(t list-panes -t "$win" -F '#{pane_id}' | head -1)"
-  local pid
-  pid="$(t split-window -hbdf -l "$W" -t "$first" -P -F '#{pane_id}' "exec $HM_BIN/hivemux-sidebar-view")" || return 0
-  t select-pane -t "$pid" -T "$TITLE"
-  t set -p -t "$pid" allow-set-title off 2>/dev/null
-  t set -p -t "$pid" allow-rename off 2>/dev/null
+  # Several hooks can call ensure for the same window at once (new window, window
+  # change, config load). Lock per window so only one creates the sidebar.
+  # 같은 창에 ensure 가 동시에 여러 번 불릴 수 있다(새 창, 창 전환, 설정 읽기).
+  # 창마다 잠금을 걸어 한 번만 만든다.
+  local lock="${TMPDIR:-/tmp}/hivemux-ensure-$(id -u)-$(t display -p '#{pid}')-${win#@}"
+  if ! mkdir "$lock" 2>/dev/null; then
+    # stale lock (crashed run) older than 10s: take it over / 10초 넘은 잠금은 비정상 종료로 보고 넘겨받는다
+    [ -n "$(find "$lock" -maxdepth 0 -mtime -10s 2>/dev/null)" ] && return 0
+    rmdir "$lock" 2>/dev/null; mkdir "$lock" 2>/dev/null || return 0
+  fi
+  if [ -z "$(sidebars_in "$win")" ]; then
+    n="$(t list-panes -t "$win" 2>/dev/null | wc -l | tr -d ' ')"
+    if [ "${n:-0}" -ge 1 ]; then
+      local first pid; first="$(t list-panes -t "$win" -F '#{pane_id}' | head -1)"
+      pid="$(t split-window -hbdf -l "$W" -t "$first" -P -F '#{pane_id}' "exec $HM_BIN/hivemux-sidebar-view")"
+      if [ -n "$pid" ]; then
+        t select-pane -t "$pid" -T "$TITLE"
+        t set -p -t "$pid" allow-set-title off 2>/dev/null
+        t set -p -t "$pid" allow-rename off 2>/dev/null
+      fi
+    fi
+  fi
+  rmdir "$lock" 2>/dev/null
 }
 
 case "$1" in
