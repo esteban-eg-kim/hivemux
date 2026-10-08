@@ -1,13 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.1.3 — 2026-10-08
 
 - Reorder the sidebar: drag a card to move a task within its project, or drag a
   project header to move the project. `prefix Shift+↑/↓` moves the current task
   (and the project at its edge). `Option+N` and the top window list follow the
   sidebar order; project order is saved in `~/.local/share/hivemux/session-order`
-- Right click in the sidebar opens a menu: go to, rename, move up/down, new Claude
-  in this project, new project. Double click still renames
+- Right click in the sidebar opens a menu. On a task: go to, rename, move up/down,
+  new Claude in this project, new project. On a project name: new Claude, new
+  project. On empty space: new project. Double click still renames
 - "New project" opens a folder browser in the middle of the screen: move with
   the arrow keys or the mouse, type to filter, `Enter` starts the project in the
   selected folder (like `hm`), `Ctrl+N` makes a new folder
