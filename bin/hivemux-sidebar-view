@@ -436,7 +436,9 @@ def menu(y, pid=None, sess=None, items=()):
                  None]
     rows += [(tr("새 Claude…", "New Claude…"), "n", lambda: bg_run(os.path.join(here, "hivemux-new-claude"), d, sess, client)),
              (tr("새 프로젝트…", "New project…"), "p", lambda: bg_run(os.path.join(here, "hm"), "--ask", client, d))]
-    title = (next((task_name(p) for p in items if p["pane_id"] == pid), "") if pid else "") or sess
+    # card: the task name; project name or empty space: what it makes, and where
+    # 카드: 작업 이름, 프로젝트 이름 줄이나 빈 곳: 무엇을 어디에 만드는지
+    title = (next((task_name(p) for p in items if p["pane_id"] == pid), "") if pid else "") or tr(f"새로 만들기 · {sess}", f"New · {sess}")
     MENU = {"rows": rows, "y": y, "sel": None, "title": title, "at": {}, "press": None}
     sys.stdout.write("\x1b[?1003h")       # hover highlight: report plain moves too / 마우스만 움직여도 받아 강조
     sys.stdout.flush()
