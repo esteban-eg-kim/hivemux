@@ -87,7 +87,7 @@ check everything. Use `--yes` to accept defaults, `--no-keys`, `--no-ghostty`,
 | `Option+1` … `9` | jump to that Claude (any session) |
 | `Option+0` / `prefix Space` | oldest waiting Claude, else oldest unseen finished one |
 | click card | jump · double click: rename |
-| right click | menu: go to, rename, move up/down, new Claude in this project, new project |
+| right click | menu: go to, rename, move up/down, new Claude in this project, new project (pick or make a folder in a folder browser) |
 | drag card / project header | reorder tasks / projects |
 | `prefix Shift+↑` / `↓` | move the current task up / down (at a project's edge, the project moves) |
 | `Option+O` | open a file path from recent output (Enter VS Code, Tab default app, ^F Finder, ^Y copy) |

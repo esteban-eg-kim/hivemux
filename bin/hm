@@ -12,12 +12,29 @@ TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
 # 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG
 say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
 t() { "$TMUX_BIN" ${HIVEMUX_SOCKET:+-L "$HIVEMUX_SOCKET"} "$@"; }
-# hm --ask <client> [start]: ask for a folder in the tmux prompt (sidebar menu "New project")
-# hm --ask <클라이언트> [시작 경로]: tmux 입력 줄에서 폴더를 물어본다 (사이드바 메뉴 "새 프로젝트")
+# hm --ask <client> [dir]: pick a folder (sidebar menu "New project"). A centered folder browser popup
+# opens the parent of [dir] (tmux 3.3+); older tmux asks in the status-line prompt.
+# hm --ask <클라이언트> [폴더]: 폴더를 고른다 (사이드바 메뉴 "새 프로젝트"). 화면 가운데 폴더 탐색 팝업이
+# [폴더] 의 상위 폴더를 연다 (tmux 3.3+). 오래된 tmux 는 상태줄 입력 칸에서 묻는다.
 if [ "$1" = --ask ]; then
-  start="${3:-$HOME/}"; start="${start/#$HOME/~}"
-  t command-prompt -t "$2" -I "$start" -p "$(say "프로젝트 폴더:" "Project folder:")" \
-    "run-shell -b \"HM_CLIENT='$2' '$0' '%1' >/dev/null\""
+  if t list-commands display-popup 2>/dev/null | grep -q -- '-b border-lines'; then
+    here="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
+    read -r cw ch < <(t display -p -c "$2" '#{client_width} #{client_height}')
+    w=$(( ${cw:-80} - 4 )); [ "$w" -gt 76 ] && w=76
+    h=$(( ${ch:-24} - 4 )); [ "$h" -gt 26 ] && h=26
+    # Pause sidebar drawing while the popup is open (each redraw would flicker it)
+    # 팝업이 떠 있는 동안 사이드바 애니메이션을 멈춘다 (다시 그릴 때마다 팝업이 깜빡이므로)
+    pause="/tmp/hivemux-pause-$(id -u)"
+    : > "$pause"; trap 'rm -f "$pause"' EXIT
+    t display-popup -c "$2" -E -w "$w" -h "$h" -b rounded \
+      -T "#[fg=#e6e9ef,bold] $(say "새 프로젝트" "New project") #[fg=#626a78,nobold]· $(say "폴더 고르기" "pick a folder") " \
+      -S "fg=#5aa9ff" -s "bg=#1e2128" \
+      "$(printf '%q ' "$here/hivemux-new-project-ui" "$2" "${3:-$HOME}")" 2>/dev/null || true   # cancel (Esc) is not an error / 취소(Esc)도 정상 종료
+  else
+    start="${3:+$(dirname "$3")}"; start="${start:-$HOME}/"; start="${start/#$HOME/~}"
+    t command-prompt -t "$2" -I "$start" -p "$(say "프로젝트 폴더:" "Project folder:")" \
+      "run-shell -b \"HM_CLIENT='$2' '$0' '%1' >/dev/null\""
+  fi
   exit 0
 fi
 dir="${1:-$PWD}"

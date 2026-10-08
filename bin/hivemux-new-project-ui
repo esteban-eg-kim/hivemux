@@ -1,0 +1,303 @@
+#!/usr/bin/env python3
+"""New-project folder picker (runs inside tmux display-popup, opened by `hm --ask`).
+새 프로젝트 폴더 고르기 (tmux display-popup 안에서 실행, `hm --ask` 가 연다).
+
+  hivemux-new-project-ui <client> [dir]
+
+Opens the parent of [dir] with [dir] selected, and starts the chosen folder with `hm`.
+[dir] 의 상위 폴더를 열고 [dir] 를 골라 둔 채 시작하며, 고른 폴더를 `hm` 으로 연다.
+  ↑↓ / Ctrl+P N   select / 고르기            type     filter / 걸러 보기
+  Enter           start a project here / 이 폴더로 시작
+  → / Tab         go into the folder / 폴더 안으로     ← / Backspace   parent / 상위 폴더
+  Ctrl+N          new folder / 새 폴더        Esc      close / 닫기
+  mouse: click selects, double-click goes in / 마우스: 클릭은 고르기, 더블클릭은 폴더 안으로
+"""
+import os, re, shutil, subprocess, sys, termios, time, tty, unicodedata
+
+TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
+
+
+def _is_ko():
+    """UI language: HIVEMUX_LANG > tmux @hivemux-lang (set by hivemux setup) > LANG / 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG"""
+    v = os.environ.get("HIVEMUX_LANG") or subprocess.run([TMUX, "show", "-gqv", "@hivemux-lang"],
+                                                          capture_output=True, text=True).stdout.strip()
+    return (v or os.environ.get("LANG", "")).startswith("ko")
+
+
+KO = _is_ko()
+
+
+def tr(ko, en):
+    return ko if KO else en
+
+
+CLIENT = sys.argv[1] if len(sys.argv) > 1 else ""
+HOME = os.path.expanduser("~")
+HM = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hm")
+
+TEXT, T2, T3 = (230, 233, 239), (154, 163, 178), (98, 106, 120)
+ACC, OK, SEL_BG, BG, RULE = (90, 169, 255), (62, 207, 142), (42, 47, 58), (30, 33, 40), (44, 48, 57)
+
+
+def fg(c): return "\x1b[38;2;%d;%d;%dm" % c
+def bg(c): return "\x1b[48;2;%d;%d;%dm" % c
+RST, BOLD = "\x1b[0m", "\x1b[1m"
+
+
+def tmux(*a):
+    return subprocess.run([TMUX, *a], capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout
+
+
+def width(s):
+    return sum(0 if unicodedata.combining(c) else 2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
+
+
+def cut(s, w):
+    """Shorten from the right (…) to width w / 뒤를 줄여서(…) 폭 w 에 맞춘다"""
+    if width(s) <= w:
+        return s
+    out = ""
+    for c in s:
+        if width(out + c) > w - 1:
+            break
+        out += c
+    return out + "…"
+
+
+def cut_left(s, w):
+    """Shorten from the left (…); the end of a path matters most / 앞을 줄인다(…). 경로는 끝부분이 중요하다"""
+    if width(s) <= w:
+        return s
+    out = ""
+    for c in reversed(s):
+        if width(out + c) > w - 1:
+            break
+        out = c + out
+    return "…" + out
+
+
+def pretty(p):
+    return "~" + p[len(HOME):] if p == HOME or p.startswith(HOME + "/") else p
+
+
+def session_name(path):
+    """Session name hm gives a folder / hm 이 폴더에 붙이는 세션 이름"""
+    return re.sub(r"[.: ]", "-", os.path.basename(path.rstrip("/")) or "/")
+
+
+def subdirs(path, hidden):
+    try:
+        names = [e.name for e in os.scandir(path) if e.is_dir() and (hidden or not e.name.startswith("."))]
+    except OSError as e:
+        return [], e.strerror
+    return sorted(names, key=lambda n: (n.lower(), n)), ""
+
+
+def main():
+    start = os.path.expanduser(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2] else HOME
+    start = os.path.abspath(start)
+    if os.path.isdir(start) and start != "/":
+        cwd, want = os.path.dirname(start), os.path.basename(start)
+    else:
+        cwd, want = (start if os.path.isdir(start) else HOME), ""
+    sessions = set(tmux("list-sessions", "-F", "#{session_name}").split())
+
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    tty.setraw(fd)
+    out = sys.stdout
+    out.write("\x1b[?25l\x1b[?1000h\x1b[?1006h")     # hide cursor, mouse on / 커서 숨김, 마우스 켬
+    q, sel, top, msg, naming, name = "", 0, 0, "", False, ""
+    last_click = (0.0, -1)
+    chosen = None
+    rows_y = {}          # screen row -> list index / 화면 줄 -> 목록 번호
+    try:
+        while True:
+            cols, rows = os.get_terminal_size()
+            names, err = subdirs(cwd, q.startswith("."))   # typing "." shows hidden folders / "." 을 치면 숨김 폴더도
+            shown = [n for n in names if q.lower() in n.lower()] if q else names
+            # rows: ("here", None), ("new", None), ("up", None), ("dir", name)...
+            # 줄: 여기서 시작, 새 폴더, 상위 폴더, 하위 폴더들
+            items = [("here", None), ("new", None)] + ([("up", None)] if cwd != "/" else []) + [("dir", n) for n in shown]
+            if want:
+                if want in shown:
+                    sel = items.index(("dir", want))
+                want = ""
+            sel = max(0, min(sel, len(items) - 1))
+            list_h = max(1, rows - 6)
+            top = min(max(top, sel - list_h + 1), sel)
+
+            buf = ["\x1b[H", bg(BG), "\x1b[2J"]
+            cnt = tr(f"폴더 {len(shown)}개", f"{len(shown)} folders")
+            here = cut_left(pretty(cwd) + ("" if cwd == "/" else "/"), cols - width(cnt) - 8)
+            buf.append(f"\x1b[1;1H  {fg(ACC)}▍{fg(TEXT)}{BOLD}{here}{RST}{bg(BG)}")
+            buf.append(f"\x1b[1;{max(1, cols - width(cnt) - 1)}H{fg(T3)}{cnt}")
+            if naming:
+                buf.append(f"\x1b[2;1H  {fg(OK)}{tr('새 폴더 이름', 'New folder name')} {fg(TEXT)}{BOLD}{name}{RST}{bg(BG)}{fg(ACC)}▏")
+            else:
+                buf.append(f"\x1b[2;1H  {fg(T3)}{tr('찾기', 'filter')} {fg(TEXT)}{BOLD}{q}{RST}{bg(BG)}{fg(ACC)}▏")
+            buf.append(f"\x1b[3;1H{fg(RULE)}  " + "─" * max(0, cols - 4))
+            rows_y = {}
+            for k in range(top, min(len(items), top + list_h)):
+                kind, n = items[k]
+                y = 4 + k - top
+                rows_y[y] = k
+                if kind == "here":
+                    icon, label, color, note = "▶", tr(f"여기서 시작  {session_name(cwd)}", f"Start here  {session_name(cwd)}"), ACC, ""
+                elif kind == "new":
+                    icon, color, note = "+", OK, ""
+                    label = tr(f"새 폴더 만들기: {q}", f"New folder: {q}") if q else tr("새 폴더 만들기…", "New folder…")
+                elif kind == "up":
+                    icon, label, color, note = "‥", tr("상위 폴더", "Parent folder"), T2, ""
+                else:
+                    icon, label, color = "▸", n + "/", TEXT
+                    note = tr("열린 세션", "open") if session_name(n) in sessions else ""
+                label = cut(label, cols - 10 - (width(note) + 2 if note else 0))
+                right = f"{fg(T3)}{note}" if note else ""
+                if k == sel:
+                    line = f"\x1b[{y};1H{bg(SEL_BG)}{fg(ACC)} ▌ {fg(color)}{BOLD}{icon} {label}{RST}{bg(SEL_BG)}" + " " * max(0, cols - 6 - width(label))
+                    if note:
+                        line += f"\x1b[{y};{cols - width(note) - 1}H{fg(T2)}{note}"
+                    line += RST + bg(BG)
+                else:
+                    line = f"\x1b[{y};1H   {fg(color if kind != 'dir' else T3)}{icon} {fg(color if kind != 'dir' else T2)}{label}"
+                    if note:
+                        line += f"\x1b[{y};{cols - width(note) - 1}H{right}"
+                buf.append(line)
+            if err:
+                buf.append(f"\x1b[{min(rows - 2, 4 + len(items) - top)};1H   {fg(T3)}{err}")
+            buf.append(f"\x1b[{rows - 1};1H{fg(RULE)}  " + "─" * max(0, cols - 4))
+            if naming:
+                hint = f"{fg(TEXT)}Enter{fg(T3)} {tr('만들기', 'create')}   {fg(TEXT)}Esc{fg(T3)} {tr('취소', 'cancel')}"
+            else:
+                hint = (f"{fg(TEXT)}Enter{fg(T3)} {tr('시작', 'start')}  {fg(TEXT)}→{fg(T3)} {tr('들어가기', 'open')}  "
+                        f"{fg(TEXT)}←{fg(T3)} {tr('상위', 'up')}  {fg(TEXT)}^N{fg(T3)} {tr('새 폴더', 'new folder')}  "
+                        f"{fg(TEXT)}Esc{fg(T3)} {tr('닫기', 'close')}")
+            buf.append(f"\x1b[{rows};1H  " + (msg or hint) + RST)
+            out.write("".join(buf))
+            out.flush()
+            msg = ""
+
+            data = os.read(fd, 256).decode(errors="ignore")
+            # split into keys and mouse events / 키와 마우스 이벤트로 나눈다
+            toks = re.findall(r"\x1b\[<\d+;\d+;\d+[Mm]|\x1b\[[0-9;]*[A-Za-z~]|\x1bO[A-Za-z]|\x1b|[\s\S]", data)
+            for ch in toks:
+                kind, n = items[sel]
+
+                def enter(d):
+                    nonlocal cwd, sel, top, q
+                    cwd, sel, top, q = d, 0, 0, ""
+
+                def go_up():
+                    nonlocal want
+                    if cwd != "/":
+                        want = os.path.basename(cwd)
+                        enter(os.path.dirname(cwd))
+
+                def target():
+                    return cwd if kind in ("here", "new") else os.path.dirname(cwd) if kind == "up" else os.path.join(cwd, n)
+
+                def create(nm):
+                    nonlocal naming, q, want, msg
+                    nm = nm.strip()
+                    warn = fg((245, 165, 36))
+                    if not nm or "/" in nm or nm in (".", ".."):
+                        msg = warn + tr("쓸 수 없는 이름입니다", "Not a valid name")
+                    elif os.path.exists(os.path.join(cwd, nm)):
+                        msg = f"{warn}{tr('이미 있습니다', 'Already exists')}: {nm}"
+                    else:
+                        try:
+                            os.mkdir(os.path.join(cwd, nm))
+                        except OSError as e:
+                            msg = warn + e.strerror
+                            return
+                        naming, q, want = False, "", nm      # select the new folder / 새 폴더를 골라 둔다
+                        msg = f"{fg(OK)}{tr('만들었습니다', 'Created')}: {nm}/  {fg(T3)}{tr('Enter 로 이 폴더에서 시작', 'Enter starts it')}"
+
+                m = re.match(r"\x1b\[<(\d+);(\d+);(\d+)([Mm])", ch)
+                if m:
+                    b, y, press = int(m.group(1)), int(m.group(3)), m.group(4) == "M"
+                    if b == 64:
+                        sel -= 3
+                    elif b == 65:
+                        sel += 3
+                    elif b == 0 and press and y in rows_y and not naming:
+                        k = rows_y[y]
+                        now = time.monotonic()
+                        double = last_click[1] == k and now - last_click[0] < 0.4
+                        last_click = (now, k)
+                        sel = k
+                        kind, n = items[k]
+                        if kind == "here":
+                            chosen = cwd
+                        elif kind == "new":
+                            naming, name = True, q
+                        elif kind == "up":
+                            go_up()
+                        elif double:                    # double-click goes into the folder / 더블클릭은 폴더 안으로
+                            enter(os.path.join(cwd, n))
+                            last_click = (0.0, -1)
+                    continue
+
+                if naming:
+                    if ch in ("\x1b", "\x03"):
+                        naming = False
+                    elif ch in ("\r", "\n"):
+                        create(name)
+                    elif ch in ("\x7f", "\x08"):
+                        name = name[:-1]
+                    elif ch == "\x15":
+                        name = ""
+                    elif ch.isprintable() and not ch.startswith("\x1b"):
+                        name += ch
+                    continue
+
+                if ch in ("\x1b", "\x03"):
+                    return
+                if ch in ("\x1b[A", "\x10", "\x1bOA"):
+                    sel -= 1
+                elif ch in ("\x1b[B", "\x1bOB"):
+                    sel += 1
+                elif ch == "\x0e":                       # Ctrl+N: new folder (named after the filter) / 새 폴더 (찾기 글자로 이름 시작)
+                    naming, name = True, q
+                elif ch == "\x1b[5~":
+                    sel -= list_h
+                elif ch == "\x1b[6~":
+                    sel += list_h
+                elif ch in ("\x1b[C", "\x1bOC", "\t"):
+                    if kind == "dir":
+                        enter(os.path.join(cwd, n))
+                    elif kind == "up":
+                        go_up()
+                elif ch in ("\x1b[D", "\x1bOD") or (ch in ("\x7f", "\x08") and not q):
+                    go_up()
+                elif ch in ("\r", "\n"):
+                    if kind == "new":
+                        if q:
+                            create(q)                   # Enter on "New folder: <typed>" creates it / 친 이름으로 바로 만든다
+                        else:
+                            naming, name = True, ""
+                    elif kind == "up":
+                        go_up()
+                    else:
+                        chosen = target()
+                elif ch in ("\x7f", "\x08", "\x15") or (ch.isprintable() and not ch.startswith("\x1b")):
+                    q = "" if ch == "\x15" else q[:-1] if ch in ("\x7f", "\x08") else q + ch
+                    # select the first matching folder, else "New folder: <typed>"
+                    # 처음 맞는 폴더를 고른다. 없으면 "새 폴더 만들기: <친 글자>"
+                    hits = [x for x in subdirs(cwd, q.startswith("."))[0] if q.lower() in x.lower()]
+                    base = 3 if cwd != "/" else 2
+                    sel = base if q and hits else 1 if q else 0
+            if chosen:
+                return
+    finally:
+        out.write("\x1b[?1000l\x1b[?1006l\x1b[?25h" + RST + "\x1b[2J")
+        out.flush()
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        if chosen:
+            env = dict(os.environ, HM_CLIENT=CLIENT)
+            subprocess.run([HM, chosen], env=env, stdout=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+
+
+if __name__ == "__main__":
+    main()

@@ -431,7 +431,7 @@ def menu(x, y, pid=None, sess=None, items=()):
                  (tr("아래로 옮기기", "Move down"), "j", sh(os.path.join(here, "hivemux-order"), "step", "down", pid)),
                  ("", "", "")]
     rows += [(tr(f"새 Claude ({sess})…", f"New Claude in {sess}…"), "n", sh(os.path.join(here, "hivemux-new-claude"), d, sess, client)),
-             (tr("새 프로젝트…", "New project…"), "p", sh(os.path.join(here, "hm"), "--ask", client, os.path.dirname(d.rstrip("/")) + "/"))]
+             (tr("새 프로젝트…", "New project…"), "p", sh(os.path.join(here, "hm"), "--ask", client, d))]
     args = []
     for label, key, cmd in rows:
         args += [label, key, cmd] if label else [""]

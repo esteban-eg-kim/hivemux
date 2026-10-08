@@ -7,8 +7,10 @@
   (and the project at its edge). `Option+N` and the top window list follow the
   sidebar order; project order is saved in `~/.local/share/hivemux/session-order`
 - Right click in the sidebar opens a menu: go to, rename, move up/down, new Claude
-  in this project, new project (asks for a folder, then opens it like `hm`).
-  Double click still renames
+  in this project, new project. Double click still renames
+- "New project" opens a folder browser in the middle of the screen: move with
+  the arrow keys or the mouse, type to filter, `Enter` starts the project in the
+  selected folder (like `hm`), `Ctrl+N` makes a new folder
 
 ## 0.1.2 — 2026-10-08
 
