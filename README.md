@@ -21,6 +21,8 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
 - **Jump anywhere.** `Option+1..9`, `Option+0` (oldest waiting), or click a card.
 - **Task names.** Shows Claude's own conversation title. Double/right click a
   card to rename it; hivemux sends `/rename` to that Claude (waits if it is busy).
+- **Your order.** Drag a card to reorder tasks, or a project header to reorder
+  projects. `Option+N` numbers and the top window list follow the same order.
 - **Survives everything.** tmux keeps sessions alive when the terminal closes;
   tmux-resurrect restores layouts after a reboot and hivemux runs
   `claude --resume <id>` in the right pane.
@@ -85,6 +87,8 @@ check everything. Use `--yes` to accept defaults, `--no-keys`, `--no-ghostty`,
 | `Option+1` … `9` | jump to that Claude (any session) |
 | `Option+0` / `prefix Space` | oldest waiting Claude, else oldest unseen finished one |
 | click card | jump · double/right click: rename |
+| drag card / project header | reorder tasks / projects |
+| `prefix Shift+↑` / `↓` | move the current task up / down (at a project's edge, the project moves) |
 | `Option+O` | open a file path from recent output (Enter VS Code, Tab default app, ^F Finder, ^Y copy) |
 | `prefix Shift+C` | new window with a named Claude in this folder |
 | `prefix Shift+R` | Remote Control server window (start new sessions from the phone) |

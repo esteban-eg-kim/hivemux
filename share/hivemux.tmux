@@ -83,6 +83,10 @@ bind R run-shell "#{@hivemux-bin}/hivemux-remote '#{pane_current_path}'"
 # prefix b  hide / show sidebars      prefix S  session + window tree
 bind b run-shell -b "#{@hivemux-bin}/hivemux-sidebar toggle"
 bind S choose-tree -Zw
+# prefix Shift+Up/Down  move the current task up/down in the sidebar (at a project's edge, the project moves)
+# 사이드바에서 지금 작업을 위/아래로 (프로젝트 끝이면 프로젝트가 움직인다)
+bind S-Up   run-shell -b "#{@hivemux-bin}/hivemux-order step up '#{pane_id}'"
+bind S-Down run-shell -b "#{@hivemux-bin}/hivemux-order step down '#{pane_id}'"
 bind -n MouseDown1Status select-window -t =
 
 # ── Mouse: border and sidebar grip resize ────────────────────────────────

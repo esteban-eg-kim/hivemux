@@ -19,11 +19,14 @@ t() { "$TMUX_BIN" "$@"; }
 now=$(date +%s)
 US=$'\x1f'   # field separator; tabs collapse empty fields / 구분자. 탭은 빈 값이 겹치면 칸이 밀린다
 
-# Numbering: session name, window index, pane index (stable numbers are easy to learn)
-# 번호 순서: 세션 이름, 창 번호, 칸 번호 (안정적인 번호 = 손에 익는 번호)
+# Numbering = sidebar order: project order (session-order file, see hivemux-order), then window index
+# 번호 순서 = 사이드바 순서: 프로젝트 순서 (session-order 파일, hivemux-order 참고), 그다음 창 번호
+ORDER_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux/session-order"
 rows() {
   t list-panes -a -F "$(printf '%s\x1f' '#{pane_id}' '#{session_name}' '#{window_index}' '#{window_name}' '#{@claude_state}' '#{@claude_state_at}' '#{@claude_session}' '#{pane_active}' '#{window_active}' '#{session_attached}')" 2>/dev/null |
-    awk -F "$US" '$7 != "" && $5 != ""'
+    awk -F "$US" -v f="$ORDER_FILE" 'BEGIN { while ((getline l < f) > 0) if (!(l in r)) r[l] = ++n }
+      $7 != "" && $5 != "" { printf "%d\t%d\t%s\n", (($2 in r) ? r[$2] : 1000000), NR, $0 }' |
+    sort -t $'\t' -k1,1n -k2,2n | cut -f3-
 }
 
 age() { # seconds -> short form (empty if unknown) / 초 -> 짧은 표기 (값이 없으면 빈 문자열)

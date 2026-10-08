@@ -34,6 +34,7 @@ def tr(ko, en):
     return ko if KO else en
 ME = os.environ.get("TMUX_PANE", "")
 PAUSE = f"/tmp/hivemux-pause-{os.getuid()}"
+ORDER_FILE = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "session-order")
 GRIP = f"/tmp/hivemux-grip-{os.getuid()}"     # grip is being dragged (created by bin/hivemux-border) / 핸들을 끄는 중 (bin/hivemux-border 가 만든다)
 
 
@@ -99,6 +100,7 @@ C = {
     "wait_hi": (78, 58, 20),
     "done":    (62, 207, 142),
     "idle":    (92, 99, 112),
+    "drop":    (36, 62, 100),    # drop target while dragging / 끄는 중 놓을 자리
 }
 STATE_TEXT = {"wait": tr("입력 필요", "needs input"), "run": tr("작업 중", "running"), "done": tr("완료", "done"), "idle": tr("대기", "idle")}
 STATE_ICON = {"wait": "●", "run": "◐", "done": "✓", "idle": "○"}
@@ -113,6 +115,9 @@ NOW_T = 0.0      # animation clock (seconds); motion is time-based so frame rate
 TICK = 1 / 30    # animation frame interval (30 fps) / 애니메이션 프레임 간격(초당 30)
 SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 ANIM = True
+# Card or project being dragged: {"kind": "card"|"group", "src": pane|session, "over": pane|session|None}
+# 끄는 중인 카드나 프로젝트: {"kind": "card"|"group", "src": 칸|세션, "over": 칸|세션|None}
+DRAG = None
 
 
 def sgr(bg, fg, bold=False):
@@ -141,6 +146,16 @@ def snapshot():
     current = act["pane_id"] if act else ""
     visible = me["window_active"] == "1" and me["session_attached"] not in ("", "0")
     items = [p for p in panes if p["@claude_session"] and p["@claude_state"]]
+    # project order from the session-order file (bin/hivemux-order), then tmux order (name, window index)
+    # 프로젝트 순서는 session-order 파일(bin/hivemux-order), 그다음 tmux 순서(이름, 창 번호)
+    rank = {}
+    try:
+        with open(ORDER_FILE) as f:
+            for l in f:
+                rank.setdefault(l.rstrip("\n"), len(rank))
+    except OSError:
+        pass
+    items = [p for _, p in sorted(enumerate(items), key=lambda e: (rank.get(e[1]["session_name"], len(rank)), e[0]))]
     return items, current, visible, me["session_name"]
 
 
@@ -206,6 +221,12 @@ class Line:
         self.cells = out
         return self
 
+    def tint(self, bg=None, fg=None):
+        """Recolor the whole line (drag feedback) / 줄 전체 색 바꾸기 (끌기 표시)"""
+        self.fill(self.w)
+        self.cells = [(ch, bg or b_, fg or f_, bo) for ch, b_, f_, bo in self.cells]
+        return self
+
     def render(self):
         self.fill(self.w)
         out, cur = [], None
@@ -246,14 +267,21 @@ def render(items, current, w, h, cur_sess=""):
             groups.append((p["session_name"], []))
         groups[-1][1].append((i, p))
 
+    dragging = DRAG and DRAG.get("moved")
     def build(compact, gaps):
-        out, tg = [], {}
+        out, tg, hg = [], {}, {}
         for sess, members in groups:
             out.append(L())
             cur = sess == cur_sess
             g = L().put("  ").put("●", hue_of(sess)).put(" ")
             g.put(sess, C["text"] if cur else C["text2"], bold=cur, limit=w - 5)
             g.right(str(len(members)), C["text3"], margin=2)
+            if dragging and DRAG["kind"] == "group":
+                if sess == DRAG["src"]:
+                    g.tint(fg=C["text3"])
+                elif sess == DRAG["over"]:
+                    g.tint(bg=C["drop"])
+            hg[len(out)] = sess
             out.append(g)
             for mi, (i, p) in enumerate(members):
                 if gaps and mi:
@@ -273,6 +301,12 @@ def render(items, current, w, h, cur_sess=""):
                 key = f"⌥{i}" if i <= 9 else ""
                 name = task_name(p)
                 bar_ch = "▌" if sel else "▎"
+                drag_src = drag_dst = False
+                if dragging and DRAG["kind"] == "card":
+                    drag_src = p["pane_id"] == DRAG["src"]
+                    drag_dst = p["pane_id"] == DRAG["over"] and not drag_src
+                    if drag_dst:
+                        card, bar, bar_ch = C["drop"], C["run"], "▌"
                 x0, x1 = 2, w - 1          # card columns (left margin 2, right margin 1) / 카드 가로 범위 (좌 여백 2, 우 여백 1)
 
                 def card_line():
@@ -292,7 +326,10 @@ def render(items, current, w, h, cur_sess=""):
                     r2.put(f"{icon} {STATE_TEXT[st]}", bar if st != "idle" else C["text3"], card, bold=st == "wait")
                     r2.right(t, C["text2"] if st != "wait" else C["wait"], card, margin=2).fill(x1, card)
                     rows += [r1, r2]
-                if st == "run" and ANIM:
+                if drag_src:
+                    for r in rows:
+                        r.tint(fg=C["text3"])
+                if st == "run" and ANIM and not drag_src and not drag_dst:
                     span = x1 - x0
                     # fractional position (11 columns/s): the gaussian glow blends neighbouring
                     # cells, so the band moves between cells instead of jumping a cell at a time
@@ -303,21 +340,22 @@ def render(items, current, w, h, cur_sess=""):
                 for r in rows:
                     tg[len(out)] = p["pane_id"]
                     out.append(r)
-        return out, tg
+        return out, tg, hg
 
     reserve = len(lines) + 4
     for compact, gaps in ((False, True), (False, False), (True, False)):
-        body, tg = build(compact, gaps)
+        body, tg, hg = build(compact, gaps)
         if reserve + len(body) <= h:
             break
     if not items:
         body = [L(), L().put(tr("  실행 중인 Claude가 없습니다", "  No Claude sessions yet"), C["text2"]), L(),
                 L().put("  ", C["text3"]).put("prefix ⇧C", C["text"]).put(tr("  새 Claude", "  new Claude"), C["text3"]),
                 L().put("  ", C["text3"]).put(tr("hm 폴더", "hm <dir>"), C["text"]).put(tr("    프로젝트 열기", "   open project"), C["text3"])]
-        tg = {}
+        tg, hg = {}, {}
     base = len(lines)
     lines += body
     targets = {base + k: v for k, v in tg.items()}
+    heads = {base + k: v for k, v in hg.items()}
     lines = lines[:h - 3]
     while len(lines) < h - 3:
         lines.append(L())
@@ -328,7 +366,10 @@ def render(items, current, w, h, cur_sess=""):
     else:
         k.put(" ⌥0 ", C["text"], C["card_hi"], True).put(tr("  기다리는 작업", "  next waiting"), C["text3"])
     lines.append(k)
-    lines.append(L().put("  ").put(" ⌥1-9 ", C["text"], C["card_hi"], True).put(tr("  이동 · 우클릭 이름", "  jump · r-click rename"), C["text3"]))
+    if dragging:
+        lines.append(L().put("  ").put(" ↕ ", C["bg"], C["run"], True).put(tr("  놓을 곳에서 떼기", "  release to drop"), C["run"]))
+    else:
+        lines.append(L().put("  ").put(" ⌥1-9 ", C["text"], C["card_hi"], True).put(tr("  이동 · 우클릭 이름", "  jump · r-click rename"), C["text3"]))
     # Rightmost column: resize grip, a 7-row pill at the vertical middle
     # 오른쪽 끝 칸: 폭 조절 핸들. 세로 가운데 7줄짜리 알약 모양 막대
     #   ▄ rounded top / lighter bar with grip dots / ▀ rounded bottom; blue while dragging
@@ -348,7 +389,7 @@ def render(items, current, w, h, cur_sess=""):
             ln.cells[-1] = ("▀", BG, pill, False)
         elif -2 <= d <= 2:
             ln.cells[-1] = ("⠿" if -1 <= d <= 1 else " ", pill, dots, False)
-    return [l.render() for l in lines], targets
+    return [l.render() for l in lines], (targets, heads)
 
 
 def rename(pid):
@@ -415,7 +456,8 @@ def main():
     old = termios.tcgetattr(fd)
     tty.setcbreak(fd)
     out = sys.stdout
-    out.write("\x1b[?1049h\x1b[?25l\x1b[?7l\x1b[?1000h\x1b[?1006h")
+    # 1002: also report motion while a button is held (drag to reorder) / 버튼을 누른 채 움직임도 받는다 (끌어서 순서 바꾸기)
+    out.write("\x1b[?1049h\x1b[?25l\x1b[?7l\x1b[?1000h\x1b[?1002h\x1b[?1006h")
     out.flush()
     # SIGUSR1 = re-read and redraw now (state change from a hook, grip pressed/released).
     # The handler does nothing; the wakeup fd makes select() return.
@@ -427,7 +469,8 @@ def main():
     global FRAME, ANIM, NOW_T, TICK
     prev, prev_size = None, None     # last frame, for drawing only the rows that changed / 직전 프레임(바뀐 줄만 그리기용)
     border = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-border")
-    targets, buf = {}, ""
+    targets, heads, buf = {}, {}, ""
+    global DRAG
     waits = {}                       # pane -> (state time, dialog seen, polls without it) (see clear_answered) / 칸 -> (상태 시각, 승인 창 봤음, 안 보인 횟수)
     snap, last_poll, last_spin = None, 0.0, None
     try:
@@ -476,7 +519,7 @@ def main():
                         tmux("set", "-w", "-t", current, "@claude_state", "idle")
                         p["@claude_state"] = "idle"
                 w, h = os.get_terminal_size()
-                lines, targets = render(items, current, w, h, cur_sess)
+                lines, (targets, heads) = render(items, current, w, h, cur_sess)
                 # Draw only rows that changed since the last frame; a full redraw only on
                 # the first frame or a resize. Cuts what tmux has to parse by ~10x.
                 # 직전 프레임과 달라진 줄만 그린다. 첫 프레임과 크기 변경 때만 전체를 그린다.
@@ -507,32 +550,65 @@ def main():
                 with open(os.environ["HIVEMUX_DEBUG_INPUT"], "a") as dbg:
                     dbg.write(f"{time.time():.3f} {ME} {chunk!r}\n")
             buf += chunk
+            order = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-order")
+            sess_of = {p["pane_id"]: p["session_name"] for p in items}
+            released = False
             for m in re.finditer(r"\x1b\[<(\d+);(\d+);(\d+)([Mm])", buf):
                 b, x, y, kind = int(m.group(1)), int(m.group(2)), int(m.group(3)), m.group(4)
                 w_now = os.get_terminal_size()[0]
-                if x >= w_now:          # grip column: tmux handles the drag (see hivemux.tmux) / 오른쪽 끝 핸들: 끌기는 tmux 가 처리한다 (tmux.conf)
+                row = y - 1
+                if b == 32 and kind == "M":     # motion with the left button held / 왼쪽 버튼을 누른 채 움직임
+                    if DRAG:
+                        if row != DRAG["y"]:
+                            DRAG["moved"] = True
+                        if DRAG["kind"] == "card":
+                            o = targets.get(row)
+                            DRAG["over"] = o if o and sess_of.get(o) == sess_of.get(DRAG["src"]) else None
+                        else:
+                            DRAG["over"] = heads.get(row) or sess_of.get(targets.get(row))
                     continue
-                if kind != "M" or b not in (0, 2) or (y - 1) not in targets:
+                if b == 0 and kind == "m":      # left button released / 왼쪽 버튼 뗌
+                    released = True
+                    d, DRAG = DRAG, None
+                    if not d:
+                        continue
+                    if d["moved"]:
+                        if d["over"] and d["over"] != d["src"]:
+                            subprocess.run([order, d["kind"], d["src"], d["over"]],
+                                           stdin=subprocess.DEVNULL, capture_output=True)
+                            last_poll = 0
+                    elif d["kind"] == "card":
+                        pid = d["src"]
+                        # Double click: the first click may switch sessions, so remember it in a tmux global option
+                        # 더블클릭: 첫 클릭이 다른 세션으로 이동시키므로 기록은 tmux 전역 옵션에 둔다
+                        last = tmux("show", "-gqv", "@hivemux-lastclick").split()
+                        t = time.time()
+                        tmux("set", "-g", "@hivemux-lastclick", f"{pid} {t:.3f}")
+                        if len(last) == 2 and last[0] == pid and t - float(last[1]) < 0.45:
+                            tmux("set", "-gu", "@hivemux-lastclick")
+                            rename(pid)
+                        else:
+                            goto(pid)
                     continue
-                pid = targets[y - 1]
-                if b == 2:                      # right click: rename / 오른쪽 클릭: 이름 바꾸기
-                    rename(pid)
-                elif b == 0:
-                    # Double click: the first click may switch sessions, so remember it in a tmux global option
-                    # 더블클릭: 첫 클릭이 다른 세션으로 이동시키므로 기록은 tmux 전역 옵션에 둔다
-                    last = tmux("show", "-gqv", "@hivemux-lastclick").split()
-                    t = time.time()
-                    tmux("set", "-g", "@hivemux-lastclick", f"{pid} {t:.3f}")
-                    if len(last) == 2 and last[0] == pid and t - float(last[1]) < 0.45:
-                        tmux("set", "-gu", "@hivemux-lastclick")
-                        rename(pid)
-                    else:
-                        goto(pid)
+                if kind != "M" or x >= w_now:   # grip column: tmux handles the drag (see hivemux.tmux) / 오른쪽 끝 핸들: 끌기는 tmux 가 처리한다
+                    continue
+                if b == 0:
+                    # Press: start a possible drag; it is a click if released on the same row
+                    # 누름: 끌기 시작 후보. 같은 줄에서 떼면 클릭
+                    DRAG = None
+                    if row in targets:
+                        DRAG = {"kind": "card", "src": targets[row], "over": targets[row], "moved": False, "y": row}
+                    elif row in heads:
+                        DRAG = {"kind": "group", "src": heads[row], "over": heads[row], "moved": False, "y": row}
+                    released = row not in targets and row not in heads
+                elif b == 2 and row in targets:  # right click: rename / 오른쪽 클릭: 이름 바꾸기
+                    rename(targets[row])
+                    released = True
             # A click moves tmux focus to the sidebar; give it back to this window's work pane
             # 클릭하면 tmux가 초점을 사이드바로 옮긴다. 이 창의 작업 칸으로 돌려놓는다
             # (otherwise the sidebar is saved/restored as active and the window gets named Python)
             # (안 그러면 초점이 사이드바에 남은 채 저장/복원되고 창 이름도 Python이 된다)
-            if re.search(r"\x1b\[<\d+;\d+;\d+M", buf) and current:
+            if released and current:
                 tmux("select-pane", "-t", current)
             rest = re.sub(r"\x1b\[<\d+;\d+;\d+[Mm]", "", buf)
             buf = ""
@@ -550,7 +626,7 @@ def main():
                 with open(os.environ["HIVEMUX_DEBUG_INPUT"], "a") as dbg:
                     dbg.write(f"{time.time():.3f} {ME} IGNORED {rest!r}\n")
     finally:
-        out.write("\x1b[?1000l\x1b[?1006l\x1b[?7h\x1b[?25h\x1b[?1049l\x1b[0m")
+        out.write("\x1b[?1000l\x1b[?1002l\x1b[?1006l\x1b[?7h\x1b[?25h\x1b[?1049l\x1b[0m")
         out.flush()
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
 

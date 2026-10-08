@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""Sidebar order: projects (tmux sessions) and tasks (windows).
+사이드바 순서: 프로젝트(tmux 세션)와 작업(창).
+
+  hivemux-order card SRC DST     move task pane SRC to where task pane DST is (same project)
+                                 작업 칸 SRC 를 DST 자리로 옮긴다 (같은 프로젝트 안)
+  hivemux-order group SRC DST    move project SRC to where project DST is
+                                 프로젝트 SRC 를 DST 자리로 옮긴다
+  hivemux-order step up|down [PANE]
+                                 move the task one step; at the edge of its project, move the project
+                                 작업을 한 칸 옮긴다. 프로젝트 끝이면 프로젝트를 옮긴다
+
+Task order is the tmux window order, so the top status bar and Option+N follow it.
+Project order is kept in $XDG_DATA_HOME/hivemux/session-order (one name per line);
+projects not listed come after, by name.
+작업 순서는 tmux 창 순서 그대로라서 맨 위 창 목록과 Option+숫자도 같이 바뀐다.
+프로젝트 순서는 $XDG_DATA_HOME/hivemux/session-order 에 (한 줄에 이름 하나) 저장하고,
+목록에 없는 프로젝트는 그 뒤에 이름 순으로 온다.
+"""
+import os, shutil, signal, subprocess, sys
+
+TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
+DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux")
+ORDER = os.path.join(DATA, "session-order")
+US = "\x1f"
+
+
+def tmux(*a):
+    return subprocess.run([TMUX, *a], capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout
+
+
+def load_order():
+    try:
+        with open(ORDER) as f:
+            return [l.rstrip("\n") for l in f if l.strip()]
+    except OSError:
+        return []
+
+
+def sort_sessions(names):
+    """Session names in sidebar order / 사이드바 순서의 세션 이름"""
+    rank = {s: i for i, s in enumerate(load_order())}
+    return sorted(names, key=lambda s: (rank.get(s, len(rank)), s))
+
+
+def tasks():
+    """Claude task panes in sidebar order: (pane, session, window_id, window_index)
+    사이드바 순서의 Claude 작업 칸: (칸, 세션, 창 id, 창 번호)"""
+    fmt = US.join(["#{pane_id}", "#{session_name}", "#{window_id}", "#{window_index}", "#{@claude_session}", "#{@claude_state}"])
+    rows = [l.split(US) for l in tmux("list-panes", "-a", "-F", fmt).splitlines()]
+    rows = [r[:4] for r in rows if len(r) == 6 and r[4] and r[5]]
+    rank = {s: i for i, s in enumerate(sort_sessions({r[1] for r in rows}))}
+    return sorted(rows, key=lambda r: (rank[r[1]], int(r[3])))
+
+
+def save_order(names):
+    os.makedirs(DATA, exist_ok=True)
+    tmp = ORDER + ".tmp"
+    with open(tmp, "w") as f:
+        f.write("".join(n + "\n" for n in names))
+    os.replace(tmp, ORDER)
+
+
+def wake():
+    """Redraw all sidebars of this server now / 이 서버의 사이드바를 바로 다시 그린다"""
+    for l in tmux("list-panes", "-a", "-F", "#{pane_pid} #{pane_title}").splitlines():
+        pid, _, title = l.partition(" ")
+        if title == "hivemux-sidebar":
+            try:
+                os.kill(int(pid), signal.SIGUSR1)
+            except (OSError, ValueError):
+                pass
+
+
+def move_card(src, dst):
+    rows = {r[0]: r for r in tasks()}
+    if src not in rows or dst not in rows or src == dst:
+        return False
+    _, s_sess, s_win, s_idx = rows[src]
+    _, d_sess, d_win, d_idx = rows[dst]
+    if s_sess != d_sess or s_win == d_win:
+        return False            # a task stays in its project / 작업은 다른 프로젝트로 옮기지 않는다
+    # Remember what each attached client of this session shows, put it back afterwards
+    # 이 세션을 보고 있는 화면이 무엇을 보던 중인지 기억했다가 되돌린다
+    shown = tmux("display", "-p", "-t", f"={s_sess}:", "#{window_id}").strip()
+    # moving down: after the target; moving up: before it / 아래로: 대상 뒤에, 위로: 대상 앞에
+    tmux("move-window", "-a" if int(s_idx) < int(d_idx) else "-b", "-s", s_win, "-t", d_win)
+    if shown:
+        tmux("select-window", "-t", shown)
+    return True
+
+
+def move_group(src, dst):
+    names = sort_sessions({r[1] for r in tasks()})
+    if src not in names or dst not in names or src == dst:
+        return False
+    i, j = names.index(src), names.index(dst)
+    names.pop(i)
+    names.insert(j, src)      # takes the target's place, before it going up, after it going down / 대상 자리로 (위로는 앞, 아래로는 뒤)
+    save_order(names + [n for n in load_order() if n not in names])
+    return True
+
+
+def step(direction, pane):
+    rows = tasks()
+    # the focused pane may be a shell in the same window as the Claude pane / 초점이 같은 창의 셸 칸일 수도 있다
+    win = tmux("display", "-p", "-t", pane, "#{window_id}").strip() if pane else ""
+    me = next((r for r in rows if r[0] == pane), None) or next((r for r in rows if r[2] == win), None)
+    if not me:
+        return False
+    same = [r for r in rows if r[1] == me[1]]
+    k = same.index(me)
+    k2 = k - 1 if direction == "up" else k + 1
+    if 0 <= k2 < len(same):
+        return move_card(me[0], same[k2][0])
+    names = sort_sessions({r[1] for r in rows})
+    g = names.index(me[1])
+    g2 = g - 1 if direction == "up" else g + 1
+    if 0 <= g2 < len(names):
+        return move_group(me[1], names[g2])
+    return False
+
+
+def main(argv):
+    if len(argv) >= 3 and argv[0] == "card":
+        ok = move_card(argv[1], argv[2])
+    elif len(argv) >= 3 and argv[0] == "group":
+        ok = move_group(argv[1], argv[2])
+    elif len(argv) >= 2 and argv[0] == "step" and argv[1] in ("up", "down"):
+        pane = argv[2] if len(argv) > 2 else os.environ.get("TMUX_PANE", "")
+        ok = step(argv[1], pane)
+    elif argv and argv[0] == "sessions":
+        print("\n".join(sort_sessions({r[1] for r in tasks()})))
+        return 0
+    else:
+        print(__doc__.split("\n\n")[1], file=sys.stderr)
+        return 2
+    if ok:
+        wake()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

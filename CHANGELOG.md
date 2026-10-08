@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Reorder the sidebar: drag a card to move a task within its project, or drag a
+  project header to move the project. `prefix Shift+↑/↓` moves the current task
+  (and the project at its edge). `Option+N` and the top window list follow the
+  sidebar order; project order is saved in `~/.local/share/hivemux/session-order`
+
 ## 0.1.2 — 2026-10-08
 
 - Fixed "needs input" turning into "working" on its own while the approval dialog was
