@@ -368,31 +368,46 @@ def goto(pid):
 
 
 
+DIALOG_RE = re.compile(r"(?i)\besc to cancel\b")   # footer of Claude's approval/question dialogs / Claude 승인·질문 창의 맨 아랫줄
+BUSY_RE = re.compile(r"(?i)\besc to interrupt\b")  # footer while Claude is working / Claude 가 작업 중일 때의 아랫줄
+
+
 def clear_answered(items, waits, now):
     """Claude sends no hook between "user answered the approval" and "tool finished", so a long
-    tool kept showing "input needed". While a pane waits, compare its screen with the screen when
-    the dialog opened; once it changes (answered here or from the phone), mark it running.
+    tool kept showing "input needed". While a pane waits, look for the dialog footer
+    ("Esc to cancel"); once it was there and is gone (answered here or from the phone), mark the
+    pane running, or done if Claude is not working (the user chose "No": no hook fires then either).
+    Any other screen change (the blinking ⏺, clicks, focus) is ignored.
     승인에 답한 뒤 도구가 끝날 때까지 Claude 는 훅을 보내지 않아 오래 걸리는 도구는 계속 "입력 필요"로 보였다.
-    기다리는 동안 칸 화면을 승인 창이 떴을 때와 비교해, 바뀌면 (여기서든 폰에서든 답함) 작업 중으로 바꾼다."""
+    기다리는 동안 승인 창 맨 아랫줄("Esc to cancel")을 찾고, 있다가 사라지면 (여기서든 폰에서든 답함)
+    작업 중으로, Claude 가 일하지 않으면 완료로 바꾼다 ("No"를 골랐을 때도 훅이 오지 않는다).
+    다른 화면 변화(깜빡이는 ⏺, 클릭, 포커스)는 무시한다."""
     for pid in [k for k in waits if not any(p["pane_id"] == k and p["@claude_state"] == "wait" for p in items)]:
         del waits[pid]
     for p in items:
         if p["@claude_state"] != "wait":
             continue
         pid, at = p["pane_id"], p["@claude_state_at"]
-        screen = tmux("capture-pane", "-p", "-t", pid).rstrip()
-        old = waits.get(pid)
-        settled = now - (int(at) if at.isdigit() else 0) >= 2   # let the dialog finish drawing / 승인 창이 다 그려질 때까지
-        if old is None or old[1] != at or not settled:
-            waits[pid] = (screen, at)
-        elif screen != old[0]:
+        tail = [ln for ln in tmux("capture-pane", "-p", "-t", pid).splitlines() if ln.strip()][-12:]
+        shown = any(DIALOG_RE.search(ln) for ln in tail)
+        st = waits.get(pid)
+        _, seen, missing = st if st and st[0] == at else (at, False, 0)
+        if shown:
+            waits[pid] = (at, True, 0)
+        elif seen and tail:
+            missing += 1
+            if missing < 2:             # gone on two polls in a row, not a redraw glitch / 두 번 연속 없을 때만 (다시 그리는 중 아님)
+                waits[pid] = (at, True, missing)
+                continue
             del waits[pid]
-            ts = str(int(now))
-            tmux("set", "-p", "-t", pid, "@claude_state", "run")
+            ts, new = str(int(now)), "run" if any(BUSY_RE.search(ln) for ln in tail) else "done"
+            tmux("set", "-p", "-t", pid, "@claude_state", new)
             tmux("set", "-p", "-t", pid, "@claude_state_at", ts)
-            tmux("set", "-w", "-t", pid, "@claude_state", "run")
+            tmux("set", "-w", "-t", pid, "@claude_state", new)
             tmux("refresh-client", "-S")
-            p["@claude_state"], p["@claude_state_at"] = "run", ts
+            p["@claude_state"], p["@claude_state_at"] = new, ts
+        else:
+            waits[pid] = (at, False, 0)
 
 
 def main():
@@ -413,7 +428,7 @@ def main():
     prev, prev_size = None, None     # last frame, for drawing only the rows that changed / 직전 프레임(바뀐 줄만 그리기용)
     border = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-border")
     targets, buf = {}, ""
-    waits = {}                       # pane -> screen while "input needed" (see clear_answered) / 입력 필요 동안의 화면
+    waits = {}                       # pane -> (state time, dialog seen, polls without it) (see clear_answered) / 칸 -> (상태 시각, 승인 창 봤음, 안 보인 횟수)
     snap, last_poll, last_spin = None, 0.0, None
     try:
         while True:
