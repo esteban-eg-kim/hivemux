@@ -65,7 +65,7 @@ hivemux setup
 | Remote Control for all sessions | `remoteControlAtStartup` in `~/.claude/settings.json` |
 
 It also downloads tmux-resurrect and tmux-continuum (or uses yours from
-`~/.tmux/plugins`) and registers six Claude Code hooks. Run `hivemux doctor` to
+`~/.tmux/plugins`) and registers ten Claude Code hooks. Run `hivemux doctor` to
 check everything. Use `--yes` to accept defaults, `--no-keys`, `--no-ghostty`,
 `--no-remote` to skip parts.
 

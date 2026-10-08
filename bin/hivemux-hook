@@ -24,6 +24,14 @@ state() { # state <run|wait|done|idle>
   t set -p -t "$TMUX_PANE" @claude_state_at "$(date +%s)"
   t set -w -t "$TMUX_PANE" @claude_state "$1"
   "$TMUX_BIN" list-clients -F '#{client_name}' 2>/dev/null | while read -r c; do t refresh-client -t "$c" -S; done
+  wake
+}
+
+# Tell this server's sidebars to re-read now instead of on their next 1s poll
+# 이 서버의 사이드바에 바로 다시 읽으라고 알린다 (1초 주기를 기다리지 않게)
+wake() {
+  "$TMUX_BIN" list-panes -a -F '#{pane_pid} #{pane_title}' 2>/dev/null | awk '$2=="hivemux-sidebar"{print $1}' |
+    while read -r p; do kill -USR1 "$p" 2>/dev/null; done
 }
 
 case "$event" in
@@ -34,8 +42,21 @@ case "$event" in
     title="$(field session_title)"; [ -n "$title" ] && t set -p -t "$TMUX_PANE" @claude_title "$title"
     state idle
     ;;
-  UserPromptSubmit|PostToolUse)
+  UserPromptSubmit|PostToolUse|PostToolUseFailure|PermissionDenied)
     state run
+    ;;
+  PreToolUse)
+    # Tools that only ask the user something wait right away; others are running
+    # 사용자에게 묻기만 하는 도구는 바로 입력 필요, 나머지는 작업 중
+    case "$(field tool_name)" in
+      AskUserQuestion|ExitPlanMode) state wait ;;
+      *) state run ;;
+    esac
+    ;;
+  PermissionRequest)
+    # Fires when the approval dialog opens (the Notification below comes later)
+    # 승인 창이 뜨는 순간 호출된다 (아래 Notification 은 몇 초 늦게 온다)
+    state wait
     ;;
   Notification)
     case "$(field notification_type)" in

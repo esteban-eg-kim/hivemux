@@ -37,8 +37,9 @@ PAUSE = f"/tmp/hivemux-pause-{os.getuid()}"
 GRIP = f"/tmp/hivemux-grip-{os.getuid()}"     # grip is being dragged (created by bin/hivemux-border) / 핸들을 끄는 중 (bin/hivemux-border 가 만든다)
 
 
-class Wake(Exception):
-    """SIGUSR1: redraw now (grip pressed/released) / SIGUSR1: 바로 다시 그리기 (핸들 누름/놓음)"""
+WAKE_R, WAKE_W = os.pipe()          # SIGUSR1 -> wakes select() via this pipe / SIGUSR1 -> 이 파이프로 select() 를 깨운다
+os.set_blocking(WAKE_R, False)
+os.set_blocking(WAKE_W, False)
 US = "\x1f"
 FIELDS = ["pane_id", "session_name", "window_index", "window_name", "@claude_state",
           "@claude_state_at", "@claude_session", "window_id", "pane_active", "pane_last",
@@ -367,6 +368,33 @@ def goto(pid):
 
 
 
+def clear_answered(items, waits, now):
+    """Claude sends no hook between "user answered the approval" and "tool finished", so a long
+    tool kept showing "input needed". While a pane waits, compare its screen with the screen when
+    the dialog opened; once it changes (answered here or from the phone), mark it running.
+    승인에 답한 뒤 도구가 끝날 때까지 Claude 는 훅을 보내지 않아 오래 걸리는 도구는 계속 "입력 필요"로 보였다.
+    기다리는 동안 칸 화면을 승인 창이 떴을 때와 비교해, 바뀌면 (여기서든 폰에서든 답함) 작업 중으로 바꾼다."""
+    for pid in [k for k in waits if not any(p["pane_id"] == k and p["@claude_state"] == "wait" for p in items)]:
+        del waits[pid]
+    for p in items:
+        if p["@claude_state"] != "wait":
+            continue
+        pid, at = p["pane_id"], p["@claude_state_at"]
+        screen = tmux("capture-pane", "-p", "-t", pid).rstrip()
+        old = waits.get(pid)
+        settled = now - (int(at) if at.isdigit() else 0) >= 2   # let the dialog finish drawing / 승인 창이 다 그려질 때까지
+        if old is None or old[1] != at or not settled:
+            waits[pid] = (screen, at)
+        elif screen != old[0]:
+            del waits[pid]
+            ts = str(int(now))
+            tmux("set", "-p", "-t", pid, "@claude_state", "run")
+            tmux("set", "-p", "-t", pid, "@claude_state_at", ts)
+            tmux("set", "-w", "-t", pid, "@claude_state", "run")
+            tmux("refresh-client", "-S")
+            p["@claude_state"], p["@claude_state_at"] = "run", ts
+
+
 def main():
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
@@ -374,15 +402,18 @@ def main():
     out = sys.stdout
     out.write("\x1b[?1049h\x1b[?25l\x1b[?7l\x1b[?1000h\x1b[?1006h")
     out.flush()
-    def _wake(*_):
-        raise Wake()
-    signal.signal(signal.SIGUSR1, _wake)
+    # SIGUSR1 = re-read and redraw now (state change from a hook, grip pressed/released).
+    # The handler does nothing; the wakeup fd makes select() return.
+    # SIGUSR1 = 바로 다시 읽고 그리기 (훅의 상태 변경, 핸들 누름/놓음). 처리기는 비워 두고 wakeup fd 로 select() 를 깨운다.
+    signal.signal(signal.SIGUSR1, lambda *_: None)
+    signal.set_wakeup_fd(WAKE_W, warn_on_full_buffer=False)
     resized = [True]
     signal.signal(signal.SIGWINCH, lambda *_: resized.__setitem__(0, True))
     global FRAME, ANIM, NOW_T, TICK
     prev, prev_size = None, None     # last frame, for drawing only the rows that changed / 직전 프레임(바뀐 줄만 그리기용)
     border = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-border")
     targets, buf = {}, ""
+    waits = {}                       # pane -> screen while "input needed" (see clear_answered) / 입력 필요 동안의 화면
     snap, last_poll, last_spin = None, 0.0, None
     try:
         while True:
@@ -397,11 +428,16 @@ def main():
                 # @hivemux-fps: 초당 애니메이션 프레임 (기본 30, 낮추면 CPU 절약)
                 fps = tmux("show", "-gqv", "@hivemux-fps").strip()
                 TICK = 1 / max(5, min(60, int(fps))) if fps.isdigit() else 1 / 30
+                if snap[2]:
+                    clear_answered(snap[0], waits, nowf)
             items, current, visible, cur_sess = snap
             if os.path.exists(PAUSE):          # rename popup is open: do not draw / 이름 바꾸기 팝업이 열려 있음: 그리지 않는다
-                r, _, _ = select.select([fd], [], [], 0.2)
-                if r:
-                    os.read(fd, 1024)
+                r, _, _ = select.select([fd, WAKE_R], [], [], 0.2)
+                for f in r:
+                    try:
+                        os.read(f, 1024)
+                    except BlockingIOError:
+                        pass
                 continue
             animating = visible and ANIM and any(p["@claude_state"] in ("run", "wait") for p in items)
             FRAME += 1
@@ -441,11 +477,14 @@ def main():
                     out.write(frame + "\x1b[0m")
                     out.flush()
                 prev, prev_size = lines, (w, h)
-            try:
-                r, _, _ = select.select([fd], [], [], TICK if animating else (1.0 if visible else 3.0))
-            except Wake:
-                continue
-            if not r:
+            r, _, _ = select.select([fd, WAKE_R], [], [], TICK if animating else (1.0 if visible else 3.0))
+            if WAKE_R in r:
+                try:
+                    os.read(WAKE_R, 512)
+                except BlockingIOError:
+                    pass
+                last_poll = 0
+            if fd not in r:
                 continue
             last_poll = 0  # re-read right after a click or key / 클릭/키 입력 뒤에는 바로 새로 읽는다
             chunk = os.read(fd, 1024).decode(errors="ignore")
