@@ -11,6 +11,8 @@
 #                                        복원 직후: 셸로 복원된 사이드바 칸을 지우고 다시 만든다
 #   hivemux-sidebar focus                move focus off sidebars to the work pane
 #                                        초점이 사이드바에 있는 창은 작업 칸으로 옮긴다
+#   hivemux-sidebar respawn              restart every sidebar (after a language change)
+#                                        모든 사이드바를 다시 띄운다 (언어를 바꾼 뒤)
 #   hivemux-sidebar toggle               hide / show all (@hivemux-sidebar on|off)
 #                                        모두 숨기기 / 다시 보이기 (@hivemux-sidebar on|off)
 # Sidebar panes are identified by the pane title "hivemux-sidebar" (tmux-resurrect saves/restores titles).
@@ -132,6 +134,11 @@ case "$1" in
       p="$(t list-panes -t "$w" -F '#{pane_width} #{pane_id} #{pane_title}' | awk -v T="$TITLE" '$3!=T' | sort -rn | head -1 | awk '{print $2}')"
       [ -n "$p" ] && t select-pane -t "$p"
     done ;;
+  respawn)
+    # restart every sidebar (after a language change) / 모든 사이드바를 다시 띄운다 (언어를 바꾼 뒤)
+    t list-panes -a -F '#{pane_id} #{pane_title}' | awk -v T="$TITLE" '$2==T{print $1}' | while read -r p; do
+      t respawn-pane -k -t "$p" "exec $HM_BIN/hivemux-sidebar-view"
+    done ;;
   toggle)
     if [ "$ON" = on ]; then
       t set -g @hivemux-sidebar off
@@ -140,6 +147,6 @@ case "$1" in
     else
       t set -g @hivemux-sidebar on; ON=on; "$0" ensure
     fi ;;
-  *) echo "usage: $0 ensure [win]|fix|reap|rebuild|toggle" >&2; exit 2 ;;
+  *) echo "usage: $0 ensure [win]|fix|reap|rebuild|respawn|toggle" >&2; exit 2 ;;
 esac
 exit 0

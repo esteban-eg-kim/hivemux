@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+"""Settings popup (runs inside tmux display-popup, opened by bin/hivemux-settings).
+설정 팝업 (tmux display-popup 안에서 실행, bin/hivemux-settings 가 연다).
+
+  ↑↓ choose / 고르기    ←→ or Enter or click: change / 바꾸기    Esc close / 닫기
+
+Changes apply at once and are saved in $XDG_DATA_HOME/hivemux (lang, anim, sidebar-width);
+share/hivemux.tmux reads them back when tmux starts.
+바꾸면 바로 적용하고 $XDG_DATA_HOME/hivemux 에 (lang, anim, sidebar-width) 저장한다.
+tmux 가 시작할 때 share/hivemux.tmux 가 다시 읽는다.
+"""
+import os, re, shutil, subprocess, sys, termios, tty, unicodedata
+
+TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
+HERE = os.path.dirname(os.path.realpath(__file__))
+DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux")
+
+TEXT, T2, T3 = (230, 233, 239), (154, 163, 178), (98, 106, 120)
+ACC, SEL_BG, BG, RULE = (90, 169, 255), (42, 47, 58), (30, 33, 40), (44, 48, 57)
+
+
+def fg(c): return "\x1b[38;2;%d;%d;%dm" % c
+def bg(c): return "\x1b[48;2;%d;%d;%dm" % c
+RST, BOLD = "\x1b[0m", "\x1b[1m"
+
+
+def tmux(*a):
+    return subprocess.run([TMUX, *a], capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout
+
+
+def width(s):
+    return sum(0 if unicodedata.combining(c) else 2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
+
+
+def lang():
+    v = os.environ.get("HIVEMUX_LANG") or tmux("show", "-gqv", "@hivemux-lang").strip()
+    return "ko" if (v or os.environ.get("LANG", "")).startswith("ko") else "en"
+
+
+def tr(ko, en):
+    return ko if lang() == "ko" else en
+
+
+def save(name, value):
+    os.makedirs(DATA, exist_ok=True)
+    tmp = os.path.join(DATA, name + ".tmp")
+    with open(tmp, "w") as f:
+        f.write(value + "\n")
+    os.replace(tmp, os.path.join(DATA, name))
+
+
+WIDTHS = list(range(24, 50, 2))
+
+
+def settings():
+    """(key, label, values, current index) / (키, 이름, 값 목록, 지금 값 번호)"""
+    anim = tmux("show", "-gqv", "@hivemux-anim").strip() != "off"
+    try:
+        w = int(tmux("show", "-gqv", "@hivemux-sidebar-width").strip() or 32)
+    except ValueError:
+        w = 32
+    ws = sorted(set(WIDTHS + [w]))
+    return [
+        ("lang", tr("언어", "Language"), [("ko", "한국어"), ("en", "English")], 0 if lang() == "ko" else 1),
+        ("anim", tr("애니메이션", "Animation"), [("on", tr("켜기", "on")), ("off", tr("끄기", "off"))], 0 if anim else 1),
+        ("width", tr("사이드바 폭", "Sidebar width"), [(str(x), tr(f"{x}칸", f"{x} columns")) for x in ws], ws.index(w)),
+    ]
+
+
+def apply(key, value):
+    if key == "lang":
+        tmux("set", "-g", "@hivemux-lang", value)
+        save("lang", value)
+        # the sidebars read the language when they start / 사이드바는 시작할 때 언어를 읽는다
+        subprocess.Popen([os.path.join(HERE, "hivemux-sidebar"), "respawn"], stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    elif key == "anim":
+        tmux("set", "-g", "@hivemux-anim", value)
+        save("anim", value)
+    elif key == "width":
+        tmux("set", "-g", "@hivemux-sidebar-width", value)
+        save("sidebar-width", value)
+        subprocess.run([os.path.join(HERE, "hivemux-sidebar"), "fix"], stdin=subprocess.DEVNULL,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def main():
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    tty.setraw(fd)
+    out = sys.stdout
+    out.write("\x1b[?25l\x1b[?1000h\x1b[?1006h")
+    sel, msg = 0, ""
+    try:
+        while True:
+            cols, rows = os.get_terminal_size()
+            items = settings()
+            sel = max(0, min(sel, len(items) - 1))
+            buf = ["\x1b[H", bg(BG), "\x1b[2J"]
+            rows_y = {}
+            vx = max(20, cols - 22)            # value column / 값 열
+            for i, (key, label, values, cur) in enumerate(items):
+                y = 2 + i * 2
+                rows_y[y] = i
+                v = values[cur][1]
+                on = i == sel
+                if on:
+                    buf.append(f"\x1b[{y};1H{bg(SEL_BG)}{fg(ACC)} ▌ {fg(TEXT)}{BOLD}{label}{RST}{bg(SEL_BG)}" + " " * max(0, cols - 4 - width(label)))
+                    buf.append(f"\x1b[{y};{vx}H{fg(ACC)}‹ {fg(TEXT)}{BOLD}{v}{RST}{bg(SEL_BG)} {fg(ACC)}›" + RST + bg(BG))
+                else:
+                    buf.append(f"\x1b[{y};1H   {fg(T2)}{label}\x1b[{y};{vx}H  {fg(T2)}{v}")
+            note = tr("언어를 바꾸면 사이드바를 다시 띄웁니다", "Changing the language restarts the sidebars")
+            buf.append(f"\x1b[{rows - 3};1H  {fg(T3)}{note}")
+            buf.append(f"\x1b[{rows - 1};1H{fg(RULE)}  " + "─" * max(0, cols - 4))
+            hint = (f"{fg(TEXT)}↑↓{fg(T3)} {tr('고르기', 'choose')}   {fg(TEXT)}←→{fg(T3)} {tr('바꾸기', 'change')}   "
+                    f"{fg(TEXT)}Esc{fg(T3)} {tr('닫기', 'close')}")
+            buf.append(f"\x1b[{rows};1H  " + (msg or hint) + RST)
+            out.write("".join(buf))
+            out.flush()
+            msg = ""
+            data = os.read(fd, 256).decode(errors="ignore")
+            for ch in re.findall(r"\x1b\[<\d+;\d+;\d+[Mm]|\x1b\[[0-9;]*[A-Za-z~]|\x1bO[A-Za-z]|\x1b|[\s\S]", data):
+                key, _, values, cur = items[sel]
+                step = 0
+                m = re.match(r"\x1b\[<(\d+);(\d+);(\d+)([Mm])", ch)
+                if m:
+                    b, x, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+                    if b == 0 and m.group(4) == "M" and y in rows_y:
+                        sel = rows_y[y]
+                        key, _, values, cur = items[sel]
+                        # left of the value: back one; otherwise: next / 값 왼쪽(‹): 이전, 그 밖: 다음
+                        step = -1 if vx - 1 <= x <= vx + 1 else 1
+                    elif b == 64:
+                        sel -= 1
+                    elif b == 65:
+                        sel += 1
+                elif ch in ("\x1b", "\x03", "q"):
+                    return
+                elif ch in ("\x1b[A", "\x1bOA", "k", "\x10"):
+                    sel -= 1
+                elif ch in ("\x1b[B", "\x1bOB", "j", "\x0e"):
+                    sel += 1
+                elif ch in ("\x1b[D", "\x1bOD", "h"):
+                    step = -1
+                elif ch in ("\x1b[C", "\x1bOC", "l", "\r", "\n", " "):
+                    step = 1
+                if step:
+                    # width stops at the ends; the others go round / 폭은 끝에서 멈추고, 나머지는 돌아간다
+                    n = cur + step
+                    n = max(0, min(n, len(values) - 1)) if key == "width" else n % len(values)
+                    if n != cur:
+                        apply(key, values[n][0])
+                sel = max(0, min(sel, len(items) - 1))
+    finally:
+        out.write("\x1b[?1000l\x1b[?1006l\x1b[?25h" + RST + "\x1b[2J")
+        out.flush()
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
+if __name__ == "__main__":
+    main()

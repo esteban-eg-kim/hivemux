@@ -1,0 +1,18 @@
+#!/bin/bash
+# Settings popup: language, animation, sidebar width (sidebar right-click menu "Settings").
+# 설정 팝업: 언어, 애니메이션, 사이드바 폭 (사이드바 오른쪽 클릭 메뉴 "설정").
+#   hivemux-settings [client]
+HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
+TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+# UI language: HIVEMUX_LANG > tmux @hivemux-lang (set by hivemux setup) > LANG
+# 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG
+say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
+client="$1"
+# Pause sidebar drawing while the popup is open (each redraw would flicker it)
+# 팝업이 떠 있는 동안 사이드바 애니메이션을 멈춘다 (다시 그릴 때마다 팝업이 깜빡이므로)
+pause="/tmp/hivemux-pause-$(id -u)"
+: > "$pause"; trap 'rm -f "$pause"' EXIT
+"$HM_BIN/hivemux-modal" "$client" -E -w 56 -h 12 -b rounded \
+  -T "#[fg=#e6e9ef,bold] $(say "설정" "Settings") " -S "fg=#5aa9ff" -s "bg=#1e2128" \
+  "$HM_BIN/hivemux-settings-ui" 2>/dev/null || true   # cancel (Esc) is not an error / 취소(Esc)도 정상 종료
+exit 0

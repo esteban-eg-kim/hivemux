@@ -52,7 +52,7 @@ hivemux setup
 | Ghostty를 tmux에 연결 | Ghostty 설정에 `command = hivemux-attach` |
 | 모든 세션 Remote Control | `~/.claude/settings.json`의 `remoteControlAtStartup` |
 
-tmux-resurrect와 tmux-continuum도 받아 옵니다. 이미 `~/.tmux/plugins`에 있으면 그것을 씁니다. Claude Code 훅 열 개도 등록합니다. `hivemux doctor`로 전체를 점검할 수 있습니다. `--yes`는 기본값으로 진행하고, `--no-keys`, `--no-ghostty`, `--no-remote`는 해당 부분을 건너뜁니다. 화면 언어는 셸 언어로 정해지고, `--lang=en` 또는 `--lang=ko`로 바꿀 수 있습니다.
+tmux-resurrect와 tmux-continuum도 받아 옵니다. 이미 `~/.tmux/plugins`에 있으면 그것을 씁니다. Claude Code 훅 열 개도 등록합니다. `hivemux doctor`로 전체를 점검할 수 있습니다. `--yes`는 기본값으로 진행하고, `--no-keys`, `--no-ghostty`, `--no-remote`는 해당 부분을 건너뜁니다. 화면 언어는 셸 언어로 정해지고, `--lang=en` 또는 `--lang=ko`로 바꿀 수 있습니다. 설치한 뒤에는 사이드바 오른쪽 클릭 메뉴의 "설정"에서 바꿉니다.
 
 ## 처음 쓰는 순서
 
@@ -70,7 +70,7 @@ tmux-resurrect와 tmux-continuum도 받아 옵니다. 이미 `~/.tmux/plugins`�
 | `Option+1` … `9` | 그 번호 Claude로 이동 (세션이 달라도) |
 | `Option+0` / `prefix Space` | 가장 오래 기다린 Claude, 없으면 안 본 완료 작업 |
 | 카드 클릭 | 이동. 더블클릭은 이름 바꾸기 |
-| 오른쪽 클릭 | 메뉴: 이동, 이름 바꾸기, 위/아래로 옮기기, 이 프로젝트에 새 Claude, 새 프로젝트 (폴더 탐색 창에서 고르거나 새로 만듦) |
+| 오른쪽 클릭 | 메뉴: 이동, 이름 바꾸기, 위/아래로 옮기기, 이 프로젝트에 새 Claude, 새 프로젝트 (폴더 탐색 창에서 고르거나 새로 만듦), 설정 (언어, 애니메이션, 사이드바 폭) |
 | 카드 / 프로젝트 이름 줄 끌기 | 작업 순서 / 프로젝트 순서 바꾸기 |
 | `prefix Shift+↑` / `↓` | 지금 작업을 위 / 아래로 (프로젝트 끝이면 프로젝트가 움직임) |
 | `Option+O` | 최근 출력의 파일 경로 열기 (Enter VS Code, Tab 기본 앱, ^F Finder, ^Y 복사) |

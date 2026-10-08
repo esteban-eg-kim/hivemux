@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Settings popup from the sidebar right-click menu ("Settings…"): language
+  (한국어 / English), animation on/off, sidebar width. Changes apply at once and
+  are saved in `~/.local/share/hivemux` (`lang`, `anim`, `sidebar-width`)
+
 ## 0.1.3 — 2026-10-08
 
 - Reorder the sidebar: drag a card to move a task within its project, or drag a

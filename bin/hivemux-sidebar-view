@@ -438,6 +438,7 @@ def menu(y, pid=None, sess=None, items=()):
     if not empty:
         rows.append((tr("새 Claude…", "New Claude…"), "n", lambda: bg_run(os.path.join(here, "hivemux-new-claude"), d, sess, client)))
     rows.append((tr("새 프로젝트…", "New project…"), "p", lambda: bg_run(os.path.join(here, "hm"), "--ask", client, d)))
+    rows += [None, (tr("설정…", "Settings…"), "s", lambda: bg_run(os.path.join(here, "hivemux-settings"), client))]
     # card: the task name; project name row: the project; empty space: "New"
     # 카드: 작업 이름, 프로젝트 이름 줄: 프로젝트 이름, 빈 곳: "새로 만들기"
     title = tr("새로 만들기", "New") if empty else (next((task_name(p) for p in items if p["pane_id"] == pid), "") if pid else "") or sess
