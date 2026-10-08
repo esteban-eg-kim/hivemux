@@ -675,11 +675,8 @@ def main():
                             menu_run(at)
                             released = True
                     elif b == 2 and kind == "m":
-                        if at is None and (row in targets or row in heads):
+                        if at is None and x < w_now:
                             menu(row, pid=targets.get(row), sess=heads.get(row), items=items)
-                        elif at is None:
-                            menu_close()
-                            released = True
                     continue
                 if b == 32 and kind == "M":     # motion with the left button held / 왼쪽 버튼을 누른 채 움직임
                     if DRAG:
@@ -694,8 +691,12 @@ def main():
                 if b == 2 and kind == "m":      # right button released: open the menu now, so this release cannot close it
                     # 오른쪽 버튼 뗌: 이때 메뉴를 연다 (누를 때 열면 이 뗌이 메뉴를 바로 닫아 버린다)
                     DRAG = None
-                    if row in targets or row in heads:
-                        menu(row, pid=targets.get(row), sess=heads.get(row), items=items)   # keeps focus for its keys / 키를 받도록 초점을 둔다
+                    # on a card: task menu; on a project name or empty space: new Claude / new project
+                    # (empty space: for the project shown in this window). It keeps focus for its keys
+                    # 카드: 작업 메뉴, 프로젝트 이름 줄이나 빈 곳: 새 Claude / 새 프로젝트 (빈 곳은 이 창의 프로젝트).
+                    # 메뉴 키를 받도록 초점을 둔다
+                    if x < w_now:
+                        menu(row, pid=targets.get(row), sess=heads.get(row), items=items)
                     else:
                         released = True
                     continue
