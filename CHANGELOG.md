@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.2 — 2026-10-08
+
+- Fixed "needs input" turning into "working" on its own while the approval dialog was
+  still open. It now clears only when the dialog closes, and becomes "done" (not
+  "working") when you choose No
+- Fixed the sidebar shrinking and growing back the first time you open each session
+  after starting the terminal or a reboot: hidden windows now get the terminal's size
+  ahead of time
+- Fixed sidebar housekeeping (width restore and others) skipping every other window
+
 ## 0.1.1 — 2026-10-08
 
 Run `hivemux setup` again after upgrading: it registers four new Claude Code hooks.
