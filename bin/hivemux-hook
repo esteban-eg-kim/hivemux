@@ -14,7 +14,7 @@ input="$(cat)"
 [ -n "$TMUX" ] && [ -n "$TMUX_PANE" ] || exit 0
 TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
 JQ="$(command -v jq || echo /usr/bin/jq)"
-t() { "$TMUX_BIN" "$@" >/dev/null 2>&1; }
+t() { "$TMUX_BIN" "$@" </dev/null >/dev/null 2>&1; }
 field() { printf '%s' "$input" | "$JQ" -r --arg k "$1" '.[$k] // empty' 2>/dev/null; }
 
 state() { # state <run|wait|done|idle>

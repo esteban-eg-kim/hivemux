@@ -58,7 +58,8 @@ set-hook -g session-window-changed 'run-shell -b "#{@hivemux-bin}/hivemux-sideba
 set-hook -g pane-exited            'run-shell -b "#{@hivemux-bin}/hivemux-sidebar reap; #{@hivemux-bin}/hivemux-sidebar ensure"'
 set-hook -g after-kill-pane        'run-shell -b "#{@hivemux-bin}/hivemux-sidebar reap"'
 set-hook -g window-resized         'run-shell -b "#{@hivemux-bin}/hivemux-sidebar fix"'
-set-hook -g client-attached        'run-shell -b "#{@hivemux-bin}/hivemux-sidebar fix"'
+set-hook -g client-attached        'run-shell -b "#{@hivemux-bin}/hivemux-sidebar presize #{client_name}"'
+set-hook -g client-resized         'run-shell -b "#{@hivemux-bin}/hivemux-sidebar presize #{client_name}"'
 run-shell -b "#{@hivemux-bin}/hivemux-sidebar ensure"
 
 # ── Keys ─────────────────────────────────────────────────────────────────

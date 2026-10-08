@@ -20,7 +20,9 @@ TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
 # UI language: HIVEMUX_LANG > tmux @hivemux-lang (set by hivemux setup) > LANG
 # 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG
 say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
-t() { "$TMUX_BIN" "$@"; }
+# </dev/null: a tmux command inside `... | while read` would otherwise eat the rest of the list
+# </dev/null: `... | while read` 안의 tmux 명령이 남은 목록을 stdin 에서 먹어 버리지 않게
+t() { "$TMUX_BIN" "$@" </dev/null; }
 TITLE=hivemux-sidebar
 W="$(t show -gqv @hivemux-sidebar-width)"; W="${W:-32}"
 ON="$(t show -gqv @hivemux-sidebar)"; ON="${ON:-on}"
@@ -62,6 +64,31 @@ case "$1" in
   ensure)
     if [ -n "$2" ]; then ensure_one "$2"
     else t list-windows -a -F '#{window_id}' | while read -r w; do ensure_one "$w"; done; fi ;;
+  presize)
+    # presize <client>: give every window the size this client shows windows at.
+    # A window restored or last seen at another size is resized when you first open it, and tmux
+    # scales the sidebar with it until `fix` puts it back, so it visibly shrinks once per window.
+    # Doing it ahead of time (while those windows are hidden) avoids that.
+    # resize-window turns window-size to manual for that window; unset it again right away.
+    # presize <클라이언트>: 모든 창을 이 클라이언트가 보여 줄 크기로 미리 맞춘다.
+    # 복원됐거나 다른 크기로 보던 창은 처음 열 때 크기가 바뀌고, tmux 가 사이드바도 비율대로 줄여서
+    # `fix` 가 되돌리기 전까지 창마다 한 번씩 줄었다 커지는 게 보였다. 안 보일 때 미리 맞춰 둔다.
+    # resize-window 는 그 창의 window-size 를 manual 로 바꾸므로 바로 되돌린다.
+    # Window size = client size minus the status lines (the hook runs before tmux resizes the window,
+    # so the window's own size can still be the old one here)
+    # 창 크기 = 클라이언트 크기 - 상태줄 줄 수 (훅은 tmux 가 창 크기를 바꾸기 전에 돌 수 있어 창 크기는 옛값일 수 있다)
+    read -r cw chh st <<<"$(t display -p -c "$2" '#{client_width} #{client_height} #{status}')"
+    case "$st" in off) st=0 ;; on) st=1 ;; ''|*[!0-9]*) st=1 ;; esac
+    ch=$((chh - st))
+    case "$cw$chh" in ''|*[!0-9]*) exit 0 ;; esac
+    # skip windows some client is showing now (another terminal may have another size)
+    # 지금 어떤 클라이언트가 보고 있는 창은 건드리지 않는다 (다른 터미널은 크기가 다를 수 있다)
+    t list-windows -a -F '#{window_id} #{window_width} #{window_height} #{window_active}#{?session_attached,1,0}' | while read -r w ww wh shown; do
+      [ "$ww" = "$cw" ] && [ "$wh" = "$ch" ] && continue
+      [ "$shown" = 11 ] && continue
+      t resize-window -t "$w" -x "$cw" -y "$ch" && t set -wu -t "$w" window-size
+    done
+    "$0" fix ;;
   fix)
     t list-panes -a -F '#{pane_id} #{pane_title} #{pane_width}' | awk -v T="$TITLE" -v W="$W" '$2==T && $3!=W{print $1}' |
       while read -r p; do t resize-pane -t "$p" -x "$W"; done ;;
