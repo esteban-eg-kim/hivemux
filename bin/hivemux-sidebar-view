@@ -417,6 +417,7 @@ def menu(y, pid=None, sess=None, items=()):
     팝업을 뚫고 그려서, 출력 중인 Claude 위의 메뉴가 깨졌다."""
     global MENU
     here = os.path.dirname(os.path.realpath(__file__))
+    empty = not pid and not sess        # empty space: only "New project" / 빈 곳: "새 프로젝트" 만
     my = tmux("display", "-p", "-t", ME, "#{session_name}").strip()
     client = (tmux("list-clients", "-t", f"={my}", "-F", "#{client_name}").split() or [""])[0]
     if pid and not sess:
@@ -434,11 +435,12 @@ def menu(y, pid=None, sess=None, items=()):
                  (tr("위로 옮기기", "Move up"), "k", lambda: bg_run(os.path.join(here, "hivemux-order"), "step", "up", pid)),
                  (tr("아래로 옮기기", "Move down"), "j", lambda: bg_run(os.path.join(here, "hivemux-order"), "step", "down", pid)),
                  None]
-    rows += [(tr("새 Claude…", "New Claude…"), "n", lambda: bg_run(os.path.join(here, "hivemux-new-claude"), d, sess, client)),
-             (tr("새 프로젝트…", "New project…"), "p", lambda: bg_run(os.path.join(here, "hm"), "--ask", client, d))]
-    # card: the task name; project name or empty space: what it makes, and where
-    # 카드: 작업 이름, 프로젝트 이름 줄이나 빈 곳: 무엇을 어디에 만드는지
-    title = (next((task_name(p) for p in items if p["pane_id"] == pid), "") if pid else "") or tr(f"새로 만들기 · {sess}", f"New · {sess}")
+    if not empty:
+        rows.append((tr("새 Claude…", "New Claude…"), "n", lambda: bg_run(os.path.join(here, "hivemux-new-claude"), d, sess, client)))
+    rows.append((tr("새 프로젝트…", "New project…"), "p", lambda: bg_run(os.path.join(here, "hm"), "--ask", client, d)))
+    # card: the task name; project name row: the project; empty space: "New"
+    # 카드: 작업 이름, 프로젝트 이름 줄: 프로젝트 이름, 빈 곳: "새로 만들기"
+    title = tr("새로 만들기", "New") if empty else (next((task_name(p) for p in items if p["pane_id"] == pid), "") if pid else "") or sess
     MENU = {"rows": rows, "y": y, "sel": None, "title": title, "at": {}, "press": None}
     sys.stdout.write("\x1b[?1003h")       # hover highlight: report plain moves too / 마우스만 움직여도 받아 강조
     sys.stdout.flush()
