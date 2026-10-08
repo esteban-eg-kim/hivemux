@@ -10,7 +10,7 @@ say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/nu
 client="$1"
 # Pause sidebar drawing while the popup is open (each redraw would flicker it)
 # 팝업이 떠 있는 동안 사이드바 애니메이션을 멈춘다 (다시 그릴 때마다 팝업이 깜빡이므로)
-pause="/tmp/hivemux-pause-$(id -u)"
+pause="/tmp/hivemux-pause-$(id -u)-$("$TMUX_BIN" display -p '#{pid}')"   # per tmux server / tmux 서버마다
 : > "$pause"; trap 'rm -f "$pause"' EXIT
 "$HM_BIN/hivemux-modal" "$client" -E -w 56 -h 12 -b rounded \
   -T "#[fg=#e6e9ef,bold] $(say "설정" "Settings") " -S "fg=#5aa9ff" -s "bg=#1e2128" \

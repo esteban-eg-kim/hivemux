@@ -16,7 +16,7 @@ if [ "$(t display -p -t "$pane" '#{pane_title}')" = hivemux-sidebar ]; then
 fi
 [ -n "$pane" ] || exit 0
 title="$(t display -p -t "$pane" '#{session_name}')"
-pause="/tmp/hivemux-pause-$(id -u)"
+pause="/tmp/hivemux-pause-$(id -u)-$(t display -p '#{pid}')"   # per tmux server / tmux 서버마다
 : > "$pause"; trap 'rm -f "$pause"' EXIT
 "$HM_BIN/hivemux-modal" "$client" -E -w 80% -h 60% -b rounded \
   -T "#[fg=#e6e9ef,bold] $(say "경로 열기" "Open path") #[fg=#626a78,nobold]· $title " -S "fg=#5aa9ff" -s "bg=#1e2128" \

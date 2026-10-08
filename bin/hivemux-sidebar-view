@@ -33,7 +33,8 @@ KO = _is_ko()
 def tr(ko, en):
     return ko if KO else en
 ME = os.environ.get("TMUX_PANE", "")
-PAUSE = f"/tmp/hivemux-pause-{os.getuid()}"
+# a popup of this tmux server is open (bin/hivemux-rename, -open, -settings, hm --ask) / 이 tmux 서버의 팝업이 열려 있다
+PAUSE = "/tmp/hivemux-pause-%d-%s" % (os.getuid(), subprocess.run([TMUX, "display", "-p", "#{pid}"], capture_output=True, text=True).stdout.strip())
 ORDER_FILE = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "session-order")
 GRIP = f"/tmp/hivemux-grip-{os.getuid()}"     # grip is being dragged (created by bin/hivemux-border) / 핸들을 끄는 중 (bin/hivemux-border 가 만든다)
 
@@ -121,6 +122,7 @@ DRAG = None
 # Right-click menu while open: {"rows": [(label, key, action) | None], "y": row, "sel": index, "title", "at": {row: index}}
 # 열려 있는 오른쪽 클릭 메뉴: {"rows": [(이름, 키, 동작) | None], "y": 줄, "sel": 고른 번호, "title", "at": {줄: 번호}}
 MENU = None
+PENDING = None      # menu action to run once the closed menu is off the screen / 닫힌 메뉴가 화면에서 지워진 뒤 실행할 동작
 
 
 def sgr(bg, fg, bold=False):
@@ -457,11 +459,15 @@ def menu_close():
 
 
 def menu_run(i):
-    """Run item i, then give focus back to the work pane / i 번 항목을 실행하고 초점을 작업 칸으로"""
+    """Close the menu and run item i after the next frame: a popup pauses drawing and copies the
+    screen, so the menu must be gone from the screen first
+    메뉴를 닫고 i 번 항목은 다음 화면을 그린 뒤 실행한다: 팝업은 그리기를 멈추고 화면을 찍어 가므로
+    메뉴가 먼저 화면에서 사라져야 한다"""
+    global PENDING
     rows = MENU["rows"]
     menu_close()
     if 0 <= i < len(rows) and rows[i]:
-        rows[i][2]()
+        PENDING = rows[i][2]
 
 
 def draw_menu(lines, w, h):
@@ -579,7 +585,7 @@ def main():
     signal.set_wakeup_fd(WAKE_W, warn_on_full_buffer=False)
     resized = [True]
     signal.signal(signal.SIGWINCH, lambda *_: resized.__setitem__(0, True))
-    global FRAME, ANIM, NOW_T, TICK
+    global FRAME, ANIM, NOW_T, TICK, PENDING
     prev, prev_size = None, None     # last frame, for drawing only the rows that changed / 직전 프레임(바뀐 줄만 그리기용)
     border = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-border")
     targets, heads, buf = {}, {}, ""
@@ -656,6 +662,9 @@ def main():
                     out.write(frame + "\x1b[0m")
                     out.flush()
                 prev, prev_size = lines, (w, h)
+            if PENDING:
+                act, PENDING = PENDING, None
+                act()
             r, _, _ = select.select([fd, WAKE_R], [], [], TICK if animating else (1.0 if visible else 3.0))
             if WAKE_R in r:
                 try:

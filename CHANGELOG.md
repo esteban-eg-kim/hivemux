@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Fixed the right-click menu staying on screen behind a popup it opened
+  (Settings, Rename, New project): the menu is now cleared before the popup opens
+- A popup open on one tmux server no longer pauses the sidebars of another
+
 ## 0.1.4 — 2026-10-08
 
 - Settings popup from the sidebar right-click menu ("Settings…"): language
