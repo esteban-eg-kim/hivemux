@@ -1,10 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.1.4 — 2026-10-08
 
 - Settings popup from the sidebar right-click menu ("Settings…"): language
   (한국어 / English), animation on/off, sidebar width. Changes apply at once and
   are saved in `~/.local/share/hivemux` (`lang`, `anim`, `sidebar-width`)
+- A sidebar that starts or restarts shows "Getting ready…" at once instead of an
+  empty pane, and draws its first frame even in a hidden window, so it is ready
+  when you switch to it
 
 ## 0.1.3 — 2026-10-08
 
