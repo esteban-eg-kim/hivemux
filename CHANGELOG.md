@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Screenshots of the right-click menu, reordering, the new-project folder
+  browser and settings in the README and the guide (`docs/img`, made by
+  `docs/preview/features.sh` from made-up projects)
+- The folder browser shows your home as `~` also when the path goes through a
+  symlink
+
 ## 0.1.5 — 2026-10-08
 
 - Fixed the right-click menu staying on screen behind a popup it opened

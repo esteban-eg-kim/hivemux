@@ -203,6 +203,10 @@ details.issue .body { padding: 0 16px 16px 34px; display: grid; gap: 10px; }
 .cmp .card h3 { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .tip { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 10px 14px; border-radius: 0 var(--r) var(--r) 0; font-size: 0.93rem; }
 .keygroup { display: grid; gap: 12px; }
+.shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin: 4px 0 8px; }
+.shots figure { margin: 0; }
+.shots img { display: block; width: 100%; height: auto; border-radius: var(--r); }
+.shots figcaption { margin-top: 6px; font-size: var(--s-1); color: var(--muted); }
 .tbar .prompt { padding: 4px 10px; } .tbar .prompt i { font-style: normal; color: #fff; }
 ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
 
@@ -495,6 +499,13 @@ claude -c
       <div class="key"><span class="combo">핸들 막대 끌기</span><span class="d">핸들 막대나 경계선을 끌어 사이드바 폭 바꾸기. 모든 창에 맞추고 저장</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>b</kbd></span><span class="d">사이드바 모두 숨기기 / 다시 보이기</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Space</kbd></span><span class="d">Option+0과 같음</span></div>
+    </div>
+    <div class="shots">
+      <figure><a href="img/menu-ko.png"><img src="img/menu-ko.png" alt="사이드바 작업 메뉴" width="1088" height="682" loading="lazy"></a><figcaption>작업 카드 오른쪽 클릭: 마우스를 올린 항목이 강조됨</figcaption></figure>
+      <figure><a href="img/menu-empty-ko.png"><img src="img/menu-empty-ko.png" alt="빈 곳 메뉴" width="1088" height="682" loading="lazy"></a><figcaption>빈 곳 오른쪽 클릭: 새 프로젝트와 설정</figcaption></figure>
+      <figure><a href="img/reorder-ko.png"><img src="img/reorder-ko.png" alt="카드 끌어서 순서 바꾸기" width="1088" height="682" loading="lazy"></a><figcaption>카드 끌기: 놓을 자리가 파랗게, 끄는 카드는 흐리게</figcaption></figure>
+      <figure><a href="img/new-project-ko.png"><img src="img/new-project-ko.png" alt="새 프로젝트 폴더 탐색 창" width="1088" height="682" loading="lazy"></a><figcaption>메뉴 → 새 프로젝트: 폴더 탐색 창. 이미 열린 프로젝트에 "열린 세션" 표시</figcaption></figure>
+      <figure><a href="img/settings-ko.png"><img src="img/settings-ko.png" alt="설정 창" width="1088" height="682" loading="lazy"></a><figcaption>메뉴 → 설정: 언어, 애니메이션, 사이드바 폭</figcaption></figure>
     </div>
     <h3>파일 경로 열기</h3>
     <div class="keys">

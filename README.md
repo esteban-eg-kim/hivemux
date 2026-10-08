@@ -102,6 +102,13 @@ check everything. Use `--yes` to accept defaults, `--no-keys`, `--no-ghostty`,
 
 `prefix` is `Ctrl+A` with the recommended keys, otherwise tmux's `Ctrl+B`.
 
+<p align="center">
+  <img src="docs/img/menu-en.png" alt="Right-click menu on a task" width="430">
+  <img src="docs/img/reorder-en.png" alt="Dragging a card to reorder" width="430">
+  <img src="docs/img/new-project-en.png" alt="New project folder browser" width="430">
+  <img src="docs/img/settings-en.png" alt="Settings popup" width="430">
+</p>
+
 ## How it works
 
 | Layer | Job |

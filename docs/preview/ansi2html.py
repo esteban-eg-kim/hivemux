@@ -49,7 +49,20 @@ def block(ch, fg, bg):
         "◐": f"radial-gradient(circle at 50% 54%,{f} 0 3.6px,{b} 4.1px) left/50% 100% no-repeat,"
              f"radial-gradient(circle at 50% 54%,{b} 0 2.4px,{f} 2.9px 3.6px,{b} 4.1px)",
     }
+    if ch in BOX:
+        # corners and tees from half lines, so they meet │ and ─ exactly / 반쪽 선으로 모서리와 갈림을 그려 │ ─ 와 정확히 이어지게
+        up, down, left, right = BOX[ch]
+        h = f"linear-gradient(180deg,transparent calc(50% - .5px),{f} calc(50% - .5px),{f} calc(50% + .5px),transparent calc(50% + .5px))"
+        v = f"linear-gradient(90deg,transparent calc(50% - .5px),{f} calc(50% - .5px),{f} calc(50% + .5px),transparent calc(50% + .5px))"
+        layers = ([f"{v} left top/100% 50% no-repeat"] if up else []) + ([f"{v} left bottom/100% 50% no-repeat"] if down else []) + \
+                 ([f"{h} left top/50% 100% no-repeat"] if left else []) + ([f"{h} right top/50% 100% no-repeat"] if right else [])
+        return ",".join(layers + [f"linear-gradient({b},{b})"])
     return shapes.get(ch)
+
+# box drawing: (up, down, left, right) / 상자 선: (위, 아래, 왼쪽, 오른쪽)
+BOX = {"╭": (0, 1, 0, 1), "┌": (0, 1, 0, 1), "╮": (0, 1, 1, 0), "┐": (0, 1, 1, 0),
+       "╰": (1, 0, 0, 1), "└": (1, 0, 0, 1), "╯": (1, 0, 1, 0), "┘": (1, 0, 1, 0),
+       "├": (1, 1, 0, 1), "┤": (1, 1, 1, 0), "┬": (0, 1, 1, 1), "┴": (1, 0, 1, 1), "┼": (1, 1, 1, 1)}
 
 def parse(text):
     rows = []
@@ -111,8 +124,12 @@ def render(rows, cols, title):
                 if s["ul"]: style.append("text-decoration:underline")
                 # symbols (●○◐✓⠿❯⎿ …) from Menlo: web fonts draw some of them two cells wide
                 # 기호는 Menlo 로: 웹 글꼴은 일부 기호를 두 칸 폭으로 그려 반쪽만 보인다
-                if ord(ch) > 127 and w == 1 and not ("\uac00" <= ch <= "\ud7a3"):
+                if ord(ch) > 127 and w == 1 and not ("\uac00" <= ch <= "\ud7a3") and ch not in "←→↑↓↕":
                     style.append('font-family:Menlo,"Apple Symbols",monospace')
+                if ch in "←→↑↓↕":
+                    # arrows: Menlo's → loses its head in a cell, JetBrains Mono's fits; drawn above the next cell
+                    # 화살표: Menlo 의 → 는 칸 안에서 머리가 잘리고 JetBrains Mono 는 맞는다. 다음 칸 위에 그린다
+                    style.append('position:relative;z-index:1;font-family:"JetBrains Mono",monospace')
                 if "\uac00" <= ch <= "\ud7a3" or "\u3131" <= ch <= "\u318e":
                     # Hangul fills its two cells like in a terminal / 한글이 두 칸을 채우도록
                     style.append("font-size:17px;text-align:center;letter-spacing:0")

@@ -84,6 +84,13 @@ tmux-resurrect와 tmux-continuum도 받아 옵니다. 이미 `~/.tmux/plugins`�
 
 권장 키를 쓰면 `prefix`는 `Ctrl+A`이고, 아니면 tmux 기본값 `Ctrl+B`입니다.
 
+<p align="center">
+  <img src="docs/img/menu-ko.png" alt="작업 카드 오른쪽 클릭 메뉴" width="430">
+  <img src="docs/img/reorder-ko.png" alt="카드를 끌어서 순서 바꾸기" width="430">
+  <img src="docs/img/new-project-ko.png" alt="새 프로젝트 폴더 탐색 창" width="430">
+  <img src="docs/img/settings-ko.png" alt="설정 창" width="430">
+</p>
+
 ## 동작 원리
 
 | 층 | 역할 |

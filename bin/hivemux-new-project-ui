@@ -77,7 +77,12 @@ def cut_left(s, w):
 
 
 def pretty(p):
-    return "~" + p[len(HOME):] if p == HOME or p.startswith(HOME + "/") else p
+    """Home as ~, also when the path went through a symlink (/tmp -> /private/tmp)
+    홈 폴더는 ~ 로. 경로가 심볼릭 링크를 거쳐 왔어도 (/tmp -> /private/tmp)"""
+    for h in dict.fromkeys((HOME, os.path.realpath(HOME))):
+        if p == h or p.startswith(h + "/"):
+            return "~" + p[len(h):]
+    return p
 
 
 def session_name(path):
