@@ -561,6 +561,16 @@ def main():
     out = sys.stdout
     # 1002: also report motion while a button is held (drag to reorder) / 버튼을 누른 채 움직임도 받는다 (끌어서 순서 바꾸기)
     out.write("\x1b[?1049h\x1b[?25l\x1b[?7l\x1b[?1000h\x1b[?1002h\x1b[?1006h")
+    # Show "getting ready" at once, until the first real frame (never an empty pane)
+    # 첫 화면을 그릴 때까지 "준비 중" 을 바로 보여 준다 (빈 칸으로 두지 않는다)
+    try:
+        w0, h0 = os.get_terminal_size()
+        ready = [Line(w0, C["bg"]) for _ in range(h0)]
+        ready[1].put("  Claude", C["text"], bold=True).put(tr("  세션", "  sessions"), C["text3"])
+        ready[3].put("  " + SPIN[0] + " ", C["run"]).put(tr("준비 중…", "Getting ready…"), C["text2"])
+        out.write("\x1b[H" + "\r\n".join(l.render() for l in ready) + "\x1b[0m")
+    except OSError:
+        pass
     out.flush()
     # SIGUSR1 = re-read and redraw now (state change from a hook, grip pressed/released).
     # The handler does nothing; the wakeup fd makes select() return.
@@ -595,7 +605,9 @@ def main():
                 if MENU and tmux("display", "-p", "-t", ME, "#{pane_active}#{window_active}").strip() != "11":
                     menu_close()
             items, current, visible, cur_sess = snap
-            if os.path.exists(PAUSE):          # rename popup is open: do not draw / 이름 바꾸기 팝업이 열려 있음: 그리지 않는다
+            # a popup is open: do not draw (but always draw the first frame)
+            # 팝업이 열려 있음: 그리지 않는다 (첫 화면은 그린다)
+            if os.path.exists(PAUSE) and prev is not None:
                 r, _, _ = select.select([fd, WAKE_R], [], [], 0.2)
                 for f in r:
                     try:
@@ -624,6 +636,9 @@ def main():
                         tmux("set", "-p", "-t", current, "@claude_state", "idle")
                         tmux("set", "-w", "-t", current, "@claude_state", "idle")
                         p["@claude_state"] = "idle"
+            # draw while visible; a hidden sidebar draws its first frame too, so it is ready when shown
+            # 보일 때 그린다. 숨은 사이드바도 첫 화면은 그려 두어 보일 때 바로 나오게 한다
+            if visible or prev is None:
                 w, h = os.get_terminal_size()
                 lines, (targets, heads) = render(items, current, w, h, cur_sess)
                 # Draw only rows that changed since the last frame; a full redraw only on
