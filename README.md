@@ -69,7 +69,8 @@ hivemux setup
 It also downloads tmux-resurrect and tmux-continuum (or uses yours from
 `~/.tmux/plugins`) and registers ten Claude Code hooks. Run `hivemux doctor` to
 check everything. Use `--yes` to accept defaults, `--no-keys`, `--no-ghostty`,
-`--no-remote` to skip parts.
+`--no-remote` to skip parts. The screen language follows your shell; pick it with
+`--lang=en` or `--lang=ko`, and change it later in the sidebar's right-click menu → Settings.
 
 ## Quick start
 
@@ -87,7 +88,9 @@ check everything. Use `--yes` to accept defaults, `--no-keys`, `--no-ghostty`,
 | `Option+1` … `9` | jump to that Claude (any session) |
 | `Option+0` / `prefix Space` | oldest waiting Claude, else oldest unseen finished one |
 | click card | jump · double click: rename |
-| right click | menu: go to, rename, move up/down, new Claude in this project, new project (pick or make a folder in a folder browser), settings (language, animation, sidebar width) |
+| right click | menu. On a task: go to, rename, move up/down, new Claude, new project. On a project name: new Claude, new project. On empty space: new project. Every menu ends with Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes |
+| menu → New project | folder browser in the middle: `Enter` starts the selected folder (like `hm`), `→` / `←` in and out, type to filter, `Ctrl+N` new folder |
+| menu → Settings | language (한국어 / English), animation, sidebar width; applied at once and saved |
 | drag card / project header | reorder tasks / projects |
 | `prefix Shift+↑` / `↓` | move the current task up / down (at a project's edge, the project moves) |
 | `Option+O` | open a file path from recent output (Enter VS Code, Tab default app, ^F Finder, ^Y copy) |
@@ -117,8 +120,9 @@ On restore, `hivemux-panes` maps saved panes to Claude session ids and types
 ```sh
 hivemux doctor                         # check dependencies and wiring
 hivemux-panes list                     # panes hivemux will resume after reboot
-tmux set -g @hivemux-anim off          # stop animations
+tmux set -g @hivemux-anim off          # stop animations (to keep them off: menu → Settings)
 tmux set -g @hivemux-fps 15            # fewer animation frames, less CPU (default 30)
+hivemux-sidebar respawn                # restart every sidebar
 touch ~/tmux_no_auto_restore           # skip restore on next launch
 ```
 

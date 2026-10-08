@@ -70,7 +70,9 @@ tmux-resurrect와 tmux-continuum도 받아 옵니다. 이미 `~/.tmux/plugins`�
 | `Option+1` … `9` | 그 번호 Claude로 이동 (세션이 달라도) |
 | `Option+0` / `prefix Space` | 가장 오래 기다린 Claude, 없으면 안 본 완료 작업 |
 | 카드 클릭 | 이동. 더블클릭은 이름 바꾸기 |
-| 오른쪽 클릭 | 메뉴: 이동, 이름 바꾸기, 위/아래로 옮기기, 이 프로젝트에 새 Claude, 새 프로젝트 (폴더 탐색 창에서 고르거나 새로 만듦), 설정 (언어, 애니메이션, 사이드바 폭) |
+| 오른쪽 클릭 | 메뉴. 작업 카드: 이동, 이름 바꾸기, 위/아래로 옮기기, 새 Claude, 새 프로젝트. 프로젝트 이름 줄: 새 Claude, 새 프로젝트. 빈 곳: 새 프로젝트. 모든 메뉴 맨 아래에 설정. 마우스나 `↑↓` `Enter`, 괄호 안 글자로 고르고 `Esc`로 닫기 |
+| 메뉴 → 새 프로젝트 | 가운데 폴더 탐색 창: `Enter`는 고른 폴더에서 시작 (`hm`과 같음), `→` / `←`는 폴더 안 / 상위로, 글자를 치면 걸러 보기, `Ctrl+N`은 새 폴더 |
+| 메뉴 → 설정 | 언어 (한국어 / English), 애니메이션, 사이드바 폭. 바로 적용되고 저장됨 |
 | 카드 / 프로젝트 이름 줄 끌기 | 작업 순서 / 프로젝트 순서 바꾸기 |
 | `prefix Shift+↑` / `↓` | 지금 작업을 위 / 아래로 (프로젝트 끝이면 프로젝트가 움직임) |
 | `Option+O` | 최근 출력의 파일 경로 열기 (Enter VS Code, Tab 기본 앱, ^F Finder, ^Y 복사) |
@@ -99,8 +101,9 @@ tmux-resurrect와 tmux-continuum도 받아 옵니다. 이미 `~/.tmux/plugins`�
 ```sh
 hivemux doctor                     # 의존성과 연결 점검
 hivemux-panes list                 # 재부팅 후 재개할 칸 목록
-tmux set -g @hivemux-anim off      # 애니메이션 끄기
+tmux set -g @hivemux-anim off      # 애니메이션 끄기 (계속 끄려면 메뉴 → 설정)
 tmux set -g @hivemux-fps 15        # 애니메이션 프레임 줄이기, CPU 절약 (기본 30)
+hivemux-sidebar respawn            # 모든 사이드바 다시 띄우기
 touch ~/tmux_no_auto_restore       # 다음 시작 때 복원 건너뛰기
 ```
 

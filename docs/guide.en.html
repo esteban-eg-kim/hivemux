@@ -477,7 +477,9 @@ claude -c
       <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>0</kbd></span><span class="d">Jump to the Claude that waited longest, else an unseen finished one</span></div>
       <div class="key"><span class="combo">Click a card</span><span class="d">Jump to that Claude</span></div>
       <div class="key"><span class="combo">Double-click a card</span><span class="d">Rename the task</span></div>
-      <div class="key"><span class="combo">Right click</span><span class="d">Menu: go to, rename, move up / down, new Claude in this project, new project (a folder browser opens in the middle: <code>Enter</code> starts in the selected folder like <code>hm</code>, <code>→</code> / <code>←</code> move in and out, typing filters, <code>Ctrl+N</code> makes a new folder). On a project header: new Claude and new project only; on empty space: new project. "Settings" at the bottom of every menu changes the language, animation and sidebar width; changes apply at once and are saved</span></div>
+      <div class="key"><span class="combo">Right click</span><span class="d">Menu. On a task: go to, rename, move up / down, new Claude in this project, new project. On a project name: new Claude, new project. On empty space: new project. Every menu ends with Settings. Hover highlights, a click runs; <kbd>↑</kbd> <kbd>↓</kbd> and <kbd>Enter</kbd> or the letter shown also choose. <kbd>Esc</kbd> or a click outside closes it</span></div>
+      <div class="key"><span class="combo">Menu → New project</span><span class="d">A folder browser opens in the middle. <kbd>Enter</kbd> starts in the selected folder like <code>hm</code>, <kbd>→</kbd> / <kbd>←</kbd> move in and out, typing filters (start with <code>.</code> for hidden folders), <kbd>Ctrl</kbd>+<kbd>N</kbd> makes a new folder</span></div>
+      <div class="key"><span class="combo">Menu → Settings</span><span class="d">Language (한국어 / English), animation on / off, sidebar width. Applied at once and saved in <code>~/.local/share/hivemux</code>, so they survive restarts. Changing the language restarts the sidebars</span></div>
       <div class="key"><span class="combo">Drag a card / project header</span><span class="d">Reorder tasks / projects. The drop target turns blue; <kbd>⌥</kbd>+number and the top window list follow the same order. A task moves only within its project</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Shift</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></span><span class="d">Move the current task up / down one step; at a project's edge the whole project moves</span></div>
       <div class="key"><span class="combo">Drag the grip</span><span class="d">Drag the grip bar or the border to resize the sidebar; applied to all windows and saved</span></div>
@@ -622,15 +624,21 @@ tmux set-environment -g HIVEMUX_NO_RESUME 1</pre></div>
 hivemux-agents list</pre></div>
     </div></details>
     <details class="issue" data-c="term"><summary>The sidebar is missing or has the wrong width<span class="pill part tag">Terminal</span></summary><div class="body">
-      <p>Pressing <kbd>Ctrl</kbd>+<kbd>A</kbd> then <kbd>b</kbd> twice recreates every sidebar. To change the width, drag the <b>grip bar</b> at the vertical middle of the sidebar's right edge (a lighter bar with a ⠿ pattern that turns blue when grabbed) or the border. While you hold it the border turns blue and the pointer becomes a resize cursor. On release every sidebar takes the same width, and the width is saved across restarts. The default is 32 columns. From the command line:</p>
+      <p>Pressing <kbd>Ctrl</kbd>+<kbd>A</kbd> then <kbd>b</kbd> twice recreates every sidebar. To change the width, use the right-click menu → <b>Settings</b> → Sidebar width, or drag the <b>grip bar</b> at the vertical middle of the sidebar's right edge (a lighter bar with a ⠿ pattern that turns blue when grabbed) or the border. While you hold it the border turns blue and the pointer becomes a resize cursor. On release every sidebar takes the same width, and the width is saved across restarts. The default is 32 columns. From the command line:</p>
       <div class="code"><button class="copy" type="button">Copy</button><pre>tmux set -g @hivemux-sidebar-width 40
 hivemux-sidebar fix
 <span class="cmt"># forget the saved width (back to 32)</span>
-rm ~/.local/share/hivemux/sidebar-width</pre></div>
+rm ~/.local/share/hivemux/sidebar-width
+<span class="cmt"># restart every sidebar if one is stuck or looks wrong</span>
+hivemux-sidebar respawn</pre></div>
       <p class="why">If keyboard focus ends up in the sidebar, <kbd>q</kbd> or <kbd>Esc</kbd> returns it to the work pane. Number keys in the sidebar jump to that task.</p>
     </div></details>
+    <details class="issue" data-c="term"><summary>A <code>·</code> window appears in the top window list while a popup is open<span class="pill part tag">Terminal</span></summary><div class="body">
+      <p>The rename, new project, settings and <kbd>Option</kbd>+<kbd>O</kbd> popups open over a still copy of the screen. The <code>·</code> window is that copy; it goes away when the popup closes and you are back in your window.</p>
+      <p class="why">tmux 3.7 draws double-width text (Korean and other CJK) that Claude prints through popups and menus on top of it, so a popup over a printing Claude gets garbled. The right-click menu is drawn by the sidebar itself for the same reason.</p>
+    </div></details>
     <details class="issue" data-c="term"><summary>Turn off the animations<span class="pill part tag">Terminal</span></summary><div class="body">
-      <p>The command below stops them within a second. To keep them off, add it below the hivemux block in <code>~/.tmux.conf</code>. Set it to <code>on</code> to turn them back on.</p>
+      <p>In the sidebar's right-click menu → <b>Settings</b>, set Animation to <b>off</b>. It stops at once and stays off after restarts. To turn it off just for now, use the command below.</p>
       <div class="code"><button class="copy" type="button">Copy</button><pre>tmux set -g @hivemux-anim off
 <span class="cmt"># or keep them and use less CPU with fewer frames (default 30)</span>
 tmux set -g @hivemux-fps 15</pre></div>
@@ -721,6 +729,8 @@ hivemux uninstall</pre></div>
     <div><code>hivemux-agents</code><span>Option+number jumps, jump to waiting, list output</span></div>
     <div><code>hivemux-rename</code>, <code>hivemux-rename-ui</code><span>Rename popup and sending /rename</span></div>
     <div><code>hivemux-new-project-ui</code><span>New-project folder browser popup</span></div>
+    <div><code>hivemux-settings</code>, <code>hivemux-settings-ui</code><span>Settings popup (language, animation, sidebar width)</span></div>
+    <div><code>hivemux-modal</code><span>Opens a popup over a still copy of the screen</span></div>
     <div><code>hivemux-order</code><span>Sidebar task / project order</span></div>
     <div><code>hivemux-open</code>, <code>hivemux-open-ui</code><span>Option+O open-path popup</span></div>
     <div><code>hivemux-border</code><span>Border and grip drag feedback; saves the sidebar width</span></div>
