@@ -1,14 +1,21 @@
 # Changelog
 
-## Unreleased
+## 0.1.1 — 2026-10-08
 
-- "Needs input" shows the moment the approval dialog opens (`PermissionRequest`,
-  `PreToolUse` hooks) and the sidebar redraws as soon as a hook fires
-- "Needs input" clears as soon as you answer, even if the tool then runs for a long
-  time (the sidebar watches the waiting pane's screen)
-- Smoother 30 fps animation that redraws only changed rows; fixed duplicate
-  sidebars and the sidebar jumping between sessions on its own
-- Run `hivemux setup` again to register the new hooks
+Run `hivemux setup` again after upgrading: it registers four new Claude Code hooks.
+
+- "Needs input" shows the moment the approval dialog opens (new `PermissionRequest`
+  and `PreToolUse` hooks), and the sidebar redraws as soon as any hook fires instead
+  of on its next 1-second poll
+- "Needs input" clears as soon as you answer, even when the approved tool then runs
+  for a long time (the sidebar watches the waiting pane's screen); a denied or
+  failed tool also returns to "working"
+- Smoother animation at 30 fps that redraws only the rows that changed; CPU use is
+  about the same as before. Set `@hivemux-fps` (5–60) to trade smoothness for CPU
+- Fixed duplicate sidebars in one window when several hooks created them at once
+- Status line shows the session name on a blue badge
+- `setup` no longer adds a PATH line to `~/.zshrc` for Homebrew installs in a custom prefix
+- Docs: English guide (`docs/guide.en.html`), English and Korean READMEs, preview image
 
 ## 0.1.0 — 2026-10-07
 
