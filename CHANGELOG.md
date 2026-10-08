@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.5 — 2026-10-08
 
 - Fixed the right-click menu staying on screen behind a popup it opened
   (Settings, Rename, New project): the menu is now cleared before the popup opens
