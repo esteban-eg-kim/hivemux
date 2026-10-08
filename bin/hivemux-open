@@ -18,7 +18,7 @@ fi
 title="$(t display -p -t "$pane" '#{session_name}')"
 pause="/tmp/hivemux-pause-$(id -u)"
 : > "$pause"; trap 'rm -f "$pause"' EXIT
-t display-popup ${client:+-c "$client"} -E -w 80% -h 60% -b rounded \
+"$HM_BIN/hivemux-modal" "$client" -E -w 80% -h 60% -b rounded \
   -T "#[fg=#e6e9ef,bold] $(say "경로 열기" "Open path") #[fg=#626a78,nobold]· $title " -S "fg=#5aa9ff" -s "bg=#1e2128" \
   "$HM_BIN/hivemux-open-ui" "$pane" 2>/dev/null || true
 exit 0

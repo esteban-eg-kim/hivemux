@@ -35,6 +35,9 @@ ensure_one() {
   [ -n "$(t show -gqv @hivemux-suspend)" ] && return 0          # restore in progress / 복원 중
   [ "$(t display -p -t "$win" '#{session_name}' 2>/dev/null)" = 0 ] && return 0   # hivemux-attach bootstrap session / hivemux-attach 부트스트랩 세션
   [ -n "$(sidebars_in "$win")" ] && return 0
+  # the still copy behind a popup (bin/hivemux-modal) already shows the sidebar
+  # 팝업 뒤의 화면 사본 (bin/hivemux-modal) 은 사이드바까지 찍혀 있다
+  t list-panes -t "$win" -F '#{pane_start_command}' 2>/dev/null | grep -q 'hivemux-modal --backdrop' && return 0
   # Several hooks can call ensure for the same window at once (new window, window
   # change, config load). Lock per window so only one creates the sidebar.
   # 같은 창에 ensure 가 동시에 여러 번 불릴 수 있다(새 창, 창 전환, 설정 읽기).

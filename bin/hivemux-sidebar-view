@@ -118,6 +118,9 @@ ANIM = True
 # Card or project being dragged: {"kind": "card"|"group", "src": pane|session, "over": pane|session|None}
 # 끄는 중인 카드나 프로젝트: {"kind": "card"|"group", "src": 칸|세션, "over": 칸|세션|None}
 DRAG = None
+# Right-click menu while open: {"rows": [(label, key, action) | None], "y": row, "sel": index, "title", "at": {row: index}}
+# 열려 있는 오른쪽 클릭 메뉴: {"rows": [(이름, 키, 동작) | None], "y": 줄, "sel": 고른 번호, "title", "at": {줄: 번호}}
+MENU = None
 
 
 def sgr(bg, fg, bold=False):
@@ -389,6 +392,8 @@ def render(items, current, w, h, cur_sess=""):
             ln.cells[-1] = ("▀", BG, pill, False)
         elif -2 <= d <= 2:
             ln.cells[-1] = ("⠿" if -1 <= d <= 1 else " ", pill, dots, False)
+    if MENU:
+        draw_menu(lines, w, h)
     return [l.render() for l in lines], (targets, heads)
 
 
@@ -398,54 +403,97 @@ def rename(pid):
     tmux("run-shell", "-b", os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-rename") + f" prompt {pid} '{client}'")
 
 
-def tq(s):
-    """Quote for tmux's command parser / tmux 명령 해석기용 따옴표"""
-    return '"' + s.replace("\\", "\\\\").replace('"', '\\"').replace("$", "\\$") + '"'
+def bg_run(*argv):
+    """Run a helper in the background through tmux (it outlives this call) / tmux 로 도우미를 뒤에서 실행"""
+    tmux("run-shell", "-b", " ".join(shlex.quote(x) for x in argv))
 
 
-def menu(x, y, pid=None, sess=None, items=()):
-    """Right-click menu (tmux display-menu) at the mouse. pid: a card, sess: a project header.
-    오른쪽 클릭 메뉴 (tmux display-menu) 를 마우스 자리에. pid: 카드, sess: 프로젝트 이름 줄."""
+def menu(y, pid=None, sess=None, items=()):
+    """Open the right-click menu under row y. pid: a card, sess: a project header.
+    It is drawn by the sidebar itself, not tmux display-menu: tmux 3.7 draws a pane's Korean (wide)
+    text through menus and popups over it, so a menu over a printing Claude got garbled.
+    오른쪽 클릭 메뉴를 y 줄 아래에 연다. pid: 카드, sess: 프로젝트 이름 줄.
+    tmux display-menu 가 아니라 사이드바가 직접 그린다: tmux 3.7 은 칸의 한글(두 칸 폭) 글자를 그 위 메뉴와
+    팝업을 뚫고 그려서, 출력 중인 Claude 위의 메뉴가 깨졌다."""
+    global MENU
     here = os.path.dirname(os.path.realpath(__file__))
-    my = tmux("display", "-p", "-t", ME, "#{session_name}\t#{pane_left}\t#{pane_top}\t#{status}\t#{status-position}").rstrip("\n").split("\t")
-    if len(my) < 5:
-        return
-    client = (tmux("list-clients", "-t", f"={my[0]}", "-F", "#{client_name}").split() or [""])[0]
-    if not client:
-        return
+    my = tmux("display", "-p", "-t", ME, "#{session_name}").strip()
+    client = (tmux("list-clients", "-t", f"={my}", "-F", "#{client_name}").split() or [""])[0]
     if pid and not sess:
         sess = next((p["session_name"] for p in items if p["pane_id"] == pid), "")
-    sess = sess or my[0]
+    sess = sess or my
     # project folder: the Claude's folder of the card, else the first card of the project
     # 프로젝트 폴더: 그 카드 Claude 의 폴더, 없으면 그 프로젝트 첫 카드의 폴더
     src = pid or next((p["pane_id"] for p in items if p["session_name"] == sess), "") or ME
     d = tmux("display", "-p", "-t", src, "#{?@claude_cwd,#{@claude_cwd},#{pane_current_path}}").strip() or os.path.expanduser("~")
-    sh = lambda *a: "run-shell -b " + tq(" ".join(shlex.quote(x) for x in a))
     rows = []
     if pid:
-        win = tmux("display", "-p", "-t", pid, "#{window_id}").strip()
-        rows += [(tr("이동", "Go to"), "g", f"switch-client -t {tq('=' + sess)} ; select-window -t {tq(win)} ; select-pane -t {tq(pid)}"),
-                 (tr("이름 바꾸기…", "Rename…"), "r", sh(os.path.join(here, "hivemux-rename"), "prompt", pid, client)),
-                 ("", "", ""),
-                 (tr("위로 옮기기", "Move up"), "k", sh(os.path.join(here, "hivemux-order"), "step", "up", pid)),
-                 (tr("아래로 옮기기", "Move down"), "j", sh(os.path.join(here, "hivemux-order"), "step", "down", pid)),
-                 ("", "", "")]
-    rows += [(tr(f"새 Claude ({sess})…", f"New Claude in {sess}…"), "n", sh(os.path.join(here, "hivemux-new-claude"), d, sess, client)),
-             (tr("새 프로젝트…", "New project…"), "p", sh(os.path.join(here, "hm"), "--ask", client, d))]
-    args = []
-    for label, key, cmd in rows:
-        args += [label, key, cmd] if label else [""]
-    # -y is the menu's bottom line in tmux, so add its height to open it below the mouse
-    # tmux 의 -y 는 메뉴 아래 끝 줄이라 메뉴 높이를 더해 마우스 아래로 펼친다
-    top = 1 if my[3] not in ("off", "0") and my[4] == "top" else 0
-    ay = int(my[2] or 0) + top + y + len(rows) + 1
-    ax = int(my[1] or 0) + max(0, x - 1)
-    # -M: the menu takes the mouse (choose with a left click). -O: keep it open while the mouse moves;
-    # without it tmux reads a plain move (no button) as a release outside an item and closes the menu
-    # -M: 메뉴가 마우스를 받는다 (왼쪽 클릭으로 고름). -O: 마우스가 움직여도 열어 둔다.
-    # 이게 없으면 tmux 가 버튼 없는 움직임을 항목 밖에서 뗀 것으로 읽어 메뉴를 닫는다
-    tmux("display-menu", "-M", "-O", "-c", client, "-T", tr(" 작업 ", " Task ") if pid else tr(" 프로젝트 ", " Project "),
-         "-x", str(ax), "-y", str(ay), *args)
+        rows += [(tr("이동", "Go to"), "g", lambda: goto(pid)),
+                 (tr("이름 바꾸기…", "Rename…"), "r", lambda: rename(pid)),
+                 None,
+                 (tr("위로 옮기기", "Move up"), "k", lambda: bg_run(os.path.join(here, "hivemux-order"), "step", "up", pid)),
+                 (tr("아래로 옮기기", "Move down"), "j", lambda: bg_run(os.path.join(here, "hivemux-order"), "step", "down", pid)),
+                 None]
+    rows += [(tr("새 Claude…", "New Claude…"), "n", lambda: bg_run(os.path.join(here, "hivemux-new-claude"), d, sess, client)),
+             (tr("새 프로젝트…", "New project…"), "p", lambda: bg_run(os.path.join(here, "hm"), "--ask", client, d))]
+    title = (next((task_name(p) for p in items if p["pane_id"] == pid), "") if pid else "") or sess
+    MENU = {"rows": rows, "y": y, "sel": None, "title": title, "at": {}, "press": None}
+    sys.stdout.write("\x1b[?1003h")       # hover highlight: report plain moves too / 마우스만 움직여도 받아 강조
+    sys.stdout.flush()
+
+
+def menu_close():
+    global MENU
+    MENU = None
+    # tmux turns all mouse reporting off on ?1003l, so turn clicks and drags back on
+    # tmux 는 ?1003l 에 마우스 보고를 모두 끄므로 클릭과 끌기를 다시 켠다
+    sys.stdout.write("\x1b[?1003l\x1b[?1000h\x1b[?1002h\x1b[?1006h")
+    sys.stdout.flush()
+
+
+def menu_run(i):
+    """Run item i, then give focus back to the work pane / i 번 항목을 실행하고 초점을 작업 칸으로"""
+    rows = MENU["rows"]
+    menu_close()
+    if 0 <= i < len(rows) and rows[i]:
+        rows[i][2]()
+
+
+def draw_menu(lines, w, h):
+    """Draw MENU over the rendered Line objects; MENU["at"] maps screen rows to items
+    렌더한 줄 위에 MENU 를 그린다. MENU["at"] 은 화면 줄 -> 항목 번호"""
+    rows = MENU["rows"]
+    bw = max(16, w - 3)                   # box: columns 1 .. w-3 (the last column is the grip) / 상자: 1 ~ w-3 열 (끝 칸은 핸들)
+    bh = len(rows) + 2
+    top = MENU["y"] + 1 if MENU["y"] + 1 + bh <= h else max(0, MENU["y"] - bh)
+    edge, box, hi = (86, 94, 110), C["card_hi"], C["drop"]
+    MENU["at"] = {}
+
+    def row(y, build):
+        ln = Line(w, C["bg"]).put(" ")
+        build(ln)
+        ln.fill(w - 1)
+        if lines[y].cells:
+            ln.cells.append(lines[y].cells[-1])   # keep the grip / 핸들은 그대로
+            ln.n += 1
+        lines[y] = ln
+
+    title = fit(MENU["title"], bw - 6).rstrip()
+    row(top, lambda ln: ln.put("╭─ ", edge, box).put(title, C["text"], box, True)
+        .put(" " + "─" * max(0, bw - 5 - width(title)), edge, box).put("╮", edge, box))
+    for i, r in enumerate(rows):
+        y = top + 1 + i
+        if r is None:
+            row(y, lambda ln: ln.put("├" + "─" * (bw - 2) + "┤", edge, box))
+            continue
+        label, key, _ = r
+        on = MENU["sel"] == i
+        bgc = hi if on else box
+        MENU["at"][y] = i
+        row(y, lambda ln, label=label, key=key, on=on, bgc=bgc: ln.put("│", edge, box)
+            .put(" " + fit(label, bw - 8).rstrip(), C["text"] if on else C["text2"], bgc, on)
+            .fill(1 + bw - 5, bgc).put(f"({key}) ", C["text2"] if on else C["text3"], bgc).put("│", edge, box))
+    row(top + bh - 1, lambda ln: ln.put("╰" + "─" * (bw - 2) + "╯", edge, box))
 
 
 def goto(pid):
@@ -538,6 +586,9 @@ def main():
                 TICK = 1 / max(5, min(60, int(fps))) if fps.isdigit() else 1 / 30
                 if snap[2]:
                     clear_answered(snap[0], waits, nowf)
+                # focus moved elsewhere (clicked another pane): close the menu / 다른 칸을 눌러 초점이 떠났으면 메뉴를 닫는다
+                if MENU and tmux("display", "-p", "-t", ME, "#{pane_active}#{window_active}").strip() != "11":
+                    menu_close()
             items, current, visible, cur_sess = snap
             if os.path.exists(PAUSE):          # rename popup is open: do not draw / 이름 바꾸기 팝업이 열려 있음: 그리지 않는다
                 r, _, _ = select.select([fd, WAKE_R], [], [], 0.2)
@@ -607,6 +658,29 @@ def main():
                 b, x, y, kind = int(m.group(1)), int(m.group(2)), int(m.group(3)), m.group(4)
                 w_now = os.get_terminal_size()[0]
                 row = y - 1
+                if MENU:
+                    # The menu takes the mouse: hover highlights, a left click runs an item, a click
+                    # elsewhere closes it, a right click elsewhere opens it there
+                    # 메뉴가 마우스를 받는다: 올리면 강조, 왼쪽 클릭은 실행, 다른 곳 클릭은 닫기, 다른 곳 오른쪽 클릭은 거기서 다시 열기
+                    at = MENU["at"].get(row)
+                    if b in (32, 35, 34):            # move / 움직임
+                        MENU["sel"] = at
+                    elif b == 0 and kind == "M":
+                        MENU["press"] = at
+                        if at is None:
+                            menu_close()
+                            released = True
+                    elif b == 0 and kind == "m":
+                        if at is not None and MENU["press"] == at:
+                            menu_run(at)
+                            released = True
+                    elif b == 2 and kind == "m":
+                        if at is None and (row in targets or row in heads):
+                            menu(row, pid=targets.get(row), sess=heads.get(row), items=items)
+                        elif at is None:
+                            menu_close()
+                            released = True
+                    continue
                 if b == 32 and kind == "M":     # motion with the left button held / 왼쪽 버튼을 누른 채 움직임
                     if DRAG:
                         if row != DRAG["y"]:
@@ -620,8 +694,10 @@ def main():
                 if b == 2 and kind == "m":      # right button released: open the menu now, so this release cannot close it
                     # 오른쪽 버튼 뗌: 이때 메뉴를 연다 (누를 때 열면 이 뗌이 메뉴를 바로 닫아 버린다)
                     DRAG = None
-                    menu(x, row, pid=targets.get(row), sess=heads.get(row), items=items)
-                    released = True
+                    if row in targets or row in heads:
+                        menu(row, pid=targets.get(row), sess=heads.get(row), items=items)   # keeps focus for its keys / 키를 받도록 초점을 둔다
+                    else:
+                        released = True
                     continue
                 if b == 0 and kind == "m":      # left button released / 왼쪽 버튼 뗌
                     released = True
@@ -672,7 +748,30 @@ def main():
             # never fire a burst of jumps.
             # 키는 한 글자가 단독으로 들어왔을 때만 처리한다. 제어 신호, 붙여넣기, 다른 곳에서
             # 들어온 글자는 무시해서 엉뚱한 입력이 연속 이동을 일으키지 못하게 한다.
-            if rest and len(rest) == 1:
+            if MENU and rest:
+                # menu keys: ↑↓ choose, Enter run, the letter in (x) runs that item, Esc / q close
+                # 메뉴 키: ↑↓ 고르기, Enter 실행, (x) 글자는 그 항목 실행, Esc / q 닫기
+                live = [i for i, r in enumerate(MENU["rows"]) if r]
+                cur = MENU["sel"] if MENU["sel"] in live else None
+                if rest in ("\x1b[A", "\x1bOA", "\x1b[B", "\x1bOB"):
+                    step = -1 if rest in ("\x1b[A", "\x1bOA") else 1
+                    k = live.index(cur) + step if cur is not None else (0 if step > 0 else len(live) - 1)
+                    MENU["sel"] = live[k % len(live)]
+                elif rest in ("\r", "\n"):
+                    if cur is not None:
+                        menu_run(cur)
+                        tmux("select-pane", "-t", current) if current else None
+                elif rest in ("\x1b", "q", "\x03"):
+                    menu_close()
+                    if current:
+                        tmux("select-pane", "-t", current)
+                else:
+                    hit = next((i for i in live if MENU["rows"][i][1] == rest), None)
+                    if hit is not None:
+                        menu_run(hit)
+                        if current:
+                            tmux("select-pane", "-t", current)
+            elif rest and len(rest) == 1:
                 if "1" <= rest <= "9":
                     tmux("run-shell", "-b", os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-agents") + f" jump {rest}")
                 elif rest in ("q", "\x1b"):
@@ -681,7 +780,7 @@ def main():
                 with open(os.environ["HIVEMUX_DEBUG_INPUT"], "a") as dbg:
                     dbg.write(f"{time.time():.3f} {ME} IGNORED {rest!r}\n")
     finally:
-        out.write("\x1b[?1000l\x1b[?1002l\x1b[?1006l\x1b[?7h\x1b[?25h\x1b[?1049l\x1b[0m")
+        out.write("\x1b[?1003l\x1b[?1000l\x1b[?1002l\x1b[?1006l\x1b[?7h\x1b[?25h\x1b[?1049l\x1b[0m")
         out.flush()
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
 

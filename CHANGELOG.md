@@ -11,6 +11,11 @@
 - "New project" opens a folder browser in the middle of the screen: move with
   the arrow keys or the mouse, type to filter, `Enter` starts the project in the
   selected folder (like `hm`), `Ctrl+N` makes a new folder
+- Fixed menus and popups getting garbled lines and borders while Claude prints
+  Korean (or other double-width) text under them, a tmux 3.7 drawing bug. The
+  right-click menu is now drawn inside the sidebar (hover, click, `↑↓` `Enter`,
+  item letters, `Esc`), and popups (rename, new project, `Option+O`) open over a
+  still copy of the screen
 
 ## 0.1.2 — 2026-10-08
 

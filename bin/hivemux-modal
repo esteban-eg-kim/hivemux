@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""Open a tmux popup over a still copy of the screen.
+화면을 멈춘 사본 위에 tmux 팝업을 띄운다.
+
+  hivemux-modal <client> <display-popup args...>
+
+tmux 3.7 draws a pane's double-width text (Korean, CJK) through popups and menus that cover it,
+so a popup over a Claude that is printing gets garbled lines and borders. This opens a temporary
+window that only shows a copy of the current window (panes and borders, captured once), shows the
+popup there, then returns to the window and closes the copy. Nothing under the popup changes.
+tmux 3.7 은 칸이 그리는 두 칸 폭 글자(한글 등)를 그 위의 팝업과 메뉴를 뚫고 그려서, 출력 중인 Claude 위의
+팝업은 줄과 테두리가 깨진다. 그래서 지금 창의 모습(칸과 경계선)을 한 번 찍어 보여 주기만 하는 임시 창을
+열고, 거기에 팝업을 띄운 뒤, 원래 창으로 돌아가며 임시 창을 닫는다. 팝업 아래에서 바뀌는 것이 없다.
+
+  hivemux-modal --backdrop <window_id>    (inside the temporary window / 임시 창 안에서)
+"""
+import os, shutil, signal, subprocess, sys, time
+
+TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
+US = "\x1f"
+
+
+def tmux(*a):
+    return subprocess.run([TMUX, *a], capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout
+
+
+def backdrop(win):
+    """Draw the panes of <win> as they look now, then wait / <win> 의 칸들을 지금 모습대로 그리고 기다린다"""
+    out = ["\x1b[?25l\x1b[0m\x1b[2J"]
+    panes = [l.split(US) for l in tmux("list-panes", "-t", win, "-F",
+             US.join(["#{pane_id}", "#{pane_left}", "#{pane_top}", "#{pane_width}", "#{pane_height}"])).splitlines()]
+    border = "\x1b[0;38;2;35;38;46m"     # pane-border-style in share/hivemux.tmux / share/hivemux.tmux 의 경계선 색
+    for p in panes:
+        if len(p) != 5:
+            continue
+        pid, x, y, w, h = p[0], *map(int, p[1:])
+        lines = tmux("capture-pane", "-e", "-p", "-t", pid).split("\n")[:h]
+        for i, line in enumerate(lines):
+            out.append(f"\x1b[{y + i + 1};{x + 1}H\x1b[0m{line}\x1b[0m")
+        if x > 0:   # the border on the pane's left / 칸 왼쪽 경계선
+            out += [f"\x1b[{y + i + 1};{x}H{border}│" for i in range(h)]
+    sys.stdout.write("".join(out) + "\x1b[0m")
+    sys.stdout.flush()
+    # say "drawn" to the opener, then just wait to be closed / 다 그렸다고 알리고 닫힐 때까지 기다린다
+    tmux("set", "-w", "-t", os.environ.get("TMUX_PANE", ""), "@hivemux-modal-ready", "1")
+    signal.signal(signal.SIGHUP, lambda *_: sys.exit(0))
+    while True:
+        signal.pause()
+
+
+def main(argv):
+    if argv[:1] == ["--backdrop"]:
+        backdrop(argv[1] if len(argv) > 1 else "")
+        return 0
+    if not argv:
+        print(__doc__.split("\n\n")[1], file=sys.stderr)
+        return 2
+    client, popup = argv[0], argv[1:]
+    if not client:                   # no client to show it on: a plain popup / 띄울 화면을 모르면 그냥 팝업
+        return subprocess.run([TMUX, "display-popup", *popup], stdin=subprocess.DEVNULL).returncode
+    sess, prev = (tmux("display", "-p", "-c", client, f"#{{session_name}}{US}#{{window_id}}").strip().split(US) + ["", ""])[:2]
+    here = os.path.realpath(__file__)
+    win = ""
+    if sess and prev:
+        # -d: draw it before showing it / -d: 보이기 전에 다 그려 둔다
+        win = tmux("new-window", "-d", "-t", f"={sess}:", "-n", "·", "-P", "-F", "#{window_id}",
+                   f"exec {here} --backdrop {prev}").strip()
+    if win:
+        for _ in range(40):          # up to 1s / 최대 1초
+            if tmux("show", "-wqv", "-t", win, "@hivemux-modal-ready").strip():
+                break
+            time.sleep(0.025)
+        tmux("select-window", "-t", win)
+    try:
+        subprocess.run([TMUX, "display-popup", "-c", client, *popup], stdin=subprocess.DEVNULL)
+    finally:
+        if win:
+            # back to the window, unless the popup took the client elsewhere (hm switches sessions)
+            # 원래 창으로. 팝업이 다른 곳으로 옮겼으면 (hm 이 세션을 바꿈) 그 세션의 창만 되돌린다
+            tmux("select-window", "-t", prev)
+            tmux("kill-window", "-t", win)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
