@@ -440,8 +440,11 @@ def menu(x, y, pid=None, sess=None, items=()):
     top = 1 if my[3] not in ("off", "0") and my[4] == "top" else 0
     ay = int(my[2] or 0) + top + y + len(rows) + 1
     ax = int(my[1] or 0) + max(0, x - 1)
-    # -M: the menu takes the mouse (choose with a left click) / -M: 메뉴가 마우스를 받는다 (왼쪽 클릭으로 고름)
-    tmux("display-menu", "-M", "-c", client, "-T", tr(" 작업 ", " Task ") if pid else tr(" 프로젝트 ", " Project "),
+    # -M: the menu takes the mouse (choose with a left click). -O: keep it open while the mouse moves;
+    # without it tmux reads a plain move (no button) as a release outside an item and closes the menu
+    # -M: 메뉴가 마우스를 받는다 (왼쪽 클릭으로 고름). -O: 마우스가 움직여도 열어 둔다.
+    # 이게 없으면 tmux 가 버튼 없는 움직임을 항목 밖에서 뗀 것으로 읽어 메뉴를 닫는다
+    tmux("display-menu", "-M", "-O", "-c", client, "-T", tr(" 작업 ", " Task ") if pid else tr(" 프로젝트 ", " Project "),
          "-x", str(ax), "-y", str(ay), *args)
 
 
