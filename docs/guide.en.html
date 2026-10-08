@@ -383,12 +383,12 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
 
   <h3>Naming and renaming tasks (recommended)</h3>
   <p>The name shows above Claude's input box, in the <code>/resume</code> list, in the Claude phone app and in the terminal title. With several sessions, unnamed ones are hard to tell apart. <code>hm</code> uses the folder name and <kbd>Ctrl</kbd>+<kbd>A</kbd> then <kbd>Shift</kbd>+<kbd>C</kbd> uses the name you type. When you start Claude yourself, name it as below. Without a name, Claude titles the conversation from its content.</p>
-  <div class="tip"><b>Rename from the sidebar:</b> <b>double-click</b> or <b>right-click</b> a card to open the "Rename task" popup in the middle of the screen. It shows the project and the current name, with the current name prefilled on the input line at the bottom. Edit it and press <kbd>Enter</kbd> to save, or <kbd>Esc</kbd> to cancel. The sidebar updates at once, and <code>/rename</code> is typed into that Claude so the phone app and the <code>/resume</code> list show it too. If that Claude is working or waiting for approval, hivemux waits until the turn ends so the text is not taken as an answer. Anything half-typed in that Claude's input box is kept in front of it, so leave the box empty.</div>
+  <div class="tip"><b>Rename from the sidebar:</b> <b>double-click</b> a card, or <b>right-click → Rename</b>, to open the "Rename task" popup in the middle of the screen. It shows the project and the current name, with the current name prefilled on the input line at the bottom. Edit it and press <kbd>Enter</kbd> to save, or <kbd>Esc</kbd> to cancel. The sidebar updates at once, and <code>/rename</code> is typed into that Claude so the phone app and the <code>/resume</code> list show it too. If that Claude is working or waiting for approval, hivemux waits until the turn ends so the text is not taken as an answer. Anything half-typed in that Claude's input box is kept in front of it, so leave the box empty.</div>
   <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cmt"># when you start Claude yourself</span>
 claude -n login-bug
 <span class="cmt"># continue the latest conversation in this folder</span>
 claude -c
-<span class="cmt"># rename while running: double/right-click the card, or in that Claude's input box</span>
+<span class="cmt"># rename while running: double-click the card (or right-click → Rename), or in that Claude's input box</span>
 /rename Fix login redirect bug</pre></div>
 </section>
 
@@ -476,7 +476,8 @@ claude -c
       <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>1</kbd>…<kbd>9</kbd></span><span class="d">Jump to that Claude in the sidebar</span></div>
       <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>0</kbd></span><span class="d">Jump to the Claude that waited longest, else an unseen finished one</span></div>
       <div class="key"><span class="combo">Click a card</span><span class="d">Jump to that Claude</span></div>
-      <div class="key"><span class="combo">Double / right click a card</span><span class="d">Rename the task</span></div>
+      <div class="key"><span class="combo">Double-click a card</span><span class="d">Rename the task</span></div>
+      <div class="key"><span class="combo">Right click</span><span class="d">Menu: go to, rename, move up / down, new Claude in this project, new project (type a folder; opens like <code>hm</code>). On a project header: new Claude and new project only</span></div>
       <div class="key"><span class="combo">Drag a card / project header</span><span class="d">Reorder tasks / projects. The drop target turns blue; <kbd>⌥</kbd>+number and the top window list follow the same order. A task moves only within its project</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Shift</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></span><span class="d">Move the current task up / down one step; at a project's edge the whole project moves</span></div>
       <div class="key"><span class="combo">Drag the grip</span><span class="d">Drag the grip bar or the border to resize the sidebar; applied to all windows and saved</span></div>

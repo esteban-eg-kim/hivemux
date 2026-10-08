@@ -1,15 +1,19 @@
 #!/bin/bash
 # Called by prefix + C: ask for a name, then open a Claude window in the current folder.
 # prefix + C 에서 호출: 이름을 물어본 뒤 현재 폴더에 Claude 창을 연다.
+#   hivemux-new-claude <dir> [session] [client]   (the sidebar menu passes the project and the client)
+#   hivemux-new-claude <폴더> [세션] [클라이언트]   (사이드바 메뉴는 그 프로젝트와 화면을 넘긴다)
 # Default name is "<session>-<next window number>" and becomes the window name. A shell stays, so the window survives when Claude exits.
 # 기본 이름은 "<세션이름>-<다음 창 번호>". 창 이름도 같은 이름이 된다. 창에는 셸이 남으므로 Claude를 끝내도 창은 유지된다.
-dir="$1"
+dir="$1"; target="$2"; client="$3"
 TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
 # UI language: HIVEMUX_LANG > tmux @hivemux-lang (set by hivemux setup) > LANG
 # 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG
 say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
-sess="$("$TMUX_BIN" display -p '#{session_name}')"
-n="$("$TMUX_BIN" list-windows | wc -l | tr -d ' ')"
+sess="${target:-$("$TMUX_BIN" display -p '#{session_name}')}"
+n="$("$TMUX_BIN" list-windows -t "=$sess" | wc -l | tr -d ' ')"
 default="$sess-$((n + 1))"
-"$TMUX_BIN" command-prompt -I "$default" -p "$(say "Claude 이름:" "Claude name:")" \
-  "new-window -c \"$dir\" -n \"%1\" ; send-keys \"claude -n '%1'\" Enter"
+# new-window -t "=sess:" opens it in that project; switch-client shows it when it is another project
+# new-window -t "=세션:" 은 그 프로젝트에 연다. 다른 프로젝트면 switch-client 로 그쪽을 보여 준다
+"$TMUX_BIN" command-prompt ${client:+-t "$client"} -I "$default" -p "$(say "Claude 이름:" "Claude name:")" \
+  "new-window -t \"=$sess:\" -c \"$dir\" -n \"%1\" ; send-keys \"claude -n '%1'\" Enter ; switch-client ${client:+-c \"$client\"} -t \"=$sess\""

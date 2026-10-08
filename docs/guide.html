@@ -359,7 +359,7 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
           <div class="cd wait sel"><span class="t">로그인 리다이렉트 버그 수정</span><b>⌥4</b><span class="s">● 입력 필요</span><span class="a">40s</span></div>
           <div class="pj"><i style="background:#fb923c"></i>wayfinder<span>1</span></div>
           <div class="cd idle"><span class="t">단계 관리 기능</span><b>⌥5</b><span class="s">○ 대기</span><span class="a"></span></div>
-          <div class="ft"><span class="w"><kbd>⌥0</kbd> 기다리는 작업으로</span><span><kbd>⌥1-9</kbd> 이동 · 우클릭 이름</span></div>
+          <div class="ft"><span class="w"><kbd>⌥0</kbd> 기다리는 작업으로</span><span><kbd>⌥1-9</kbd> 이동 · 우클릭 메뉴</span></div>
         </div>
         <div class="mainpane"><span class="p">~/project/web ❯</span> claude -n login-bug<br><br><span class="hl">Allow edit to src/routes/+page.svelte?</span><br>❯ 1. Yes<br>&nbsp;&nbsp;2. No</div>
       </div>
@@ -383,12 +383,12 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
 
   <h3>작업 이름 붙이기와 바꾸기 (권장)</h3>
   <p>이름은 Claude 입력창 위, <code>/resume</code> 목록, 폰의 Claude 앱 목록, 터미널 제목에 표시됩니다. 세션이 여러 개일 때 이름이 없으면 어느 것이 어떤 작업인지 구분하기 어렵습니다. <code>hm</code>는 폴더 이름을, <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>Shift</kbd>+<kbd>C</kbd>는 입력한 이름을 자동으로 붙입니다. 셸에서 직접 실행할 때는 아래처럼 붙이세요. 이름을 정하지 않으면 Claude가 대화 내용을 보고 제목을 자동으로 붙입니다.</p>
-  <div class="tip"><b>사이드바에서 바꾸기:</b> 카드를 <b>더블클릭</b>하거나 <b>오른쪽 클릭</b>하면 화면 가운데에 "작업 이름 바꾸기" 팝업이 뜹니다. 프로젝트와 지금 이름이 보이고, 맨 아래 입력 줄에 지금 이름이 채워져 있습니다. 고치고 <kbd>Enter</kbd>를 누르면 저장, <kbd>Esc</kbd>를 누르면 취소입니다. 사이드바 이름은 바로 바뀌고, 그 Claude에 <code>/rename</code>이 자동으로 입력되어 폰 앱과 <code>/resume</code> 목록에도 반영됩니다. Claude가 작업 중이거나 승인을 기다리는 중이면 입력이 대답으로 들어가지 않도록 기다렸다가 응답이 끝나면 보냅니다. 그 Claude의 입력창에 쓰다 만 글이 있으면 그 뒤에 붙으니 비워 두세요.</div>
+  <div class="tip"><b>사이드바에서 바꾸기:</b> 카드를 <b>더블클릭</b>하거나 <b>오른쪽 클릭 → 이름 바꾸기</b>를 고르면 화면 가운데에 "작업 이름 바꾸기" 팝업이 뜹니다. 프로젝트와 지금 이름이 보이고, 맨 아래 입력 줄에 지금 이름이 채워져 있습니다. 고치고 <kbd>Enter</kbd>를 누르면 저장, <kbd>Esc</kbd>를 누르면 취소입니다. 사이드바 이름은 바로 바뀌고, 그 Claude에 <code>/rename</code>이 자동으로 입력되어 폰 앱과 <code>/resume</code> 목록에도 반영됩니다. Claude가 작업 중이거나 승인을 기다리는 중이면 입력이 대답으로 들어가지 않도록 기다렸다가 응답이 끝나면 보냅니다. 그 Claude의 입력창에 쓰다 만 글이 있으면 그 뒤에 붙으니 비워 두세요.</div>
   <div class="code"><button class="copy" type="button">복사</button><pre><span class="cmt"># 직접 실행할 때</span>
 claude -n login-bug
 <span class="cmt"># 이 폴더의 최근 대화 이어가기</span>
 claude -c
-<span class="cmt"># 실행 중에 이름 바꾸기: 사이드바 카드를 더블클릭 또는 오른쪽 클릭하거나,</span>
+<span class="cmt"># 실행 중에 이름 바꾸기: 사이드바 카드를 더블클릭 또는 오른쪽 클릭 → 이름 바꾸기,</span>
 <span class="cmt"># 그 Claude의 입력창에서</span>
 /rename 로그인 버그 수정</pre></div>
 </section>
@@ -428,7 +428,7 @@ claude -c
           <div class="cd wait sel"><span class="t">로그인 리다이렉트 버그 수정</span><b>⌥4</b><span class="s">● 입력 필요</span><span class="a">40s</span></div>
           <div class="pj"><i style="background:#fb923c"></i>wayfinder<span>1</span></div>
           <div class="cd idle"><span class="t">단계 관리 기능</span><b>⌥5</b><span class="s">○ 대기</span><span class="a"></span></div>
-          <div class="ft"><span class="w"><kbd>⌥0</kbd> 기다리는 작업으로</span><span><kbd>⌥1-9</kbd> 이동 · 우클릭 이름</span></div>
+          <div class="ft"><span class="w"><kbd>⌥0</kbd> 기다리는 작업으로</span><span><kbd>⌥1-9</kbd> 이동 · 우클릭 메뉴</span></div>
         </div>
         <div class="mainpane"><span class="p">~/project/web ❯</span> claude -n login-bug<br><br><span class="hl">Allow edit to src/routes/+page.svelte?</span><br>❯ 1. Yes<br>&nbsp;&nbsp;2. No</div>
       </div>
@@ -486,7 +486,8 @@ claude -c
       <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>1</kbd>…<kbd>9</kbd></span><span class="d">사이드바의 그 번호 Claude로 바로 이동</span></div>
       <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>0</kbd></span><span class="d">가장 오래 기다린 Claude로 이동. 없으면 안 본 완료 작업</span></div>
       <div class="key"><span class="combo">사이드바 카드 클릭</span><span class="d">그 Claude로 이동</span></div>
-      <div class="key"><span class="combo">카드 더블클릭 / 오른쪽 클릭</span><span class="d">작업 이름 바꾸기</span></div>
+      <div class="key"><span class="combo">카드 더블클릭</span><span class="d">작업 이름 바꾸기</span></div>
+      <div class="key"><span class="combo">오른쪽 클릭</span><span class="d">메뉴: 이동, 이름 바꾸기, 위로 / 아래로 옮기기, 이 프로젝트에 새 Claude, 새 프로젝트 (폴더를 입력하면 <code>hm</code>처럼 열림). 프로젝트 이름 줄에서는 새 Claude와 새 프로젝트만</span></div>
       <div class="key"><span class="combo">카드 / 프로젝트 이름 줄 끌기</span><span class="d">작업 순서 / 프로젝트 순서 바꾸기. 놓을 자리가 파랗게 표시되고, <kbd>⌥</kbd>+숫자 번호와 맨 위 창 목록도 같은 순서를 따름. 작업은 같은 프로젝트 안에서만 옮겨짐</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Shift</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></span><span class="d">지금 작업을 한 칸 위 / 아래로. 프로젝트 끝이면 프로젝트 전체가 움직임</span></div>
       <div class="key"><span class="combo">핸들 막대 끌기</span><span class="d">핸들 막대나 경계선을 끌어 사이드바 폭 바꾸기. 모든 창에 맞추고 저장</span></div>

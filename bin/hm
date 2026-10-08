@@ -12,8 +12,20 @@ TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
 # 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG
 say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
 t() { "$TMUX_BIN" ${HIVEMUX_SOCKET:+-L "$HIVEMUX_SOCKET"} "$@"; }
+# hm --ask <client> [start]: ask for a folder in the tmux prompt (sidebar menu "New project")
+# hm --ask <클라이언트> [시작 경로]: tmux 입력 줄에서 폴더를 물어본다 (사이드바 메뉴 "새 프로젝트")
+if [ "$1" = --ask ]; then
+  start="${3:-$HOME/}"; start="${start/#$HOME/~}"
+  t command-prompt -t "$2" -I "$start" -p "$(say "프로젝트 폴더:" "Project folder:")" \
+    "run-shell -b \"HM_CLIENT='$2' '$0' '%1' >/dev/null\""
+  exit 0
+fi
 dir="${1:-$PWD}"
-dir="$(cd "$dir" 2>/dev/null && pwd)" || { echo "hm: $(say "폴더가 없습니다" "no such directory"): $1" >&2; exit 1; }
+dir="${dir/#\~/$HOME}"
+dir="$(cd "$dir" 2>/dev/null && pwd)" || {
+  echo "hm: $(say "폴더가 없습니다" "no such directory"): $1" >&2
+  [ -n "$HM_CLIENT" ] && t display -c "$HM_CLIENT" -d 2500 "hm: $(say "폴더가 없습니다" "no such directory"): $1"
+  exit 1; }
 name="${2:-$(basename "$dir")}"
 name="$(printf '%s' "$name" | tr '.: ' '---')"   # tmux session names cannot contain . : or spaces / tmux 세션 이름에 . : 공백 불가
 if ! t has-session -t "=$name" 2>/dev/null; then
@@ -22,4 +34,5 @@ if ! t has-session -t "=$name" 2>/dev/null; then
   t new-window -d -t "=$name:" -c "$dir" -n shell
   echo "hm: $(say "새 세션" "new session") '$name' ($dir)"
 fi
-if [ -n "$TMUX" ]; then t switch-client -t "=$name"; else exec "$TMUX_BIN" ${HIVEMUX_SOCKET:+-L "$HIVEMUX_SOCKET"} attach-session -t "=$name"; fi
+if [ -n "$HM_CLIENT" ]; then t switch-client -c "$HM_CLIENT" -t "=$name"
+elif [ -n "$TMUX" ]; then t switch-client -t "=$name"; else exec "$TMUX_BIN" ${HIVEMUX_SOCKET:+-L "$HIVEMUX_SOCKET"} attach-session -t "=$name"; fi

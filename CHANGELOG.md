@@ -6,6 +6,9 @@
   project header to move the project. `prefix Shift+↑/↓` moves the current task
   (and the project at its edge). `Option+N` and the top window list follow the
   sidebar order; project order is saved in `~/.local/share/hivemux/session-order`
+- Right click in the sidebar opens a menu: go to, rename, move up/down, new Claude
+  in this project, new project (asks for a folder, then opens it like `hm`).
+  Double click still renames
 
 ## 0.1.2 — 2026-10-08
 
