@@ -520,6 +520,9 @@ def goto(pid):
 
 DIALOG_RE = re.compile(r"(?i)\besc to cancel\b")   # footer of Claude's approval/question dialogs / Claude 승인·질문 창의 맨 아랫줄
 BUSY_RE = re.compile(r"(?i)\besc to interrupt\b")  # footer while Claude is working / Claude 가 작업 중일 때의 아랫줄
+# Claude's progress line ("✻ Finagling… (10s · ↓ 89 tokens)"): kept when a narrow pane cuts the footer
+# Claude 의 진행 줄 ("✻ Finagling… (10s · ↓ 89 tokens)"): 좁은 칸에서 아랫줄이 잘려도 남는다
+SPIN_RE = re.compile(r"(?i)^\s*[^\s\w❯⏺⎿│>]\s+\w[^…]*…\s*\((\d|esc\b)")
 
 
 def clear_answered(items, waits, now):
@@ -550,14 +553,50 @@ def clear_answered(items, waits, now):
                 waits[pid] = (at, True, missing)
                 continue
             del waits[pid]
-            ts, new = str(int(now)), "run" if any(BUSY_RE.search(ln) for ln in tail) else "done"
-            tmux("set", "-p", "-t", pid, "@claude_state", new)
-            tmux("set", "-p", "-t", pid, "@claude_state_at", ts)
-            tmux("set", "-w", "-t", pid, "@claude_state", new)
-            tmux("refresh-client", "-S")
-            p["@claude_state"], p["@claude_state_at"] = new, ts
+            set_state(p, "run" if any(BUSY_RE.search(ln) for ln in tail) else "done", now)
         else:
             waits[pid] = (at, False, 0)
+
+
+def set_state(p, new, now):
+    ts = str(int(now))
+    pid = p["pane_id"]
+    tmux("set", "-p", "-t", pid, "@claude_state", new)
+    tmux("set", "-p", "-t", pid, "@claude_state_at", ts)
+    tmux("set", "-w", "-t", pid, "@claude_state", new)
+    tmux("refresh-client", "-S")
+    p["@claude_state"], p["@claude_state_at"] = new, ts
+
+
+def clear_interrupted(items, runs, now):
+    """Esc in Claude stops the turn without any hook (no Stop), so the pane kept showing "working".
+    While a pane runs, Claude's footer ends with "esc to interrupt" (in a narrow pane, the progress
+    line stays); when both are missing on three
+    polls in a row (not a redraw, not the moment between the prompt and the first frame), the turn
+    was stopped: mark the pane idle. The next hook (a new prompt, a tool) sets it again.
+    Claude 에서 Esc 로 멈추면 훅이 오지 않아 (Stop 없음) 계속 "작업 중"으로 보였다.
+    작업 중에는 Claude 맨 아랫줄 끝에 "esc to interrupt" 가 (좁은 칸에서는 진행 줄이) 있다. 세 번 연속 없으면 (다시 그리는 중이나
+    입력 직후 첫 화면 전이 아님) 멈춘 것이니 대기로 바꾼다. 다음 훅(새 입력, 도구)이 다시 정한다."""
+    for pid in [k for k in runs if not any(p["pane_id"] == k and p["@claude_state"] == "run" for p in items)]:
+        del runs[pid]
+    for p in items:
+        if p["@claude_state"] != "run":
+            continue
+        pid, at = p["pane_id"], p["@claude_state_at"]
+        if tmux("display", "-p", "-t", pid, "#{pane_in_mode}").strip() == "1":
+            continue                    # scrolled back: the screen is not Claude's now / 스크롤 중: 지금 화면이 아니다
+        tail = [ln for ln in tmux("capture-pane", "-p", "-t", pid).splitlines() if ln.strip()][-12:]
+        st = runs.get(pid)
+        missing = st[1] if st and st[0] == at else 0
+        if not tail or any(BUSY_RE.search(ln) or SPIN_RE.match(ln) for ln in tail):
+            runs[pid] = (at, 0)
+            continue
+        missing += 1
+        if missing < 3:
+            runs[pid] = (at, missing)
+            continue
+        del runs[pid]
+        set_state(p, "idle", now)
 
 
 def main():
@@ -590,6 +629,7 @@ def main():
     border = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-border")
     targets, heads, buf = {}, {}, ""
     global DRAG
+    runs = {}                        # pane -> (state time, polls without the busy footer) (see clear_interrupted) / 칸 -> (상태 시각, 작업 중 표시가 없던 횟수)
     waits = {}                       # pane -> (state time, dialog seen, polls without it) (see clear_answered) / 칸 -> (상태 시각, 승인 창 봤음, 안 보인 횟수)
     snap, last_poll, last_spin = None, 0.0, None
     try:
@@ -607,6 +647,7 @@ def main():
                 TICK = 1 / max(5, min(60, int(fps))) if fps.isdigit() else 1 / 30
                 if snap[2]:
                     clear_answered(snap[0], waits, nowf)
+                    clear_interrupted(snap[0], runs, nowf)
                 # focus moved elsewhere (clicked another pane): close the menu / 다른 칸을 눌러 초점이 떠났으면 메뉴를 닫는다
                 if MENU and tmux("display", "-p", "-t", ME, "#{pane_active}#{window_active}").strip() != "11":
                     menu_close()

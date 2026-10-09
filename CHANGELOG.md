@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Fixed a task staying "running" after you stop Claude with Esc (Claude sends
+  no hook then): the sidebar sees that Claude's "esc to interrupt" footer and
+  progress line are gone and marks the task idle
+
 ## 0.1.6 — 2026-10-09
 
 - Screenshots of the right-click menu, reordering, the new-project folder
