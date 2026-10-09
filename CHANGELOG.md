@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.6 — 2026-10-09
 
 - Screenshots of the right-click menu, reordering, the new-project folder
   browser and settings in the README and the guide (`docs/img`, made by
