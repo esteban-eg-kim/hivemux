@@ -12,7 +12,7 @@ TMUX_CONF="${HIVEMUX_TMUX_CONF:-$HOME/.tmux.conf}"
 GHOSTTY_CONF="${HIVEMUX_GHOSTTY_CONF:-${XDG_CONFIG_HOME:-$HOME/.config}/ghostty/config}"
 CLAUDE_SETTINGS="${HIVEMUX_CLAUDE_SETTINGS:-$HOME/.claude/settings.json}"
 BEGIN="# >>> hivemux >>>"; END="# <<< hivemux <<<"
-HOOK_EVENTS='["SessionStart","UserPromptSubmit","PreToolUse","PermissionRequest","PostToolUse","PostToolUseFailure","PermissionDenied","Notification","Stop","SessionEnd"]'
+HOOK_EVENTS='["SessionStart","UserPromptSubmit","PreToolUse","PermissionRequest","PostToolUse","PostToolUseFailure","PermissionDenied","Notification","Stop","StopFailure","SessionEnd"]'
 
 if [ -t 1 ]; then B=$'\e[1m'; D=$'\e[2m'; G=$'\e[32m'; Y=$'\e[33m'; RD=$'\e[31m'; X=$'\e[0m'; else B= D= G= Y= RD= X=; fi
 ok()   { echo "  ${G}✓${X} $*"; }
@@ -158,7 +158,7 @@ doctor() {
   grep -qF "$BEGIN" "$TMUX_CONF" 2>/dev/null && ok "tmux: $TMUX_CONF" || bad "tmux: block missing in $TMUX_CONF"
   grep -qF "hivemux-attach" "$GHOSTTY_CONF" 2>/dev/null && ok "Ghostty: $GHOSTTY_CONF" || warn "Ghostty: not attached to tmux"
   local n; n="$(jq '[.hooks[]?[]?.hooks[]? | select(.command|contains("hivemux-hook"))] | length' "$CLAUDE_SETTINGS" 2>/dev/null || echo 0)"
-  [ "$n" -ge 10 ] && ok "Claude hooks: $n" || bad "Claude hooks: $n of 10 (hivemux setup)"
+  [ "$n" -ge 11 ] && ok "Claude hooks: $n" || bad "Claude hooks: $n of 11 (hivemux setup)"
   if tmux has-session 2>/dev/null; then
     [ -n "$(tmux show -gqv @hivemux-bin)" ] && ok "tmux server: hivemux loaded" || warn "tmux server running without hivemux (tmux source-file ~/.tmux.conf)"
     ok "sidebars: $(tmux list-panes -a -F '#{pane_title}' | grep -c hivemux-sidebar)  claude sessions: $(tmux list-panes -a -F '#{@claude_session}' | grep -c .)"

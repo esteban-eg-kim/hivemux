@@ -70,6 +70,11 @@ case "$event" in
     [ -n "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_rename_pending 2>/dev/null)" ] &&
       ( "$(dirname "$0")/hivemux-rename" flush "$TMUX_PANE" >/dev/null 2>&1 & )
     ;;
+  StopFailure)
+    # The turn ended on an API error (rate limit, overload, auth...): no Stop comes, so ask the user to look
+    # API 오류(요청 한도, 과부하, 인증 등)로 응답이 끊김: Stop 이 오지 않으니 확인하도록 입력 필요로 표시
+    state wait
+    ;;
   SessionEnd)
     t set -pu -t "$TMUX_PANE" @claude_state
     t set -pu -t "$TMUX_PANE" @claude_state_at

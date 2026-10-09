@@ -5,6 +5,9 @@
 - Fixed a task staying "running" after you stop Claude with Esc (Claude sends
   no hook then): the sidebar sees that Claude's "esc to interrupt" footer and
   progress line are gone and marks the task idle
+- A turn that ends on an API error (rate limit, overload, auth) now shows
+  "needs input" instead of staying "running" (new `StopFailure` hook; run
+  `hivemux setup` again to add it, `hivemux doctor` shows 11 hooks)
 
 ## 0.1.6 — 2026-10-09
 
