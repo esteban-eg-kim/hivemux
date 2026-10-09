@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.7 — 2026-10-09
 
 - Fixed a task staying "running" after you stop Claude with Esc (Claude sends
   no hook then): the sidebar sees that Claude's "esc to interrupt" footer and
