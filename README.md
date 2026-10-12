@@ -18,6 +18,8 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
 
 - **One board for every session.** Cards grouped by project, with live state and
   elapsed time. Running cards glow, waiting cards pulse amber.
+- **Notifications.** A macOS notification when a task needs input or finishes,
+  except the one you are looking at. Turn it off in Settings.
 - **Jump anywhere.** `Option+1..9`, `Option+0` (oldest waiting), or click a card.
 - **Task names.** Shows Claude's own conversation title. Double-click a card
   (or right-click → Rename) to rename it; hivemux sends `/rename` to that Claude (waits if it is busy).
@@ -102,7 +104,7 @@ new hooks once restarted. `hivemux version` shows the installed version; see
 | click card | jump · double click: rename |
 | right click | menu. On a task: go to, rename, move up/down, new Claude, new project. On a project name: rename, new Claude, new project. On empty space: new project. Every menu ends with Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes |
 | menu → New project | folder browser in the middle: `Enter` starts the selected folder (like `hm`), `→` / `←` in and out, type to filter, `Ctrl+N` new folder |
-| menu → Settings | language (한국어 / English), animation, sidebar width; applied at once and saved |
+| menu → Settings | language (한국어 / English), animation, notifications, sidebar width; applied at once and saved |
 | drag card / project header | reorder tasks / projects |
 | `prefix Shift+↑` / `↓` | move the current task up / down (at a project's edge, the project moves) |
 | `Option+O` | open a file path from recent output (Enter VS Code, Tab default app, ^F Finder, ^Y copy) |

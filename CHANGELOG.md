@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Desktop notifications: a macOS notification when a task needs input or
+  finishes, except the one you are looking at (window on screen, terminal
+  focused). Sent by the sidebar through tmux as OSC 777, so it also reaches a
+  terminal attached over ssh. Turn it off in Settings (saved in `notify`)
+- Screenshots updated for the new Settings row
+
 ## 0.1.8 — 2026-10-12
 
 - Rename a project from the sidebar: right-click a project name → Rename. It

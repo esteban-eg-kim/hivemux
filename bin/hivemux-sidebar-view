@@ -602,6 +602,42 @@ def clear_interrupted(items, runs, now):
         set_state(p, "idle", now)
 
 
+NOTIFY_GAP = 10      # seconds before the same pane may notify the same state again / 같은 칸이 같은 상태로 다시 알리기까지 초
+
+
+def notify_changes(items, seen, sent, now, emit):
+    """Desktop notification when a task starts needing input or finishes.
+    Every sidebar keeps the last (state, time) of each task; only the sidebar on screen sends,
+    and tmux passes it to the terminals showing that window (also over ssh). A task in the window
+    you are looking at (terminal focused) is left out. The first poll only records.
+    작업이 입력 필요가 되거나 끝나면 데스크톱 알림을 띄운다.
+    모든 사이드바가 작업마다 마지막 (상태, 시각)을 기억하고, 화면에 보이는 사이드바만 보낸다.
+    tmux 가 그 창을 보여 주는 터미널로 넘긴다 (ssh 로 붙은 터미널에도). 지금 보고 있는 창(터미널에
+    초점)의 작업은 빼고, 처음 읽을 때는 기억만 한다."""
+    first = not seen
+    fresh = {p["pane_id"]: (p["@claude_state"], p["@claude_state_at"]) for p in items}
+    new = [p for p in items if not first and seen.get(p["pane_id"]) not in (None, fresh[p["pane_id"]])
+           and p["@claude_state"] in ("wait", "done")]
+    seen.clear()
+    seen.update(fresh)
+    if not new or not emit:
+        return
+    looking = {l.split(" ", 1)[0] for l in tmux("list-clients", "-F", "#{window_id} #{client_flags}").splitlines()
+               if "focused" in l}
+    for p in new:
+        pid, st = p["pane_id"], p["@claude_state"]
+        if p["window_id"] in looking:
+            continue
+        if sent.get(pid, ("", 0))[0] == st and now - sent[pid][1] < NOTIFY_GAP:
+            continue
+        sent[pid] = (st, now)
+        clean = lambda s: re.sub(r"[\x00-\x1f\x7f;]", " ", s).strip()
+        osc = "\x1b]777;notify;%s;%s\x07" % (clean(task_name(p)), clean(f"{p['session_name']} · {STATE_TEXT[st]}"))
+        # tmux passthrough: ESC doubled inside / tmux 패스스루: 안의 ESC 는 두 번
+        sys.stdout.write("\x1bPtmux;" + osc.replace("\x1b", "\x1b\x1b") + "\x1b\\")
+        sys.stdout.flush()
+
+
 def main():
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
@@ -633,6 +669,7 @@ def main():
     targets, heads, buf = {}, {}, ""
     global DRAG
     runs = {}                        # pane -> (state time, polls without the busy footer) (see clear_interrupted) / 칸 -> (상태 시각, 작업 중 표시가 없던 횟수)
+    seen, sent = {}, {}              # notify_changes: pane -> (state, time); pane -> (state, sent at) / 칸 -> (상태, 시각); 칸 -> (상태, 보낸 시각)
     waits = {}                       # pane -> (state time, dialog seen, polls without it) (see clear_answered) / 칸 -> (상태 시각, 승인 창 봤음, 안 보인 횟수)
     snap, last_poll, last_spin = None, 0.0, None
     try:
@@ -651,6 +688,8 @@ def main():
                 if snap[2]:
                     clear_answered(snap[0], waits, nowf)
                     clear_interrupted(snap[0], runs, nowf)
+                notify_changes(snap[0], seen, sent, nowf,
+                               snap[2] and tmux("show", "-gqv", "@hivemux-notify").strip() != "off")
                 # focus moved elsewhere (clicked another pane): close the menu / 다른 칸을 눌러 초점이 떠났으면 메뉴를 닫는다
                 if MENU and tmux("display", "-p", "-t", ME, "#{pane_active}#{window_active}").strip() != "11":
                     menu_close()
