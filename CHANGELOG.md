@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.8 — 2026-10-12
 
 - Rename a project from the sidebar: right-click a project name → Rename. It
   keeps its place in the sidebar order and is saved for restore under the new
