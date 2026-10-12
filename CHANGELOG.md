@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.9 — 2026-10-12
 
 - Work from another Mac: `hivemux connect <host>` attaches to that Mac's
   hivemux over ssh and reconnects when the connection drops (`--mosh` to use
