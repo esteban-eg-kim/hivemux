@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Rename a project from the sidebar: right-click a project name → Rename. It
+  keeps its place in the sidebar order and is saved for restore under the new
+  name; `hm <folder>` still finds a renamed project by its folder, and the
+  new-project browser marks it as open
 - `hivemux setup` also restarts the running sidebars, so an update takes
   effect at once
 - README and guide: how to update (`brew upgrade hivemux && hivemux setup`, or

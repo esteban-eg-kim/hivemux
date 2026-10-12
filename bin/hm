@@ -45,6 +45,12 @@ dir="$(cd "$dir" 2>/dev/null && pwd)" || {
   exit 1; }
 name="${2:-$(basename "$dir")}"
 name="$(printf '%s' "$name" | tr '.: ' '---')"   # tmux session names cannot contain . : or spaces / tmux 세션 이름에 . : 공백 불가
+# No name given and no session by the folder's name: a session opened in this folder and renamed since
+# 이름을 주지 않았고 폴더 이름의 세션도 없으면: 이 폴더에서 열고 이름을 바꾼 세션
+if [ -z "$2" ] && ! t has-session -t "=$name" 2>/dev/null; then
+  found="$(t list-sessions -F '#{session_path}	#{session_name}' 2>/dev/null | awk -F '\t' -v d="$dir" '$1==d{print $2; exit}')"
+  [ -n "$found" ] && name="$found"
+fi
 if ! t has-session -t "=$name" 2>/dev/null; then
   t new-session -d -s "$name" -c "$dir" -n claude
   t send-keys -t "=$name:claude" "claude -n $(printf '%q' "$name")" Enter

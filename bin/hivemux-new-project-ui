@@ -106,6 +106,9 @@ def main():
     else:
         cwd, want = (start if os.path.isdir(start) else HOME), ""
     sessions = set(tmux("list-sessions", "-F", "#{session_name}").split())
+    # folder -> session opened there (still found after the project was renamed)
+    # 폴더 -> 그 폴더에서 연 세션 (프로젝트 이름을 바꿔도 찾는다)
+    opened = dict(reversed([l.split("\t", 1) for l in tmux("list-sessions", "-F", "#{session_path}\t#{session_name}").splitlines() if "\t" in l]))
 
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
@@ -148,7 +151,8 @@ def main():
                 y = 4 + k - top
                 rows_y[y] = k
                 if kind == "here":
-                    icon, label, color, note = "▶", tr(f"여기서 시작  {session_name(cwd)}", f"Start here  {session_name(cwd)}"), ACC, ""
+                    sn = opened.get(cwd) or session_name(cwd)
+                    icon, label, color, note = "▶", tr(f"여기서 시작  {sn}", f"Start here  {sn}"), ACC, ""
                 elif kind == "new":
                     icon, color, note = "+", OK, ""
                     label = tr(f"새 폴더 만들기: {q}", f"New folder: {q}") if q else tr("새 폴더 만들기…", "New folder…")
@@ -156,7 +160,9 @@ def main():
                     icon, label, color, note = "‥", tr("상위 폴더", "Parent folder"), T2, ""
                 else:
                     icon, label, color = "▸", n + "/", TEXT
-                    note = tr("열린 세션", "open") if session_name(n) in sessions else ""
+                    sn = opened.get(os.path.join(cwd, n))
+                    note = (tr(f"열린 세션 {sn}", f"open {sn}") if sn != session_name(n) else tr("열린 세션", "open")) if sn \
+                        else tr("열린 세션", "open") if session_name(n) in sessions else ""
                 label = cut(label, cols - 10 - (width(note) + 2 if note else 0))
                 right = f"{fg(T3)}{note}" if note else ""
                 if k == sel:

@@ -394,6 +394,8 @@ claude -n login-bug
 claude -c
 <span class="cmt"># rename while running: double-click the card (or right-click → Rename), or in that Claude's input box</span>
 /rename Fix login redirect bug</pre></div>
+  <h3>Rename a project</h3>
+  <p>In the sidebar, <b>right-click a project name → Rename</b> to open the "Rename project" popup. A project name is its tmux session name; the Claude tasks and windows in it stay as they are. It keeps its place in the sidebar order and is restored under the new name after a reboot. A name that is taken asks again. After a rename, <code>hm ~/code/api</code> still goes to the project opened in that folder. Dots (<code>.</code>), colons (<code>:</code>) and spaces become <code>-</code>.</p>
 </section>
 
 <section id="concept">
@@ -481,7 +483,7 @@ claude -c
       <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>0</kbd></span><span class="d">Jump to the Claude that waited longest, else an unseen finished one</span></div>
       <div class="key"><span class="combo">Click a card</span><span class="d">Jump to that Claude</span></div>
       <div class="key"><span class="combo">Double-click a card</span><span class="d">Rename the task</span></div>
-      <div class="key"><span class="combo">Right click</span><span class="d">Menu. On a task: go to, rename, move up / down, new Claude in this project, new project. On a project name: new Claude, new project. On empty space: new project. Every menu ends with Settings. Hover highlights, a click runs; <kbd>↑</kbd> <kbd>↓</kbd> and <kbd>Enter</kbd> or the letter shown also choose. <kbd>Esc</kbd> or a click outside closes it</span></div>
+      <div class="key"><span class="combo">Right click</span><span class="d">Menu. On a task: go to, rename, move up / down, new Claude in this project, new project. On a project name: rename, new Claude, new project. On empty space: new project. Every menu ends with Settings. Hover highlights, a click runs; <kbd>↑</kbd> <kbd>↓</kbd> and <kbd>Enter</kbd> or the letter shown also choose. <kbd>Esc</kbd> or a click outside closes it</span></div>
       <div class="key"><span class="combo">Menu → New project</span><span class="d">A folder browser opens in the middle. <kbd>Enter</kbd> starts in the selected folder like <code>hm</code>, <kbd>→</kbd> / <kbd>←</kbd> move in and out, typing filters (start with <code>.</code> for hidden folders), <kbd>Ctrl</kbd>+<kbd>N</kbd> makes a new folder</span></div>
       <div class="key"><span class="combo">Menu → Settings</span><span class="d">Language (한국어 / English), animation on / off, sidebar width. Applied at once and saved in <code>~/.local/share/hivemux</code>, so they survive restarts. Changing the language restarts the sidebars</span></div>
       <div class="key"><span class="combo">Drag a card / project header</span><span class="d">Reorder tasks / projects. The drop target turns blue; <kbd>⌥</kbd>+number and the top window list follow the same order. A task moves only within its project</span></div>
@@ -738,6 +740,7 @@ hivemux uninstall</pre></div>
     <div><code>~/.local/share/tmux/resurrect/</code><span>tmux-resurrect layout snapshots</span></div>
     <div><code>hivemux</code>, <code>hm</code><span>Setup, check and uninstall; open a project</span></div>
     <div><code>hivemux-attach</code><span>Ghostty entry point. Restores and attaches to the last session when no server runs, otherwise to the most recent one</span></div>
+    <div><code>hivemux-rename-project</code>, <code>hivemux-rename-project-ui</code><span>Rename a project, and its popup</span></div>
     <div><code>hivemux-hook</code><span>Claude hook. Records session id, folder and state on the tmux pane</span></div>
     <div><code>hivemux-panes</code><span>Saves the pane-to-session list on save; types the resume command on restore</span></div>
     <div><code>hivemux-sidebar</code>, <code>hivemux-sidebar-view</code><span>Sidebar pane management and the board itself</span></div>

@@ -100,7 +100,7 @@ new hooks once restarted. `hivemux version` shows the installed version; see
 | `Option+1` … `9` | jump to that Claude (any session) |
 | `Option+0` / `prefix Space` | oldest waiting Claude, else oldest unseen finished one |
 | click card | jump · double click: rename |
-| right click | menu. On a task: go to, rename, move up/down, new Claude, new project. On a project name: new Claude, new project. On empty space: new project. Every menu ends with Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes |
+| right click | menu. On a task: go to, rename, move up/down, new Claude, new project. On a project name: rename, new Claude, new project. On empty space: new project. Every menu ends with Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes |
 | menu → New project | folder browser in the middle: `Enter` starts the selected folder (like `hm`), `→` / `←` in and out, type to filter, `Ctrl+N` new folder |
 | menu → Settings | language (한국어 / English), animation, sidebar width; applied at once and saved |
 | drag card / project header | reorder tasks / projects |

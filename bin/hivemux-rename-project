@@ -1,0 +1,64 @@
+#!/bin/bash
+# Rename a project (tmux session) from the sidebar.
+# 사이드바에서 프로젝트(tmux 세션) 이름 바꾸기.
+#   hivemux-rename-project prompt <session> <client>   open the name popup (prefilled with the current name)
+#                                                      이름 입력 칸 띄우기 (지금 이름이 채워짐)
+#   hivemux-rename-project apply  <session> <name>     rename it
+#                                                      이름 바꾸기
+# Apply: tmux rename-session, keep its place in the sidebar order (session-order), save the
+# pane -> Claude mapping and the tmux-resurrect layout under the new name (so a reboot restores it).
+# 적용: tmux rename-session, 사이드바 순서(session-order)의 자리 유지, 칸 -> Claude 매핑과
+# tmux-resurrect 배치를 새 이름으로 저장 (재부팅해도 새 이름으로 복원).
+# Exit status of apply: 0 renamed, 3 the name is taken, 2 bad input.
+# apply 종료 코드: 0 바꿈, 3 이미 있는 이름, 2 잘못된 입력.
+HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
+TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+# UI language: HIVEMUX_LANG > tmux @hivemux-lang (set by hivemux setup) > LANG
+# 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG
+say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
+t() { "$TMUX_BIN" "$@"; }
+ORDER="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux/session-order"
+
+case "$1" in
+  prompt)
+    sess="$2"; client="$3"
+    t has-session -t "=$sess" 2>/dev/null || exit 0
+    dir="$(t display -p -t "=$sess:" '#{session_path}')"
+    if t list-commands display-popup 2>/dev/null | grep -q -- '-b border-lines'; then
+      # Pause sidebar drawing while the popup is open (each redraw would flicker it)
+      # 팝업이 떠 있는 동안 사이드바 애니메이션을 멈춘다 (다시 그릴 때마다 팝업이 깜빡이므로)
+      pause="/tmp/hivemux-pause-$(id -u)-$(t display -p '#{pid}')"   # per tmux server / tmux 서버마다
+      : > "$pause"; trap 'rm -f "$pause"' EXIT
+      "$HM_BIN/hivemux-modal" "$client" -E -w 64 -h 11 -b rounded \
+        -T "#[fg=#e6e9ef,bold] $(say "프로젝트 이름 바꾸기" "Rename project") " -S "fg=#5aa9ff" -s "bg=#1e2128" \
+        "$(printf '%q ' "$HM_BIN/hivemux-rename-project-ui" "$sess" "$dir")" 2>/dev/null || true   # cancel (Esc) is not an error / 취소(Esc)도 정상 종료
+    else
+      t command-prompt ${client:+-t "$client"} -I "$sess" -p "$(say "프로젝트 이름:" "Project name:")" \
+        "run-shell -b \"'$HM_BIN/hivemux-rename-project' apply '$sess' '%%'\""
+    fi
+    ;;
+  apply)
+    old="$2"
+    # tmux session names cannot contain . : (same rule as hm) / tmux 세션 이름에 . : 불가 (hm 과 같은 규칙)
+    new="$(printf '%s' "$3" | tr -d '\n' | sed 's/^ *//; s/ *$//' | tr '.: ' '---')"
+    [ -n "$old" ] && [ -n "$new" ] || exit 2
+    [ "$old" = "$new" ] && exit 0
+    t has-session -t "=$old" 2>/dev/null || exit 2
+    t has-session -t "=$new" 2>/dev/null && exit 3
+    t rename-session -t "=$old" "$new" || exit 2
+    # keep its place in the sidebar order / 사이드바 순서의 자리 유지
+    if [ -f "$ORDER" ]; then
+      awk -v o="$old" -v n="$new" '$0==o{$0=n} {print}' "$ORDER" > "$ORDER.tmp.$$" && mv -f "$ORDER.tmp.$$" "$ORDER"
+    fi
+    # save under the new name now, not at the next autosave / 다음 자동 저장을 기다리지 않고 새 이름으로 저장
+    "$HM_BIN/hivemux-panes" save >/dev/null 2>&1
+    save="$(t show -gqv @resurrect-save-script-path)"
+    [ -x "$save" ] && ( "$save" quiet >/dev/null 2>&1 & )
+    t refresh-client -S 2>/dev/null
+    t list-panes -a -F '#{pane_pid} #{pane_title}' 2>/dev/null | awk '$2=="hivemux-sidebar"{print $1}' |
+      while read -r p; do kill -USR1 "$p" 2>/dev/null; done
+    t display -d 1500 "$(say "프로젝트 이름 변경" "Project renamed"): $new"
+    ;;
+  *) echo "usage: $0 prompt <session> [client] | apply <session> <name>" >&2; exit 2 ;;
+esac
+exit 0

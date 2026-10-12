@@ -437,6 +437,9 @@ def menu(y, pid=None, sess=None, items=()):
                  (tr("위로 옮기기", "Move up"), "k", lambda: bg_run(os.path.join(here, "hivemux-order"), "step", "up", pid)),
                  (tr("아래로 옮기기", "Move down"), "j", lambda: bg_run(os.path.join(here, "hivemux-order"), "step", "down", pid)),
                  None]
+    elif not empty:                     # project name row / 프로젝트 이름 줄
+        rows += [(tr("이름 바꾸기…", "Rename…"), "r", lambda: bg_run(os.path.join(here, "hivemux-rename-project"), "prompt", sess, client)),
+                 None]
     if not empty:
         rows.append((tr("새 Claude…", "New Claude…"), "n", lambda: bg_run(os.path.join(here, "hivemux-new-claude"), d, sess, client)))
     rows.append((tr("새 프로젝트…", "New project…"), "p", lambda: bg_run(os.path.join(here, "hm"), "--ask", client, d)))

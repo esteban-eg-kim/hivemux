@@ -1,0 +1,45 @@
+#!/bin/zsh
+# Popup for hivemux-rename-project; runs inside tmux display-popup.
+# hivemux-rename-project 팝업 화면. tmux display-popup 안에서 실행된다.
+#   hivemux-rename-project-ui <session> <folder>
+#   hivemux-rename-project-ui <세션> <폴더>
+# On save it calls hivemux-rename-project apply; a name that is taken asks again.
+# 저장하면 hivemux-rename-project apply 를 부른다. 이미 있는 이름이면 다시 묻는다.
+sess="$1"; dir="$2"
+HM_BIN="${0:A:h}"
+TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+# UI language: HIVEMUX_LANG > tmux @hivemux-lang > LANG
+# 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang > LANG
+say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then print -rn -- "$1"; else print -rn -- "$2"; fi; }
+
+c()  { printf '\e[38;2;%sm' "$1"; }
+b()  { printf '\e[1m'; }
+r()  { printf '\e[0m'; }
+TEXT='230;233;239'; T2='154;163;178'; T3='98;106;120'; ACC='90;169;255'; WAIT='245;165;36'
+
+[[ "$dir" == "$HOME" || "$dir" == "$HOME"/* ]] && dir="~${dir#$HOME}"
+max=$(( ${COLUMNS:-64} - 16 ))     # one line: keep the end of a long path / 한 줄에: 긴 경로는 끝부분만
+(( ${#dir} > max )) && dir="…${dir[-(max - 1),-1]}"
+note="$(c $T3)$(say "Claude 작업과 창은 그대로이고, 사이드바 순서도 유지됩니다" "Claude tasks and windows stay as they are, and so does the order")$(r)"
+KEYTIMEOUT=1
+bindkey -e
+bindkey '\e' send-break
+name="$sess"
+while true; do
+  printf '\e[H\e[2J\e[?25h'
+  print
+  print "  $(c $T3)$(say "폴더     " "Folder   ")$(r)  $(c $T2)$dir$(r)"
+  print "  $(c $T3)$(say "지금 이름" "Current  ")$(r)  $(c $TEXT)$sess$(r)"
+  print
+  print "  $note"
+  print "  $(c $T2)$(b)Enter$(r)$(c $T3) $(say 저장 save)    $(c $T2)$(b)Esc$(r)$(c $T3) $(say 취소 cancel)$(r)"
+  print
+  # input line goes last (the line editor clears everything below the cursor)
+  # 입력 줄은 맨 아래 (편집기가 커서 아래를 지우기 때문)
+  vared -p "  $(c $ACC)$(b)›$(r) " name 2>/dev/null || exit 0
+  name="${name## }"; name="${name%% }"
+  [ -n "$name" ] && [ "$name" != "$sess" ] || exit 0
+  "$HM_BIN/hivemux-rename-project" apply "$sess" "$name"
+  [ $? -eq 3 ] || exit 0
+  note="$(c $WAIT)$(say "이미 있는 프로젝트 이름입니다. 다른 이름을 넣어 주세요" "A project with that name exists; pick another name")$(r)"
+done
