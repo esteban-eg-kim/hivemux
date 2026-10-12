@@ -49,7 +49,6 @@ curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install
 ```
 
 This clones hivemux into `~/.local/share/hivemux/src` and runs `hivemux setup`.
-Run the same command again to update.
 
 Homebrew:
 
@@ -67,10 +66,23 @@ hivemux setup
 | Remote Control for all sessions | `remoteControlAtStartup` in `~/.claude/settings.json` |
 
 It also downloads tmux-resurrect and tmux-continuum (or uses yours from
-`~/.tmux/plugins`) and registers ten Claude Code hooks. Run `hivemux doctor` to
+`~/.tmux/plugins`) and registers eleven Claude Code hooks. Run `hivemux doctor` to
 check everything. Use `--yes` to accept defaults, `--no-keys`, `--no-ghostty`,
 `--no-remote` to skip parts. The screen language follows your shell; pick it with
 `--lang=en` or `--lang=ko`, and change it later in the sidebar's right-click menu → Settings.
+
+### Update
+
+```sh
+brew upgrade hivemux && hivemux setup    # Homebrew
+curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install.sh | bash   # git install: same command
+```
+
+`hivemux setup` again is safe: it replaces its own blocks and hooks (a new version
+may add hooks), reloads the running tmux and restarts the sidebars, so you keep
+working in the same sessions. Claude sessions started before the update pick up
+new hooks once restarted. `hivemux version` shows the installed version; see
+[CHANGELOG.md](CHANGELOG.md) for what changed.
 
 ## Quick start
 

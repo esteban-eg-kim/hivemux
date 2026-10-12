@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- `hivemux setup` also restarts the running sidebars, so an update takes
+  effect at once
+- README and guide: how to update (`brew upgrade hivemux && hivemux setup`, or
+  the install command again); hook count corrected to eleven
+
 ## 0.1.7 — 2026-10-09
 
 - Fixed a task staying "running" after you stop Claude with Esc (Claude sends

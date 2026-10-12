@@ -35,7 +35,7 @@ hivemux는 모든 tmux 창 왼쪽에 사이드바를 붙입니다. 사이드바�
 curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install.sh | bash
 ```
 
-hivemux를 `~/.local/share/hivemux/src`에 받고 `hivemux setup`을 실행합니다. 같은 명령을 다시 실행하면 업데이트됩니다.
+hivemux를 `~/.local/share/hivemux/src`에 받고 `hivemux setup`을 실행합니다.
 
 Homebrew:
 
@@ -52,7 +52,16 @@ hivemux setup
 | Ghostty를 tmux에 연결 | Ghostty 설정에 `command = hivemux-attach` |
 | 모든 세션 Remote Control | `~/.claude/settings.json`의 `remoteControlAtStartup` |
 
-tmux-resurrect와 tmux-continuum도 받아 옵니다. 이미 `~/.tmux/plugins`에 있으면 그것을 씁니다. Claude Code 훅 열 개도 등록합니다. `hivemux doctor`로 전체를 점검할 수 있습니다. `--yes`는 기본값으로 진행하고, `--no-keys`, `--no-ghostty`, `--no-remote`는 해당 부분을 건너뜁니다. 화면 언어는 셸 언어로 정해지고, `--lang=en` 또는 `--lang=ko`로 바꿀 수 있습니다. 설치한 뒤에는 사이드바 오른쪽 클릭 메뉴의 "설정"에서 바꿉니다.
+tmux-resurrect와 tmux-continuum도 받아 옵니다. 이미 `~/.tmux/plugins`에 있으면 그것을 씁니다. Claude Code 훅 열한 개도 등록합니다. `hivemux doctor`로 전체를 점검할 수 있습니다. `--yes`는 기본값으로 진행하고, `--no-keys`, `--no-ghostty`, `--no-remote`는 해당 부분을 건너뜁니다. 화면 언어는 셸 언어로 정해지고, `--lang=en` 또는 `--lang=ko`로 바꿀 수 있습니다. 설치한 뒤에는 사이드바 오른쪽 클릭 메뉴의 "설정"에서 바꿉니다.
+
+### 업데이트
+
+```sh
+brew upgrade hivemux && hivemux setup    # Homebrew
+curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install.sh | bash   # git 설치: 같은 명령
+```
+
+`hivemux setup`은 다시 실행해도 안전합니다. 자기가 넣은 블록과 훅만 바꾸고(새 버전에서 훅이 늘 수 있음), 실행 중인 tmux 설정을 다시 읽고 사이드바를 다시 띄웁니다. 쓰던 세션은 그대로입니다. 업데이트 전에 시작한 Claude는 다시 시작해야 새 훅을 씁니다. 설치된 버전은 `hivemux version`으로, 바뀐 내용은 [CHANGELOG.md](CHANGELOG.md)에서 확인합니다.
 
 ## 처음 쓰는 순서
 

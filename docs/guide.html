@@ -731,14 +731,18 @@ ls -la ~/.local/share/hivemux/backups/</pre></div>
 curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install.sh | bash
 <span class="cmt"># 또는 Homebrew</span>
 brew install esteban-eg-kim/tap/hivemux &amp;&amp; hivemux setup
-<span class="cmt"># 점검 / 제거</span>
+<span class="cmt"># 업데이트 (git 설치는 위 설치 명령을 다시 실행)</span>
+brew upgrade hivemux &amp;&amp; hivemux setup
+<span class="cmt"># 버전 / 점검 / 제거</span>
+hivemux version
 hivemux doctor
 hivemux uninstall</pre></div>
   <p><code>hivemux setup</code>은 기존 설정 파일을 바꾸지 않고, <code># &gt;&gt;&gt; hivemux &gt;&gt;&gt;</code> 표시 사이에 블록만 추가합니다. <code>hivemux uninstall</code>은 그 블록과 hivemux 훅만 지웁니다. 다시 실행해도 안전합니다.</p>
+  <p>업데이트할 때 <code>hivemux setup</code>을 다시 실행하면, 새 버전에서 늘어난 훅을 등록하고 실행 중인 tmux 설정을 다시 읽은 뒤 사이드바를 다시 띄웁니다. 쓰던 세션은 그대로입니다. 업데이트 전에 시작한 Claude는 다시 시작해야 새 훅을 씁니다.</p>
   <div class="files">
     <div><code>~/.tmux.conf</code><span>hivemux 블록이 <code>share/hivemux.tmux</code>와 선택한 권장 키 <code>share/keys.tmux</code>를 불러옵니다</span></div>
     <div><code>~/.config/ghostty/config</code><span>hivemux 블록이 모든 Ghostty 창을 <code>hivemux-attach</code>로 tmux에 붙입니다</span></div>
-    <div><code>~/.claude/settings.json</code><span>hivemux 훅 열 개, 선택하면 모든 세션 Remote Control</span></div>
+    <div><code>~/.claude/settings.json</code><span>hivemux 훅 열한 개, 선택하면 모든 세션 Remote Control</span></div>
     <div><code>~/.local/share/hivemux/</code><span>플러그인, 칸과 세션 목록(<code>panes.tsv</code>), 재개 기록(<code>panes.log</code>), 사이드바 폭, 설정 백업</span></div>
     <div><code>~/.local/share/tmux/resurrect/</code><span>tmux-resurrect 배치 저장본</span></div>
     <div><code>hivemux</code>, <code>hm</code><span>설치·점검·제거 명령, 프로젝트 열기</span></div>

@@ -722,14 +722,18 @@ ls -la ~/.local/share/hivemux/backups/</pre></div>
 curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install.sh | bash
 <span class="cmt"># or Homebrew</span>
 brew install esteban-eg-kim/tap/hivemux &amp;&amp; hivemux setup
-<span class="cmt"># check / remove</span>
+<span class="cmt"># update (git install: run the install command above again)</span>
+brew upgrade hivemux &amp;&amp; hivemux setup
+<span class="cmt"># version / check / remove</span>
+hivemux version
 hivemux doctor
 hivemux uninstall</pre></div>
   <p><code>hivemux setup</code> leaves your config alone and only adds a block between <code># &gt;&gt;&gt; hivemux &gt;&gt;&gt;</code> markers. <code>hivemux uninstall</code> removes exactly those blocks and the hivemux hooks. Both are safe to run again.</p>
+  <p>When you update, running <code>hivemux setup</code> again registers any hooks the new version adds, reloads the running tmux and restarts the sidebars. Your sessions keep running. Claude sessions started before the update use the new hooks once restarted.</p>
   <div class="files">
     <div><code>~/.tmux.conf</code><span>The hivemux block loads <code>share/hivemux.tmux</code> and, if chosen, the recommended keys in <code>share/keys.tmux</code></span></div>
     <div><code>~/.config/ghostty/config</code><span>The hivemux block attaches every Ghostty window to tmux through <code>hivemux-attach</code></span></div>
-    <div><code>~/.claude/settings.json</code><span>Ten hivemux hooks and, if chosen, Remote Control for every session</span></div>
+    <div><code>~/.claude/settings.json</code><span>Eleven hivemux hooks and, if chosen, Remote Control for every session</span></div>
     <div><code>~/.local/share/hivemux/</code><span>Plugins, the pane-to-session list (<code>panes.tsv</code>), the resume log (<code>panes.log</code>), sidebar width, config backups</span></div>
     <div><code>~/.local/share/tmux/resurrect/</code><span>tmux-resurrect layout snapshots</span></div>
     <div><code>hivemux</code>, <code>hm</code><span>Setup, check and uninstall; open a project</span></div>

@@ -123,7 +123,12 @@ confirm-close-surface = false"
   case "$HM_BIN" in /opt/homebrew/*|/usr/local/*|*/opt/hivemux/libexec/bin) ;; *)
     put_block "$HOME/.zshrc" "export PATH=\"$HM_BIN:\$PATH\""; ok "added $HM_BIN to PATH in ~/.zshrc" ;; esac
 
-  if tmux has-session 2>/dev/null; then tmux source-file "$TMUX_CONF" && ok "reloaded running tmux"; fi
+  # an update: reload tmux and restart the sidebars so they run the new code
+  # 업데이트: tmux 설정을 다시 읽고, 사이드바도 새 코드로 다시 띄운다
+  if tmux has-session 2>/dev/null; then
+    tmux source-file "$TMUX_CONF" && ok "reloaded running tmux"
+    "$HM_BIN/hivemux-sidebar" respawn >/dev/null 2>&1 && ok "restarted the sidebars"
+  fi
   echo
   echo "${B}Done.${X} Open a new Ghostty window (or run ${B}tmux${X}), then ${B}hm ~/your/project${X}."
   echo "${D}Phone push for approvals: in Claude Code run /config → Push when actions required.${X}"
