@@ -27,9 +27,11 @@ set -g status on
 set -g status-position top
 set -g status-interval 5
 set -g status-style "bg=#16181d,fg=#9aa3b2"
-set -g status-left-length 40
+set -g status-left-length 60
 # session (project) name on a blue badge, as in the README preview
-set -g status-left "#[bg=#2f6fb3,fg=#e6e9ef,bold]  #S  #[default]#[bg=#16181d] "
+# a terminal attached from another Mac (bin/hivemux-attach lists it in @hivemux-remote-clients) also shows this Mac's name
+# 다른 Mac 에서 붙은 터미널 (bin/hivemux-attach 가 @hivemux-remote-clients 에 적음)은 이 Mac 의 이름도 보여 준다
+set -g status-left "#{?#{m:* #{client_name} *,#{@hivemux-remote-clients}},#[bg=#7c4dff#,fg=#ffffff#,bold] ⇄ #h ,}#[bg=#2f6fb3,fg=#e6e9ef,bold]  #S  #[default]#[bg=#16181d] "
 set -g status-right-length 60
 # continuum autosave is triggered from status-right (see Persistence below)
 set -g status-right "#(#{@hivemux-continuum-save})#{?client_prefix,#[bg=#f5a524 fg=#16181d bold] PREFIX #[default] ,}#[fg=#626a78]%m-%d  %H:%M  "
@@ -65,6 +67,7 @@ set-hook -g pane-exited            'run-shell -b "#{@hivemux-bin}/hivemux-sideba
 set-hook -g after-kill-pane        'run-shell -b "#{@hivemux-bin}/hivemux-sidebar reap"'
 set-hook -g window-resized         'run-shell -b "#{@hivemux-bin}/hivemux-sidebar fix"'
 set-hook -g client-attached        'run-shell -b "#{@hivemux-bin}/hivemux-sidebar presize #{client_name}"'
+set-hook -g client-detached        'run-shell -b "#{@hivemux-bin}/hivemux-connect --forget-client #{client_name}"'
 set-hook -g client-resized         'run-shell -b "#{@hivemux-bin}/hivemux-sidebar presize #{client_name}"'
 run-shell -b "#{@hivemux-bin}/hivemux-sidebar ensure"
 
@@ -85,6 +88,8 @@ bind Space  run-shell -b "#{@hivemux-bin}/hivemux-agents next '#{client_name}'"
 bind -n M-o run-shell -b "#{@hivemux-bin}/hivemux-open '#{pane_id}' '#{client_name}'"
 # prefix C  new named Claude window   prefix R  Remote Control server window
 bind C run-shell "#{@hivemux-bin}/hivemux-new-claude '#{pane_current_path}'"
+# prefix H: a new window attached to the last remote host (bin/hivemux-connect) / 마지막 원격 호스트에 붙은 새 창
+bind H run-shell -b "#{@hivemux-bin}/hivemux-connect --window '' '#{client_name}'"
 bind R run-shell "#{@hivemux-bin}/hivemux-remote '#{pane_current_path}'"
 # prefix b  hide / show sidebars      prefix S  session + window tree
 bind b run-shell -b "#{@hivemux-bin}/hivemux-sidebar toggle"

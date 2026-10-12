@@ -1,0 +1,133 @@
+#!/bin/bash
+# Work on another Mac's hivemux from here: attach to its tmux over ssh (or mosh).
+# 다른 Mac 의 hivemux 를 여기서 이어 쓴다: ssh(또는 mosh)로 그 Mac 의 tmux 에 붙는다.
+#   hivemux connect <host>             attach; reconnect when the connection drops
+#                                      붙기. 연결이 끊기면 다시 붙는다
+#   hivemux connect --add <host> [--mosh]   check that <host> works and remember it
+#                                      <host> 에 붙을 수 있는지 확인하고 기억
+#   hivemux connect --remove <host>    forget it / 지우기
+#   hivemux connect --list             remembered hosts / 기억한 호스트
+#   hivemux connect --window [<host>]  open a new Ghostty window attached to <host> (default: the last one)
+#                                      <host> 에 붙은 새 Ghostty 창 열기 (기본: 마지막 호스트)
+#   hivemux connect --pick <client>    the host list popup (sidebar menu) / 호스트 목록 팝업 (사이드바 메뉴)
+# <host> is anything ssh takes: a Host from ~/.ssh/config, user@address, a VPN (Tailscale...) name.
+# <host> 는 ssh 에 쓰는 무엇이든: ~/.ssh/config 의 Host, 사용자@주소, VPN(Tailscale 등) 기기 이름.
+# Remembered hosts: $XDG_DATA_HOME/hivemux/remote-hosts ("<host>" or "<host> mosh" per line).
+# 기억한 호스트: $XDG_DATA_HOME/hivemux/remote-hosts (한 줄에 "<host>" 또는 "<host> mosh").
+HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
+TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux"
+HOSTS="$DATA/remote-hosts"; LAST="$DATA/remote-last"
+SSH_OPTS=(-o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o ConnectTimeout=10)
+# HIVEMUX_SSH: another ssh command, e.g. "ssh -F <config>" (used for testing) / 다른 ssh 명령 (시험용)
+read -ra SSH <<< "${HIVEMUX_SSH:-ssh}"
+
+# Runs on the other Mac. ssh gives a plain PATH there, so look for hivemux where it gets installed.
+# The other Mac may not know this terminal (xterm-ghostty): use Ghostty's terminfo if it has Ghostty,
+# else fall back to xterm-256color with truecolor.
+# 상대 Mac 에서 실행된다. ssh 는 기본 PATH 만 주므로 hivemux 가 설치되는 곳에서 찾는다.
+# 상대가 이 터미널(xterm-ghostty)을 모를 수 있다: Ghostty 가 있으면 그 terminfo 를, 없으면 xterm-256color + 트루컬러.
+REMOTE='g=/Applications/Ghostty.app/Contents/Resources/terminfo; [ -d "$g" ] && export TERMINFO_DIRS="$g:${TERMINFO_DIRS:-}"
+infocmp "$TERM" >/dev/null 2>&1 || export TERM=xterm-256color COLORTERM=truecolor
+for p in ${HIVEMUX_ATTACH:-} /opt/homebrew/bin/hivemux-attach /usr/local/bin/hivemux-attach "$HOME/.local/share/hivemux/src/bin/hivemux-attach"; do
+  [ -x "$p" ] && HIVEMUX_REMOTE=1 exec "$p"
+done
+echo "hivemux: not installed on $(hostname -s)"; exit 3'
+
+# Is <client> a terminal attached from another Mac? Then a new window would open on this Mac's screen, not there.
+# <client> 가 다른 Mac 에서 붙은 터미널이면: 새 창이 그 Mac 이 아니라 이 Mac 화면에 열리므로 막는다
+remote_client() {
+  [ -n "$1" ] || return 1
+  case "$("$TMUX_BIN" show -gqv @hivemux-remote-clients)" in
+    *" $1 "*) "$TMUX_BIN" display -c "$1" -d 3000 "$(say "원격으로 붙은 화면입니다. 원격 연결은 이 화면을 연 Mac 에서 하세요" "This screen is attached from another Mac; connect from that Mac")"; return 0 ;;
+  esac
+  return 1
+}
+
+remembered() { [ -f "$HOSTS" ] && awk -v h="$1" '$1==h' "$HOSTS" | head -1; }
+
+connect() {
+  local host="$1" how="$2" n=0 rc start
+  [ -z "$how" ] && how="$(remembered "$host" | awk '{print $2}')"
+  mkdir -p "$DATA"; printf '%s\n' "$host" > "$LAST"
+  printf '\033]2;⇄ %s\007' "$host"     # window title / 창 제목
+  if [ "$how" = mosh ]; then
+    # mosh keeps the session through sleep and network changes by itself (no notifications through it)
+    # mosh 는 잠자기와 네트워크 변경을 스스로 견딘다 (알림은 지나가지 못한다)
+    exec mosh --server='PATH=/opt/homebrew/bin:/usr/local/bin:$PATH mosh-server' "$host" -- /bin/sh -c "$REMOTE"
+  fi
+  while true; do
+    start=$(date +%s)
+    "${SSH[@]}" -t "${SSH_OPTS[@]}" "$host" "$REMOTE"; rc=$?
+    # 0: you detached (prefix d) or tmux ended; 3: no hivemux there; others: the connection broke
+    # 0: 직접 떼어 냄(prefix d) 또는 tmux 종료, 3: 상대에 hivemux 없음, 그 밖: 연결이 끊김
+    [ $rc -eq 0 ] && exit 0
+    [ $rc -eq 3 ] && { read -rp "$(say "Enter 로 닫기" "Enter to close")" _; exit 3; }
+    [ $(( $(date +%s) - start )) -gt 30 ] && n=0      # it was up for a while: retry fast / 한동안 붙어 있었으면 바로 다시
+    n=$((n + 1)); delay=$(( n < 4 ? 2 ** n : 15 ))
+    printf '\n\033[33m%s\033[0m %s\n' "$(say "연결이 끊겼습니다." "Connection lost.")" \
+      "$(say "${delay}초 뒤 $host 에 다시 연결합니다 (Ctrl+C 로 그만)" "Reconnecting to $host in ${delay}s (Ctrl+C to stop)")"
+    sleep "$delay" || exit 1
+  done
+}
+
+case "$1" in
+  --add)
+    host="$2"; how=""; [ "$3" = --mosh ] && how=mosh
+    [ -n "$host" ] || { echo "usage: hivemux connect --add <host> [--mosh]" >&2; exit 2; }
+    echo "$(say "확인 중" "Checking") $host …"
+    out="$("${SSH[@]}" -o BatchMode=yes "${SSH_OPTS[@]}" "$host" 'for p in ${HIVEMUX_ATTACH%-attach} /opt/homebrew/bin/hivemux /usr/local/bin/hivemux "$HOME/.local/share/hivemux/src/bin/hivemux"; do [ -x "$p" ] && { "$p" version; exit 0; }; done; exit 3' 2>&1)"; rc=$?
+    case $rc in
+      0) echo "  ✓ ssh $host · $out" ;;
+      3) echo "  ✗ $(say "$host 에 hivemux 가 설치되어 있지 않습니다" "hivemux is not installed on $host")" >&2; exit 1 ;;
+      *) case "$out" in
+           *"Permission denied"*) echo "  ✗ $(say "ssh 키로 로그인되지 않습니다 (ssh-copy-id $host)" "ssh key login failed (ssh-copy-id $host)")" >&2 ;;
+           *) echo "  ✗ $(say "ssh 로 붙지 못했습니다" "ssh failed"): $(printf '%s' "$out" | tail -1)" >&2 ;;
+         esac; exit 1 ;;
+    esac
+    if [ "$how" = mosh ] && ! command -v mosh >/dev/null; then
+      echo "  ✗ $(say "이 Mac 에 mosh 가 없습니다 (brew install mosh)" "mosh is not installed here (brew install mosh)")" >&2; exit 1
+    fi
+    mkdir -p "$DATA"
+    { [ -f "$HOSTS" ] && awk -v h="$host" '$1!=h' "$HOSTS"; echo "$host${how:+ $how}"; } > "$HOSTS.tmp" && mv -f "$HOSTS.tmp" "$HOSTS"
+    echo "  ✓ $(say "등록했습니다" "Remembered") · hivemux connect $host"
+    ;;
+  --remove)
+    [ -f "$HOSTS" ] && awk -v h="$2" '$1!=h' "$HOSTS" > "$HOSTS.tmp" && mv -f "$HOSTS.tmp" "$HOSTS"
+    ;;
+  --forget-client)      # client-detached hook: it is no longer on screen / client-detached 훅: 더 이상 붙어 있지 않음
+    cur="$("$TMUX_BIN" show -gqv @hivemux-remote-clients)"
+    case "$cur" in *" $2 "*) "$TMUX_BIN" set -g @hivemux-remote-clients "$(printf '%s' "$cur" | tr ' ' '\n' | grep -vxF "$2" | tr '\n' ' ')" ;; esac
+    ;;
+  --list)
+    [ -f "$HOSTS" ] && cat "$HOSTS"
+    ;;
+  --pick)      # sidebar menu "Connect to…": the host list popup / 사이드바 메뉴 "원격 연결…": 호스트 목록 팝업
+    client="$2"
+    remote_client "$client" && exit 0
+    pause="/tmp/hivemux-pause-$(id -u)-$("$TMUX_BIN" display -p '#{pid}')"   # per tmux server / tmux 서버마다
+    : > "$pause"; trap 'rm -f "$pause"' EXIT
+    "$HM_BIN/hivemux-modal" "$client" -E -w 60 -h 14 -b rounded \
+      -T "#[fg=#e6e9ef,bold] $(say "원격 연결" "Connect to another Mac") " -S "fg=#5aa9ff" -s "bg=#1e2128" \
+      "$(printf '%q ' "$HM_BIN/hivemux-connect-ui" "$client")" 2>/dev/null || true
+    ;;
+  --window)
+    remote_client "$3" && exit 0
+    host="${2:-$(cat "$LAST" 2>/dev/null)}"
+    [ -z "$host" ] && host="$(head -1 "$HOSTS" 2>/dev/null | awk '{print $1}')"
+    [ -n "$host" ] || { "$TMUX_BIN" display -d 2500 "$(say "등록한 원격 호스트가 없습니다: hivemux connect --add <host>" "No remote host yet: hivemux connect --add <host>")" 2>/dev/null; exit 1; }
+    # a separate window, not inside this tmux (tmux in tmux doubles the prefix and the sidebar)
+    # 이 tmux 안이 아니라 따로 창을 연다 (tmux 안의 tmux 는 접두키와 사이드바가 겹친다)
+    cmd="$(printf '%q ' "$HM_BIN/hivemux-connect" "$host")"
+    osascript -e 'on run argv' -e 'tell application "Ghostty"' -e 'set cfg to new surface configuration' \
+      -e 'set command of cfg to item 1 of argv' -e 'new window with configuration cfg' -e 'activate' -e 'end tell' -e 'end run' \
+      "$cmd" >/dev/null 2>&1 || "$TMUX_BIN" display -d 4000 "$(say "새 창을 열지 못했습니다. 새 터미널에서 실행하세요" "Could not open a window; run in a new terminal"): hivemux connect $host" 2>/dev/null
+    ;;
+  ""|-h|--help)
+    sed -n '4,15p' "$0" | sed 's/^# \{0,1\}//' ; [ -f "$HOSTS" ] && { echo; cat "$HOSTS"; }
+    ;;
+  --ssh) connect "$2" ssh ;;
+  --mosh) connect "$2" mosh ;;
+  *) connect "$1" ;;
+esac

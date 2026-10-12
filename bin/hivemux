@@ -29,11 +29,13 @@ Usage:
                        install plugins and add hivemux to tmux, Ghostty and Claude Code
   hivemux uninstall    remove everything setup added (your own config stays)
   hivemux doctor       check dependencies and wiring
+  hivemux connect <host>         work on another Mac's hivemux over ssh (reconnects)
+  hivemux connect --add <host>   check and remember a host (--mosh to use mosh)
   hivemux version
   hm [dir] [name]      open (or jump to) a project: one tmux session per folder
 
 Keys inside tmux: Option+1..9 jump · Option+0 oldest waiting · Option+O open path
-                  prefix C new named Claude · prefix b hide sidebar
+                  prefix C new named Claude · prefix b hide sidebar · prefix H last remote host
 U
 }
 
@@ -168,12 +170,38 @@ doctor() {
     [ -n "$(tmux show -gqv @hivemux-bin)" ] && ok "tmux server: hivemux loaded" || warn "tmux server running without hivemux (tmux source-file ~/.tmux.conf)"
     ok "sidebars: $(tmux list-panes -a -F '#{pane_title}' | grep -c hivemux-sidebar)  claude sessions: $(tmux list-panes -a -F '#{@claude_session}' | grep -c .)"
   else warn "tmux server not running"; fi
+
+  # Remote: this Mac as the one you connect to, and the hosts you connect to from here
+  # 원격: 다른 Mac 이 붙는 쪽으로서의 이 Mac, 그리고 여기서 붙는 호스트들
+  step "remote (hivemux connect)"
+  if nc -z -G 2 127.0.0.1 22 >/dev/null 2>&1; then
+    ok "Remote Login on: other Macs can connect here"
+    case "$(pmset -g 2>/dev/null | awk '$1=="sleep"{print $2; exit}')" in
+      0) ok "never sleeps on its own" ;;
+      "") ;;
+      *) warn "this Mac sleeps when idle; others cannot connect while it sleeps (System Settings → Energy: prevent sleeping)" ;;
+    esac
+  else
+    warn "Remote Login off: to connect here from another Mac, turn on System Settings → General → Sharing → Remote Login"
+  fi
+  command -v mosh >/dev/null && ok "mosh: $(command -v mosh)"
+  local h how hosts="$DATA/remote-hosts"
+  if [ -s "$hosts" ]; then
+    while read -r h how; do
+      [ -n "$h" ] || continue
+      if ssh -o BatchMode=yes -o ConnectTimeout=4 "$h" true </dev/null >/dev/null 2>&1; then ok "host $h: reachable${how:+ ($how)}"
+      else warn "host $h: not reachable now (asleep, offline, or ssh key)"; fi
+    done < "$hosts"
+  else
+    ok "no remote hosts (hivemux connect --add <host>)"
+  fi
 }
 
 case "${1:-help}" in
   setup) shift; setup "$@" ;;
   uninstall) uninstall ;;
   doctor) doctor ;;
+  connect) shift; exec "$HM_BIN/hivemux-connect" "$@" ;;
   version|-v|--version) echo "hivemux $VERSION" ;;
   help|-h|--help) usage ;;
   *) usage; exit 2 ;;

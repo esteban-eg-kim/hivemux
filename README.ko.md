@@ -80,13 +80,15 @@ curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install
 | `Option+1` … `9` | 그 번호 Claude로 이동 (세션이 달라도) |
 | `Option+0` / `prefix Space` | 가장 오래 기다린 Claude, 없으면 안 본 완료 작업 |
 | 카드 클릭 | 이동. 더블클릭은 이름 바꾸기 |
-| 오른쪽 클릭 | 메뉴. 작업 카드: 이동, 이름 바꾸기, 위/아래로 옮기기, 새 Claude, 새 프로젝트. 프로젝트 이름 줄: 이름 바꾸기, 새 Claude, 새 프로젝트. 빈 곳: 새 프로젝트. 모든 메뉴 맨 아래에 설정. 마우스나 `↑↓` `Enter`, 괄호 안 글자로 고르고 `Esc`로 닫기 |
+| 오른쪽 클릭 | 메뉴. 작업 카드: 이동, 이름 바꾸기, 위/아래로 옮기기, 새 Claude, 새 프로젝트. 프로젝트 이름 줄: 이름 바꾸기, 새 Claude, 새 프로젝트. 빈 곳: 새 프로젝트. 모든 메뉴 맨 아래에 원격 연결과 설정. 마우스나 `↑↓` `Enter`, 괄호 안 글자로 고르고 `Esc`로 닫기 |
 | 메뉴 → 새 프로젝트 | 가운데 폴더 탐색 창: `Enter`는 고른 폴더에서 시작 (`hm`과 같음), `→` / `←`는 폴더 안 / 상위로, 글자를 치면 걸러 보기, `Ctrl+N`은 새 폴더 |
 | 메뉴 → 설정 | 언어 (한국어 / English), 애니메이션, 알림, 사이드바 폭. 바로 적용되고 저장됨 |
 | 카드 / 프로젝트 이름 줄 끌기 | 작업 순서 / 프로젝트 순서 바꾸기 |
 | `prefix Shift+↑` / `↓` | 지금 작업을 위 / 아래로 (프로젝트 끝이면 프로젝트가 움직임) |
 | `Option+O` | 최근 출력의 파일 경로 열기 (Enter VS Code, Tab 기본 앱, ^F Finder, ^Y 복사) |
 | `prefix Shift+C` | 이 폴더에서 이름 붙인 Claude 새 창 |
+| 메뉴 → 원격 연결 | 다른 Mac의 hivemux를 새 Ghostty 창으로 (`hivemux connect --add`로 등록한 호스트) |
+| `prefix Shift+H` | 마지막 원격 호스트에 다시 연결 |
 | `prefix Shift+R` | Remote Control 서버 창 (폰에서 새 세션 시작) |
 | `prefix b` | 사이드바 숨기기 / 보이기 |
 | `prefix s` / `prefix Shift+S` | 세션 목록 / 전체 트리 |
@@ -100,6 +102,28 @@ curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install
   <img src="docs/img/new-project-ko.png" alt="새 프로젝트 폴더 탐색 창" width="430">
   <img src="docs/img/settings-ko.png" alt="설정 창" width="430">
 </p>
+
+## 다른 Mac에서 이어서 작업
+
+작업은 한 Mac(예: 사무실 Mac)에서 계속 돌리고, 다른 Mac(예: 노트북)에서 이어서 할 수 있습니다. 노트북이 ssh로 그 Mac의 tmux에 붙어 같은 사이드바와 세션을 봅니다. 연결이 끊겨도 작업은 계속됩니다. 노트북의 로컬 작업은 그대로 두고, 원격은 따로 창을 엽니다.
+
+**붙는 대상 Mac**에서는 hivemux를 설치하고, 시스템 설정 → 일반 → 공유 → **원격 로그인**을 켜고, 자동으로 잠들지 않게 해 둡니다.
+
+**붙는 쪽 Mac**에서는:
+
+```sh
+ssh-copy-id me@work-mac.local              # 키로 로그인되게 (한 번)
+hivemux connect --add me@work-mac.local    # 확인하고 등록 (mosh를 쓰려면 --mosh)
+hivemux connect me@work-mac.local          # 또는 오른쪽 클릭 → 원격 연결, prefix Shift+H
+```
+
+호스트에는 `ssh`에 쓰는 것이면 무엇이든 넣습니다. `~/.ssh/config`의 `Host`, `사용자@주소`, VPN 안의 기기 이름 모두 됩니다. 같은 네트워크에서는 `이름.local`로 붙고, 밖에서는 [Tailscale](https://tailscale.com) 같은 VPN을 두 Mac에 설치하는 방법이 간단합니다. 공유기 포트 포워딩으로 ssh를 인터넷에 여는 것은 권하지 않습니다.
+
+- 원격 창은 상태줄 왼쪽에 `⇄ Mac 이름`이 표시됩니다.
+- 연결이 끊기면 저절로 다시 연결합니다(`Ctrl+C`로 그만). `prefix d`로 떼면 창이 닫힙니다.
+- 원격 작업의 알림도 이 Mac에 뜹니다.
+- `--mosh`로 등록하면 잠자기와 네트워크 변경을 스스로 견딥니다. 대신 알림이 mosh를 지나가지 못합니다. 두 Mac 모두 `brew install mosh`가 필요합니다.
+- 두 화면에서 같은 프로젝트를 보면 화면을 같이 씁니다. 한쪽에서 창을 바꾸면 다른 쪽도 바뀝니다.
 
 ## 동작 원리
 

@@ -102,13 +102,15 @@ new hooks once restarted. `hivemux version` shows the installed version; see
 | `Option+1` … `9` | jump to that Claude (any session) |
 | `Option+0` / `prefix Space` | oldest waiting Claude, else oldest unseen finished one |
 | click card | jump · double click: rename |
-| right click | menu. On a task: go to, rename, move up/down, new Claude, new project. On a project name: rename, new Claude, new project. On empty space: new project. Every menu ends with Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes |
+| right click | menu. On a task: go to, rename, move up/down, new Claude, new project. On a project name: rename, new Claude, new project. On empty space: new project. Every menu ends with Connect to… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes |
 | menu → New project | folder browser in the middle: `Enter` starts the selected folder (like `hm`), `→` / `←` in and out, type to filter, `Ctrl+N` new folder |
 | menu → Settings | language (한국어 / English), animation, notifications, sidebar width; applied at once and saved |
 | drag card / project header | reorder tasks / projects |
 | `prefix Shift+↑` / `↓` | move the current task up / down (at a project's edge, the project moves) |
 | `Option+O` | open a file path from recent output (Enter VS Code, Tab default app, ^F Finder, ^Y copy) |
 | `prefix Shift+C` | new window with a named Claude in this folder |
+| menu → Connect to… | another Mac's hivemux in a new Ghostty window (hosts added with `hivemux connect --add`) |
+| `prefix Shift+H` | connect to the last remote host again |
 | `prefix Shift+R` | Remote Control server window (start new sessions from the phone) |
 | `prefix b` | hide / show sidebars |
 | `prefix s` / `prefix Shift+S` | session list / full tree |
@@ -122,6 +124,36 @@ new hooks once restarted. `hivemux version` shows the installed version; see
   <img src="docs/img/new-project-en.png" alt="New project folder browser" width="430">
   <img src="docs/img/settings-en.png" alt="Settings popup" width="430">
 </p>
+
+## Work from another Mac
+
+Keep the work running on one Mac (say, the one at the office) and continue it
+from another (a laptop): the laptop attaches to the first Mac's tmux over ssh and
+sees the same sidebar and sessions. If the connection drops, the work goes on.
+Local work on the laptop stays as it is; the remote one opens in its own window.
+
+On the Mac you connect **to**: install hivemux, turn on System Settings →
+General → Sharing → **Remote Login**, and keep it from sleeping when idle.
+
+On the Mac you connect **from**:
+
+```sh
+ssh-copy-id me@work-mac.local              # log in with a key, once
+hivemux connect --add me@work-mac.local    # check and remember (--mosh to use mosh)
+hivemux connect me@work-mac.local          # or: right-click → Connect to…, prefix Shift+H
+```
+
+The host is anything `ssh` takes: a `Host` from `~/.ssh/config`, `user@address`,
+or a device name on a VPN. On the same network `name.local` works; from outside,
+a VPN such as [Tailscale](https://tailscale.com) on both Macs is the simple way
+(opening ssh to the internet with port forwarding is not recommended).
+
+- The remote window shows `⇄ <Mac name>` at the left of the status line.
+- A dropped connection reconnects by itself (`Ctrl+C` stops); `prefix d` detaches and closes the window.
+- Notifications from the remote tasks show on this Mac.
+- With `--mosh`, the session survives sleep and network changes by itself, but
+  notifications do not pass through mosh (`brew install mosh` on both Macs).
+- Two screens on the same project share it: switching windows on one moves the other.
 
 ## How it works
 

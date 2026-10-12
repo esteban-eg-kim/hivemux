@@ -46,6 +46,15 @@ done
 # 방금 복원했다면 저장본의 "마지막으로 보던 세션"을 먼저 쓴다.
 detached="$(t list-sessions -F '#{session_attached} #{session_last_attached} #{session_name}' 2>/dev/null |
   awk '$1==0' | sort -k2,2nr | cut -d' ' -f3-)"
+# From another Mac (ssh, or hivemux connect): mark this terminal as remote (status line shows the host),
+# and when every session is on a screen here, share the last used one instead of opening an empty one
+# 다른 Mac 에서 (ssh, hivemux connect): 이 터미널을 원격으로 표시하고 (상태줄에 호스트 이름),
+# 모든 세션이 이 Mac 화면에 붙어 있으면 빈 세션을 새로 열지 않고 마지막으로 쓴 세션을 같이 본다
+if [ -n "$HIVEMUX_REMOTE" ] || [ -n "$SSH_CONNECTION" ]; then
+  me="$(tty 2>/dev/null)"
+  [ -n "$me" ] && t set -g @hivemux-remote-clients "$(t show -gqv @hivemux-remote-clients | tr ' ' '\n' | grep -vxF "$me" | tr '\n' ' ') $me "
+  [ -z "$detached" ] && detached="$(t list-sessions -F '#{session_last_attached} #{session_name}' 2>/dev/null | sort -k1,1nr | head -1 | cut -d' ' -f2-)"
+fi
 pick=""
 want="$(t show -gqv @hivemux-last-session 2>/dev/null)"
 if [ -n "$want" ] && printf '%s\n' "$detached" | grep -qxF "$want"; then

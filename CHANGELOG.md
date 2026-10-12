@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Work from another Mac: `hivemux connect <host>` attaches to that Mac's
+  hivemux over ssh and reconnects when the connection drops (`--mosh` to use
+  mosh). `hivemux connect --add <host>` checks and remembers a host; the sidebar
+  menu "Connect to…" lists them and opens a new Ghostty window, and
+  `prefix Shift+H` connects to the last one. A terminal attached from another
+  Mac shows `⇄ <Mac name>` in the status line, and notifications reach it.
+  `hivemux doctor` checks Remote Login, sleep and the remembered hosts
 - Desktop notifications: a macOS notification when a task needs input or
   finishes, except the one you are looking at (window on screen, terminal
   focused). Sent by the sidebar through tmux as OSC 777, so it also reaches a

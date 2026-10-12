@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+"""Remote connect popup (runs inside tmux display-popup, opened by the sidebar menu "Connect to…").
+원격 연결 팝업 (tmux display-popup 안에서 실행, 사이드바 메뉴 "원격 연결…" 이 연다).
+
+  ↑↓ choose / 고르기    Enter connect (new window) / 연결 (새 창)    a add / 추가    d remove / 지우기    Esc close / 닫기
+
+Hosts are the ones remembered by `hivemux connect --add` ($XDG_DATA_HOME/hivemux/remote-hosts).
+호스트는 `hivemux connect --add` 로 기억한 것 ($XDG_DATA_HOME/hivemux/remote-hosts).
+"""
+import os, re, shutil, subprocess, sys, termios, tty, unicodedata
+
+TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
+HERE = os.path.dirname(os.path.realpath(__file__))
+CONNECT = os.path.join(HERE, "hivemux-connect")
+DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux")
+
+TEXT, T2, T3 = (230, 233, 239), (154, 163, 178), (98, 106, 120)
+ACC, OK, BAD = (90, 169, 255), (62, 207, 142), (240, 98, 98)
+SEL_BG, BG, RULE = (42, 47, 58), (30, 33, 40), (44, 48, 57)
+
+
+def fg(c): return "\x1b[38;2;%d;%d;%dm" % c
+def bg(c): return "\x1b[48;2;%d;%d;%dm" % c
+RST, BOLD = "\x1b[0m", "\x1b[1m"
+
+
+def tmux(*a):
+    return subprocess.run([TMUX, *a], capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout
+
+
+def width(s):
+    return sum(0 if unicodedata.combining(c) else 2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
+
+
+def cut(s, w):
+    """Cut s to w columns / s 를 w 칸에 맞게 자른다"""
+    out, n = "", 0
+    for c in s:
+        cw = width(c)
+        if n + cw > w - 1 and width(s) > w:
+            return out + "…"
+        out, n = out + c, n + cw
+    return out
+
+
+def tr(ko, en):
+    v = os.environ.get("HIVEMUX_LANG") or tmux("show", "-gqv", "@hivemux-lang").strip()
+    return ko if (v or os.environ.get("LANG", "")).startswith("ko") else en
+
+
+def hosts():
+    """[(host, how)] / [(호스트, 방식)]"""
+    try:
+        with open(os.path.join(DATA, "remote-hosts")) as f:
+            return [(l.split() + ["ssh"])[:2] for l in f if l.strip()]
+    except OSError:
+        return []
+
+
+def last():
+    try:
+        with open(os.path.join(DATA, "remote-last")) as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+def main():
+    client = sys.argv[1] if len(sys.argv) > 1 else ""
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    tty.setraw(fd)
+    out = sys.stdout
+    out.write("\x1b[?25l\x1b[?1000h\x1b[?1006h")
+    items = hosts()
+    sel = next((i for i, (h, _) in enumerate(items) if h == last()), 0)
+    adding, name, msg = not items, "", ("", T3)
+    try:
+        while True:
+            cols, rows = os.get_terminal_size()
+            items = hosts()
+            n = len(items) + 1                  # hosts, then "+ add" / 호스트들, 그다음 "+ 추가"
+            sel = max(0, min(sel, n - 1))
+            buf = ["\x1b[H", bg(BG), "\x1b[2J"]
+            rows_y = {}
+            for i in range(n):
+                y = 2 + i
+                if y > rows - 5:
+                    break
+                rows_y[y] = i
+                if i < len(items):
+                    h, how = items[i]
+                    label, note, color = h, ("mosh" if how == "mosh" else "ssh"), TEXT
+                else:
+                    label, note, color = tr("+ 호스트 추가…", "+ Add a host…"), "", OK
+                if i == sel and not adding:
+                    buf.append(f"\x1b[{y};1H{bg(SEL_BG)}{fg(ACC)} ▌ {fg(color)}{BOLD}{label}{RST}{bg(SEL_BG)}" + " " * max(0, cols - 4 - width(label)))
+                    if note:
+                        buf.append(f"\x1b[{y};{cols - width(note) - 1}H{fg(T2)}{note}")
+                    buf.append(RST + bg(BG))
+                else:
+                    buf.append(f"\x1b[{y};1H   {fg(color if i == len(items) else T2)}{label}")
+                    if note:
+                        buf.append(f"\x1b[{y};{cols - width(note) - 1}H{fg(T3)}{note}")
+            if adding:
+                buf.append(f"\x1b[{rows - 3};1H  {fg(OK)}{tr('호스트', 'Host')} {fg(TEXT)}{BOLD}{name}{RST}{bg(BG)}{fg(ACC)}▏")
+            elif msg[0]:
+                buf.append(f"\x1b[{rows - 3};1H  {fg(msg[1])}{cut(msg[0], cols - 4)}")
+            else:
+                buf.append(f"\x1b[{rows - 3};1H  {fg(T3)}{cut(tr('~/.ssh/config 의 Host 나 사용자@주소', 'Anything ssh takes: a Host in ~/.ssh/config, user@address'), cols - 4)}")
+            buf.append(f"\x1b[{rows - 1};1H{fg(RULE)}  " + "─" * max(0, cols - 4))
+            if adding:
+                hint = f"{fg(TEXT)}Enter{fg(T3)} {tr('확인하고 추가', 'check and add')}   {fg(TEXT)}Esc{fg(T3)} {tr('취소', 'cancel')}"
+            else:
+                hint = (f"{fg(TEXT)}Enter{fg(T3)} {tr('새 창에서 연결', 'connect in a new window')}   {fg(TEXT)}a{fg(T3)} {tr('추가', 'add')}   "
+                        f"{fg(TEXT)}d{fg(T3)} {tr('지우기', 'remove')}   {fg(TEXT)}Esc{fg(T3)} {tr('닫기', 'close')}")
+            buf.append(f"\x1b[{rows};1H  " + hint + RST)
+            out.write("".join(buf))
+            out.flush()
+            data = os.read(fd, 256).decode(errors="ignore")
+            for ch in re.findall(r"\x1b\[<\d+;\d+;\d+[Mm]|\x1b\[[0-9;]*[A-Za-z~]|\x1bO[A-Za-z]|\x1b|[\s\S]", data):
+                act = None
+                if adding:
+                    if ch == "\x1b":
+                        adding, name = False, ""
+                        if not items:
+                            return
+                    elif ch in ("\r", "\n"):
+                        act = "add"
+                    elif ch in ("\x7f", "\b"):
+                        name = name[:-1]
+                    elif len(ch) == 1 and ch.isprintable() and not ch.isspace():
+                        name += ch
+                else:
+                    m = re.match(r"\x1b\[<(\d+);(\d+);(\d+)([Mm])", ch)
+                    if m:
+                        b, y = int(m.group(1)), int(m.group(3))
+                        if b == 0 and m.group(4) == "M" and y in rows_y:
+                            sel, act = rows_y[y], "go"
+                        elif b == 64:
+                            sel -= 1
+                        elif b == 65:
+                            sel += 1
+                    elif ch in ("\x1b", "\x03", "q"):
+                        return
+                    elif ch in ("\x1b[A", "\x1bOA", "k", "\x10"):
+                        sel -= 1
+                    elif ch in ("\x1b[B", "\x1bOB", "j", "\x0e"):
+                        sel += 1
+                    elif ch in ("\r", "\n", " "):
+                        act = "go"
+                    elif ch == "a":
+                        adding, name = True, ""
+                    elif ch in ("d", "\x1b[3~") and sel < len(items):
+                        subprocess.run([CONNECT, "--remove", items[sel][0]], stdin=subprocess.DEVNULL, capture_output=True)
+                        msg = (tr(f"지웠습니다: {items[sel][0]}", f"Removed: {items[sel][0]}"), T2)
+                sel = max(0, min(sel, len(hosts())))
+                if act == "go":
+                    if sel >= len(items):
+                        adding, name = True, ""
+                    else:
+                        subprocess.run([CONNECT, "--window", items[sel][0], client], stdin=subprocess.DEVNULL, capture_output=True)
+                        return
+                elif act == "add" and name:
+                    out.write(f"\x1b[{rows - 3};1H{bg(BG)}\x1b[2K  {fg(T2)}{tr('확인 중', 'Checking')} {name} …")
+                    out.flush()
+                    r = subprocess.run([CONNECT, "--add", name], stdin=subprocess.DEVNULL, capture_output=True, text=True)
+                    lines = [l.strip() for l in (r.stdout + r.stderr).splitlines() if l.strip().startswith(("✓", "✗"))]
+                    if r.returncode == 0:
+                        adding, msg = False, (lines[0] if lines else "✓", OK)
+                        sel = next((i for i, (h, _) in enumerate(hosts()) if h == name), sel)
+                    else:
+                        msg = (lines[-1] if lines else "✗", BAD)
+                        adding = False
+                    name = ""
+    finally:
+        out.write("\x1b[?1000l\x1b[?1006l\x1b[?25h" + RST + "\x1b[2J")
+        out.flush()
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
+if __name__ == "__main__":
+    main()
