@@ -714,7 +714,7 @@ def main():
     runs = {}                        # pane -> (state time, polls without the busy footer) (see clear_interrupted) / 칸 -> (상태 시각, 작업 중 표시가 없던 횟수)
     seen, sent = {}, {}              # notify_changes: pane -> (state, time); pane -> (state, sent at) / 칸 -> (상태, 시각); 칸 -> (상태, 보낸 시각)
     waits = {}                       # pane -> (state time, dialog seen, polls without it) (see clear_answered) / 칸 -> (상태 시각, 승인 창 봤음, 안 보인 횟수)
-    snap, last_poll, last_spin = None, 0.0, None
+    snap, last_poll, last_spin, woke = None, 0.0, None, False
     try:
         while True:
             nowf = time.time()
@@ -771,7 +771,11 @@ def main():
                         p["@claude_state"] = "idle"
             # draw while visible; a hidden sidebar draws its first frame too, so it is ready when shown
             # 보일 때 그린다. 숨은 사이드바도 첫 화면은 그려 두어 보일 때 바로 나오게 한다
-            if visible or prev is None:
+            # hidden sidebars draw only when woken (a project closed, a state changed), so the
+            # window you switch to never shows an old frame first
+            # 숨은 사이드바는 깨울 때만 그린다 (프로젝트 닫힘, 상태 바뀜). 옮겨 간 창이 예전 화면을 먼저 보이지 않게
+            if visible or prev is None or woke:
+                woke = False
                 w, h = os.get_terminal_size()
                 lines, (targets, heads) = render(items, current, w, h, cur_sess, sessions)
                 # Draw only rows that changed since the last frame; a full redraw only on
@@ -798,7 +802,7 @@ def main():
                     os.read(WAKE_R, 512)
                 except BlockingIOError:
                     pass
-                last_poll = 0
+                last_poll, woke = 0, True
             if fd not in r:
                 continue
             last_poll = 0  # re-read right after a click or key / 클릭/키 입력 뒤에는 바로 새로 읽는다

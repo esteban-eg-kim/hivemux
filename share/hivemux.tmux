@@ -69,6 +69,10 @@ set-hook -g client-session-changed 'run-shell -b "#{@hivemux-bin}/hivemux-sideba
 set-hook -g session-window-changed 'run-shell -b "#{@hivemux-bin}/hivemux-sidebar ensure #{window_id}"'
 set-hook -g pane-exited            'run-shell -b "#{@hivemux-bin}/hivemux-sidebar reap; #{@hivemux-bin}/hivemux-sidebar ensure"'
 set-hook -g after-kill-pane        'run-shell -b "#{@hivemux-bin}/hivemux-sidebar reap"'
+# a project or window closed: every sidebar redraws now (hidden ones would show it for a few seconds)
+# 프로젝트나 창이 닫힘: 모든 사이드바를 바로 다시 그린다 (숨은 사이드바는 몇 초 동안 남겨 보인다)
+set-hook -g session-closed         'run-shell -b "#{@hivemux-bin}/hivemux-sidebar wake"'
+set-hook -g window-unlinked        'run-shell -b "#{@hivemux-bin}/hivemux-sidebar wake"'
 set-hook -g window-resized         'run-shell -b "#{@hivemux-bin}/hivemux-sidebar fix"'
 set-hook -g client-attached        'run-shell -b "#{@hivemux-bin}/hivemux-sidebar presize #{client_name}"'
 set-hook -g client-detached        'run-shell -b "#{@hivemux-bin}/hivemux-connect --forget-client #{client_name}"'
