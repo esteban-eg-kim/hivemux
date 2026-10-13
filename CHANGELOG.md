@@ -5,6 +5,9 @@
 - A project whose Claude windows are all closed (only shells left) stays in the
   sidebar as "no Claude · N windows" instead of disappearing; click a project
   name to go to it
+- A Claude that quits leaves the sidebar at once (a shell in front of its pane
+  means it ended; its SessionEnd hook comes a second or two later, or never
+  after a kill), and closing a window updates the counts at once
 - Right-click a project name → Close project: asks, then closes all its windows
 - Closing the last window of the project you are on no longer closes Ghostty:
   you move to another project (`detach-on-destroy off`)

@@ -101,7 +101,9 @@ case "$1" in
     t list-windows -a -F '#{window_id}' | while read -r w; do
       total="$(t list-panes -t "$w" | wc -l | tr -d ' ')"; side="$(sidebars_in "$w" | wc -l | tr -d ' ')"
       [ "$total" -gt 0 ] && [ "$total" = "$side" ] && t kill-window -t "$w"
-    done ;;
+    done
+    # a pane or window closed: redraw now (window counts, "no Claude") / 칸이나 창이 닫힘: 바로 다시 그린다 (창 수, "Claude 없음")
+    t list-panes -a -F '#{pane_pid} #{pane_title}' | awk -v T="$TITLE" '$2==T{print $1}' | while read -r p; do kill -USR1 "$p" 2>/dev/null; done ;;
   rebuild)
     # Right after a restore (called after bin/hivemux-panes restore).
     # 복원 직후 (bin/hivemux-panes restore 다음에 호출).

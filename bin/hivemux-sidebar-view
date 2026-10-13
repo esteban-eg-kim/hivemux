@@ -45,7 +45,10 @@ os.set_blocking(WAKE_W, False)
 US = "\x1f"
 FIELDS = ["pane_id", "session_name", "window_index", "window_name", "@claude_state",
           "@claude_state_at", "@claude_session", "window_id", "pane_active", "pane_last",
-          "window_active", "session_attached", "pane_title", "@claude_title", "@claude_name"]
+          "window_active", "session_attached", "pane_title", "@claude_title", "@claude_name", "pane_current_command"]
+# a shell in front means Claude has quit there (its SessionEnd hook comes a second or two later, or never)
+# 칸 앞에 셸이 있으면 그 Claude 는 끝났다 (SessionEnd 훅은 1~2초 늦게 오거나 안 온다)
+SHELLS = {"zsh", "bash", "fish", "sh", "dash", "tcsh", "ksh", "login"}
 
 @functools.lru_cache(maxsize=4096)
 def cwidth(c):
@@ -150,7 +153,8 @@ def snapshot():
         next((p for p in mywin if p["pane_last"] == "1"), None) or (mywin[0] if mywin else None)
     current = act["pane_id"] if act else ""
     visible = me["window_active"] == "1" and me["session_attached"] not in ("", "0")
-    items = [p for p in panes if p["@claude_session"] and p["@claude_state"]]
+    items = [p for p in panes if p["@claude_session"] and p["@claude_state"]
+             and p["pane_current_command"].lstrip("-") not in SHELLS]
     # project order from the session-order file (bin/hivemux-order), then tmux order (name, window index)
     # 프로젝트 순서는 session-order 파일(bin/hivemux-order), 그다음 tmux 순서(이름, 창 번호)
     rank = {}
@@ -624,6 +628,25 @@ def clear_interrupted(items, runs, now):
 NOTIFY_GAP = 10      # seconds before the same pane may notify the same state again / 같은 칸이 같은 상태로 다시 알리기까지 초
 
 
+def clear_quit(shells):
+    """Claude quit but its state is still on the pane (SessionEnd not come yet, or the process was
+    killed): after three polls with a shell in front, clear it like the SessionEnd hook does
+    Claude 가 끝났는데 상태가 칸에 남음 (SessionEnd 가 아직 안 왔거나 강제 종료): 셸이 세 번 연속 앞에
+    있으면 SessionEnd 훅처럼 지운다"""
+    panes = [l.split(" ") for l in tmux("list-panes", "-a", "-F", "#{pane_id} #{pane_current_command} #{@claude_state}").splitlines()]
+    stale = {p[0] for p in panes if len(p) == 3 and p[2] and p[1].lstrip("-") in SHELLS}
+    for pid in list(shells):
+        if pid not in stale:
+            del shells[pid]
+    for pid in stale:
+        shells[pid] = shells.get(pid, 0) + 1
+        if shells[pid] >= 3:
+            del shells[pid]
+            tmux("set", "-pu", "-t", pid, "@claude_state")
+            tmux("set", "-pu", "-t", pid, "@claude_state_at")
+            tmux("set", "-wu", "-t", pid, "@claude_state")
+
+
 def notify_changes(items, seen, sent, now, emit):
     """Desktop notification when a task starts needing input or finishes.
     Every sidebar keeps the last (state, time) of each task; only the sidebar on screen sends,
@@ -687,6 +710,7 @@ def main():
     border = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-border")
     targets, heads, buf = {}, {}, ""
     global DRAG
+    quits = {}                       # pane -> polls with a shell in front (see clear_quit) / 칸 -> 셸이 앞에 있던 횟수
     runs = {}                        # pane -> (state time, polls without the busy footer) (see clear_interrupted) / 칸 -> (상태 시각, 작업 중 표시가 없던 횟수)
     seen, sent = {}, {}              # notify_changes: pane -> (state, time); pane -> (state, sent at) / 칸 -> (상태, 시각); 칸 -> (상태, 보낸 시각)
     waits = {}                       # pane -> (state time, dialog seen, polls without it) (see clear_answered) / 칸 -> (상태 시각, 승인 창 봤음, 안 보인 횟수)
@@ -707,6 +731,7 @@ def main():
                 if snap[2]:
                     clear_answered(snap[0], waits, nowf)
                     clear_interrupted(snap[0], runs, nowf)
+                    clear_quit(quits)
                 notify_changes(snap[0], seen, sent, nowf,
                                snap[2] and tmux("show", "-gqv", "@hivemux-notify").strip() != "off")
                 # focus moved elsewhere (clicked another pane): close the menu / 다른 칸을 눌러 초점이 떠났으면 메뉴를 닫는다

@@ -87,6 +87,7 @@ case "$event" in
         t set -pu -t "$TMUX_PANE" @claude_cwd ;;
     esac
     "$TMUX_BIN" list-clients -F '#{client_name}' 2>/dev/null | while read -r c; do t refresh-client -t "$c" -S; done
+    wake
     ;;
 esac
 exit 0

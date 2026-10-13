@@ -23,9 +23,13 @@ US=$'\x1f'   # field separator; tabs collapse empty fields / 구분자. 탭은 �
 # 번호 순서 = 사이드바 순서: 프로젝트 순서 (session-order 파일, hivemux-order 참고), 그다음 창 번호
 ORDER_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux/session-order"
 rows() {
-  t list-panes -a -F "$(printf '%s\x1f' '#{pane_id}' '#{session_name}' '#{window_index}' '#{window_name}' '#{@claude_state}' '#{@claude_state_at}' '#{@claude_session}' '#{pane_active}' '#{window_active}' '#{session_attached}')" 2>/dev/null |
-    awk -F "$US" -v f="$ORDER_FILE" 'BEGIN { while ((getline l < f) > 0) if (!(l in r)) r[l] = ++n }
-      $7 != "" && $5 != "" { printf "%d\t%d\t%s\n", (($2 in r) ? r[$2] : 1000000), NR, $0 }' |
+  t list-panes -a -F "$(printf '%s\x1f' '#{pane_id}' '#{session_name}' '#{window_index}' '#{window_name}' '#{@claude_state}' '#{@claude_state_at}' '#{@claude_session}' '#{pane_active}' '#{window_active}' '#{session_attached}' '#{pane_current_command}')" 2>/dev/null |
+    # a shell in front: that Claude has quit (its SessionEnd hook comes later) / 앞에 셸: 그 Claude 는 끝났다 (SessionEnd 는 나중에 온다)
+    awk -F "$US" -v f="$ORDER_FILE" 'BEGIN { while ((getline l < f) > 0) if (!(l in r)) r[l] = ++n
+        split("zsh bash fish sh dash tcsh ksh login", a, " "); for (i in a) sh[a[i]] = 1 }
+      { c = $11; sub(/^-/, "", c) }
+      $7 != "" && $5 != "" && !(c in sh) { line = $1; for (i = 2; i <= 10; i++) line = line FS $i
+        printf "%d\t%d\t%s\n", (($2 in r) ? r[$2] : 1000000), NR, line }' |
     sort -t $'\t' -k1,1n -k2,2n | cut -f3-
 }
 
