@@ -45,7 +45,8 @@ os.set_blocking(WAKE_W, False)
 US = "\x1f"
 FIELDS = ["pane_id", "session_name", "window_index", "window_name", "@claude_state",
           "@claude_state_at", "@claude_session", "window_id", "pane_active", "pane_last",
-          "window_active", "session_attached", "pane_title", "@claude_title", "@claude_name", "pane_current_command"]
+          "window_active", "session_attached", "pane_title", "@claude_title", "@claude_name", "pane_current_command",
+          "@hivemux-closing"]
 # a shell in front means Claude has quit there (its SessionEnd hook comes a second or two later, or never)
 # 칸 앞에 셸이 있으면 그 Claude 는 끝났다 (SessionEnd 훅은 1~2초 늦게 오거나 안 온다)
 SHELLS = {"zsh", "bash", "fish", "sh", "dash", "tcsh", "ksh", "login"}
@@ -148,6 +149,11 @@ def snapshot():
     me = next((p for p in panes if p["pane_id"] == ME), None)
     if not me:
         return None
+    # a project about to close (bin/hivemux-close-project-ui) is left out before it goes, so no screen shows it
+    # 곧 닫힐 프로젝트 (bin/hivemux-close-project-ui)는 닫히기 전에 빼서, 어느 화면에도 보이지 않게 한다
+    closing = me["@hivemux-closing"]
+    if closing:
+        panes = [p for p in panes if p["session_name"] != closing or p["pane_id"] == ME]
     mywin = [p for p in panes if p["window_id"] == me["window_id"] and p["pane_id"] != ME]
     act = next((p for p in mywin if p["pane_active"] == "1"), None) or \
         next((p for p in mywin if p["pane_last"] == "1"), None) or (mywin[0] if mywin else None)

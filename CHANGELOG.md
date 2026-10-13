@@ -11,7 +11,8 @@
 - Right-click a project name → Close project: a popup in the middle says what
   closes (windows, Claude tasks) and asks; "Cancel" is chosen first
 - Sidebars in other windows redraw when a project or window closes, so
-  switching there never shows a closed project for a moment
+  switching there never shows a closed project for a moment; Close project
+  takes it off every sidebar first, then closes it
 - Closing the last window of the project you are on no longer closes Ghostty:
   you move to another project (`detach-on-destroy off`)
 

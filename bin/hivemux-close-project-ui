@@ -8,7 +8,7 @@ bin/hivemux-close-project).
 "Cancel" is chosen first, so Enter alone never closes anything.
 처음에는 "취소"가 골라져 있어서, Enter 만 눌러서는 닫히지 않는다.
 """
-import os, re, shutil, subprocess, sys, termios, tty, unicodedata
+import os, re, shutil, subprocess, sys, termios, time, tty, unicodedata
 
 TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
 TEXT, T2, T3 = (230, 233, 239), (154, 163, 178), (98, 106, 120)
@@ -79,7 +79,16 @@ def main():
                 elif ch in ("\r", "\n", " "):
                     go = sel
                 if go == 0:
+                    # first every sidebar redraws without it, then it closes: the screen that moves to
+                    # another project never shows it for a moment
+                    # 먼저 모든 사이드바가 그 프로젝트를 빼고 다시 그린 뒤 닫는다: 다른 프로젝트로 넘어가는
+                    # 화면에 잠깐도 보이지 않는다
+                    tmux("set", "-g", "@hivemux-closing", sess)
+                    subprocess.run([os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-sidebar"), "wake"],
+                                   stdin=subprocess.DEVNULL, capture_output=True)
+                    time.sleep(0.25)
                     tmux("kill-session", "-t", "=" + sess)
+                    tmux("set", "-gu", "@hivemux-closing")
                     return
                 if go == 1:
                     return
