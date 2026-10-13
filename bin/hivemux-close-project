@@ -2,9 +2,9 @@
 # Close a project (tmux session) from the sidebar menu, after asking.
 # 사이드바 메뉴에서 프로젝트(tmux 세션)를 닫는다. 먼저 묻는다.
 #   hivemux-close-project <session> <client>
-# The question names what closes (windows, Claude tasks). Screens on it move to another project
+# A popup in the middle (status-line question on old tmux) names what closes (windows, Claude tasks). Screens on it move to another project
 # (detach-on-destroy off in share/hivemux.tmux). The last project is not closed: tmux would end.
-# 무엇이 닫히는지 (창, Claude 작업) 묻는다. 그 프로젝트를 보던 화면은 다른 프로젝트로 넘어간다
+# 화면 가운데 팝업으로 (오래된 tmux 는 상태줄에서) 무엇이 닫히는지 (창, Claude 작업) 묻는다. 그 프로젝트를 보던 화면은 다른 프로젝트로 넘어간다
 # (share/hivemux.tmux 의 detach-on-destroy off). 마지막 프로젝트는 닫지 않는다: tmux 가 끝나 버린다.
 TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
 say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
@@ -16,7 +16,20 @@ if [ "$(t list-sessions | wc -l)" -le 1 ]; then
   exit 0
 fi
 wins="$(t list-windows -t "=$sess" -F x | wc -l | tr -d ' ')"
-claudes="$(t list-panes -s -t "=$sess" -F '#{@claude_session}' | grep -c .)"
-q="$(say "프로젝트 '$sess' 닫기: 창 ${wins}개, Claude ${claudes}개를 모두 닫습니다. 닫을까요? (y/n)" "Close project '$sess': ${wins} window(s), ${claudes} Claude task(s)? (y/n)")"
-# confirm-before runs the command as typed: quote the name for tmux / confirm-before 는 명령을 그대로 실행하므로 이름을 따옴표로
-t confirm-before ${client:+-t "$client"} -p "${q//\#/##}" "kill-session -t \"=${sess//\"/\\\"}\""
+# running Claudes, as the sidebar counts them (a shell in front means it quit) / 사이드바처럼 실행 중인 Claude 만 (앞에 셸이면 끝난 것)
+claudes="$(t list-panes -s -t "=$sess" -F '#{@claude_session} #{@claude_state} #{pane_current_command}' |
+  awk '$1 != "" && $2 != "" { c = $3; sub(/^-/, "", c); if (c !~ /^(zsh|bash|fish|sh|dash|tcsh|ksh|login)$/) n++ } END { print n + 0 }')"
+HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
+if [ -n "$client" ] && t list-commands display-popup 2>/dev/null | grep -q -- '-b border-lines'; then
+  # in the middle of the screen (bin/hivemux-close-project-ui closes it on "Close")
+  # 화면 가운데에 묻는다 ("닫기"를 고르면 bin/hivemux-close-project-ui 가 닫는다)
+  pause="/tmp/hivemux-pause-$(id -u)-$(t display -p '#{pid}')"   # per tmux server / tmux 서버마다
+  : > "$pause"; trap 'rm -f "$pause"' EXIT
+  "$HM_BIN/hivemux-modal" "$client" -E -w 64 -h 10 -b rounded \
+    -T "#[fg=#f06262,bold] $(say "프로젝트 닫기" "Close project") " -S "fg=#f06262" -s "bg=#1e2128" \
+    "$(printf '%q ' "$HM_BIN/hivemux-close-project-ui" "$sess" "$wins" "$claudes")" 2>/dev/null || true
+else
+  q="$(say "프로젝트 '$sess' 닫기: 창 ${wins}개, Claude ${claudes}개를 모두 닫습니다. 닫을까요? (y/n)" "Close project '$sess': ${wins} window(s), ${claudes} Claude task(s)? (y/n)")"
+  # confirm-before runs the command as typed: quote the name for tmux / confirm-before 는 명령을 그대로 실행하므로 이름을 따옴표로
+  t confirm-before ${client:+-t "$client"} -p "${q//\#/##}" "kill-session -t \"=${sess//\"/\\\"}\""
+fi

@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""Popup that asks before closing a project (runs inside tmux display-popup, opened by
+bin/hivemux-close-project).
+프로젝트를 닫기 전에 묻는 팝업 (tmux display-popup 안에서 실행, bin/hivemux-close-project 가 연다).
+
+  hivemux-close-project-ui <session> <windows> <claude tasks>
+  ←→ / Tab choose / 고르기    Enter run / 실행    y close / 닫기    n, Esc cancel / 취소
+"Cancel" is chosen first, so Enter alone never closes anything.
+처음에는 "취소"가 골라져 있어서, Enter 만 눌러서는 닫히지 않는다.
+"""
+import os, re, shutil, subprocess, sys, termios, tty, unicodedata
+
+TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
+TEXT, T2, T3 = (230, 233, 239), (154, 163, 178), (98, 106, 120)
+ACC, BAD, BG, BTN = (90, 169, 255), (240, 98, 98), (30, 33, 40), (42, 47, 58)
+
+
+def fg(c): return "\x1b[38;2;%d;%d;%dm" % c
+def bg(c): return "\x1b[48;2;%d;%d;%dm" % c
+RST, BOLD = "\x1b[0m", "\x1b[1m"
+
+
+def tmux(*a):
+    return subprocess.run([TMUX, *a], capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout
+
+
+def width(s):
+    return sum(0 if unicodedata.combining(c) else 2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
+
+
+def tr(ko, en):
+    v = os.environ.get("HIVEMUX_LANG") or tmux("show", "-gqv", "@hivemux-lang").strip()
+    return ko if (v or os.environ.get("LANG", "")).startswith("ko") else en
+
+
+def main():
+    sess, wins, claudes = (sys.argv[1:] + ["", "0", "0"])[:3]
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    tty.setraw(fd)
+    out = sys.stdout
+    out.write("\x1b[?25l\x1b[?1000h\x1b[?1006h")
+    sel = 1                                     # 0 close, 1 cancel / 0 닫기, 1 취소
+    labels = [tr("  닫기  ", " Close "), tr("  취소  ", " Cancel ")]
+    try:
+        while True:
+            cols, rows = os.get_terminal_size()
+            buf = ["\x1b[H", bg(BG), "\x1b[2J"]
+            buf.append(f"\x1b[2;3H{fg(TEXT)}{BOLD}{sess}{RST}{bg(BG)}{fg(T2)}{tr(' 프로젝트를 닫습니다.', ' will be closed.')}")
+            what = tr(f"창 {wins}개와 Claude {claudes}개가 모두 닫힙니다.", f"All {wins} window(s) and {claudes} Claude task(s) close.")
+            buf.append(f"\x1b[4;3H{fg(BAD if int(claudes or 0) else T2)}{what}")
+            if int(claudes or 0):
+                buf.append(f"\x1b[5;3H{fg(T3)}{tr('대화는 남아 있어 claude --resume 으로 이어갈 수 있습니다.', 'Conversations stay; continue them with claude --resume.')}")
+            y = rows - 1
+            x = cols - 4 - sum(width(l) + 2 for l in labels)
+            spots = []
+            for i, l in enumerate(labels):
+                on = i == sel
+                col = (BAD if i == 0 else ACC) if on else T2
+                buf.append(f"\x1b[{y};{x}H{bg(col if on else BTN)}{fg(BG if on else TEXT)}{BOLD if on else ''}{l}{RST}{bg(BG)}")
+                spots.append((x, x + width(l) - 1, i))
+                x += width(l) + 2
+            out.write("".join(buf) + RST)
+            out.flush()
+            data = os.read(fd, 256).decode(errors="ignore")
+            for ch in re.findall(r"\x1b\[<\d+;\d+;\d+[Mm]|\x1b\[[0-9;]*[A-Za-z~]|\x1bO[A-Za-z]|\x1b|[\s\S]", data):
+                go = None
+                m = re.match(r"\x1b\[<(\d+);(\d+);(\d+)([Mm])", ch)
+                if m:
+                    b, mx, my = int(m.group(1)), int(m.group(2)), int(m.group(3))
+                    if b == 0 and m.group(4) == "M" and my == y:
+                        go = next((i for a, z, i in spots if a <= mx <= z), None)
+                elif ch in ("\x1b", "\x03", "n", "N", "q"):
+                    return
+                elif ch in ("y", "Y"):
+                    go = 0
+                elif ch in ("\x1b[D", "\x1bOD", "\x1b[C", "\x1bOC", "\t", "h", "l"):
+                    sel = 1 - sel
+                elif ch in ("\r", "\n", " "):
+                    go = sel
+                if go == 0:
+                    tmux("kill-session", "-t", "=" + sess)
+                    return
+                if go == 1:
+                    return
+    finally:
+        out.write("\x1b[?1000l\x1b[?1006l\x1b[?25h" + RST + "\x1b[2J")
+        out.flush()
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
+if __name__ == "__main__":
+    main()
