@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Opening Ghostty when every session is already on a screen (Ghostty restoring
+  several windows, a second window) joins the last used session instead of
+  creating an empty numbered one ("8") that now shows in the sidebar
 - The still copy behind popups (settings, new project, rename, close) now
   matches the screen: the sidebar background, its bottom rule and the grip
   were lost on most rows
