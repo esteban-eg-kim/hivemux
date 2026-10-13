@@ -34,9 +34,16 @@ def backdrop(win):
         if len(p) != 5:
             continue
         pid, x, y, w, h = p[0], *map(int, p[1:])
-        lines = tmux("capture-pane", "-e", "-p", "-t", pid).split("\n")[:h]
+        # -N keeps trailing spaces: the sidebar paints its background with them / -N: 줄 끝 공백 유지 (사이드바는 공백으로 배경을 칠한다)
+        lines = tmux("capture-pane", "-e", "-N", "-p", "-t", pid).split("\n")[:h]
+        # capture-pane -e writes a colour only where it changes, so a line goes on with the colours the
+        # line above ended with: reset once per pane, not per line (else the sidebar background is lost)
+        # capture-pane -e 는 색이 바뀌는 곳에만 색을 적어, 다음 줄은 윗줄 끝의 색을 이어 쓴다:
+        # 칸마다 한 번만 초기화한다 (줄마다 하면 사이드바 바탕색이 사라진다)
+        out.append("\x1b[0m")
         for i, line in enumerate(lines):
-            out.append(f"\x1b[{y + i + 1};{x + 1}H\x1b[0m{line}\x1b[0m")
+            out.append(f"\x1b[{y + i + 1};{x + 1}H{line}")
+        out.append("\x1b[0m")
         if x > 0:   # the border on the pane's left / 칸 왼쪽 경계선
             out += [f"\x1b[{y + i + 1};{x}H{border}│" for i in range(h)]
     sys.stdout.write("".join(out) + "\x1b[0m")

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The still copy behind popups (settings, new project, rename, close) now
+  matches the screen: the sidebar background, its bottom rule and the grip
+  were lost on most rows
 - A project whose Claude windows are all closed (only shells left) stays in the
   sidebar as "no Claude · N windows" instead of disappearing; click a project
   name to go to it
