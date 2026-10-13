@@ -91,7 +91,8 @@ def move_card(src, dst):
 
 
 def move_group(src, dst):
-    names = sort_sessions({r[1] for r in tasks()})
+    # every project, also one with no Claude left / 모든 프로젝트. Claude 가 없는 것도
+    names = sort_sessions(set(tmux("list-sessions", "-F", "#{session_name}").splitlines()))
     if src not in names or dst not in names or src == dst:
         return False
     i, j = names.index(src), names.index(dst)

@@ -493,8 +493,9 @@ claude -c
       <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>1</kbd>…<kbd>9</kbd></span><span class="d">사이드바의 그 번호 Claude로 바로 이동</span></div>
       <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>0</kbd></span><span class="d">가장 오래 기다린 Claude로 이동. 없으면 안 본 완료 작업</span></div>
       <div class="key"><span class="combo">사이드바 카드 클릭</span><span class="d">그 Claude로 이동</span></div>
+      <div class="key"><span class="combo">프로젝트 이름 클릭</span><span class="d">그 프로젝트로 이동. Claude 창을 모두 닫은 프로젝트도 "Claude 없음"으로 남고, 오른쪽 클릭 → 프로젝트 닫기로 정리합니다</span></div>
       <div class="key"><span class="combo">카드 더블클릭</span><span class="d">작업 이름 바꾸기</span></div>
-      <div class="key"><span class="combo">오른쪽 클릭</span><span class="d">메뉴. 작업 카드: 이동, 이름 바꾸기, 위로 / 아래로 옮기기, 이 프로젝트에 새 Claude, 새 프로젝트. 프로젝트 이름 줄: 이름 바꾸기, 새 Claude, 새 프로젝트. 빈 곳: 새 프로젝트. 모든 메뉴 맨 아래에 원격 연결과 설정. 마우스를 올리면 강조되고 클릭하면 실행. <kbd>↑</kbd> <kbd>↓</kbd>와 <kbd>Enter</kbd>, 괄호 안 글자로도 고름. <kbd>Esc</kbd>나 바깥 클릭으로 닫힘</span></div>
+      <div class="key"><span class="combo">오른쪽 클릭</span><span class="d">메뉴. 작업 카드: 이동, 이름 바꾸기, 위로 / 아래로 옮기기, 이 프로젝트에 새 Claude, 새 프로젝트. 프로젝트 이름 줄: 이름 바꾸기, 프로젝트 닫기, 새 Claude, 새 프로젝트. 빈 곳: 새 프로젝트. 모든 메뉴 맨 아래에 원격 연결과 설정. 마우스를 올리면 강조되고 클릭하면 실행. <kbd>↑</kbd> <kbd>↓</kbd>와 <kbd>Enter</kbd>, 괄호 안 글자로도 고름. <kbd>Esc</kbd>나 바깥 클릭으로 닫힘</span></div>
       <div class="key"><span class="combo">메뉴 → 새 프로젝트</span><span class="d">가운데 폴더 탐색 창이 열림. <kbd>Enter</kbd>는 고른 폴더에서 <code>hm</code>처럼 시작, <kbd>→</kbd> / <kbd>←</kbd>는 폴더 안 / 상위로, 글자를 치면 걸러 보기 (<code>.</code>으로 시작하면 숨김 폴더도), <kbd>Ctrl</kbd>+<kbd>N</kbd>은 새 폴더</span></div>
       <div class="key"><span class="combo">메뉴 → 설정</span><span class="d">언어 (한국어 / English), 애니메이션 켜기 / 끄기, 알림 켜기 / 끄기, 사이드바 폭. 바꾸면 바로 적용되고 <code>~/.local/share/hivemux</code>에 저장되어 재시작 뒤에도 유지됨. 언어를 바꾸면 사이드바를 다시 띄움</span></div>
       <div class="key"><span class="combo">카드 / 프로젝트 이름 줄 끌기</span><span class="d">작업 순서 / 프로젝트 순서 바꾸기. 놓을 자리가 파랗게 표시되고, <kbd>⌥</kbd>+숫자 번호와 맨 위 창 목록도 같은 순서를 따름. 작업은 같은 프로젝트 안에서만 옮겨짐</span></div>
@@ -780,6 +781,7 @@ hivemux uninstall</pre></div>
     <div><code>hivemux-attach</code><span>Ghostty 진입점. 서버가 없으면 복원 후 마지막 세션에, 있으면 최근 세션에 붙습니다</span></div>
     <div><code>hivemux-rename-project</code>, <code>hivemux-rename-project-ui</code><span>프로젝트 이름 바꾸기와 그 팝업</span></div>
     <div><code>hivemux-connect</code>, <code>hivemux-connect-ui</code><span>원격 연결 (<code>hivemux connect</code>)과 그 팝업</span></div>
+    <div><code>hivemux-close-project</code><span>프로젝트 닫기 (묻고 나서 그 세션의 창을 모두 닫음)</span></div>
     <div><code>hivemux-hook</code><span>Claude 훅. 세션 ID, 폴더, 상태를 tmux 칸에 기록합니다</span></div>
     <div><code>hivemux-panes</code><span>저장 때 칸과 세션 ID 목록을 남기고, 복원 때 재개 명령을 입력합니다</span></div>
     <div><code>hivemux-sidebar</code>, <code>hivemux-sidebar-view</code><span>사이드바 칸 관리와 화면</span></div>

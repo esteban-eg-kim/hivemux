@@ -16,6 +16,10 @@ set -as terminal-features ",xterm*:extkeys"
 set -s extended-keys on          # Shift+Enter newline in Claude Code
 set -g allow-passthrough all     # notifications from panes that are not on screen
 set -g focus-events on
+# when the session you are on ends (its last window closed), move to another one instead of
+# leaving tmux, which would close the Ghostty window
+# 보던 세션이 끝나면 (마지막 창을 닫음) tmux 를 떠나지 않고 다른 세션으로 넘어간다 (떠나면 Ghostty 창이 닫힌다)
+set -g detach-on-destroy off
 set -s set-clipboard on
 set -sg escape-time 0
 set -g mouse on                  # sidebar clicks, grip drag

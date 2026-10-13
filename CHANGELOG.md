@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- A project whose Claude windows are all closed (only shells left) stays in the
+  sidebar as "no Claude · N windows" instead of disappearing; click a project
+  name to go to it
+- Right-click a project name → Close project: asks, then closes all its windows
+- Closing the last window of the project you are on no longer closes Ghostty:
+  you move to another project (`detach-on-destroy off`)
+
 ## 0.1.9 — 2026-10-12
 
 - Work from another Mac: `hivemux connect <host>` attaches to that Mac's

@@ -161,7 +161,15 @@ def snapshot():
     except OSError:
         pass
     items = [p for _, p in sorted(enumerate(items), key=lambda e: (rank.get(e[1]["session_name"], len(rank)), e[0]))]
-    return items, current, visible, me["session_name"]
+    # every project (session), also one with no Claude left (only shells): (name, windows, a pane to go to)
+    # 모든 프로젝트(세션). Claude 가 없고 셸만 남은 것도: (이름, 창 수, 이동할 칸)
+    work = [p for p in panes if p["pane_title"] != "hivemux-sidebar" and p["window_name"] != "·"]
+    names = list(dict.fromkeys(p["session_name"] for p in panes))
+    names.sort(key=lambda s: rank.get(s, len(rank)))
+    sessions = [(s, len({p["window_id"] for p in work if p["session_name"] == s}),
+                 next((p["pane_id"] for p in work if p["session_name"] == s and p["pane_active"] == "1"), "")
+                 or next((p["pane_id"] for p in work if p["session_name"] == s), "")) for s in names]
+    return items, current, visible, me["session_name"], sessions
 
 
 
@@ -244,7 +252,7 @@ class Line:
         return "".join(out)
 
 
-def render(items, current, w, h, cur_sess=""):
+def render(items, current, w, h, cur_sess="", sessions=()):
     now = int(time.time())
     BG = C["bg"]
     L = lambda: Line(w, BG)
@@ -266,11 +274,12 @@ def render(items, current, w, h, cur_sess=""):
         summary.put(tr("모두 대기 중", "all idle"), C["text3"])
     lines += [summary, L().put("  " + "─" * (w - 4), C["rule"])]
 
-    groups = []
-    for i, p in enumerate(items, 1):
-        if not groups or groups[-1][0] != p["session_name"]:
-            groups.append((p["session_name"], []))
-        groups[-1][1].append((i, p))
+    # groups in project order; a project with no Claude has no members (shown as "no Claude")
+    # 프로젝트 순서의 묶음. Claude 가 없는 프로젝트는 멤버 없이 ("Claude 없음") 보인다
+    numbered = list(enumerate(items, 1))
+    groups = [(s, [(i, p) for i, p in numbered if p["session_name"] == s]) for s, _, _ in sessions] or \
+        [(s, [(i, p) for i, p in numbered if p["session_name"] == s]) for s in dict.fromkeys(p["session_name"] for p in items)]
+    info = {s: (n, pane) for s, n, pane in sessions}
 
     dragging = DRAG and DRAG.get("moved")
     def build(compact, gaps):
@@ -280,7 +289,8 @@ def render(items, current, w, h, cur_sess=""):
             cur = sess == cur_sess
             g = L().put("  ").put("●", hue_of(sess)).put(" ")
             g.put(sess, C["text"] if cur else C["text2"], bold=cur, limit=w - 5)
-            g.right(str(len(members)), C["text3"], margin=2)
+            if members:
+                g.right(str(len(members)), C["text3"], margin=2)
             if dragging and DRAG["kind"] == "group":
                 if sess == DRAG["src"]:
                     g.tint(fg=C["text3"])
@@ -288,6 +298,13 @@ def render(items, current, w, h, cur_sess=""):
                     g.tint(bg=C["drop"])
             hg[len(out)] = sess
             out.append(g)
+            if not members:
+                n = info.get(sess, (0, ""))[0]
+                e = L().put("    ").put(tr(f"Claude 없음 · 창 {n}개", f"no Claude · {n} window" + ("s" if n != 1 else "")), C["text3"])
+                if dragging and DRAG["kind"] == "group" and sess == DRAG["over"] and sess != DRAG["src"]:
+                    e.tint(bg=C["drop"])
+                hg[len(out)] = sess
+                out.append(e)
             for mi, (i, p) in enumerate(members):
                 if gaps and mi:
                     out.append(L())
@@ -352,7 +369,7 @@ def render(items, current, w, h, cur_sess=""):
         body, tg, hg = build(compact, gaps)
         if reserve + len(body) <= h:
             break
-    if not items:
+    if not items and not sessions:
         body = [L(), L().put(tr("  실행 중인 Claude가 없습니다", "  No Claude sessions yet"), C["text2"]), L(),
                 L().put("  ", C["text3"]).put("prefix ⇧C", C["text"]).put(tr("  새 Claude", "  new Claude"), C["text3"]),
                 L().put("  ", C["text3"]).put(tr("hm 폴더", "hm <dir>"), C["text"]).put(tr("    프로젝트 열기", "   open project"), C["text3"])]
@@ -439,6 +456,7 @@ def menu(y, pid=None, sess=None, items=()):
                  None]
     elif not empty:                     # project name row / 프로젝트 이름 줄
         rows += [(tr("이름 바꾸기…", "Rename…"), "r", lambda: bg_run(os.path.join(here, "hivemux-rename-project"), "prompt", sess, client)),
+                 (tr("프로젝트 닫기…", "Close project…"), "x", lambda: bg_run(os.path.join(here, "hivemux-close-project"), sess, client)),
                  None]
     if not empty:
         rows.append((tr("새 Claude…", "New Claude…"), "n", lambda: bg_run(os.path.join(here, "hivemux-new-claude"), d, sess, client)))
@@ -694,7 +712,7 @@ def main():
                 # focus moved elsewhere (clicked another pane): close the menu / 다른 칸을 눌러 초점이 떠났으면 메뉴를 닫는다
                 if MENU and tmux("display", "-p", "-t", ME, "#{pane_active}#{window_active}").strip() != "11":
                     menu_close()
-            items, current, visible, cur_sess = snap
+            items, current, visible, cur_sess, sessions = snap
             # a popup is open: do not draw (but always draw the first frame)
             # 팝업이 열려 있음: 그리지 않는다 (첫 화면은 그린다)
             if os.path.exists(PAUSE) and prev is not None:
@@ -730,7 +748,7 @@ def main():
             # 보일 때 그린다. 숨은 사이드바도 첫 화면은 그려 두어 보일 때 바로 나오게 한다
             if visible or prev is None:
                 w, h = os.get_terminal_size()
-                lines, (targets, heads) = render(items, current, w, h, cur_sess)
+                lines, (targets, heads) = render(items, current, w, h, cur_sess, sessions)
                 # Draw only rows that changed since the last frame; a full redraw only on
                 # the first frame or a resize. Cuts what tmux has to parse by ~10x.
                 # 직전 프레임과 달라진 줄만 그린다. 첫 프레임과 크기 변경 때만 전체를 그린다.
@@ -823,6 +841,8 @@ def main():
                             subprocess.run([order, d["kind"], d["src"], d["over"]],
                                            stdin=subprocess.DEVNULL, capture_output=True)
                             last_poll = 0
+                    elif d["kind"] == "group":       # click on a project name: go to it / 프로젝트 이름 클릭: 그 프로젝트로
+                        tmux("switch-client", "-t", "=" + d["src"])
                     elif d["kind"] == "card":
                         pid = d["src"]
                         # Double click: the first click may switch sessions, so remember it in a tmux global option
