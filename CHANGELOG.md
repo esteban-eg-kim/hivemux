@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.10 — 2026-10-13
 
 - Opening Ghostty when every session is already on a screen (Ghostty restoring
   several windows, a second window) joins the last used session instead of
