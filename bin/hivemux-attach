@@ -34,6 +34,7 @@ start_server() {
     printf '\n\n  hivemux: %s\n  %s\n\n' "$(say "tmux 를 시작하지 못했습니다" "could not start tmux")" "$err"
     exec "${SHELL:-/bin/zsh}" -l
   fi
+  t set -g @hivemux-starting 1      # bin/hivemux-sidebar leaves "0" alone meanwhile / 그동안 bin/hivemux-sidebar 가 "0" 을 건드리지 않는다
   RESTORE="$(t show -gqv @resurrect-restore-script-path)"   # set once hivemux.tmux has loaded resurrect / hivemux.tmux 가 resurrect 를 불러오면 생긴다
   if [ -n "$RESTORE" ] && [ -x "$RESTORE" ] && [ ! -f "$HOME/tmux_no_auto_restore" ]; then
     t run-shell "$RESTORE"
@@ -45,6 +46,7 @@ start_server() {
     t has-session -t '=main' 2>/dev/null || t rename-session -t '=0' main
   fi
   t set -g @hivemux-ready 1
+  t set -gu @hivemux-starting
   t run-shell -b "$HM_BIN/hivemux-sidebar ensure"
 }
 

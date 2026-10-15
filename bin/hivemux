@@ -130,6 +130,7 @@ confirm-close-surface = false"
   if tmux has-session 2>/dev/null; then
     tmux source-file "$TMUX_CONF" && ok "reloaded running tmux"
     "$HM_BIN/hivemux-sidebar" respawn >/dev/null 2>&1 && ok "restarted the sidebars"
+    "$HM_BIN/hivemux-sidebar" ensure >/dev/null 2>&1      # windows that had none / 사이드바가 없던 창에도
   fi
   echo
   echo "${B}Done.${X} Open a new Ghostty window (or run ${B}tmux${X}), then ${B}hm ~/your/project${X}."

@@ -35,7 +35,10 @@ ensure_one() {
   local win="$1" n
   [ "$ON" = on ] || return 0
   [ -n "$(t show -gqv @hivemux-suspend)" ] && return 0          # restore in progress / 복원 중
-  [ "$(t display -p -t "$win" '#{session_name}' 2>/dev/null)" = 0 ] && return 0   # hivemux-attach bootstrap session / hivemux-attach 부트스트랩 세션
+  # hivemux-attach's bootstrap session "0", only while it restores (a session named "0" that stays is a
+  # normal one and gets its sidebar)
+  # hivemux-attach 의 시작용 세션 "0" 은 복원하는 동안만 건너뛴다 (그대로 남은 "0" 은 보통 세션이므로 사이드바를 단다)
+  [ -n "$(t show -gqv @hivemux-starting)" ] && [ "$(t display -p -t "$win" '#{session_name}' 2>/dev/null)" = 0 ] && return 0
   [ -n "$(sidebars_in "$win")" ] && return 0
   # the still copy behind a popup (bin/hivemux-modal) already shows the sidebar
   # 팝업 뒤의 화면 사본 (bin/hivemux-modal) 은 사이드바까지 찍혀 있다

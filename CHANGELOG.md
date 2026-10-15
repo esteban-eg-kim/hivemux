@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- A session named "0" gets its sidebar again: only hivemux's bootstrap session
+  is left without one, and only while it restores (a server left on "0" by the
+  0.1.12 restore bug never showed a sidebar)
+- `hivemux setup` also adds a sidebar to windows that have none
+
 ## 0.1.13 — 2026-10-15
 
 - Fix: starting Ghostty with no tmux server (after a reboot, or when the server
