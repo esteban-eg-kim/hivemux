@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Menu → Connect to…: `m` switches the chosen host between ssh and mosh; it
+  checks first that mosh is on both Macs (`--add --mosh` checks the other Mac
+  too now)
+
 ## 0.1.10 — 2026-10-13
 
 - Opening Ghostty when every session is already on a screen (Ghostty restoring

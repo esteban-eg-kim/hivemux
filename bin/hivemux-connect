@@ -86,12 +86,20 @@ case "$1" in
            *) echo "  ✗ $(say "ssh 로 붙지 못했습니다" "ssh failed"): $(printf '%s' "$out" | tail -1)" >&2 ;;
          esac; exit 1 ;;
     esac
-    if [ "$how" = mosh ] && ! command -v mosh >/dev/null; then
-      echo "  ✗ $(say "이 Mac 에 mosh 가 없습니다 (brew install mosh)" "mosh is not installed here (brew install mosh)")" >&2; exit 1
+    if [ "$how" = mosh ]; then
+      if ! command -v mosh >/dev/null; then
+        echo "  ✗ $(say "이 Mac 에 mosh 가 없습니다 (brew install mosh)" "mosh is not installed here (brew install mosh)")" >&2; exit 1
+      fi
+      # mosh-server must be on the other Mac too (ssh gives a plain PATH: look where brew puts it)
+      # 상대 Mac 에도 mosh-server 가 있어야 한다 (ssh 는 기본 PATH 만 주므로 brew 가 두는 곳에서 찾는다)
+      if ! "${SSH[@]}" -o BatchMode=yes "${SSH_OPTS[@]}" "$host" \
+          'for p in /opt/homebrew/bin/mosh-server /usr/local/bin/mosh-server; do [ -x "$p" ] && exit 0; done; command -v mosh-server >/dev/null' >/dev/null 2>&1; then
+        echo "  ✗ $(say "$host 에 mosh 가 없습니다 (brew install mosh)" "mosh is not installed on $host (brew install mosh there)")" >&2; exit 1
+      fi
     fi
     mkdir -p "$DATA"
     { [ -f "$HOSTS" ] && awk -v h="$host" '$1!=h' "$HOSTS"; echo "$host${how:+ $how}"; } > "$HOSTS.tmp" && mv -f "$HOSTS.tmp" "$HOSTS"
-    echo "  ✓ $(say "등록했습니다" "Remembered") · hivemux connect $host"
+    echo "  ✓ $(say "등록했습니다" "Remembered") · ${how:-ssh} · hivemux connect $host"
     ;;
   --remove)
     [ -f "$HOSTS" ] && awk -v h="$2" '$1!=h' "$HOSTS" > "$HOSTS.tmp" && mv -f "$HOSTS.tmp" "$HOSTS"

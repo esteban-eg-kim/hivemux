@@ -547,7 +547,7 @@ claude -c
     <div class="keys">
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Ctrl</kbd>+<kbd>S</kbd></span><span class="d">지금 바로 저장 (자동 저장은 5분마다)</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Ctrl</kbd>+<kbd>R</kbd></span><span class="d">마지막 저장으로 수동 복원</span></div>
-      <div class="key"><span class="combo">메뉴 → 원격 연결</span><span class="d">등록한 호스트 목록. <kbd>Enter</kbd>는 그 Mac에 붙은 새 Ghostty 창, <kbd>a</kbd> 추가 (확인 후 등록), <kbd>d</kbd> 지우기. <a href="#remote">다른 Mac에서 이어서 작업</a> 참고</span></div>
+      <div class="key"><span class="combo">메뉴 → 원격 연결</span><span class="d">등록한 호스트 목록. <kbd>Enter</kbd>는 그 Mac에 붙은 새 Ghostty 창, <kbd>m</kbd> ssh ↔ mosh 바꾸기 (확인 후 바꿈), <kbd>a</kbd> 추가 (확인 후 등록), <kbd>d</kbd> 지우기. <a href="#remote">다른 Mac에서 이어서 작업</a> 참고</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Shift</kbd>+<kbd>H</kbd></span><span class="d">마지막으로 연결한 원격 호스트에 붙은 새 창</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Shift</kbd>+<kbd>R</kbd></span><span class="d">Remote Control 서버 창 (폰에서 새 세션 시작용)</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>r</kbd></span><span class="d">tmux 설정 다시 읽기</span></div>
@@ -622,7 +622,7 @@ hivemux connect me@work-mac.local</pre></div>
   <div class="cols">
     <div class="card"><h3>원격 창 표시</h3><p>원격으로 붙은 창은 상태줄 왼쪽에 보라색 <b>⇄ Mac 이름</b>이 붙습니다. 원격 창에서 "원격 연결"을 고르면 상대 Mac 화면에 창이 열리므로 막아 둡니다.</p></div>
     <div class="card"><h3>끊겼을 때</h3><p>"연결이 끊겼습니다"가 나오고 몇 초 뒤 저절로 다시 붙습니다. <kbd>Ctrl</kbd>+<kbd>C</kbd>로 그만둡니다. <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>d</kbd>로 떼면 창이 닫힙니다.</p></div>
-    <div class="card"><h3>알림과 mosh</h3><p>원격 작업의 알림도 이 Mac에 뜹니다. <code>--mosh</code>로 등록하면 잠자기와 네트워크 변경을 스스로 견디지만 알림이 지나가지 못합니다. 두 Mac 모두 <code>brew install mosh</code>가 필요합니다.</p></div>
+    <div class="card"><h3>알림과 mosh</h3><p>원격 작업의 알림도 이 Mac에 뜹니다. <code>--mosh</code>로 등록하거나 원격 연결 목록에서 <kbd>m</kbd>을 누르면 잠자기와 네트워크 변경을 스스로 견디지만 알림이 지나가지 못합니다. 두 Mac 모두 <code>brew install mosh</code>가 필요합니다.</p></div>
   </div>
   <div class="note">두 화면에서 같은 프로젝트를 보면 화면을 같이 씁니다. 한쪽에서 창을 바꾸면 다른 쪽도 바뀝니다. 크기는 마지막으로 입력한 화면에 맞춥니다.</div>
 </section>

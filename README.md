@@ -151,8 +151,9 @@ a VPN such as [Tailscale](https://tailscale.com) on both Macs is the simple way
 - The remote window shows `⇄ <Mac name>` at the left of the status line.
 - A dropped connection reconnects by itself (`Ctrl+C` stops); `prefix d` detaches and closes the window.
 - Notifications from the remote tasks show on this Mac.
-- With `--mosh`, the session survives sleep and network changes by itself, but
-  notifications do not pass through mosh (`brew install mosh` on both Macs).
+- With `--mosh` (or `m` in the menu → Connect to… list), the session survives
+  sleep and network changes by itself, but notifications do not pass through
+  mosh (`brew install mosh` on both Macs).
 - Two screens on the same project share it: switching windows on one moves the other.
 
 ## How it works

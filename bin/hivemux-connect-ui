@@ -2,7 +2,8 @@
 """Remote connect popup (runs inside tmux display-popup, opened by the sidebar menu "Connect to…").
 원격 연결 팝업 (tmux display-popup 안에서 실행, 사이드바 메뉴 "원격 연결…" 이 연다).
 
-  ↑↓ choose / 고르기    Enter connect (new window) / 연결 (새 창)    a add / 추가    d remove / 지우기    Esc close / 닫기
+  ↑↓ choose / 고르기    Enter connect (new window) / 연결 (새 창)    m ssh <-> mosh / ssh <-> mosh 바꾸기
+  a add / 추가    d remove / 지우기    Esc close / 닫기
 
 Hosts are the ones remembered by `hivemux connect --add` ($XDG_DATA_HOME/hivemux/remote-hosts).
 호스트는 `hivemux connect --add` 로 기억한 것 ($XDG_DATA_HOME/hivemux/remote-hosts).
@@ -112,7 +113,7 @@ def main():
             if adding:
                 hint = f"{fg(TEXT)}Enter{fg(T3)} {tr('확인하고 추가', 'check and add')}   {fg(TEXT)}Esc{fg(T3)} {tr('취소', 'cancel')}"
             else:
-                hint = (f"{fg(TEXT)}Enter{fg(T3)} {tr('새 창에서 연결', 'connect in a new window')}   {fg(TEXT)}a{fg(T3)} {tr('추가', 'add')}   "
+                hint = (f"{fg(TEXT)}Enter{fg(T3)} {tr('연결', 'connect')}   {fg(TEXT)}m{fg(T3)} ssh/mosh   {fg(TEXT)}a{fg(T3)} {tr('추가', 'add')}   "
                         f"{fg(TEXT)}d{fg(T3)} {tr('지우기', 'remove')}   {fg(TEXT)}Esc{fg(T3)} {tr('닫기', 'close')}")
             buf.append(f"\x1b[{rows};1H  " + hint + RST)
             out.write("".join(buf))
@@ -126,7 +127,7 @@ def main():
                         if not items:
                             return
                     elif ch in ("\r", "\n"):
-                        act = "add"
+                        act, how = "add", "ssh"
                     elif ch in ("\x7f", "\b"):
                         name = name[:-1]
                     elif len(ch) == 1 and ch.isprintable() and not ch.isspace():
@@ -151,6 +152,11 @@ def main():
                         act = "go"
                     elif ch == "a":
                         adding, name = True, ""
+                    elif ch == "m" and sel < len(items):
+                        # switch how it connects; --add checks the new way first (mosh: on both Macs)
+                        # 연결 방식 바꾸기. --add 가 먼저 확인한다 (mosh: 양쪽 Mac 에 있는지)
+                        name, how = items[sel][0], ("ssh" if items[sel][1] == "mosh" else "mosh")
+                        act = "add"
                     elif ch in ("d", "\x1b[3~") and sel < len(items):
                         subprocess.run([CONNECT, "--remove", items[sel][0]], stdin=subprocess.DEVNULL, capture_output=True)
                         msg = (tr(f"지웠습니다: {items[sel][0]}", f"Removed: {items[sel][0]}"), T2)
@@ -164,10 +170,10 @@ def main():
                 elif act == "add" and name:
                     out.write(f"\x1b[{rows - 3};1H{bg(BG)}\x1b[2K  {fg(T2)}{tr('확인 중', 'Checking')} {name} …")
                     out.flush()
-                    r = subprocess.run([CONNECT, "--add", name], stdin=subprocess.DEVNULL, capture_output=True, text=True)
+                    r = subprocess.run([CONNECT, "--add", name] + (["--mosh"] if how == "mosh" else []), stdin=subprocess.DEVNULL, capture_output=True, text=True)
                     lines = [l.strip() for l in (r.stdout + r.stderr).splitlines() if l.strip().startswith(("✓", "✗"))]
                     if r.returncode == 0:
-                        adding, msg = False, (lines[0] if lines else "✓", OK)
+                        adding, msg = False, (lines[-1] if lines else "✓", OK)
                         sel = next((i for i, (h, _) in enumerate(hosts()) if h == name), sel)
                     else:
                         msg = (lines[-1] if lines else "✗", BAD)
