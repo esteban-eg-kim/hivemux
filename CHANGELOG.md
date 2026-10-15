@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- Fix: starting Ghostty with no tmux server (after a reboot, or when the server
+  had ended) could end the server in the middle of the restore and leave an
+  empty session "0" instead of your projects. Redrawing the sidebars sent USR1
+  to every pane titled as a sidebar, and right after a restore those are still
+  plain shells, which USR1 ends; the windows closed and with them the server
+- Several Ghostty windows starting at once take turns: one starts tmux and
+  restores, the others wait for it and say so ("Restoring your last work…")
+  instead of a blank screen
+- A tmux server that started without restoring no longer autosaves: it would
+  replace the snapshot and the pane → Claude map with an empty one (hivemux
+  doctor says so)
+- After a restore, a saved sidebar is never removed when it is the last pane of
+  its window
+
 ## 0.1.12 — 2026-10-15
 
 - Still cards (a remote screen, or `@hivemux-anim off`) are told apart by color:

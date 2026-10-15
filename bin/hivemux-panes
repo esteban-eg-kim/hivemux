@@ -14,6 +14,11 @@ log() { printf '%s %s\n' "$(date '+%F %T')" "$*" >> "$LOG"; }
 
 save() {
   local tmp="$MAP.tmp.$$"
+  # a server that started without restoring keeps the last map (see bin/hivemux-attach)
+  # 복원 없이 뜬 서버는 마지막 대응표를 그대로 둔다 (bin/hivemux-attach 참고)
+  if [ -n "$("$TMUX_BIN" show -gqv @hivemux-nosave 2>/dev/null)" ]; then
+    log "save skipped (server started without restoring)"; return
+  fi
   "$TMUX_BIN" list-panes -a -F \
     '#{session_name}:#{window_index}.#{pane_index}	#{@claude_session}	#{@claude_cwd}' 2>/dev/null |
     awk -F '\t' '$2 != ""' > "$tmp"

@@ -14,29 +14,74 @@ HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
 # HIVEMUX_SOCKET=name selects a separate tmux socket (used for testing)
 t() { "$TMUX_BIN" ${HIVEMUX_SOCKET:+-L "$HIVEMUX_SOCKET"} ${HIVEMUX_CONF:+-f "$HIVEMUX_CONF"} "$@"; }
 
-if ! t has-session 2>/dev/null; then
-  # Bootstrap session "0": tmux-resurrect deletes it after a from-scratch restore.
-  if t new-session -d -s 0 2>/dev/null; then
-    RESTORE="$(t show -gqv @resurrect-restore-script-path)"   # set once hivemux.tmux has loaded resurrect / hivemux.tmux 가 resurrect 를 불러오면 생긴다
-    if [ -n "$RESTORE" ] && [ -x "$RESTORE" ] && [ ! -f "$HOME/tmux_no_auto_restore" ]; then
-      t run-shell "$RESTORE"
-      last_file="$(t show -gqv @resurrect-dir)"; last_file="${last_file:-${XDG_DATA_HOME:-$HOME/.local/share}/tmux/resurrect}/last"
-      st="$(awk -F '\t' '$1=="state"{print $2; exit}' "$last_file" 2>/dev/null)"
-      [ -n "$st" ] && t set -g @hivemux-last-session "$st"
-    fi
-    if t has-session -t '=0' 2>/dev/null; then
-      t has-session -t '=main' 2>/dev/null || t rename-session -t '=0' main
-    fi
-    t set -g @hivemux-ready 1
-    t run-shell -b "$HM_BIN/hivemux-sidebar ensure"
-  fi
-fi
+# UI language before the server is up: HIVEMUX_LANG > hivemux setup's line in ~/.tmux.conf > LANG
+# 서버가 뜨기 전의 화면 언어: HIVEMUX_LANG > ~/.tmux.conf 의 hivemux setup 줄 > LANG
+say() {
+  local v="${HIVEMUX_LANG:-$(sed -n 's/^set -g @hivemux-lang //p' "$HOME/.tmux.conf" 2>/dev/null | head -1)}"
+  if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi
+}
+note() { printf '\r\033[2K  \033[38;2;154;163;178mhivemux · %s\033[0m' "$1"; }   # one status line, replaced each time / 한 줄 안내, 매번 덮어씀
 
-# Another window may be restoring right now (bootstrap "0" still there,
-# not ready yet): wait for it, max ~20s.
-for _ in $(seq 1 40); do
+# Start the server and restore the last snapshot (which also resumes Claude sessions via bin/hivemux-panes).
+# 서버를 띄우고 마지막 저장본을 복원한다 (bin/hivemux-panes 로 Claude 세션도 이어서 띄운다).
+start_server() {
+  local err
+  note "$(say "이전 작업을 복원하는 중…" "Restoring your last work…")"
+  # Bootstrap session "0": tmux-resurrect deletes it after a from-scratch restore.
+  # 시작용 세션 "0": tmux-resurrect 가 처음부터 복원한 뒤 지운다.
+  if ! err="$(t new-session -d -s 0 2>&1)"; then
+    t has-session 2>/dev/null && return      # it is up after all / 결국 떠 있음
+    printf '\n\n  hivemux: %s\n  %s\n\n' "$(say "tmux 를 시작하지 못했습니다" "could not start tmux")" "$err"
+    exec "${SHELL:-/bin/zsh}" -l
+  fi
+  RESTORE="$(t show -gqv @resurrect-restore-script-path)"   # set once hivemux.tmux has loaded resurrect / hivemux.tmux 가 resurrect 를 불러오면 생긴다
+  if [ -n "$RESTORE" ] && [ -x "$RESTORE" ] && [ ! -f "$HOME/tmux_no_auto_restore" ]; then
+    t run-shell "$RESTORE"
+    last_file="$(t show -gqv @resurrect-dir)"; last_file="${last_file:-${XDG_DATA_HOME:-$HOME/.local/share}/tmux/resurrect}/last"
+    st="$(awk -F '\t' '$1=="state"{print $2; exit}' "$last_file" 2>/dev/null)"
+    [ -n "$st" ] && t set -g @hivemux-last-session "$st"
+  fi
+  if t has-session -t '=0' 2>/dev/null; then
+    t has-session -t '=main' 2>/dev/null || t rename-session -t '=0' main
+  fi
+  t set -g @hivemux-ready 1
+  t run-shell -b "$HM_BIN/hivemux-sidebar ensure"
+}
+
+# No server: one window starts it. Ghostty opens several windows at once after a restart or a
+# force quit; without the lock they all started a server at the same moment, none of them restored,
+# and an empty session "0" was left (whose autosave then replaced the good snapshot).
+# The lock holder's pid is in the lock; a lock whose holder is gone (killed mid-start) is taken over.
+# 서버가 없음: 창 하나만 띄운다. 재시작이나 강제 종료 뒤 Ghostty 는 창 여러 개를 한꺼번에 연다.
+# 잠금이 없으면 모두가 같은 순간에 서버를 띄우다가 아무도 복원하지 못하고 빈 세션 "0" 만 남았다
+# (그 뒤 자동 저장이 좋은 저장본을 덮어썼다). 잠금 안에 잡은 쪽의 pid 가 있고, 그 프로세스가
+# 없어진 잠금(시작 도중 종료됨)은 넘겨받는다.
+LOCK="${TMPDIR:-/tmp}/hivemux-start-$(id -u)${HIVEMUX_SOCKET:+-$HIVEMUX_SOCKET}"
+waited=""
+while ! t has-session 2>/dev/null; do
+  if mkdir "$LOCK" 2>/dev/null; then
+    echo $$ > "$LOCK/pid"
+    t has-session 2>/dev/null || start_server
+    rm -rf "${LOCK:?}"
+    break
+  fi
+  holder="$(cat "$LOCK/pid" 2>/dev/null)"
+  if { [ -n "$holder" ] && ! kill -0 "$holder" 2>/dev/null; } ||
+     { [ -z "$holder" ] && [ -n "$(find "$LOCK" -maxdepth 0 -mmin +1 2>/dev/null)" ]; }; then
+    rm -rf "${LOCK:?}"; continue
+  fi
+  [ -n "$waited" ] || { note "$(say "다른 창이 tmux 를 시작하는 중…" "Another window is starting tmux…")"; waited=1; }
+  sleep 0.2
+done
+
+# Another window may be restoring right now (bootstrap "0" still there, not ready yet): wait for it
+# while its lock is held (max ~2 min).
+# 다른 창이 지금 복원 중일 수 있다 (시작용 "0" 이 있고 아직 준비 안 됨): 그 잠금이 있는 동안 기다린다 (최대 약 2분).
+for _ in $(seq 1 240); do
   t has-session -t '=0' 2>/dev/null || break
   [ "$(t show -gqv @hivemux-ready 2>/dev/null)" = 1 ] && break
+  [ -d "$LOCK" ] || break
+  note "$(say "다른 창이 이전 작업을 복원하는 중…" "Another window is restoring your last work…")"
   sleep 0.5
 done
 
@@ -64,4 +109,8 @@ if [ -n "$want" ] && printf '%s\n' "$detached" | grep -qxF "$want"; then
 fi
 [ -z "$pick" ] && pick="$(printf '%s\n' "$detached" | head -1)"
 [ -n "$pick" ] && exec "$TMUX_BIN" ${HIVEMUX_SOCKET:+-L "$HIVEMUX_SOCKET"} attach-session -t "=$pick"
-exec "$TMUX_BIN" ${HIVEMUX_SOCKET:+-L "$HIVEMUX_SOCKET"} new-session
+# No session to join: a new one. It was not restored, so it must not autosave over the snapshot
+# (cleared when a restore runs: share/hivemux.tmux post-restore hook)
+# 붙을 세션이 없음: 새로 만든다. 복원하지 않은 서버이므로 저장본을 자동 저장으로 덮지 않게 막는다
+# (복원이 실행되면 풀린다: share/hivemux.tmux 의 post-restore 훅)
+exec "$TMUX_BIN" ${HIVEMUX_SOCKET:+-L "$HIVEMUX_SOCKET"} new-session \; set -g @hivemux-nosave 1

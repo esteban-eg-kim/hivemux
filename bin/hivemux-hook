@@ -30,7 +30,7 @@ state() { # state <run|wait|done|idle>
 # Tell this server's sidebars to re-read now instead of on their next 1s poll
 # 이 서버의 사이드바에 바로 다시 읽으라고 알린다 (1초 주기를 기다리지 않게)
 wake() {
-  "$TMUX_BIN" list-panes -a -F '#{pane_pid} #{pane_title}' 2>/dev/null | awk '$2=="hivemux-sidebar"{print $1}' |
+  "$TMUX_BIN" list-panes -a -F '#{pane_pid} #{pane_title} #{m:*hivemux-sidebar-view*,#{pane_start_command}}' 2>/dev/null | awk '$2=="hivemux-sidebar" && $3==1{print $1}' |
     while read -r p; do kill -USR1 "$p" 2>/dev/null; done
 }
 

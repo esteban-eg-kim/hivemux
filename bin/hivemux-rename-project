@@ -55,7 +55,7 @@ case "$1" in
     save="$(t show -gqv @resurrect-save-script-path)"
     [ -x "$save" ] && ( "$save" quiet >/dev/null 2>&1 & )
     t refresh-client -S 2>/dev/null
-    t list-panes -a -F '#{pane_pid} #{pane_title}' 2>/dev/null | awk '$2=="hivemux-sidebar"{print $1}' |
+    t list-panes -a -F '#{pane_pid} #{pane_title} #{m:*hivemux-sidebar-view*,#{pane_start_command}}' 2>/dev/null | awk '$2=="hivemux-sidebar" && $3==1{print $1}' |
       while read -r p; do kill -USR1 "$p" 2>/dev/null; done
     t display -d 1500 "$(say "프로젝트 이름 변경" "Project renamed"): $new"
     ;;

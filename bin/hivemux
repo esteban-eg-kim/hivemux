@@ -162,6 +162,9 @@ doctor() {
   step "hivemux $VERSION ($HM_ROOT)"
   for c in tmux jq python3 git claude; do need "$c" && ok "$c: $(command -v "$c")" || bad "$c not found"; done
   [ -n "$("$HM_BIN/hivemux-plugins" dir 2>/dev/null)" ] && ok "plugins: $("$HM_BIN/hivemux-plugins" dir)" || bad "plugins missing (hivemux setup)"
+  if [ -n "$(tmux show -gqv @hivemux-nosave 2>/dev/null)" ]; then
+    warn "autosave paused: this tmux server started without restoring (restore: prefix Ctrl-r, or tmux kill-server and reopen Ghostty)"
+  fi
   grep -qF "$BEGIN" "$TMUX_CONF" 2>/dev/null && ok "tmux: $TMUX_CONF" || bad "tmux: block missing in $TMUX_CONF"
   grep -qF "hivemux-attach" "$GHOSTTY_CONF" 2>/dev/null && ok "Ghostty: $GHOSTTY_CONF" || warn "Ghostty: not attached to tmux"
   local n; n="$(jq '[.hooks[]?[]?.hooks[]? | select(.command|contains("hivemux-hook"))] | length' "$CLAUDE_SETTINGS" 2>/dev/null || echo 0)"

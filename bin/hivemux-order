@@ -63,9 +63,9 @@ def save_order(names):
 
 def wake():
     """Redraw all sidebars of this server now / 이 서버의 사이드바를 바로 다시 그린다"""
-    for l in tmux("list-panes", "-a", "-F", "#{pane_pid} #{pane_title}").splitlines():
-        pid, _, title = l.partition(" ")
-        if title == "hivemux-sidebar":
+    for l in tmux("list-panes", "-a", "-F", "#{pane_pid} #{pane_title} #{m:*hivemux-sidebar-view*,#{pane_start_command}}").splitlines():
+        pid, title, real = (l.split(" ") + ["", ""])[:3]
+        if title == "hivemux-sidebar" and real == "1":
             try:
                 os.kill(int(pid), signal.SIGUSR1)
             except (OSError, ValueError):

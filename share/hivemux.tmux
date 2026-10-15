@@ -37,8 +37,11 @@ set -g status-left-length 60
 # 다른 Mac 에서 붙은 터미널 (bin/hivemux-attach 가 @hivemux-remote-clients 에 적음)은 이 Mac 의 이름도 보여 준다
 set -g status-left "#{?#{m:* #{client_name} *,#{@hivemux-remote-clients}},#[bg=#7c4dff#,fg=#ffffff#,bold] ⇄ #h ,}#[bg=#2f6fb3,fg=#e6e9ef,bold]  #S  #[default]#[bg=#16181d] "
 set -g status-right-length 60
-# continuum autosave is triggered from status-right (see Persistence below)
-set -g status-right "#(#{@hivemux-continuum-save})#{?client_prefix,#[bg=#f5a524 fg=#16181d bold] PREFIX #[default] ,}#[fg=#626a78]%m-%d  %H:%M  "
+# continuum autosave is triggered from status-right (see Persistence below); not on a server that
+# started without restoring (@hivemux-nosave, bin/hivemux-attach): it would replace the snapshot with an empty one
+# continuum 자동 저장은 status-right 에서 돈다 (아래 Persistence). 복원 없이 뜬 서버(@hivemux-nosave,
+# bin/hivemux-attach)에서는 하지 않는다: 저장본을 빈 상태로 덮어쓰게 되므로
+set -g status-right "#{?@hivemux-nosave,,#(#{@hivemux-continuum-save})}#{?client_prefix,#[bg=#f5a524 fg=#16181d bold] PREFIX #[default] ,}#[fg=#626a78]%m-%d  %H:%M  "
 set -g window-status-separator ""
 set -g window-status-format "#[fg=#626a78] #I #[fg=#9aa3b2]#W#{?#{==:#{@claude_state},run}, #[fg=#5aa9ff]#{?@claude_spin,#{@claude_spin},◐},}#{?#{==:#{@claude_state},wait}, #[fg=#f5a524]●,}#{?#{==:#{@claude_state},done}, #[fg=#3ecf8e]✓,} "
 set -g window-status-current-format "#[bg=#2a2f3a,fg=#9aa3b2] #I #[fg=#e6e9ef,bold]#W#[nobold]#{?#{==:#{@claude_state},run}, #[fg=#5aa9ff]#{?@claude_spin,#{@claude_spin},◐},}#{?#{==:#{@claude_state},wait}, #[fg=#f5a524]●,}#{?#{==:#{@claude_state},done}, #[fg=#3ecf8e]✓,} #[default]"
@@ -134,5 +137,5 @@ set -g @continuum-save-interval '5'
 set -g @continuum-restore 'off'       # restore is done by hivemux-attach (waits for it)
 run-shell 'tmux set -g @resurrect-hook-post-save-all "#{@hivemux-bin}/hivemux-panes save"'
 run-shell 'tmux set -g @resurrect-hook-pre-restore-all "tmux set -g @hivemux-suspend 1"'
-run-shell 'tmux set -g @resurrect-hook-post-restore-all "#{@hivemux-bin}/hivemux-panes restore; tmux set -gu @hivemux-suspend; #{@hivemux-bin}/hivemux-sidebar rebuild"'
+run-shell 'tmux set -g @resurrect-hook-post-restore-all "#{@hivemux-bin}/hivemux-panes restore; tmux set -gu @hivemux-suspend; tmux set -gu @hivemux-nosave; #{@hivemux-bin}/hivemux-sidebar rebuild"'
 run-shell '#{@hivemux-bin}/hivemux-plugins load'

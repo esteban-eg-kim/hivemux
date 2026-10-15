@@ -73,8 +73,12 @@ case "$1" in
     else t list-windows -a -F '#{window_id}' | while read -r w; do ensure_one "$w"; done; fi ;;
   wake)
     # redraw now: the sidebar of window $2, or every sidebar / 지금 다시 그리기: $2 창의 사이드바, 없으면 모두
+    # only panes that really run the view: right after a restore, a saved sidebar is a plain shell that
+    # still has the title, and USR1 ends a shell (that closed whole windows and with them the server)
+    # 실제로 사이드바를 실행 중인 칸에만: 복원 직후 저장됐던 사이드바는 제목만 남은 셸이고, 셸은 USR1 을
+    # 받으면 끝난다 (그렇게 창이 통째로 닫히고 tmux 서버까지 꺼졌다)
     if [ -n "$2" ]; then set -- -t "$2"; else set -- -a; fi
-    t list-panes "$@" -F '#{pane_pid} #{pane_title}' 2>/dev/null | awk -v T="$TITLE" '$2==T{print $1}' |
+    t list-panes "$@" -F '#{pane_pid} #{pane_title} #{m:*hivemux-sidebar-view*,#{pane_start_command}}' 2>/dev/null | awk -v T="$TITLE" '$2==T && $3==1{print $1}' |
       while read -r p; do kill -USR1 "$p" 2>/dev/null; done ;;
   presize)
     # presize <client>: give every window the size this client shows windows at.
@@ -133,7 +137,13 @@ case "$1" in
     # 제목이 남아 있는 경우도 함께
     ghosts+="$(t list-panes -a -F '#{pane_id} #{pane_title} #{pane_current_command}' |
       awk -v T="$TITLE" '$2==T && $3!="Python" && $3!="python3"{printf "%s ", $1}')"
-    for p in $ghosts; do t kill-pane -t "$p" 2>/dev/null; done
+    # never the last pane of a window: if the work pane is gone, a shell is better than a closed window
+    # (all windows closing ends the tmux server)
+    # 창의 마지막 칸은 지우지 않는다: 작업 칸이 없어졌다면 창이 닫히는 것보다 셸이 남는 편이 낫다
+    # (창이 모두 닫히면 tmux 서버가 꺼진다)
+    for p in $ghosts; do
+      [ "$(t display -p -t "$p" '#{window_panes}' 2>/dev/null)" -gt 1 ] 2>/dev/null && t kill-pane -t "$p" 2>/dev/null
+    done
     "$0" ensure
     "$0" focus ;;
   focus)
