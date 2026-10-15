@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.14 — 2026-10-15
 
 - A session named "0" gets its sidebar again: only hivemux's bootstrap session
   is left without one, and only while it restores (a server left on "0" by the
