@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.12 — 2026-10-15
 
 - Still cards (a remote screen, or `@hivemux-anim off`) are told apart by color:
   a running card gets a blue background and a waiting one a stronger amber one,
