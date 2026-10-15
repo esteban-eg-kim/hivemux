@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.11 — 2026-10-15
 
 - Menu → Connect to…: `m` switches the chosen host between ssh and mosh; it
   checks first that mosh is on both Macs (`--add --mosh` checks the other Mac
