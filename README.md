@@ -155,6 +155,8 @@ a VPN such as [Tailscale](https://tailscale.com) on both Macs is the simple way
   sleep and network changes by itself, but notifications do not pass through
   mosh (`brew install mosh` on both Macs).
 - Two screens on the same project share it: switching windows on one moves the other.
+- While a remote screen looks at a window, its sidebar keeps still (no pulsing
+  cards, no status line spinner): every animation frame would go over the network.
 
 ## How it works
 

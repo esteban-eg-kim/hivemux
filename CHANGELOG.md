@@ -5,6 +5,10 @@
 - Menu → Connect to…: `m` switches the chosen host between ssh and mosh; it
   checks first that mosh is on both Macs (`--add --mosh` checks the other Mac
   too now)
+- A screen attached from another Mac no longer gets the sidebar animation: while
+  it looks at a window, the cards keep still, and the status line spinner stops
+  while it is attached (a running task sent about 40 KB/s to every screen, which
+  made typing over a slow link lag)
 
 ## 0.1.10 — 2026-10-13
 

@@ -721,6 +721,7 @@ def main():
     seen, sent = {}, {}              # notify_changes: pane -> (state, time); pane -> (state, sent at) / 칸 -> (상태, 시각); 칸 -> (상태, 보낸 시각)
     waits = {}                       # pane -> (state time, dialog seen, polls without it) (see clear_answered) / 칸 -> (상태 시각, 승인 창 봤음, 안 보인 횟수)
     snap, last_poll, last_spin, woke = None, 0.0, None, False
+    REMOTE_ON = False
     try:
         while True:
             nowf = time.time()
@@ -730,6 +731,18 @@ def main():
                 if snap is None:
                     break
                 ANIM = tmux("show", "-gqv", "@hivemux-anim").strip() != "off"
+                # a screen attached from another Mac (bin/hivemux-attach): every animation frame and
+                # status line spinner step would go over the network and make its typing lag, so keep
+                # them still while it looks at this window (the spinner: while it is attached at all)
+                # 다른 Mac 에서 붙은 화면 (bin/hivemux-attach): 애니메이션 프레임과 상태줄 스피너가 모두
+                # 네트워크로 가서 입력이 느려지므로, 그 화면이 이 창을 보는 동안 멈춘다 (스피너는 붙어 있는 동안)
+                remote = set(tmux("show", "-gqv", "@hivemux-remote-clients").split())
+                REMOTE_ON = bool(remote)
+                if remote:
+                    mine = tmux("display", "-p", "-t", ME, "#{window_id}").strip()
+                    if any(c in remote and w == mine for c, w in
+                           (l.split(" ", 1) for l in tmux("list-clients", "-F", "#{client_name} #{window_id}").splitlines() if " " in l)):
+                        ANIM = False
                 # @hivemux-fps: animation frames per second (default 30; lower saves CPU)
                 # @hivemux-fps: 초당 애니메이션 프레임 (기본 30, 낮추면 CPU 절약)
                 fps = tmux("show", "-gqv", "@hivemux-fps").strip()
@@ -762,7 +775,7 @@ def main():
                 # 맨 위 창 목록의 작업 중 스피너 (보이는 사이드바 하나가 맡는다)
                 # 6 steps/s, independent of the frame rate, so tmux is not asked to redraw 30x/s
                 # 프레임 수와 상관없이 초당 6번: tmux 상태줄을 초당 30번 다시 그리지 않게
-                spin = SPIN[int(NOW_T * 6) % len(SPIN)] if animating and any(p["@claude_state"] == "run" for p in items) else ""
+                spin = SPIN[int(NOW_T * 6) % len(SPIN)] if animating and not REMOTE_ON and any(p["@claude_state"] == "run" for p in items) else ""
                 if spin != last_spin:
                     if spin:
                         tmux("set", "-g", "@claude_spin", spin)
