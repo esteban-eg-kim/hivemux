@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Still cards (a remote screen, or `@hivemux-anim off`) are told apart by color:
+  a running card gets a blue background and a waiting one a stronger amber one,
+  instead of looking like an idle card with a colored bar
+
 ## 0.1.11 — 2026-10-15
 
 - Menu → Connect to…: `m` switches the chosen host between ssh and mosh; it

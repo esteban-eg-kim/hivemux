@@ -103,6 +103,11 @@ C = {
     "wait":    (245, 165, 36),
     "wait_bg": (52, 40, 18),
     "wait_hi": (78, 58, 20),
+    # still cards (no animation: a remote screen, @hivemux-anim off) are told apart by a tinted background
+    # 멈춘 카드 (애니메이션 없음: 원격 화면, @hivemux-anim off)는 바탕색으로 구분한다
+    "run_bg":      (26, 43, 68),
+    "run_bg_sel":  (34, 56, 88),
+    "wait_bg_sel": (96, 70, 22),
     "done":    (62, 207, 142),
     "idle":    (92, 99, 112),
     "drop":    (36, 62, 100),    # drop target while dragging / 끄는 중 놓을 자리
@@ -325,7 +330,10 @@ def render(items, current, w, h, cur_sess="", sessions=()):
                 icon = STATE_ICON[st]
                 t_ = NOW_T
                 if st == "wait":
-                    card = mix(C["wait_bg"], C["wait_hi"], (0.5 + 0.5 * math.sin(t_ * 2.25))) if ANIM else C["wait_bg"]
+                    card = mix(C["wait_bg"], C["wait_hi"], (0.5 + 0.5 * math.sin(t_ * 2.25))) if ANIM else \
+                        C["wait_bg_sel"] if sel else C["wait_hi"]
+                if st == "run" and not ANIM:
+                    card = C["run_bg_sel"] if sel else C["run_bg"]
                 if st == "run" and ANIM:
                     icon = SPIN[int(t_ * 10) % len(SPIN)]
                     bar = mix(C["run"], C["run_hi"], 0.5 + 0.5 * math.sin(t_ * 3.1))
