@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.13 — 2026-10-15
 
 - Fix: starting Ghostty with no tmux server (after a reboot, or when the server
   had ended) could end the server in the middle of the restore and leave an
