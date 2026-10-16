@@ -27,42 +27,23 @@ set -g mouse on                  # sidebar clicks, grip drag
 set-environment -g FORCE_HYPERLINK 1
 
 # ── Status line (top) ────────────────────────────────────────────────────
-# two lines (always two, so panes never change size when a task starts or stops waiting):
-#   1. the project badge, then the pickup board: an LED sign of the tasks that need input or finished
-#   2. the badge's second line (the project folder), then the window list
-#   The badge is as wide as the sidebar, so the board and the window list sit above the work area.
-# 두 줄 (늘 두 줄이라 작업이 기다리거나 끝날 때 칸 크기가 바뀌지 않는다):
-#   1. 프로젝트 이름표, 그다음 호출판: 입력이 필요하거나 끝난 작업을 보여 주는 전광판
-#   2. 이름표의 둘째 줄 (프로젝트 폴더), 그다음 창 목록
-#   이름표는 사이드바 폭이라서 호출판과 창 목록은 작업 칸 위에 놓인다.
-set -g status 2
+set -g status on
 set -g status-position top
 set -g status-interval 5
 set -g status-style "bg=#16181d,fg=#9aa3b2"
-set -g status-left-length 120
-# the badge (@hivemux-badge, @hivemux-badge2: per session, sidebar wide, written by bin/hivemux-sidebar-view;
-# without a sidebar just the name)
-# 이름표 (@hivemux-badge, @hivemux-badge2: 세션마다, 사이드바 폭, bin/hivemux-sidebar-view 가 적는다.
-# 사이드바가 없으면 이름만)
-set -g status-left "#{?@hivemux-badge2,#[bg=#2f6fb3#,fg=#a9c6ea]#{@hivemux-badge2}#[default],}"
-set -g status-right-length 60
+set -g status-left-length 60
+# session (project) name on a blue badge, as in the README preview
+# a terminal attached from another Mac (bin/hivemux-attach lists it in @hivemux-remote-clients) also shows this Mac's name
+# 다른 Mac 에서 붙은 터미널 (bin/hivemux-attach 가 @hivemux-remote-clients 에 적음)은 이 Mac 의 이름도 보여 준다
+set -g status-left "#{?#{m:* #{client_name} *,#{@hivemux-remote-clients}},#[bg=#7c4dff#,fg=#ffffff#,bold] ⇄ #h ,}#[bg=#2f6fb3,fg=#e6e9ef,bold]  #S  #[default]#[bg=#16181d] "
+set -g status-right-length 160
 # continuum autosave is triggered from status-right (see Persistence below); not on a server that
 # started without restoring (@hivemux-nosave, bin/hivemux-attach): it would replace the snapshot with an empty one
 # continuum 자동 저장은 status-right 에서 돈다 (아래 Persistence). 복원 없이 뜬 서버(@hivemux-nosave,
 # bin/hivemux-attach)에서는 하지 않는다: 저장본을 빈 상태로 덮어쓰게 되므로
-set -g status-right "#{?@hivemux-nosave,,#(#{@hivemux-continuum-save})}#{?client_prefix,#[bg=#f5a524 fg=#16181d bold] PREFIX #[default] ,}#[fg=#626a78]%m-%d  %H:%M  "
-# line 2 is tmux's usual line (status-left, windows, status-right); line 1 is ours. Reset first, so
-# loading this file again copies tmux's line, not ours.
-# 둘째 줄은 tmux 기본 줄 (status-left, 창 목록, status-right), 첫째 줄은 hivemux 의 줄. 먼저 되돌려서
-# 이 파일을 다시 읽어도 hivemux 의 줄이 아니라 tmux 의 줄을 옮긴다.
-set -gu status-format
-run-shell 'tmux set -g "status-format[1]" "$(tmux show -gv "status-format[0]")"'
-# line 1: the badge with the session (project) name, then the pickup board (@hivemux-board, written by
-# bin/hivemux-sidebar-view). A terminal attached from another Mac (bin/hivemux-attach lists it in
-# @hivemux-remote-clients) also shows this Mac's name.
-# 첫째 줄: 세션(프로젝트) 이름표, 그다음 호출판 (@hivemux-board, bin/hivemux-sidebar-view 가
-# 적는다). 다른 Mac 에서 붙은 터미널 (bin/hivemux-attach 가 @hivemux-remote-clients 에 적음)은 이 Mac 의 이름도 보여 준다.
-set -g "status-format[0]" "#[align=left,fill=#050607,bg=#050607]#[bg=#2f6fb3,fg=#e6e9ef,bold]#{?@hivemux-badge,#{@hivemux-badge},  #S  }#[bg=#050607,nobold] #{?#{m:* #{client_name} *,#{@hivemux-remote-clients}},#[bg=#7c4dff#,fg=#ffffff#,bold] ⇄ #h #[bg=#050607#,nobold] ,}#{E:@hivemux-board}"
+# the pickup board (@hivemux-board, written by bin/hivemux-sidebar-view): tasks that need input or finished
+# 호출판 (@hivemux-board, bin/hivemux-sidebar-view 가 적는다): 입력이 필요하거나 끝난 작업
+set -g status-right "#{?@hivemux-nosave,,#(#{@hivemux-continuum-save})}#{E:@hivemux-board}#{?client_prefix,#[bg=#f5a524 fg=#16181d bold] PREFIX #[default] ,}#[fg=#626a78]%m-%d  %H:%M  "
 set -g window-status-separator ""
 set -g window-status-format "#[fg=#626a78] #I #[fg=#9aa3b2]#W#{?#{==:#{@claude_state},run}, #[fg=#5aa9ff]#{?@claude_spin,#{@claude_spin},◐},}#{?#{==:#{@claude_state},wait}, #[fg=#f5a524]●,}#{?#{==:#{@claude_state},done}, #[fg=#3ecf8e]✓,} "
 set -g window-status-current-format "#[bg=#2a2f3a,fg=#9aa3b2] #I #[fg=#e6e9ef,bold]#W#[nobold]#{?#{==:#{@claude_state},run}, #[fg=#5aa9ff]#{?@claude_spin,#{@claude_spin},◐},}#{?#{==:#{@claude_state},wait}, #[fg=#f5a524]●,}#{?#{==:#{@claude_state},done}, #[fg=#3ecf8e]✓,} #[default]"

@@ -313,7 +313,7 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
       <h3>Open Ghostty</h3>
       <p>Open it from the Dock or Spotlight (<kbd>⌘</kbd>+<kbd>Space</kbd>, type Ghostty). A dark status line at the top and a sidebar on the left mean you are inside tmux.</p>
       <div class="tbar"><span class="sess">main</span><span class="win cur">1:zsh</span><span class="grow"></span><span class="clock">10-06 11:02</span></div>
-      <p class="result"><b>main</b> at the left of the top line is the default session; the line below is the window list. The sidebar says there is no Claude yet. Open a project from here. Next time, Ghostty opens straight into the project you were last looking at.</p>
+      <p class="result">The top line is the window list; <b>main</b> on the left is the default session. The sidebar says there is no Claude yet. Open a project from here. Next time, Ghostty opens straight into the project you were last looking at.</p>
     </div></div>
 
     <div class="st"><div>
@@ -370,7 +370,7 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
       </div>
       <p><kbd>Option</kbd>+number jumps straight to that Claude, even in another project. Clicking a card does the same.</p>
       <p><kbd>Option</kbd>+<kbd>0</kbd> jumps to the Claude that has waited longest. With nothing amber, it goes to a finished green card you have not seen yet. Press it repeatedly to work through everything that is waiting.</p>
-      <p class="result">Running cards have a light band sweeping across and a spinner. Cards that need input pulse amber. The window list shows a spinner next to running windows too. Numbers follow project names and stay put when states change, so they are easy to remember. The second line of each card shows the state and elapsed time, so you can decide what to look at first. When there are too many tasks to fit, cards shrink to one line. To hide the sidebar, press <kbd>Ctrl</kbd>+<kbd>A</kbd> then <kbd>b</kbd>; press again to bring it back.</p>
+      <p class="result">Running cards have a light band sweeping across and a spinner. Cards that need input pulse amber. The top window list shows a spinner next to running windows too. Numbers follow project names and stay put when states change, so they are easy to remember. The second line of each card shows the state and elapsed time, so you can decide what to look at first. When there are too many tasks to fit, cards shrink to one line. To hide the sidebar, press <kbd>Ctrl</kbd>+<kbd>A</kbd> then <kbd>b</kbd>; press again to bring it back.</p>
     </div></div>
 
     <div class="st"><div>
@@ -418,8 +418,8 @@ claude -c
   </div>
 
   <h3>Reading the sidebar and status line</h3>
-  <p>Every window has the sidebar on the left; the two lines at the top are the project name with the pickup board, then the current project's window list. The sidebar shows the same board in every window.</p>
-  <p>Above the sidebar, a blue badge spans both lines: the project name, and under it its folder. To its right, above the work area, the top line is the <b>pickup board</b> and the line below is the window list. The board is like the LED order board at a food court: on a black line, a task that needs input shows in amber as <b>● ⌥3 name</b>, one that finished and is not seen yet in green as <b>✓ ⌥2 name</b>. A waiting one blinks until you answer, a finished one for its first 10 seconds. Tasks from other projects show too; click one or press its <kbd>⌥</kbd> number to go there. A finished one leaves once you look at it. It stays still with animation off or while another Mac is attached.</p>
+  <p>Every window has the sidebar on the left; the single line at the top is the current project's window list. The sidebar shows the same board in every window.</p>
+  <p>The right of the top line is the <b>pickup board</b>, like the order board at a food court: each task that needs input shows as an amber round badge with its <kbd>⌥</kbd> number, one that finished and is not seen yet as a green one. A waiting one blinks until you answer, a finished one for its first 10 seconds. Tasks from other projects show too; click a badge or press its <kbd>⌥</kbd> number to go there. A finished one leaves once you look at it. It stays still with animation off or while another Mac is attached.</p>
   <div>
   <div class="screen" role="img" aria-label="Example tmux screen: window list on top, sidebar on the left, work pane on the right">
         <div class="tbar"><span class="sess">web</span><span class="win">1:claude <span class="st-wait">●</span></span><span class="win">2:shell</span><span class="win cur">3:login-bug <span class="st-wait">●</span></span><span class="grow"></span><span class="clock">10-06 11:20</span></div>
@@ -446,7 +446,7 @@ claude -c
     <div><b>Task name</b><span>Claude's conversation title or the -n name. Claude may retitle it as the conversation goes</span></div>
     <div><b>⌥ number</b><span>The number for Option+number</span></div>
     <div><b>▶ lighter card</b><span>The task you are looking at</span></div>
-    <div><b>Top two lines: web · 1:claude …</b><span>The project name with the pickup board, then its windows. The highlighted one is the current window</span></div>
+    <div><b>Top line: web 1:claude …</b><span>Current project and its windows. The highlighted one is the current window</span></div>
   </div>
   <div class="scroll"><table>
     <thead><tr><th>Card</th><th>Meaning</th><th>What to do</th></tr></thead>
@@ -489,7 +489,7 @@ claude -c
       <div class="key"><span class="combo">Right click</span><span class="d">Menu. On a task: go to, rename, move up / down, new Claude in this project, new project. On a project name: rename, close project, new Claude, new project. On empty space: new project. Every menu ends with Connect to… and Settings. Hover highlights, a click runs; <kbd>↑</kbd> <kbd>↓</kbd> and <kbd>Enter</kbd> or the letter shown also choose. <kbd>Esc</kbd> or a click outside closes it</span></div>
       <div class="key"><span class="combo">Menu → New project</span><span class="d">A folder browser opens in the middle. <kbd>Enter</kbd> starts in the selected folder like <code>hm</code>, <kbd>→</kbd> / <kbd>←</kbd> move in and out, typing filters (start with <code>.</code> for hidden folders), <kbd>Ctrl</kbd>+<kbd>N</kbd> makes a new folder</span></div>
       <div class="key"><span class="combo">Menu → Settings</span><span class="d">Language (한국어 / English), animation on / off, notifications on / off, sidebar width. Applied at once and saved in <code>~/.local/share/hivemux</code>, so they survive restarts. Changing the language restarts the sidebars</span></div>
-      <div class="key"><span class="combo">Drag a card / project header</span><span class="d">Reorder tasks / projects. The drop target turns blue; <kbd>⌥</kbd>+number and the window list follow the same order. A task moves only within its project</span></div>
+      <div class="key"><span class="combo">Drag a card / project header</span><span class="d">Reorder tasks / projects. The drop target turns blue; <kbd>⌥</kbd>+number and the top window list follow the same order. A task moves only within its project</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Shift</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></span><span class="d">Move the current task up / down one step; at a project's edge the whole project moves</span></div>
       <div class="key"><span class="combo">Drag the grip</span><span class="d">Drag the grip bar or the border to resize the sidebar; applied to all windows and saved</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>b</kbd></span><span class="d">Hide / show all sidebars</span></div>
@@ -645,7 +645,7 @@ touch ~/tmux_no_auto_restore
 tmux set-environment -g HIVEMUX_NO_RESUME 1</pre></div>
     </div></details>
     <details class="issue" data-c="restore"><summary>A status icon stays in the window list<span class="pill part tag">Restore</span></summary><div class="body">
-      <p>Icons in the window list are per window, so with several Claudes in split panes you see the last change only. The sidebar is per pane and shows each one. The icon clears when Claude exits.</p>
+      <p>Icons in the top window list are per window, so with several Claudes in split panes you see the last change only. The sidebar is per pane and shows each one. The icon clears when Claude exits.</p>
     </div></details>
     <details class="issue" data-c="phone"><summary>Sessions do not show up in the phone app<span class="pill part tag">Phone</span></summary><div class="body">
       <p>Remote Control needs a claude.ai subscription sign-in, not an API key. Check the sign-in. Sessions started before Remote Control was turned on do not connect by themselves; type <code>/remote-control</code> in them.</p>
@@ -676,7 +676,7 @@ rm ~/.local/share/hivemux/sidebar-width
 hivemux-sidebar respawn</pre></div>
       <p class="why">If keyboard focus ends up in the sidebar, <kbd>q</kbd> or <kbd>Esc</kbd> returns it to the work pane. Number keys in the sidebar jump to that task.</p>
     </div></details>
-    <details class="issue" data-c="term"><summary>A <code>·</code> window appears in the window list while a popup is open<span class="pill part tag">Terminal</span></summary><div class="body">
+    <details class="issue" data-c="term"><summary>A <code>·</code> window appears in the top window list while a popup is open<span class="pill part tag">Terminal</span></summary><div class="body">
       <p>The rename, new project, settings and <kbd>Option</kbd>+<kbd>O</kbd> popups open over a still copy of the screen. The <code>·</code> window is that copy; it goes away when the popup closes and you are back in your window.</p>
       <p class="why">tmux 3.7 draws double-width text (Korean and other CJK) that Claude prints through popups and menus on top of it, so a popup over a printing Claude gets garbled. The right-click menu is drawn by the sidebar itself for the same reason.</p>
     </div></details>

@@ -2,15 +2,11 @@
 
 ## Unreleased
 
-- The pickup board has its own line: the status bar is two lines. The top one
-  is the pickup board, drawn like an LED sign (bright letters on a black line,
-  up to 8 tasks from the left); under it the window list. Over the sidebar, a
-  blue project badge as wide as the sidebar spans both lines (the name, then
-  its folder), so the board and the window list sit above the work area.
-  Always two lines, so panes never change size when a task starts or stops
-  waiting
-- A waiting task blinks until answered, a finished one for its first 10
-  seconds; still with animation off or while another Mac is attached
+- The pickup board shows round number badges instead of names: the task's
+  `Option` number in an amber (needs input) or green (finished, not seen yet)
+  badge, so it takes little room. A waiting one blinks until answered, a
+  finished one for its first 10 seconds; still with animation off or while
+  another Mac is attached
 
 ## 0.1.18 — 2026-10-16
 

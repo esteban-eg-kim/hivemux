@@ -21,15 +21,16 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
 - **Notifications.** A macOS notification when a task needs input or finishes,
   except the one you are looking at. Turn it off in Settings.
 - **Jump anywhere.** `Option+1..9`, `Option+0` (oldest waiting), or click a card.
-- **Pickup board.** Like the LED order board at a food court, the top line,
-  after the project name, shows every task, in any project, that needs input (amber) or
-  finished and is not seen yet (green). A waiting one blinks until you answer,
-  a finished one for its first 10 seconds. Click one to go there; a finished
-  one leaves the board once you look at it.
+- **Pickup board.** Like the order board at a food court, the right of the top
+  status line shows a round number badge (the task's `Option` number) for every
+  task, in any project, that needs input (amber) or finished and is not seen
+  yet (green). A waiting one blinks until you answer, a finished one for its
+  first 10 seconds. Click a badge to go there; a finished one leaves once you
+  look at it.
 - **Task names.** Shows Claude's own conversation title. Double-click a card
   (or right-click → Rename) to rename it; hivemux sends `/rename` to that Claude (waits if it is busy).
 - **Your order.** Drag a card to reorder tasks, or a project header to reorder
-  projects. `Option+N` numbers and the window list follow the same order.
+  projects. `Option+N` numbers and the top window list follow the same order.
 - **Survives everything.** tmux keeps sessions alive when the terminal closes;
   tmux-resurrect restores layouts after a reboot and hivemux runs
   `claude --resume <id>` in the right pane.

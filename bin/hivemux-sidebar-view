@@ -435,14 +435,15 @@ def render(items, current, w, h, cur_sess="", sessions=()):
 
 
 def board(items, now, blink):
-    """The pickup board, the second status line, drawn like an LED sign (food court style): every task, in any project, that needs input or finished and is not seen yet, in bright
-    LED colors on a black panel. Waiting first, then finished, oldest first (left). A waiting one
-    blinks until answered, a finished one for its first BLINK_DONE seconds (blink: False keeps them
-    still). Click one (MouseDown1Status, share/hivemux.tmux) to go there.
+    """The pickup board at the right of the window list (food court style): every task, in any
+    project, that needs input (amber) or finished and is not seen yet (green), as a round badge
+    with its number (the sidebar's ⌥ number). Waiting first, then finished, oldest first.
+    A waiting one blinks until answered, a finished one for its first BLINK_DONE seconds (blink:
+    False keeps them still). Click one (MouseDown1Status, share/hivemux.tmux) to go there.
     Returns (status line text, whether something blinks).
-    상태줄 둘째 줄의 호출판, 전광판처럼 그린다 (푸드코트 호출판): 어느 프로젝트든 입력이 필요하거나
-    끝나고 아직 안 본 작업을 검은 판 위에 밝은 LED 색으로. 입력 필요가 먼저, 그다음 완료, 오래된 것이
-    왼쪽. 입력 필요는 답할 때까지, 완료는 처음 BLINK_DONE 초 동안 깜빡인다 (blink 가 False 면 멈춤).
+    창 목록 오른쪽의 호출판 (푸드코트 호출판처럼): 어느 프로젝트든 입력이 필요하거나(호박색) 끝나고 아직
+    안 본(초록) 작업을 번호(사이드바의 ⌥ 번호)가 든 동그란 배지로. 입력 필요가 먼저, 그다음 완료, 오래된 순.
+    입력 필요는 답할 때까지, 완료는 처음 BLINK_DONE 초 동안 깜빡인다 (blink 가 False 면 멈춤).
     누르면 (MouseDown1Status, share/hivemux.tmux) 그 작업으로 간다.
     돌려주는 값: (상태줄 글, 깜빡이는 것이 있는지)."""
     num = {p["pane_id"]: i for i, p in enumerate(items, 1)}
@@ -450,75 +451,29 @@ def board(items, now, blink):
     calls = sorted((p for p in items if p["@claude_state"] in ("wait", "done")),
                    key=lambda p: (p["@claude_state"] != "wait", at(p)))
     if not calls:
-        return f"#[bg={LED_BG},fg={LED_IDLE}] {tr('입력이 필요하거나 끝난 작업이 여기 뜹니다', 'Tasks that need input or finish show here')}", False
+        return "", False
     lit = int(now * 2) % 2 == 0                 # blink phase: 0.5 s on, 0.5 s off / 깜빡임: 0.5초 켜짐, 0.5초 꺼짐
     blinking = False
     out = []
-    for p in calls[:BOARD_MAX]:
-        n = num[p["pane_id"]]
+    for p in calls:
         wait = p["@claude_state"] == "wait"
-        name = task_name(p)
-        if width(name) > BOARD_NAME:
-            cut = ""
-            for c in name:
-                if width(cut + c) > BOARD_NAME - 1:
-                    break
-                cut += c
-            name = cut.rstrip() + "…"
-        # the status line goes through strftime too: "%" doubles; the range is "hm<pane number>" (no "%")
-        # 상태줄은 strftime 도 거친다: "%" 는 두 번. 범위 값은 "hm<칸 번호>" ("%" 없이)
-        name = name.replace("#", "##").replace("%", "%%")
-        key = f"⌥{n} " if n <= 9 else ""
-        color = LED_WAIT if wait else LED_DONE
         flash = blink and (wait or now - at(p) < BLINK_DONE)
         blinking |= flash
-        # lit: the whole cell lights up (inverted); otherwise LED letters on the black panel
-        # 켜짐: 칸 전체가 켜진다 (반전). 아니면 검은 판 위의 LED 글자
-        style = f"bg={color},fg={LED_BG},bold" if flash and lit else f"bg={LED_BG},fg={color},bold"
-        out.append(f"#[bg={LED_BG},fg={LED_RULE}]{' ┃ ' if out else ''}#[range=user|hm{p['pane_id'].lstrip('%')}]#[{style}]"
-                   f" {'●' if wait else '✓'} {key}{name} #[norange]")
-    if len(calls) > BOARD_MAX:
-        out.append(f"#[bg={LED_BG},fg={LED_RULE}] ┃ #[fg={LED_MORE}] +{len(calls) - BOARD_MAX} ")
-    return "".join(out), blinking
+        color = BADGE_WAIT if wait else BADGE_DONE
+        n = num[p["pane_id"]]
+        # a round badge: Ghostty's built-in Nerd Font half circles around the number; blinking, it
+        # goes out to the bare number and back
+        # 동그란 배지: Ghostty 에 들어 있는 Nerd Font 반원 두 개 사이에 번호. 깜빡일 때는 번호만 남았다가 돌아온다
+        if not flash or lit:
+            badge = f"#[fg={color},bg={STATUS_BG}]\ue0b6#[bg={color},fg={STATUS_BG},bold]{n}#[fg={color},bg={STATUS_BG},nobold]\ue0b4"
+        else:
+            badge = f"#[fg={color},bg={STATUS_BG},bold] {n} #[nobold]"
+        out.append(f"#[range=user|hm{p['pane_id'].lstrip('%')}]{badge}#[norange default]")
+    return " ".join(out) + "   ", blinking
 
 
-BOARD_MAX, BOARD_NAME, BLINK_DONE = 8, 22, 10     # chips shown, name columns, seconds a finished one blinks / 보이는 칩 수, 이름 칸 수, 완료가 깜빡이는 초
-LED_BG, LED_RULE, LED_MORE, LED_IDLE = "#050607", "#2a2d33", "#9aa3b2", "#4a4f58"
-LED_WAIT, LED_DONE = "#ffb000", "#39ff88"
-
-
-def badges(w, names):
-    """The project badge in the status bar: a blue block as wide as the sidebar (w, with its border),
-    over both lines: the project name on line 1, its folder on line 2. The window list and the
-    pickup board start right after it, above the work area. Written per session (@hivemux-badge,
-    @hivemux-badge2), since tmux cannot pad to a width it reads from an option.
-    상태줄의 프로젝트 이름표: 사이드바 폭(w, 경계선 포함)만큼의 파란 칸이 두 줄에 걸친다. 첫 줄은 프로젝트
-    이름, 둘째 줄은 그 폴더. 창 목록과 호출판은 그 바로 다음, 작업 칸 위에서 시작한다. tmux 는 옵션에서
-    읽은 폭으로 채울 수 없어서 세션마다 적어 둔다 (@hivemux-badge, @hivemux-badge2)."""
-    home = os.path.expanduser("~")
-    paths = dict(l.split("\t", 1) for l in tmux("list-sessions", "-F", "#{session_name}\t#{session_path}").splitlines() if "\t" in l)
-
-    def cell(text, tail=False):
-        # too long: cut the end, or for a folder the start (its last part is the useful one)
-        # 너무 길면 끝을 자른다. 폴더는 앞을 자른다 (끝 부분이 쓸모 있다)
-        room = w - 3
-        if width(text) > room:
-            cut = ""
-            for c in (reversed(text) if tail else text):
-                if width(cut + c) > room - 1:
-                    break
-                cut += c
-            text = "…" + cut[::-1] if tail else cut + "…"
-        text = "  " + text
-        return (text + " " * (w - width(text))).replace("#", "##").replace("%", "%%")
-    for s in names:
-        p = paths.get(s, "")
-        p = "~" + p[len(home):] if p == home or p.startswith(home + "/") else p
-        for opt, v in (("@hivemux-badge", cell(s)), ("@hivemux-badge2", cell(p, tail=True))):
-            if tmux("show", "-qv", "-t", f"={s}:", opt).rstrip("\n") != v:
-                tmux("set", "-t", f"={s}:", opt, v)
-    for c in tmux("list-clients", "-F", "#{client_name}").split():
-        tmux("refresh-client", "-S", "-t", c)
+BLINK_DONE = 10                    # seconds a finished one blinks / 완료가 깜빡이는 초
+BADGE_WAIT, BADGE_DONE, STATUS_BG = "#f5a524", "#3ecf8e", "#16181d"
 
 
 def rename(pid):
@@ -815,7 +770,7 @@ def main():
     runs = {}                        # pane -> (state time, polls without the busy footer) (see clear_interrupted) / 칸 -> (상태 시각, 작업 중 표시가 없던 횟수)
     seen, sent = {}, {}              # notify_changes: pane -> (state, time); pane -> (state, sent at) / 칸 -> (상태, 시각); 칸 -> (상태, 보낸 시각)
     waits = {}                       # pane -> (state time, dialog seen, polls without it) (see clear_answered) / 칸 -> (상태 시각, 승인 창 봤음, 안 보인 횟수)
-    snap, last_poll, last_spin, last_board, last_pad, woke = None, 0.0, None, None, None, False
+    snap, last_poll, last_spin, last_board, woke = None, 0.0, None, None, False
     board_blink = False
     REMOTE_ON = False
     try:
@@ -886,12 +841,6 @@ def main():
                         p["@claude_state"] = "idle"
                 # the pickup board (see board), redrawn on every screen only when it changes
                 # 호출판 (board 참고). 바뀔 때만 모든 화면의 상태줄을 다시 그린다
-                # the project badge over the sidebar, both status lines (see badges)
-                # 사이드바 위, 상태줄 두 줄에 걸친 프로젝트 이름표 (badges 참고)
-                key = (os.get_terminal_size()[0] + 1, tuple(s for s, _, _ in sessions))
-                if key != last_pad:
-                    badges(*key)
-                    last_pad = key
                 # it blinks like the sidebar animates: not with animation off, nor while a screen from
                 # another Mac is attached (every blink would go over the network)
                 # 사이드바 애니메이션처럼: 애니메이션을 껐거나 다른 Mac 의 화면이 붙어 있으면 깜빡이지 않는다
