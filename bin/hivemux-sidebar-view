@@ -435,13 +435,12 @@ def render(items, current, w, h, cur_sess="", sessions=()):
 
 
 def board(items, now, blink):
-    """The pickup board at the left of the top status line, drawn like an LED sign (food court
-    style): every task, in any project, that needs input or finished and is not seen yet, in bright
+    """The pickup board, the second status line, drawn like an LED sign (food court style): every task, in any project, that needs input or finished and is not seen yet, in bright
     LED colors on a black panel. Waiting first, then finished, oldest first (left). A waiting one
     blinks until answered, a finished one for its first BLINK_DONE seconds (blink: False keeps them
     still). Click one (MouseDown1Status, share/hivemux.tmux) to go there.
     Returns (status line text, whether something blinks).
-    맨 위 상태줄 왼쪽의 호출판, 전광판처럼 그린다 (푸드코트 호출판): 어느 프로젝트든 입력이 필요하거나
+    상태줄 둘째 줄의 호출판, 전광판처럼 그린다 (푸드코트 호출판): 어느 프로젝트든 입력이 필요하거나
     끝나고 아직 안 본 작업을 검은 판 위에 밝은 LED 색으로. 입력 필요가 먼저, 그다음 완료, 오래된 것이
     왼쪽. 입력 필요는 답할 때까지, 완료는 처음 BLINK_DONE 초 동안 깜빡인다 (blink 가 False 면 멈춤).
     누르면 (MouseDown1Status, share/hivemux.tmux) 그 작업으로 간다.
@@ -450,11 +449,12 @@ def board(items, now, blink):
     at = lambda p: int(p["@claude_state_at"]) if p["@claude_state_at"].isdigit() else 0
     calls = sorted((p for p in items if p["@claude_state"] in ("wait", "done")),
                    key=lambda p: (p["@claude_state"] != "wait", at(p)))
+    label = f"#[bg={LED_BG},fg={LED_LABEL},bold]  {tr('호출', 'CALL')} "
     if not calls:
-        return "", False
+        return label + f"#[fg={LED_RULE}] ┃ #[fg={LED_IDLE},nobold] {tr('입력이 필요하거나 끝난 작업이 여기 뜹니다', 'Tasks that need input or finish show here')}", False
     lit = int(now * 2) % 2 == 0                 # blink phase: 0.5 s on, 0.5 s off / 깜빡임: 0.5초 켜짐, 0.5초 꺼짐
     blinking = False
-    out = [f"#[bg={LED_BG},fg={LED_LABEL},bold] {tr('호출', 'CALL')} "]
+    out = [label]
     for p in calls[:BOARD_MAX]:
         n = num[p["pane_id"]]
         wait = p["@claude_state"] == "wait"
@@ -476,15 +476,15 @@ def board(items, now, blink):
         # lit: the whole cell lights up (inverted); otherwise LED letters on the black panel
         # 켜짐: 칸 전체가 켜진다 (반전). 아니면 검은 판 위의 LED 글자
         style = f"bg={color},fg={LED_BG},bold" if flash and lit else f"bg={LED_BG},fg={color},bold"
-        out.append(f"#[bg={LED_BG},fg={LED_RULE}]┃#[range=user|hm{p['pane_id'].lstrip('%')}]#[{style}]"
+        out.append(f"#[bg={LED_BG},fg={LED_RULE}] ┃ #[range=user|hm{p['pane_id'].lstrip('%')}]#[{style}]"
                    f" {'●' if wait else '✓'} {key}{name} #[norange]")
     if len(calls) > BOARD_MAX:
-        out.append(f"#[bg={LED_BG},fg={LED_RULE}]┃#[fg={LED_MORE}] +{len(calls) - BOARD_MAX} ")
-    return "".join(out) + "#[default] ", blinking
+        out.append(f"#[bg={LED_BG},fg={LED_RULE}] ┃ #[fg={LED_MORE}] +{len(calls) - BOARD_MAX} ")
+    return "".join(out), blinking
 
 
-BOARD_MAX, BOARD_NAME, BLINK_DONE = 5, 16, 10     # chips shown, name columns, seconds a finished one blinks / 보이는 칩 수, 이름 칸 수, 완료가 깜빡이는 초
-LED_BG, LED_RULE, LED_LABEL, LED_MORE = "#050607", "#2a2d33", "#ff4d4d", "#9aa3b2"
+BOARD_MAX, BOARD_NAME, BLINK_DONE = 8, 22, 10     # chips shown, name columns, seconds a finished one blinks / 보이는 칩 수, 이름 칸 수, 완료가 깜빡이는 초
+LED_BG, LED_RULE, LED_LABEL, LED_MORE, LED_IDLE = "#050607", "#2a2d33", "#ff4d4d", "#9aa3b2", "#4a4f58"
 LED_WAIT, LED_DONE = "#ffb000", "#39ff88"
 
 

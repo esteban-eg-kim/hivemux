@@ -2,9 +2,11 @@
 
 ## Unreleased
 
-- The pickup board looks like an LED sign (bright letters on a black panel,
-  "CALL" label) and moved to the left of the status line, after the project
-  name. A waiting task blinks until answered, a finished one for its first 10
+- The pickup board has its own line: the status bar is two lines, the window
+  list and under it the board, drawn like an LED sign (bright letters on a
+  black line, "CALL" label, up to 8 tasks from the left). The line is always
+  there, so panes never change size when a task starts or stops waiting
+- A waiting task blinks until answered, a finished one for its first 10
   seconds; still with animation off or while another Mac is attached
 
 ## 0.1.18 — 2026-10-16
