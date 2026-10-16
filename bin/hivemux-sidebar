@@ -164,7 +164,9 @@ case "$1" in
   toggle)
     if [ "$ON" = on ]; then
       t set -g @hivemux-sidebar off
-      t set -gu @hivemux-tabs-pad; t set -gu @hivemux-board   # nothing keeps them now / 이제 맡을 사이드바가 없다
+      # nothing keeps the badges and the board now / 이제 이름표와 호출판을 맡을 사이드바가 없다
+      t set -gu @hivemux-board
+      t list-sessions -F '#{session_name}' | while read -r s; do t set -u -t "=$s:" @hivemux-badge; t set -u -t "=$s:" @hivemux-badge2; done
       t list-panes -a -F '#{pane_id} #{pane_title}' | awk -v T="$TITLE" '$2==T{print $1}' | while read -r p; do t kill-pane -t "$p"; done
       t display -d 1500 "$(say "사이드바 숨김 (prefix b 로 다시 보기)" "Sidebars hidden (prefix b to show)")"
     else
