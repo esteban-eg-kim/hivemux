@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.18 — 2026-10-16
 
 - Pickup board: like the order board at a food court, the right of the top
   status line lists every task, in any project, that needs input (amber
