@@ -17,6 +17,12 @@
 # Remembered hosts: $XDG_DATA_HOME/hivemux/remote-hosts ("<host>" or "<host> mosh" per line).
 # 기억한 호스트: $XDG_DATA_HOME/hivemux/remote-hosts (한 줄에 "<host>" 또는 "<host> mosh").
 HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
+# A new Ghostty window (--window) starts this with login's plain PATH (/usr/bin:/bin) and maybe no
+# locale: add where brew puts mosh, and give mosh the UTF-8 locale it requires.
+# 새 Ghostty 창(--window)은 login 의 기본 PATH(/usr/bin:/bin)로, 로케일 없이 이걸 실행할 수 있다:
+# brew 가 mosh 를 두는 곳을 더하고, mosh 가 요구하는 UTF-8 로케일을 준다.
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+case "${LC_ALL:-${LC_CTYPE:-$LANG}}" in *[Uu][Tt][Ff]-8*|*[Uu][Tt][Ff]8*) ;; *) export LANG=en_US.UTF-8; unset LC_ALL LC_CTYPE ;; esac
 TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
 say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux"
@@ -57,7 +63,10 @@ connect() {
   if [ "$how" = mosh ]; then
     # mosh keeps the session through sleep and network changes by itself (no notifications through it)
     # mosh 는 잠자기와 네트워크 변경을 스스로 견딘다 (알림은 지나가지 못한다)
-    exec mosh --server='PATH=/opt/homebrew/bin:/usr/local/bin:$PATH mosh-server' "$host" -- /bin/sh -c "$REMOTE"
+    mosh --server='PATH=/opt/homebrew/bin:/usr/local/bin:$PATH mosh-server' "$host" -- /bin/sh -c "$REMOTE"; rc=$?
+    # keep the window open on an error so it can be read / 오류면 읽을 수 있게 창을 남긴다
+    [ $rc -eq 0 ] || read -rp "$(say "Enter 로 닫기" "Enter to close")" _
+    exit $rc
   fi
   while true; do
     start=$(date +%s)
