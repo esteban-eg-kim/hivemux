@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.17 — 2026-10-16
+
+- Docs: the README and the guide describe the "mosh · no notifications" label,
+  what to do when mosh stops at "Nothing received from server on UDP port"
+  (allow `mosh-server` in the other Mac's firewall), and that adding a host asks
+  to trust it and for the password the first time
+
 ## 0.1.16 — 2026-10-16
 
 - Fix: a mosh host opened from the Connect to… list failed with "mosh: not
