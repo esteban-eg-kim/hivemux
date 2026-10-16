@@ -7,6 +7,8 @@
   badge, so it takes little room. A waiting one blinks until answered, a
   finished one for its first 10 seconds; still with animation off or while
   another Mac is attached
+- Loading the config resets tmux's status line layout, so a server that ran
+  another layout shows the window list again
 
 ## 0.1.18 — 2026-10-16
 

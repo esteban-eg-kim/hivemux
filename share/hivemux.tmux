@@ -28,6 +28,9 @@ set-environment -g FORCE_HYPERLINK 1
 
 # ── Status line (top) ────────────────────────────────────────────────────
 set -g status on
+# tmux's own line layout: a server that ran another layout before keeps it until reset
+# tmux 기본 줄 구성: 전에 다른 구성을 쓴 서버는 되돌리기 전까지 그것을 유지한다
+set -gu status-format
 set -g status-position top
 set -g status-interval 5
 set -g status-style "bg=#16181d,fg=#9aa3b2"
