@@ -156,7 +156,9 @@ a VPN such as [Tailscale](https://tailscale.com) on both Macs is the simple way
 - Notifications from the remote tasks show on this Mac.
 - With `--mosh` (or `m` in the menu → Connect to… list), the session survives
   sleep and network changes by itself, but notifications do not pass through
-  mosh (`brew install mosh` on both Macs).
+  mosh; the list marks such a host "mosh · no notifications". Both Macs need
+  `brew install mosh`; if it stops at "Nothing received from server on UDP
+  port", allow incoming connections for `mosh-server` in the other Mac's firewall.
 - Two screens on the same project share it: switching windows on one moves the other.
 - While a remote screen looks at a window, its sidebar keeps still (no pulsing
   cards, no status line spinner): every animation frame would go over the network.
