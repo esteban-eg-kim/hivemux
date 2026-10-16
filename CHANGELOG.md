@@ -1,12 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.1.16 — 2026-10-16
 
 - Fix: a mosh host opened from the Connect to… list failed with "mosh: not
   found". The new Ghostty window starts with login's plain PATH; hivemux
   connect now adds where brew puts mosh and sets a UTF-8 locale when there is
   none (mosh requires one)
 - When mosh fails, the window stays open until Enter so the error can be read
+- mosh says what it costs: the Connect to… list marks a mosh host "mosh · no
+  notifications", switching to mosh says the remote work's notifications do not
+  reach this Mac, and so does the line shown when a mosh connection starts
 
 ## 0.1.15 — 2026-10-16
 

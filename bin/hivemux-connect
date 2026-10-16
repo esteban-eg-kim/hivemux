@@ -63,6 +63,7 @@ connect() {
   if [ "$how" = mosh ]; then
     # mosh keeps the session through sleep and network changes by itself (no notifications through it)
     # mosh 는 잠자기와 네트워크 변경을 스스로 견딘다 (알림은 지나가지 못한다)
+    printf '\033[33m%s\033[0m\n' "$(say "mosh 로 붙습니다: 원격 작업의 알림은 이 Mac 에 오지 않습니다" "Connecting over mosh: notifications from the remote work do not reach this Mac")"
     mosh --server='PATH=/opt/homebrew/bin:/usr/local/bin:$PATH mosh-server' "$host" -- /bin/sh -c "$REMOTE"; rc=$?
     # keep the window open on an error so it can be read / 오류면 읽을 수 있게 창을 남긴다
     [ $rc -eq 0 ] || read -rp "$(say "Enter 로 닫기" "Enter to close")" _
@@ -130,6 +131,7 @@ case "$1" in
     mkdir -p "$DATA"
     { [ -f "$HOSTS" ] && awk -v h="$host" '$1!=h' "$HOSTS"; echo "$host${how:+ $how}"; } > "$HOSTS.tmp" && mv -f "$HOSTS.tmp" "$HOSTS"
     echo "  ✓ $(say "등록했습니다" "Remembered") · ${how:-ssh} · hivemux connect $host"
+    [ "$how" = mosh ] && echo "  ! $(say "mosh 로 붙으면 원격 작업의 알림을 이 Mac 에서 받을 수 없습니다" "Over mosh, notifications from the remote work do not reach this Mac")"
     ;;
   --setup)    # first connection: trust the host key and put this Mac's ssh key there (asks the password once)
               # 처음 연결: 호스트 키를 믿고 이 Mac 의 ssh 키를 상대에 등록한다 (비밀번호는 한 번만 묻는다)

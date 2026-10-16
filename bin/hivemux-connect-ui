@@ -16,7 +16,7 @@ CONNECT = os.path.join(HERE, "hivemux-connect")
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux")
 
 TEXT, T2, T3 = (230, 233, 239), (154, 163, 178), (98, 106, 120)
-ACC, OK, BAD = (90, 169, 255), (62, 207, 142), (240, 98, 98)
+ACC, OK, BAD, WARN = (90, 169, 255), (62, 207, 142), (240, 98, 98), (240, 180, 70)
 SEL_BG, BG, RULE = (42, 47, 58), (30, 33, 40), (44, 48, 57)
 
 
@@ -91,7 +91,7 @@ def main():
                 rows_y[y] = i
                 if i < len(items):
                     h, how = items[i]
-                    label, note, color = h, ("mosh" if how == "mosh" else "ssh"), TEXT
+                    label, note, color = h, (tr("mosh · 알림 없음", "mosh · no notifications") if how == "mosh" else "ssh"), TEXT
                 else:
                     label, note, color = tr("+ 호스트 추가…", "+ Add a host…"), "", OK
                 if i == sel and not adding:
@@ -188,7 +188,11 @@ def main():
                         if ok:
                             r = subprocess.run(add, stdin=subprocess.DEVNULL, capture_output=True, text=True)
                     lines = [l.strip() for l in (r.stdout + r.stderr).splitlines() if l.strip().startswith(("✓", "✗"))]
-                    if r.returncode == 0:
+                    if r.returncode == 0 and how == "mosh":
+                        # mosh: say what it costs / mosh: 무엇을 잃는지 알린다
+                        adding, msg = False, (tr("✓ mosh 로 바꿨습니다 · 원격 작업의 알림은 이 Mac 에 오지 않습니다",
+                                                 "✓ Now mosh · notifications from the remote work do not reach this Mac"), WARN)
+                    elif r.returncode == 0:
                         adding, msg = False, (lines[-1] if lines else "✓", OK)
                         sel = next((i for i, (h, _) in enumerate(hosts()) if h == name), sel)
                     else:
