@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.15 — 2026-10-16
 
 - First connection to another Mac: adding a host no longer stops at "Host key
   verification failed". `hivemux connect --add` and "+ Add a host…" now ask to
