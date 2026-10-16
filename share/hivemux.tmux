@@ -34,19 +34,22 @@ set -gu status-format
 set -g status-position top
 set -g status-interval 5
 set -g status-style "bg=#16181d,fg=#9aa3b2"
-set -g status-left-length 60
-# session (project) name on a blue badge, as in the README preview
-# a terminal attached from another Mac (bin/hivemux-attach lists it in @hivemux-remote-clients) also shows this Mac's name
-# 다른 Mac 에서 붙은 터미널 (bin/hivemux-attach 가 @hivemux-remote-clients 에 적음)은 이 Mac 의 이름도 보여 준다
-set -g status-left "#{?#{m:* #{client_name} *,#{@hivemux-remote-clients}},#[bg=#7c4dff#,fg=#ffffff#,bold] ⇄ #h ,}#[bg=#2f6fb3,fg=#e6e9ef,bold]  #S  #[default]#[bg=#16181d] "
+set -g status-left-length 120
+# session (project) name on a blue badge as wide as the sidebar, so the window list starts above the
+# work area (@hivemux-badge: per session, written by bin/hivemux-sidebar-view; without a sidebar just the name)
+# 사이드바 폭의 파란 바탕 세션(프로젝트) 이름. 그래서 창 목록이 작업 칸 위에서 시작한다
+# (@hivemux-badge: 세션마다, bin/hivemux-sidebar-view 가 적는다. 사이드바가 없으면 이름만)
+set -g status-left "#[bg=#2f6fb3,fg=#e6e9ef,bold]#{?@hivemux-badge,#{@hivemux-badge},  #S  }#[default]"
 set -g status-right-length 160
 # continuum autosave is triggered from status-right (see Persistence below); not on a server that
 # started without restoring (@hivemux-nosave, bin/hivemux-attach): it would replace the snapshot with an empty one
 # continuum 자동 저장은 status-right 에서 돈다 (아래 Persistence). 복원 없이 뜬 서버(@hivemux-nosave,
 # bin/hivemux-attach)에서는 하지 않는다: 저장본을 빈 상태로 덮어쓰게 되므로
-# the pickup board (@hivemux-board, written by bin/hivemux-sidebar-view): tasks that need input or finished
-# 호출판 (@hivemux-board, bin/hivemux-sidebar-view 가 적는다): 입력이 필요하거나 끝난 작업
-set -g status-right "#{?@hivemux-nosave,,#(#{@hivemux-continuum-save})}#{E:@hivemux-board}#{?client_prefix,#[bg=#f5a524 fg=#16181d bold] PREFIX #[default] ,}#[fg=#626a78]%m-%d  %H:%M  "
+# the pickup board (@hivemux-board, written by bin/hivemux-sidebar-view): tasks that need input or finished;
+# then, on a terminal attached from another Mac (bin/hivemux-attach lists it in @hivemux-remote-clients), this Mac's name
+# 호출판 (@hivemux-board, bin/hivemux-sidebar-view 가 적는다): 입력이 필요하거나 끝난 작업.
+# 그다음, 다른 Mac 에서 붙은 터미널 (bin/hivemux-attach 가 @hivemux-remote-clients 에 적음)이면 이 Mac 의 이름
+set -g status-right "#{?@hivemux-nosave,,#(#{@hivemux-continuum-save})}#{E:@hivemux-board}#{?#{m:* #{client_name} *,#{@hivemux-remote-clients}},#[bg=#7c4dff#,fg=#ffffff#,bold] ⇄ #h #[default] ,}#{?client_prefix,#[bg=#f5a524 fg=#16181d bold] PREFIX #[default] ,}#[fg=#626a78]%m-%d  %H:%M  "
 set -g window-status-separator ""
 set -g window-status-format "#[fg=#626a78] #I #[fg=#9aa3b2]#W#{?#{==:#{@claude_state},run}, #[fg=#5aa9ff]#{?@claude_spin,#{@claude_spin},◐},}#{?#{==:#{@claude_state},wait}, #[fg=#f5a524]●,}#{?#{==:#{@claude_state},done}, #[fg=#3ecf8e]✓,} "
 set -g window-status-current-format "#[bg=#2a2f3a,fg=#9aa3b2] #I #[fg=#e6e9ef,bold]#W#[nobold]#{?#{==:#{@claude_state},run}, #[fg=#5aa9ff]#{?@claude_spin,#{@claude_spin},◐},}#{?#{==:#{@claude_state},wait}, #[fg=#f5a524]●,}#{?#{==:#{@claude_state},done}, #[fg=#3ecf8e]✓,} #[default]"

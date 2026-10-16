@@ -7,6 +7,9 @@
   badge, so it takes little room. A waiting one blinks until answered, a
   finished one for its first 10 seconds; still with animation off or while
   another Mac is attached
+- The project name in the status line is as wide as the sidebar, so the window
+  list starts above the work area, not above the sidebar. A terminal attached
+  from another Mac shows "⇄ <Mac name>" at the right, before the clock
 - Loading the config resets tmux's status line layout, so a server that ran
   another layout shows the window list again
 

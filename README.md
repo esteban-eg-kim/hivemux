@@ -157,7 +157,7 @@ or a device name on a VPN. On the same network `name.local` works; from outside,
 a VPN such as [Tailscale](https://tailscale.com) on both Macs is the simple way
 (opening ssh to the internet with port forwarding is not recommended).
 
-- The remote window shows `⇄ <Mac name>` at the left of the status line.
+- The remote window shows `⇄ <Mac name>` at the right of the status line, before the clock.
 - A dropped connection reconnects by itself (`Ctrl+C` stops); `prefix d` detaches and closes the window.
 - Notifications from the remote tasks show on this Mac.
 - With `--mosh` (or `m` in the menu → Connect to… list), the session survives

@@ -476,6 +476,32 @@ BLINK_DONE = 10                    # seconds a finished one blinks / 완료가 �
 BADGE_WAIT, BADGE_DONE, STATUS_BG = "#f5a524", "#3ecf8e", "#16181d"
 
 
+def badges(w, names):
+    """The project badge at the left of the status line: a blue block as wide as the sidebar (w, with
+    its border), so the window list starts above the work area, not above the sidebar. Written per
+    session (@hivemux-badge), since tmux cannot pad to a width it reads from an option.
+    상태줄 왼쪽의 프로젝트 이름표: 사이드바 폭(w, 경계선 포함)만큼의 파란 칸. 그래서 창 목록이 사이드바가
+    아니라 작업 칸 위에서 시작한다. tmux 는 옵션에서 읽은 폭으로 채울 수 없어서 세션마다 적어 둔다
+    (@hivemux-badge)."""
+    changed = False
+    for s in names:
+        text = "  " + s
+        if width(text) > w - 1:
+            cut = ""
+            for c in text:
+                if width(cut + c) > w - 2:
+                    break
+                cut += c
+            text = cut + "…"
+        v = (text + " " * (w - width(text))).replace("#", "##").replace("%", "%%")
+        if tmux("show", "-qv", "-t", f"={s}:", "@hivemux-badge").rstrip("\n") != v:
+            tmux("set", "-t", f"={s}:", "@hivemux-badge", v)
+            changed = True
+    if changed:
+        for c in tmux("list-clients", "-F", "#{client_name}").split():
+            tmux("refresh-client", "-S", "-t", c)
+
+
 def rename(pid):
     sess = tmux("display", "-p", "-t", ME, "#{session_name}").strip()
     client = (tmux("list-clients", "-t", f"={sess}", "-F", "#{client_name}").split() or [""])[0]
@@ -770,7 +796,7 @@ def main():
     runs = {}                        # pane -> (state time, polls without the busy footer) (see clear_interrupted) / 칸 -> (상태 시각, 작업 중 표시가 없던 횟수)
     seen, sent = {}, {}              # notify_changes: pane -> (state, time); pane -> (state, sent at) / 칸 -> (상태, 시각); 칸 -> (상태, 보낸 시각)
     waits = {}                       # pane -> (state time, dialog seen, polls without it) (see clear_answered) / 칸 -> (상태 시각, 승인 창 봤음, 안 보인 횟수)
-    snap, last_poll, last_spin, last_board, woke = None, 0.0, None, None, False
+    snap, last_poll, last_spin, last_board, last_badge, woke = None, 0.0, None, None, None, False
     board_blink = False
     REMOTE_ON = False
     try:
@@ -841,6 +867,11 @@ def main():
                         p["@claude_state"] = "idle"
                 # the pickup board (see board), redrawn on every screen only when it changes
                 # 호출판 (board 참고). 바뀔 때만 모든 화면의 상태줄을 다시 그린다
+                # the project badge, as wide as the sidebar (see badges) / 사이드바 폭의 프로젝트 이름표 (badges 참고)
+                key = (os.get_terminal_size()[0] + 1, tuple(s for s, _, _ in sessions))
+                if key != last_badge:
+                    badges(*key)
+                    last_badge = key
                 # it blinks like the sidebar animates: not with animation off, nor while a screen from
                 # another Mac is attached (every blink would go over the network)
                 # 사이드바 애니메이션처럼: 애니메이션을 껐거나 다른 Mac 의 화면이 붙어 있으면 깜빡이지 않는다

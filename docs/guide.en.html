@@ -611,7 +611,7 @@ hivemux connect --add me@work-mac.local
 hivemux connect me@work-mac.local</pre></div>
   <p>The host is anything <code>ssh</code> takes: a <code>Host</code> from <code>~/.ssh/config</code>, <code>user@address</code>, or a device name on a VPN.</p>
   <div class="cols">
-    <div class="card"><h3>Remote windows</h3><p>A window attached from another Mac shows a purple <b>⇄ Mac name</b> at the left of the status line. "Connect to…" is blocked there, since it would open a window on the other Mac's screen.</p></div>
+    <div class="card"><h3>Remote windows</h3><p>A window attached from another Mac shows a purple <b>⇄ Mac name</b> at the right of the status line, before the clock. "Connect to…" is blocked there, since it would open a window on the other Mac's screen.</p></div>
     <div class="card"><h3>When it drops</h3><p>"Connection lost" shows and it reconnects after a few seconds; <kbd>Ctrl</kbd>+<kbd>C</kbd> stops. <kbd>Ctrl</kbd>+<kbd>A</kbd> then <kbd>d</kbd> detaches and closes the window.</p></div>
     <div class="card"><h3>Notifications and mosh</h3><p>Notifications from remote tasks show on this Mac. Added with <code>--mosh</code> (or switched with <kbd>m</kbd> in the Connect to… list), the session survives sleep and network changes by itself, but notifications do not pass through mosh; the list marks such a host "mosh · no notifications". Both Macs need <code>brew install mosh</code>; if it stops at UDP, allow <code>mosh-server</code> in the other Mac's firewall.</p></div>
   </div>
