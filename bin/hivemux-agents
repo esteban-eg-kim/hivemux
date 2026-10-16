@@ -7,6 +7,8 @@
 #                                   N번 Claude 칸으로 이동
 #   hivemux-agents next [client]      jump to the longest waiting (else oldest finished)
 #                                     가장 오래 기다린 칸으로 이동 (없으면 끝난 칸)
+#   hivemux-agents go hm<N> [client]   go to pane %N (a chip of the top pickup board)
+#                                      %N 칸으로 이동 (맨 위 호출판의 칩)
 #   hivemux-agents list       print the list
 #                             터미널에 목록 출력
 # State (@claude_state, per pane): run working | wait needs input | done finished, unseen | idle seen
@@ -108,6 +110,7 @@ case "$1" in
   bar) bar ;;
   jump) CLIENT="$3"; jump "$2" ;;
   next) CLIENT="$2"; next ;;
+  go) CLIENT="$3"; goto "%${2#hm}" ;;
   list) list ;;
   *) echo "usage: $0 bar|jump N|next|list" >&2; exit 2 ;;
 esac

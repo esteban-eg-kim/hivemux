@@ -434,6 +434,43 @@ def render(items, current, w, h, cur_sess="", sessions=()):
     return [l.render() for l in lines], (targets, heads)
 
 
+def board(items):
+    """The top status line's "pickup board" (food court style): every task, in any project, that needs
+    input or finished and is not seen yet, as a chip. Waiting first, then finished, oldest first;
+    click one (MouseDown1Status, share/hivemux.tmux) to go there.
+    맨 위 상태줄의 "호출판" (푸드코트 대기 화면처럼): 어느 프로젝트든 입력이 필요하거나 끝나고 아직 안 본
+    작업을 칩으로 띄운다. 입력 필요가 먼저, 그다음 완료, 오래된 순. 누르면 (MouseDown1Status,
+    share/hivemux.tmux) 그 작업으로 간다."""
+    num = {p["pane_id"]: i for i, p in enumerate(items, 1)}
+    at = lambda p: int(p["@claude_state_at"]) if p["@claude_state_at"].isdigit() else 0
+    calls = sorted((p for p in items if p["@claude_state"] in ("wait", "done")),
+                   key=lambda p: (p["@claude_state"] != "wait", at(p)))
+    chips = []
+    for p in calls[:BOARD_MAX]:
+        n = num[p["pane_id"]]
+        wait = p["@claude_state"] == "wait"
+        name = task_name(p)
+        if width(name) > BOARD_NAME:
+            cut = ""
+            for c in name:
+                if width(cut + c) > BOARD_NAME - 1:
+                    break
+                cut += c
+            name = cut.rstrip() + "…"
+        # status-right goes through strftime too: "%" doubles; the range is "hm<pane number>" (no "%")
+        # status-right 는 strftime 도 거친다: "%" 는 두 번. 범위 값은 "hm<칸 번호>" ("%" 없이)
+        name = name.replace("#", "##").replace("%", "%%")
+        key = f"⌥{n} " if n <= 9 else ""
+        style = "bg=#f5a524,fg=#16181d,bold" if wait else "bg=#3ecf8e,fg=#16181d,bold"
+        chips.append(f"#[range=user|hm{p['pane_id'].lstrip('%')}]#[{style}] {'●' if wait else '✓'} {key}{name} #[norange default]")
+    if len(calls) > BOARD_MAX:
+        chips.append(f"#[fg=#9aa3b2]+{len(calls) - BOARD_MAX}")
+    return " ".join(chips) + ("  " if chips else "")
+
+
+BOARD_MAX, BOARD_NAME = 5, 16      # chips shown, name columns / 보이는 칩 수, 이름 칸 수
+
+
 def rename(pid):
     sess = tmux("display", "-p", "-t", ME, "#{session_name}").strip()
     client = (tmux("list-clients", "-t", f"={sess}", "-F", "#{client_name}").split() or [""])[0]
@@ -728,7 +765,7 @@ def main():
     runs = {}                        # pane -> (state time, polls without the busy footer) (see clear_interrupted) / 칸 -> (상태 시각, 작업 중 표시가 없던 횟수)
     seen, sent = {}, {}              # notify_changes: pane -> (state, time); pane -> (state, sent at) / 칸 -> (상태, 시각); 칸 -> (상태, 보낸 시각)
     waits = {}                       # pane -> (state time, dialog seen, polls without it) (see clear_answered) / 칸 -> (상태 시각, 승인 창 봤음, 안 보인 횟수)
-    snap, last_poll, last_spin, woke = None, 0.0, None, False
+    snap, last_poll, last_spin, last_board, woke = None, 0.0, None, None, False
     REMOTE_ON = False
     try:
         while True:
@@ -796,6 +833,15 @@ def main():
                         tmux("set", "-p", "-t", current, "@claude_state", "idle")
                         tmux("set", "-w", "-t", current, "@claude_state", "idle")
                         p["@claude_state"] = "idle"
+                # the pickup board (see board), redrawn on every screen only when it changes
+                # 호출판 (board 참고). 바뀔 때만 모든 화면의 상태줄을 다시 그린다
+                b = board(items)
+                if b != last_board:
+                    if b != tmux("show", "-gqv", "@hivemux-board").rstrip("\n"):
+                        tmux("set", "-g", "@hivemux-board", b)
+                        for c in tmux("list-clients", "-F", "#{client_name}").split():
+                            tmux("refresh-client", "-S", "-t", c)
+                    last_board = b
             # draw while visible; a hidden sidebar draws its first frame too, so it is ready when shown
             # 보일 때 그린다. 숨은 사이드바도 첫 화면은 그려 두어 보일 때 바로 나오게 한다
             # hidden sidebars draw only when woken (a project closed, a state changed), so the

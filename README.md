@@ -21,6 +21,10 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
 - **Notifications.** A macOS notification when a task needs input or finishes,
   except the one you are looking at. Turn it off in Settings.
 - **Jump anywhere.** `Option+1..9`, `Option+0` (oldest waiting), or click a card.
+- **Pickup board.** Like the order board at a food court, the right of the top
+  status line lists every task, in any project, that needs input (amber) or
+  finished and is not seen yet (green). Click a chip to go there; a finished
+  one leaves the board once you look at it.
 - **Task names.** Shows Claude's own conversation title. Double-click a card
   (or right-click → Rename) to rename it; hivemux sends `/rename` to that Claude (waits if it is busy).
 - **Your order.** Drag a card to reorder tasks, or a project header to reorder

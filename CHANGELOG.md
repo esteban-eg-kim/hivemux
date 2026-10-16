@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Pickup board: like the order board at a food court, the right of the top
+  status line lists every task, in any project, that needs input (amber
+  "● ⌥3 name") or finished and is not seen yet (green "✓ ⌥2 name"), waiting
+  ones first. Click a chip to go there; a finished one leaves once you look at
+  it. Up to 5 chips, then "+N"
+
 ## 0.1.17 — 2026-10-16
 
 - Docs: the README and the guide describe the "mosh · no notifications" label,
