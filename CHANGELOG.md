@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- First connection to another Mac: adding a host no longer stops at "Host key
+  verification failed". `hivemux connect --add` and "+ Add a host…" now ask to
+  trust the host and for the login password there once, then add this Mac's ssh
+  key there (making one if there is none); later connections need no password.
+  A host key that changed is not accepted silently: it says to run
+  `ssh-keygen -R <host>` if it is the same Mac
+- The Connect to… popup is a little larger, so ssh's questions fit
+
 ## 0.1.14 — 2026-10-15
 
 - A session named "0" gets its sidebar again: only hivemux's bootstrap session

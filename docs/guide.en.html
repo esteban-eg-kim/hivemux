@@ -601,11 +601,10 @@ font-size = 15
   <p>The work keeps running in one Mac's tmux (say, the one at the office); another Mac (a laptop) attaches to it over ssh and sees the same sidebar and sessions. If the connection drops, the work goes on. Local work on the laptop stays as it is; the remote one opens in its own Ghostty window.</p>
   <div class="cols">
     <div class="card"><h3>The Mac you connect to</h3><p>Install hivemux and turn on System Settings → General → Sharing → <b>Remote Login</b>. It cannot be reached while asleep, so keep it from sleeping when idle (System Settings → Energy). The remote part of <code>hivemux doctor</code> checks this.</p></div>
-    <div class="card"><h3>The Mac you connect from</h3><p>Install hivemux, set up an ssh key once so it logs in without a password, then remember the host with <code>hivemux connect --add</code>. It checks that ssh works and that hivemux is installed there.</p></div>
+    <div class="card"><h3>The Mac you connect from</h3><p>Install hivemux and remember the host with <code>hivemux connect --add</code> or "+ Add a host…" in the Connect to… list. The first time it asks you to trust the host and for your login password there once, then adds this Mac's ssh key there, so later connections need no password. It also checks that hivemux is installed there.</p></div>
     <div class="card"><h3>From outside</h3><p>On the same network, <code>name.local</code> works. From outside, a VPN such as Tailscale on both Macs, using its device name, is the simple way. Opening ssh to the internet with port forwarding is not recommended.</p></div>
   </div>
   <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cmt"># once, on the Mac you connect from</span>
-ssh-copy-id me@work-mac.local
 hivemux connect --add me@work-mac.local
 <span class="cmt"># connect: right-click the sidebar → Connect to…, Ctrl+A then Shift+H (last host), or</span>
 hivemux connect me@work-mac.local</pre></div>

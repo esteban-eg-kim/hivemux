@@ -112,10 +112,11 @@ curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install
 **붙는 쪽 Mac**에서는:
 
 ```sh
-ssh-copy-id me@work-mac.local              # 키로 로그인되게 (한 번)
 hivemux connect --add me@work-mac.local    # 확인하고 등록 (mosh를 쓰려면 --mosh)
 hivemux connect me@work-mac.local          # 또는 오른쪽 클릭 → 원격 연결, prefix Shift+H
 ```
+
+처음 등록할 때는 `--add`(또는 원격 연결 목록의 "+ 호스트 추가…")가 호스트를 믿을지와 상대 Mac의 로그인 비밀번호를 한 번 묻고, 이 Mac의 ssh 키를 상대에 등록합니다. 키가 없으면 새로 만듭니다. 그다음부터는 비밀번호를 묻지 않습니다.
 
 호스트에는 `ssh`에 쓰는 것이면 무엇이든 넣습니다. `~/.ssh/config`의 `Host`, `사용자@주소`, VPN 안의 기기 이름 모두 됩니다. 같은 네트워크에서는 `이름.local`로 붙고, 밖에서는 [Tailscale](https://tailscale.com) 같은 VPN을 두 Mac에 설치하는 방법이 간단합니다. 공유기 포트 포워딩으로 ssh를 인터넷에 여는 것은 권하지 않습니다.
 

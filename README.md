@@ -138,10 +138,13 @@ General → Sharing → **Remote Login**, and keep it from sleeping when idle.
 On the Mac you connect **from**:
 
 ```sh
-ssh-copy-id me@work-mac.local              # log in with a key, once
 hivemux connect --add me@work-mac.local    # check and remember (--mosh to use mosh)
 hivemux connect me@work-mac.local          # or: right-click → Connect to…, prefix Shift+H
 ```
+
+The first time, `--add` (or "+ Add a host…" in the Connect to… list) asks you to
+trust the host and for your login password there once, then adds this Mac's ssh
+key there (making one if there is none), so later connections need no password.
 
 The host is anything `ssh` takes: a `Host` from `~/.ssh/config`, `user@address`,
 or a device name on a VPN. On the same network `name.local` works; from outside,

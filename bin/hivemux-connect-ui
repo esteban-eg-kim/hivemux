@@ -170,7 +170,23 @@ def main():
                 elif act == "add" and name:
                     out.write(f"\x1b[{rows - 3};1H{bg(BG)}\x1b[2K  {fg(T2)}{tr('확인 중', 'Checking')} {name} …")
                     out.flush()
-                    r = subprocess.run([CONNECT, "--add", name] + (["--mosh"] if how == "mosh" else []), stdin=subprocess.DEVNULL, capture_output=True, text=True)
+                    add = [CONNECT, "--add", name] + (["--mosh"] if how == "mosh" else [])
+                    r = subprocess.run(add, stdin=subprocess.DEVNULL, capture_output=True, text=True)
+                    if r.returncode == 4:
+                        # first connection: ssh asks here whether to trust the host and for the password once,
+                        # then this Mac's key is added there and the check runs again
+                        # 처음 연결: 호스트를 믿을지와 비밀번호를 여기서 ssh 가 한 번 묻고, 이 Mac 의 키를
+                        # 상대에 등록한 뒤 다시 확인한다
+                        out.write("\x1b[?1000l\x1b[?1006l\x1b[?25h" + RST + "\x1b[H\x1b[2J")
+                        out.flush()
+                        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+                        ok = subprocess.run([CONNECT, "--setup", name]).returncode == 0
+                        tty.setraw(fd)
+                        out.write("\x1b[?25l\x1b[?1000h\x1b[?1006h" + bg(BG) + "\x1b[2J")
+                        out.write(f"\x1b[{rows - 3};1H  {fg(T2)}{tr('확인 중', 'Checking')} {name} …")
+                        out.flush()
+                        if ok:
+                            r = subprocess.run(add, stdin=subprocess.DEVNULL, capture_output=True, text=True)
                     lines = [l.strip() for l in (r.stdout + r.stderr).splitlines() if l.strip().startswith(("✓", "✗"))]
                     if r.returncode == 0:
                         adding, msg = False, (lines[-1] if lines else "✓", OK)
