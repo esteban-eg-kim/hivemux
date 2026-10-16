@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.19 — 2026-10-16
 
 - The pickup board shows round number badges instead of names: the task's
   `Option` number in an amber (needs input) or green (finished, not seen yet)
