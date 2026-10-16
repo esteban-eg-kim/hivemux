@@ -434,18 +434,27 @@ def render(items, current, w, h, cur_sess="", sessions=()):
     return [l.render() for l in lines], (targets, heads)
 
 
-def board(items):
-    """The top status line's "pickup board" (food court style): every task, in any project, that needs
-    input or finished and is not seen yet, as a chip. Waiting first, then finished, oldest first;
-    click one (MouseDown1Status, share/hivemux.tmux) to go there.
-    맨 위 상태줄의 "호출판" (푸드코트 대기 화면처럼): 어느 프로젝트든 입력이 필요하거나 끝나고 아직 안 본
-    작업을 칩으로 띄운다. 입력 필요가 먼저, 그다음 완료, 오래된 순. 누르면 (MouseDown1Status,
-    share/hivemux.tmux) 그 작업으로 간다."""
+def board(items, now, blink):
+    """The pickup board at the left of the top status line, drawn like an LED sign (food court
+    style): every task, in any project, that needs input or finished and is not seen yet, in bright
+    LED colors on a black panel. Waiting first, then finished, oldest first (left). A waiting one
+    blinks until answered, a finished one for its first BLINK_DONE seconds (blink: False keeps them
+    still). Click one (MouseDown1Status, share/hivemux.tmux) to go there.
+    Returns (status line text, whether something blinks).
+    맨 위 상태줄 왼쪽의 호출판, 전광판처럼 그린다 (푸드코트 호출판): 어느 프로젝트든 입력이 필요하거나
+    끝나고 아직 안 본 작업을 검은 판 위에 밝은 LED 색으로. 입력 필요가 먼저, 그다음 완료, 오래된 것이
+    왼쪽. 입력 필요는 답할 때까지, 완료는 처음 BLINK_DONE 초 동안 깜빡인다 (blink 가 False 면 멈춤).
+    누르면 (MouseDown1Status, share/hivemux.tmux) 그 작업으로 간다.
+    돌려주는 값: (상태줄 글, 깜빡이는 것이 있는지)."""
     num = {p["pane_id"]: i for i, p in enumerate(items, 1)}
     at = lambda p: int(p["@claude_state_at"]) if p["@claude_state_at"].isdigit() else 0
     calls = sorted((p for p in items if p["@claude_state"] in ("wait", "done")),
                    key=lambda p: (p["@claude_state"] != "wait", at(p)))
-    chips = []
+    if not calls:
+        return "", False
+    lit = int(now * 2) % 2 == 0                 # blink phase: 0.5 s on, 0.5 s off / 깜빡임: 0.5초 켜짐, 0.5초 꺼짐
+    blinking = False
+    out = [f"#[bg={LED_BG},fg={LED_LABEL},bold] {tr('호출', 'CALL')} "]
     for p in calls[:BOARD_MAX]:
         n = num[p["pane_id"]]
         wait = p["@claude_state"] == "wait"
@@ -457,18 +466,26 @@ def board(items):
                     break
                 cut += c
             name = cut.rstrip() + "…"
-        # status-right goes through strftime too: "%" doubles; the range is "hm<pane number>" (no "%")
-        # status-right 는 strftime 도 거친다: "%" 는 두 번. 범위 값은 "hm<칸 번호>" ("%" 없이)
+        # the status line goes through strftime too: "%" doubles; the range is "hm<pane number>" (no "%")
+        # 상태줄은 strftime 도 거친다: "%" 는 두 번. 범위 값은 "hm<칸 번호>" ("%" 없이)
         name = name.replace("#", "##").replace("%", "%%")
         key = f"⌥{n} " if n <= 9 else ""
-        style = "bg=#f5a524,fg=#16181d,bold" if wait else "bg=#3ecf8e,fg=#16181d,bold"
-        chips.append(f"#[range=user|hm{p['pane_id'].lstrip('%')}]#[{style}] {'●' if wait else '✓'} {key}{name} #[norange default]")
+        color = LED_WAIT if wait else LED_DONE
+        flash = blink and (wait or now - at(p) < BLINK_DONE)
+        blinking |= flash
+        # lit: the whole cell lights up (inverted); otherwise LED letters on the black panel
+        # 켜짐: 칸 전체가 켜진다 (반전). 아니면 검은 판 위의 LED 글자
+        style = f"bg={color},fg={LED_BG},bold" if flash and lit else f"bg={LED_BG},fg={color},bold"
+        out.append(f"#[bg={LED_BG},fg={LED_RULE}]┃#[range=user|hm{p['pane_id'].lstrip('%')}]#[{style}]"
+                   f" {'●' if wait else '✓'} {key}{name} #[norange]")
     if len(calls) > BOARD_MAX:
-        chips.append(f"#[fg=#9aa3b2]+{len(calls) - BOARD_MAX}")
-    return " ".join(chips) + ("  " if chips else "")
+        out.append(f"#[bg={LED_BG},fg={LED_RULE}]┃#[fg={LED_MORE}] +{len(calls) - BOARD_MAX} ")
+    return "".join(out) + "#[default] ", blinking
 
 
-BOARD_MAX, BOARD_NAME = 5, 16      # chips shown, name columns / 보이는 칩 수, 이름 칸 수
+BOARD_MAX, BOARD_NAME, BLINK_DONE = 5, 16, 10     # chips shown, name columns, seconds a finished one blinks / 보이는 칩 수, 이름 칸 수, 완료가 깜빡이는 초
+LED_BG, LED_RULE, LED_LABEL, LED_MORE = "#050607", "#2a2d33", "#ff4d4d", "#9aa3b2"
+LED_WAIT, LED_DONE = "#ffb000", "#39ff88"
 
 
 def rename(pid):
@@ -766,6 +783,7 @@ def main():
     seen, sent = {}, {}              # notify_changes: pane -> (state, time); pane -> (state, sent at) / 칸 -> (상태, 시각); 칸 -> (상태, 보낸 시각)
     waits = {}                       # pane -> (state time, dialog seen, polls without it) (see clear_answered) / 칸 -> (상태 시각, 승인 창 봤음, 안 보인 횟수)
     snap, last_poll, last_spin, last_board, woke = None, 0.0, None, None, False
+    board_blink = False
     REMOTE_ON = False
     try:
         while True:
@@ -835,7 +853,11 @@ def main():
                         p["@claude_state"] = "idle"
                 # the pickup board (see board), redrawn on every screen only when it changes
                 # 호출판 (board 참고). 바뀔 때만 모든 화면의 상태줄을 다시 그린다
-                b = board(items)
+                # it blinks like the sidebar animates: not with animation off, nor while a screen from
+                # another Mac is attached (every blink would go over the network)
+                # 사이드바 애니메이션처럼: 애니메이션을 껐거나 다른 Mac 의 화면이 붙어 있으면 깜빡이지 않는다
+                # (깜빡일 때마다 네트워크로 간다)
+                b, board_blink = board(items, NOW_T, ANIM and not REMOTE_ON)
                 if b != last_board:
                     if b != tmux("show", "-gqv", "@hivemux-board").rstrip("\n"):
                         tmux("set", "-g", "@hivemux-board", b)
@@ -869,7 +891,10 @@ def main():
             if PENDING:
                 act, PENDING = PENDING, None
                 act()
-            r, _, _ = select.select([fd, WAKE_R], [], [], TICK if animating else (1.0 if visible else 3.0))
+            wait_s = TICK if animating else (1.0 if visible else 3.0)
+            if visible and board_blink:          # wake for the next blink step / 다음 깜빡임에 맞춰 깬다
+                wait_s = min(wait_s, 0.5 - (time.time() % 0.5) + 0.01)
+            r, _, _ = select.select([fd, WAKE_R], [], [], wait_s)
             if WAKE_R in r:
                 try:
                     os.read(WAKE_R, 512)

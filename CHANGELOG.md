@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- The pickup board looks like an LED sign (bright letters on a black panel,
+  "CALL" label) and moved to the left of the status line, after the project
+  name. A waiting task blinks until answered, a finished one for its first 10
+  seconds; still with animation off or while another Mac is attached
+
 ## 0.1.18 — 2026-10-16
 
 - Pickup board: like the order board at a food court, the right of the top
