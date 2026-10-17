@@ -2,13 +2,14 @@
 
 ## Unreleased
 
-- When the sidebar runs short of rows, cards go to one line before the blank row between projects is dropped, so projects stay apart
 - The sidebar shows each project as a box with a header band in the project's
   color, its Claude cards inside. Widen the sidebar (drag the grip) and the
   boxes go into 2 or 3 columns, each box in the shortest column. Click, drag
   and right-click work on any column
-- When the boxes do not fit, the sidebar drops the blank rows before it turns
-  cards into one line, and one-line cards keep their `Option` number. With 11
+- When the boxes do not fit, the sidebar first drops the blank rows between
+  cards, then turns cards into one line, and drops the blank row between
+  projects only last, so the list does not run together. One-line cards keep
+  their `Option` number. With 11
   projects it used to go straight to one-line cards without numbers
 - A finished task stays "done" until you look at it on the screen that has the
   keyboard focus. A screen that was only attached (another Ghostty window,
