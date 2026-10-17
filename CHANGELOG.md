@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- The sidebar shows each project as a box with a header band in the project's
+  color, its Claude cards inside. Widen the sidebar (drag the grip) and the
+  boxes go into 2 or 3 columns, each box in the shortest column. Click, drag
+  and right-click work on any column
+- When the boxes do not fit, the sidebar drops the blank rows before it turns
+  cards into one line, and one-line cards keep their `Option` number. With 11
+  projects it used to go straight to one-line cards without numbers
+
 ## 0.1.20 — 2026-10-17
 
 - Popups from the sidebar menu (rename, new project, close project, new
