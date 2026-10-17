@@ -128,6 +128,11 @@ ANIM = True
 # Card or project being dragged: {"kind": "card"|"group", "src": pane|session, "over": pane|session|None}
 # 끄는 중인 카드나 프로젝트: {"kind": "card"|"group", "src": 칸|세션, "over": 칸|세션|None}
 DRAG = None
+# Rows scrolled off the top of the project list (mouse wheel), and the pane whose card the
+# list last scrolled to; a new sidebar starts scrolled to its own card
+# 프로젝트 목록이 위로 넘어간 줄 수 (마우스 휠), 그리고 마지막으로 맞춰 보인 카드의 칸.
+# 새 사이드바는 자기 카드가 보이게 시작한다
+SCROLL, SCROLL_TO = 0, None
 BOX_MIN, COL_GAP = 20, 2   # narrowest project box, columns between boxes / 상자 최소 폭, 상자 사이 칸
 # Right-click menu while open: {"rows": [(label, key, action) | None], "y": row, "sel": index, "title", "at": {row: index}}
 # 열려 있는 오른쪽 클릭 메뉴: {"rows": [(이름, 키, 동작) | None], "y": 줄, "sel": 고른 번호, "title", "at": {줄: 번호}}
@@ -312,7 +317,7 @@ def render(items, current, w, h, cur_sess="", sessions=()):
     ncol = max(1, (usable + COL_GAP) // (BOX_MIN + COL_GAP))
     cw = (usable - COL_GAP * (ncol - 1)) // ncol
 
-    def box(sess, members, compact, card_gap):
+    def box(sess, members, card_gap):
         """One project box: rows of width cw, plus {row: pane} for its cards
         프로젝트 상자 하나: 폭 cw 의 줄들과 {줄: 칸} (카드 자리)"""
         hue = hue_of(sess)
@@ -367,26 +372,15 @@ def render(items, current, w, h, cur_sess="", sessions=()):
             def card_line():
                 return S().put(" ", C["text"], tile).put(bar_ch, bar, card).put(" ", C["text"], card)
 
-            lns = []
-            if compact:
-                stat = f"{icon} {t}".rstrip()
-                r = card_line()
-                r.put(name, C["text"], card, bold=sel or st == "wait", limit=x1 - width(stat) - width(key) - 3)
-                r.fill(x1 - 1 - width(stat) - (width(key) + 1 if key else 0), card)
-                if key:
-                    r.put(key + " ", C["text"] if sel else C["text3"], card)
-                r.put(stat, bar if st != "idle" else C["text3"], card).fill(x1, card).fill(cw)
-                lns.append(r)
-            else:
-                r1 = card_line()
-                r1.put(name, C["text"] if st != "idle" or sel else C["text2"], card, bold=True,
-                       limit=x1 - (width(key) + 2 if key else 1))
-                r1.fill(x1 - 1 - width(key), card).put(key, C["text"] if sel else C["text3"], card).fill(x1, card).fill(cw)
-                r2 = card_line()
-                r2.put(f"{icon} {STATE_TEXT[st]}", bar if st != "idle" else C["text3"], card, bold=st == "wait",
-                       limit=x1 - width(t) - 2)
-                r2.fill(x1 - 1 - width(t), card).put(t, C["text2"] if st != "wait" else C["wait"], card).fill(x1, card).fill(cw)
-                lns += [r1, r2]
+            r1 = card_line()
+            r1.put(name, C["text"] if st != "idle" or sel else C["text2"], card, bold=True,
+                   limit=x1 - (width(key) + 2 if key else 1))
+            r1.fill(x1 - 1 - width(key), card).put(key, C["text"] if sel else C["text3"], card).fill(x1, card).fill(cw)
+            r2 = card_line()
+            r2.put(f"{icon} {STATE_TEXT[st]}", bar if st != "idle" else C["text3"], card, bold=st == "wait",
+                   limit=x1 - width(t) - 2)
+            r2.fill(x1 - 1 - width(t), card).put(t, C["text2"] if st != "wait" else C["wait"], card).fill(x1, card).fill(cw)
+            lns = [r1, r2]
             if drag_src:
                 for r in lns:
                     r.tint(fg=C["text3"])
@@ -403,15 +397,15 @@ def render(items, current, w, h, cur_sess="", sessions=()):
                 rows.append(r)
         return rows, cards
 
-    def build(compact, box_gap, card_gap):
+    def build(card_gap):
         """Lay the boxes out; returns (lines, {row: [(x0, x1, pane)]}, {row: [(x0, x1, session)]})
         상자를 배치한다. 돌려주는 값: (줄들, {줄: [(x0, x1, 칸)]}, {줄: [(x0, x1, 세션)]})"""
         cols = [[] for _ in range(ncol)]            # per column: [(rows, cards, sess)] / 열마다
         hts = [0] * ncol
         for sess, members in groups:
-            rows, cards = box(sess, members, compact, card_gap)
+            rows, cards = box(sess, members, card_gap)
             k = hts.index(min(hts))
-            gap = 1 if box_gap and cols[k] else 0
+            gap = 1 if cols[k] else 0
             cols[k].append((rows, cards, sess, hts[k] + gap))
             hts[k] += gap + len(rows)
         height = max(hts) if hts else 0
@@ -431,29 +425,43 @@ def render(items, current, w, h, cur_sess="", sessions=()):
                         hg.setdefault(top + j, []).append((cx, cx + cw, sess))
         return [L()] + out, {y + 1: v for y, v in tg.items()}, {y + 1: v for y, v in hg.items()}
 
-    reserve = len(lines) + 4
-    # shrink step by step: the blank row between cards in a box, then one-line cards (keeping the
-    # row between boxes, or the list runs together), and only then the row between boxes
-    # 단계별로 줄인다: 상자 안 카드 사이 빈 줄, 그다음 한 줄 카드 (상자 사이 빈 줄은 남긴다.
-    # 없으면 목록이 붙어 보인다), 마지막에 상자 사이 빈 줄
-    for compact, box_gap, card_gap in ((False, True, True), (False, True, False), (True, True, False),
-                                       (False, False, False), (True, False, False)):
-        body, tg, hg = build(compact, box_gap, card_gap)
-        if reserve + len(body) <= h:
+    global SCROLL, SCROLL_TO
+    avail = h - 3 - len(lines)          # rows for the list / 목록에 쓸 줄 수
+    # If it does not fit, drop the blank row between cards in a box; past that the list scrolls
+    # (cards stay two lines and projects stay apart)
+    # 넘치면 상자 안 카드 사이 빈 줄을 뺀다. 그래도 넘치면 목록을 스크롤한다
+    # (카드는 두 줄, 프로젝트 사이 빈 줄은 그대로)
+    for card_gap in (True, False):
+        body, tg, hg = build(card_gap)
+        if len(body) <= avail:
             break
     if not items and not sessions:
         body = [L(), L().put(tr("  실행 중인 Claude가 없습니다", "  No Claude sessions yet"), C["text2"]), L(),
                 L().put("  ", C["text3"]).put("prefix ⇧C", C["text"]).put(tr("  새 Claude", "  new Claude"), C["text3"]),
                 L().put("  ", C["text3"]).put(tr("hm 폴더", "hm <dir>"), C["text"]).put(tr("    프로젝트 열기", "   open project"), C["text3"])]
         tg, hg = {}, {}
-    base = len(lines)
-    lines += body
-    targets = {base + k: v for k, v in tg.items()}
-    heads = {base + k: v for k, v in hg.items()}
+    top_max = max(0, len(body) - avail)
+    if current != SCROLL_TO:            # bring this window's card into view / 이 창의 카드가 보이게
+        SCROLL_TO = current
+        mine = [k for k, v in tg.items() if any(pid == current for _, _, pid in v)]
+        if mine:
+            SCROLL = min(max(SCROLL, max(mine) - avail + 2), min(mine) - 2)
+    SCROLL = max(0, min(SCROLL, top_max))
+    base = len(lines) - SCROLL
+    lines += body[SCROLL:SCROLL + avail]
+    targets = {base + k: v for k, v in tg.items() if SCROLL <= k < SCROLL + avail}
+    heads = {base + k: v for k, v in hg.items() if SCROLL <= k < SCROLL + avail}
+    # more above / below: an arrow at the right end of the rule above / below the list
+    # 위/아래에 더 있음: 목록 위/아래 구분선 오른쪽 끝에 화살표
+    if SCROLL:
+        lines[base + SCROLL - 1].cells[w - 6:w - 3] = [(c, BG, C["text2"], True) for c in " ▲ "]
+    more_below = SCROLL < top_max
     lines = lines[:h - 3]
     while len(lines) < h - 3:
         lines.append(L())
     lines.append(L().put("  " + "─" * (w - 4), C["rule"]))
+    if more_below:
+        lines[-1].cells[w - 6:w - 3] = [(c, BG, C["text2"], True) for c in " ▼ "]
     k = L().put("  ")
     if n_wait:
         k.put(" ⌥0 ", C["bg"], C["wait"], True).put(tr("  기다리는 작업으로", "  go to waiting"), C["wait"])
@@ -856,7 +864,7 @@ def main():
     prev, prev_size = None, None     # last frame, for drawing only the rows that changed / 직전 프레임(바뀐 줄만 그리기용)
     border = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-border")
     targets, heads, buf = {}, {}, ""
-    global DRAG
+    global DRAG, SCROLL
     quits = {}                       # pane -> polls with a shell in front (see clear_quit) / 칸 -> 셸이 앞에 있던 횟수
     runs = {}                        # pane -> (state time, polls without the busy footer) (see clear_interrupted) / 칸 -> (상태 시각, 작업 중 표시가 없던 횟수)
     seen, sent = {}, {}              # notify_changes: pane -> (state, time); pane -> (state, sent at) / 칸 -> (상태, 시각); 칸 -> (상태, 보낸 시각)
@@ -1027,6 +1035,10 @@ def main():
                     elif b == 2 and kind == "m":
                         if at is None and x < w_now:
                             menu(row, pid=pick(targets, row, x), sess=pick(heads, row, x), items=items)
+                    continue
+                if b in (64, 65):               # wheel: scroll the list 3 rows / 휠: 목록을 3줄씩 스크롤
+                    SCROLL = max(0, SCROLL + (3 if b == 65 else -3))
+                    woke = True
                     continue
                 if b == 32 and kind == "M":     # motion with the left button held / 왼쪽 버튼을 누른 채 움직임
                     if DRAG:
