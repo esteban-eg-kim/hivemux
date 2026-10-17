@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.21 — 2026-10-17
 
 - The card of the window you are in stands out more: a lighter background and a
   bright line on both sides
@@ -12,8 +12,8 @@
   in a box and then scrolls (mouse wheel). Cards stay two lines and projects
   stay apart; arrows on the rules show more above or below, and each window's
   sidebar starts scrolled to its own card. The scroll position is shared, so
-  going to another window keeps the list where it was. With 11 projects it used to go
-  straight to one-line cards without numbers
+  going to another window keeps the list where it was. With 11 projects it
+  used to go straight to one-line cards without numbers
 - A finished task stays "done" until you look at it on the screen that has the
   keyboard focus. A screen that was only attached (another Ghostty window,
   another Mac) used to turn it idle at once, so the "done" mark vanished
