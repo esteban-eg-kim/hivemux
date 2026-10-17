@@ -11,7 +11,8 @@
 - When the boxes do not fit, the sidebar drops the blank rows between cards
   in a box and then scrolls (mouse wheel). Cards stay two lines and projects
   stay apart; arrows on the rules show more above or below, and each window's
-  sidebar starts scrolled to its own card. With 11 projects it used to go
+  sidebar starts scrolled to its own card. The scroll position is shared, so
+  going to another window keeps the list where it was. With 11 projects it used to go
   straight to one-line cards without numbers
 - A finished task stays "done" until you look at it on the screen that has the
   keyboard focus. A screen that was only attached (another Ghostty window,

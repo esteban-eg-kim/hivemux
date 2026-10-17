@@ -876,6 +876,12 @@ def main():
     seen, sent = {}, {}              # notify_changes: pane -> (state, time); pane -> (state, sent at) / 칸 -> (상태, 시각); 칸 -> (상태, 보낸 시각)
     waits = {}                       # pane -> (state time, dialog seen, polls without it) (see clear_answered) / 칸 -> (상태 시각, 승인 창 봤음, 안 보인 횟수)
     snap, last_poll, last_spin, last_board, last_badge, woke = None, 0.0, None, None, None, False
+    # Scroll is shared by every sidebar (each window has its own): after the wheel stops, this one
+    # stores it in @hivemux-scroll and wakes the others, so the window you go to shows the same place
+    # 스크롤은 모든 사이드바가 같이 쓴다 (창마다 사이드바가 따로 있다): 휠이 멈추면 @hivemux-scroll 에
+    # 적고 다른 사이드바를 깨워서, 옮겨 간 창도 같은 자리를 보여 준다
+    shared = tmux("show", "-gqv", "@hivemux-scroll").strip()
+    scrolled = 0.0                   # when the wheel last turned here / 여기서 휠을 마지막으로 굴린 시각
     board_blink = False
     REMOTE_ON = False
     try:
@@ -886,6 +892,11 @@ def main():
                 last_poll = nowf
                 if snap is None:
                     break
+                v = tmux("show", "-gqv", "@hivemux-scroll").strip()
+                if v != shared:
+                    shared = v
+                    if v.isdigit() and not scrolled:
+                        SCROLL = int(v)
                 ANIM = tmux("show", "-gqv", "@hivemux-anim").strip() != "off"
                 # a screen attached from another Mac (bin/hivemux-attach): every animation frame and
                 # status line spinner step would go over the network and make its typing lag, so keep
@@ -1000,6 +1011,19 @@ def main():
             wait_s = TICK if animating else (1.0 if visible else 3.0)
             if visible and board_blink:          # wake for the next blink step / 다음 깜빡임에 맞춰 깬다
                 wait_s = min(wait_s, 0.5 - (time.time() % 0.5) + 0.01)
+            if scrolled:
+                if time.time() - scrolled >= 0.25:
+                    scrolled, shared = 0.0, str(SCROLL)
+                    tmux("set", "-g", "@hivemux-scroll", shared)
+                    for l in tmux("list-panes", "-a", "-F", "#{pane_id} #{pane_pid} #{m:*hivemux-sidebar-view*,#{pane_start_command}}").splitlines():
+                        pid_, ppid, ok = (l.split() + ["", "", ""])[:3]
+                        if ok == "1" and pid_ != ME:
+                            try:
+                                os.kill(int(ppid), signal.SIGUSR1)
+                            except (OSError, ValueError):
+                                pass
+                else:
+                    wait_s = min(wait_s, 0.26 - (time.time() - scrolled))
             r, _, _ = select.select([fd, WAKE_R], [], [], wait_s)
             if WAKE_R in r:
                 try:
@@ -1044,7 +1068,7 @@ def main():
                     continue
                 if b in (64, 65):               # wheel: scroll the list 3 rows / 휠: 목록을 3줄씩 스크롤
                     SCROLL = max(0, SCROLL + (3 if b == 65 else -3))
-                    woke = True
+                    woke, scrolled = True, time.time()
                     continue
                 if b == 32 and kind == "M":     # motion with the left button held / 왼쪽 버튼을 누른 채 움직임
                     if DRAG:
