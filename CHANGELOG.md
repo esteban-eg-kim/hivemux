@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.20 — 2026-10-17
+
+- Popups from the sidebar menu (rename, new project, close project, new
+  Claude, connect, settings) open on the screen that clicked. With another Mac
+  attached to the same project they used to open on the first screen in the
+  list, often the Mac you were not looking at
+
 ## 0.1.19 — 2026-10-16
 
 - The pickup board shows round number badges instead of names: the task's
