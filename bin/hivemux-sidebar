@@ -5,8 +5,8 @@
 #                                        그 창(기본: 모든 창)에 사이드바가 없으면 만든다
 #   hivemux-sidebar fix                  reset every sidebar to @hivemux-sidebar-width
 #                                        모든 사이드바 폭을 @hivemux-sidebar-width 로 되돌린다
-#   hivemux-sidebar sizer [in|out c]     only clients with the keyboard focus size windows
-#                                        키보드 초점이 있는 클라이언트만 창 크기를 정한다
+#   hivemux-sidebar sizer [in client]    only the client focused last sizes windows
+#                                        마지막으로 초점을 받은 클라이언트만 창 크기를 정한다
 #   hivemux-sidebar reap                 close windows that only contain a sidebar
 #                                        사이드바만 남은 창을 닫는다
 #   hivemux-sidebar rebuild              after restore: drop sidebars restored as shells, recreate
@@ -111,18 +111,23 @@ case "$1" in
     done
     "$0" fix ;;
   sizer)
-    # sizer in|out <client>: the client gained / lost the keyboard focus; sizer: set every client by its focus.
-    # A client without focus gets ignore-size, so it does not size the windows (tmux still uses it when
-    # every client has the flag)
-    # sizer in|out <클라이언트>: 키보드 초점을 얻음 / 잃음. sizer: 모든 클라이언트를 초점에 맞춘다.
-    # 초점 없는 클라이언트는 ignore-size 를 받아 창 크기를 정하지 않는다 (모두 그 표시면 tmux 는 그래도 쓴다)
+    # sizer in <client>: the client got the keyboard focus, so it alone sizes the windows (the others get
+    # ignore-size). Losing the focus changes nothing: the screen you used last keeps sizing them while you
+    # are in another app, so coming back does not resize anything. sizer: pick the focused client (else
+    # the one used last). tmux still uses flagged clients when no unflagged one is attached
+    # sizer in <클라이언트>: 키보드 초점을 얻은 클라이언트 하나만 창 크기를 정한다 (나머지는 ignore-size).
+    # 초점을 잃어도 바꾸지 않는다: 다른 앱에 가 있는 동안에도 마지막에 쓴 화면이 크기를 정해서, 돌아와도
+    # 크기가 바뀌지 않는다. sizer: 초점 있는 클라이언트 (없으면 마지막에 쓴 것) 를 고른다.
+    # 표시 없는 클라이언트가 하나도 없으면 tmux 는 표시된 클라이언트도 쓴다
     case "$2" in
-      in)  t refresh-client -t "$3" -f '!ignore-size' 2>/dev/null ;;
-      out) t refresh-client -t "$3" -f ignore-size 2>/dev/null ;;
-      *)   t list-clients -F '#{client_name} #{client_flags}' | while read -r c f; do
-             case ",$f," in *,focused,*) t refresh-client -t "$c" -f '!ignore-size' ;; *) t refresh-client -t "$c" -f ignore-size ;; esac 2>/dev/null
-           done ;;
-    esac ;;
+      in) me="$3" ;;
+      out) exit 0 ;;
+      *) me="$(t list-clients -F '#{?#{m:*focused*,#{client_flags}},1,0} #{client_activity} #{client_name}' | sort -k1,1nr -k2,2nr | head -1 | awk '{print $3}')" ;;
+    esac
+    [ -n "$me" ] || exit 0
+    t list-clients -F '#{client_name}' | while read -r c; do
+      if [ "$c" = "$me" ]; then t refresh-client -t "$c" -f '!ignore-size'; else t refresh-client -t "$c" -f ignore-size; fi 2>/dev/null
+    done ;;
   fix)
     t list-panes -a -F '#{pane_id} #{pane_title} #{pane_width}' | awk -v T="$TITLE" -v W="$W" '$2==T && $3!=W{print $1}' |
       while read -r p; do t resize-pane -t "$p" -x "$W"; done ;;
@@ -187,6 +192,6 @@ case "$1" in
     else
       t set -g @hivemux-sidebar on; ON=on; "$0" ensure
     fi ;;
-  *) echo "usage: $0 ensure [win]|fix|sizer [in|out client]|reap|rebuild|respawn|toggle" >&2; exit 2 ;;
+  *) echo "usage: $0 ensure [win]|fix|sizer [in client]|reap|rebuild|respawn|toggle" >&2; exit 2 ;;
 esac
 exit 0
