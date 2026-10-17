@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The card of the window you are in stands out more: a lighter background and a
+  bright line on both sides
 - The sidebar shows each project as a box with a header band in the project's
   color, its Claude cards inside. Widen the sidebar (drag the grip) and the
   boxes go into 2 or 3 columns, each box in the shortest column. Click, drag

@@ -92,7 +92,9 @@ def age(at, now):
 C = {
     "bg":      (22, 24, 29),     # sidebar background / 사이드바 바탕
     "card":    (30, 33, 40),     # card / 카드
-    "card_hi": (42, 47, 58),     # selected card / 선택된 카드
+    "card_hi": (42, 47, 58),     # badges, menu / 배지, 메뉴
+    "card_sel": (58, 65, 82),    # selected card / 선택된 카드
+    "frame":   (225, 230, 240),  # side lines of the selected card / 선택된 카드 양옆 선
     "rule":    (44, 48, 57),     # divider / 구분선
     "text":    (230, 233, 239),  # text / 본문
     "text2":   (154, 163, 178),  # secondary text / 보조
@@ -106,7 +108,7 @@ C = {
     # still cards (no animation: a remote screen, @hivemux-anim off) are told apart by a tinted background
     # 멈춘 카드 (애니메이션 없음: 원격 화면, @hivemux-anim off)는 바탕색으로 구분한다
     "run_bg":      (26, 43, 68),
-    "run_bg_sel":  (34, 56, 88),
+    "run_bg_sel":  (44, 78, 126),
     "wait_bg_sel": (96, 70, 22),
     "done":    (62, 207, 142),
     "idle":    (92, 99, 112),
@@ -346,7 +348,7 @@ def render(items, current, w, h, cur_sess="", sessions=()):
                 rows.append(S().fill(cw))
             st = p["@claude_state"] if p["@claude_state"] in STATE_TEXT else "idle"
             sel = p["pane_id"] == current
-            card = C["card_hi"] if sel else C["card"]
+            card = C["card_sel"] if sel else C["card"]
             bar = C[st]
             icon = STATE_ICON[st]
             t_ = NOW_T
@@ -381,6 +383,10 @@ def render(items, current, w, h, cur_sess="", sessions=()):
                    limit=x1 - width(t) - 2)
             r2.fill(x1 - 1 - width(t), card).put(t, C["text2"] if st != "wait" else C["wait"], card).fill(x1, card).fill(cw)
             lns = [r1, r2]
+            if sel and not drag_dst:        # a bright line on both sides of this window's card / 이 창의 카드 양옆에 밝은 선
+                for r in lns:
+                    r.cells[0] = ("▐", tile, C["frame"], False)
+                    r.cells[-1] = ("▌", tile, C["frame"], False)
             if drag_src:
                 for r in lns:
                     r.tint(fg=C["text3"])
