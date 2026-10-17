@@ -249,11 +249,13 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
 .side2 .sum { padding: 8px 12px 8px; display: flex; gap: 12px; border-bottom: 1px solid #2c3039; margin: 0 12px; padding-inline: 0; }
 .side2 .sum .r { color: #5aa9ff; } .side2 .sum .w { color: #f5a524; font-weight: 700; }
 .side2 .bx { background: color-mix(in srgb, var(--h) 12%, #16181d); margin: 10px 12px 0; padding-bottom: 5px; }
+.side2 .bx .cd + .cd { box-shadow: inset 0 1px 0 color-mix(in srgb, var(--h) 30%, #16181d); }
+.side2 .bx .cd + .cd.sel { box-shadow: -4px 0 0 #e1e6f0, 4px 0 0 #e1e6f0, inset 0 1px 0 color-mix(in srgb, var(--h) 30%, #16181d); }
 .side2 .bx.cur { background: color-mix(in srgb, var(--h) 20%, #16181d); }
 .side2 .pj { display: flex; align-items: center; padding: 1px 8px; margin-bottom: 5px; color: #e6e9ef; font-weight: 700; background: color-mix(in srgb, var(--h) 30%, #16181d); }
 .side2 .bx.cur .pj { background: color-mix(in srgb, var(--h) 45%, #16181d); }
 .side2 .pj span { margin-left: auto; color: color-mix(in srgb, var(--h) 40%, #e6e9ef); font-weight: 400; }
-.side2 .cd { margin: 0 8px 5px; display: grid; grid-template-columns: 1fr auto; column-gap: 6px; padding: 3px 8px; background: #1e2128; border-left: 2px solid #5c6370; color: #e6e9ef; }
+.side2 .cd { margin: 0 8px; display: grid; grid-template-columns: 1fr auto; column-gap: 6px; padding: 3px 8px; background: #1e2128; border-left: 2px solid #5c6370; color: #e6e9ef; }
 .side2 .cd .t { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .side2 .cd b { color: #626a78; font-weight: 400; }
 .side2 .cd .a { color: #9aa3b2; }
@@ -379,7 +381,7 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
       </div>
       <p><kbd>Option</kbd>+번호를 누르면 그 Claude로 바로 갑니다. 프로젝트가 달라도 한 번에 이동합니다. 사이드바의 타일을 클릭해도 됩니다.</p>
       <p><kbd>Option</kbd>+<kbd>0</kbd>은 가장 오래 기다린 Claude로 갑니다. 주황색 항목이 없으면 끝났는데 아직 안 본 초록색 항목으로 갑니다. 이 키만 반복해서 누르면 기다리는 작업을 차례로 처리할 수 있습니다.</p>
-      <p class="result">작업 중인 카드는 밝은 빛 띠가 계속 훑고 지나가고 스피너가 돕니다. 입력이 필요한 카드는 호박색으로 깜빡입니다. 맨 위 창 목록에서도 작업 중인 창 옆에 스피너가 돕니다. 번호는 프로젝트 이름순으로 매겨지고 작업이 바뀌어도 그대로라서 손에 익습니다. 타일 아랫줄에 상태와 경과 시간이 보여서 무엇을 먼저 볼지 정할 수 있습니다. 각 프로젝트는 프로젝트 색 머리 띠가 달린 상자로 묶입니다. 사이드바를 넓히면 상자가 2열, 3열로 늘어나고, 그래도 세로로 다 들어가지 않으면 카드 사이 빈 줄을 줄이고, 그다음엔 마우스 휠로 스크롤합니다. 위나 아래에 더 있으면 구분선 끝에 ▲ ▼가 보이고, 스크롤 위치는 모든 창이 함께 써서 다른 작업으로 옮겨도 그대로입니다. 사이드바가 거슬리면 <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>b</kbd>로 숨기고 다시 보일 수 있습니다.</p>
+      <p class="result">작업 중인 카드는 밝은 빛 띠가 계속 훑고 지나가고 스피너가 돕니다. 입력이 필요한 카드는 호박색으로 깜빡입니다. 맨 위 창 목록에서도 작업 중인 창 옆에 스피너가 돕니다. 번호는 프로젝트 이름순으로 매겨지고 작업이 바뀌어도 그대로라서 손에 익습니다. 타일 아랫줄에 상태와 경과 시간이 보여서 무엇을 먼저 볼지 정할 수 있습니다. 각 프로젝트는 프로젝트 색 머리 띠가 달린 상자로 묶입니다. 사이드바를 넓히면 상자가 2열, 3열로 늘어나고, 같은 프로젝트의 카드는 빈 줄 없이 프로젝트 색 가는 선으로 나뉩니다. 세로로 다 들어가지 않으면 마우스 휠로 스크롤합니다. 위나 아래에 더 있으면 구분선 끝에 ▲ ▼가 보이고, 스크롤 위치는 모든 창이 함께 써서 다른 작업으로 옮겨도 그대로입니다. 사이드바가 거슬리면 <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>b</kbd>로 숨기고 다시 보일 수 있습니다.</p>
     </div></div>
 
     <div class="st"><div>

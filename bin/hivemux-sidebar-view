@@ -143,7 +143,13 @@ PENDING = None      # menu action to run once the closed menu is off the screen 
 
 
 def sgr(bg, fg, bold=False):
-    return "\x1b[0;48;2;%d;%d;%d;38;2;%d;%d;%d%sm" % (*bg, *fg, ";1" if bold else "")
+    # bold may be (bold, colour): also underline the cell in that colour (a thin line under a card)
+    # bold 가 (굵게, 색) 이면 그 색 밑줄도 긋는다 (카드 아래 가는 선)
+    ul = ""
+    if isinstance(bold, tuple):
+        bold, c = bold
+        ul = ";4;58;2;%d;%d;%d" % c
+    return "\x1b[0;48;2;%d;%d;%d;38;2;%d;%d;%d%s%sm" % (*bg, *fg, ";1" if bold else "", ul)
 
 
 def mix(a, b, t):
@@ -319,7 +325,7 @@ def render(items, current, w, h, cur_sess="", sessions=()):
     ncol = max(1, (usable + COL_GAP) // (BOX_MIN + COL_GAP))
     cw = (usable - COL_GAP * (ncol - 1)) // ncol
 
-    def box(sess, members, card_gap):
+    def box(sess, members):
         """One project box: rows of width cw, plus {row: pane} for its cards
         프로젝트 상자 하나: 폭 cw 의 줄들과 {줄: 칸} (카드 자리)"""
         hue = hue_of(sess)
@@ -344,8 +350,6 @@ def render(items, current, w, h, cur_sess="", sessions=()):
                                          C["text3"], tile, limit=cw - 1).fill(cw))
         x0, x1 = 1, cw - 1                # card columns inside the box / 상자 안 카드 가로 범위
         for mi, (i, p) in enumerate(members):
-            if card_gap and mi:             # a row of the box colour between two cards / 두 카드 사이에 상자 색 한 줄
-                rows.append(S().fill(cw))
             st = p["@claude_state"] if p["@claude_state"] in STATE_TEXT else "idle"
             sel = p["pane_id"] == current
             card = C["card_sel"] if sel else C["card"]
@@ -383,6 +387,9 @@ def render(items, current, w, h, cur_sess="", sessions=()):
                    limit=x1 - width(t) - 2)
             r2.fill(x1 - 1 - width(t), card).put(t, C["text2"] if st != "wait" else C["wait"], card).fill(x1, card).fill(cw)
             lns = [r1, r2]
+            if mi < len(members) - 1:       # a thin line under the card, before the next one / 다음 카드 앞에 가는 선
+                r2.cells = [(ch, bg_, fg_, (b_, head_bg) if 1 <= k < len(r2.cells) - 1 else b_)
+                            for k, (ch, bg_, fg_, b_) in enumerate(r2.cells)]
             if sel and not drag_dst:        # a bright line on both sides of this window's card / 이 창의 카드 양옆에 밝은 선
                 for r in lns:
                     r.cells[0] = ("▐", tile, C["frame"], False)
@@ -403,13 +410,13 @@ def render(items, current, w, h, cur_sess="", sessions=()):
                 rows.append(r)
         return rows, cards
 
-    def build(card_gap):
+    def build():
         """Lay the boxes out; returns (lines, {row: [(x0, x1, pane)]}, {row: [(x0, x1, session)]})
         상자를 배치한다. 돌려주는 값: (줄들, {줄: [(x0, x1, 칸)]}, {줄: [(x0, x1, 세션)]})"""
         cols = [[] for _ in range(ncol)]            # per column: [(rows, cards, sess)] / 열마다
         hts = [0] * ncol
         for sess, members in groups:
-            rows, cards = box(sess, members, card_gap)
+            rows, cards = box(sess, members)
             k = hts.index(min(hts))
             gap = 1 if cols[k] else 0
             cols[k].append((rows, cards, sess, hts[k] + gap))
@@ -433,14 +440,9 @@ def render(items, current, w, h, cur_sess="", sessions=()):
 
     global SCROLL, SCROLL_TO
     avail = h - 3 - len(lines)          # rows for the list / 목록에 쓸 줄 수
-    # If it does not fit, drop the blank row between cards in a box; past that the list scrolls
-    # (cards stay two lines and projects stay apart)
-    # 넘치면 상자 안 카드 사이 빈 줄을 뺀다. 그래도 넘치면 목록을 스크롤한다
-    # (카드는 두 줄, 프로젝트 사이 빈 줄은 그대로)
-    for card_gap in (True, False):
-        body, tg, hg = build(card_gap)
-        if len(body) <= avail:
-            break
+    # If it does not fit, the list scrolls (cards stay two lines, projects stay apart)
+    # 넘치면 목록을 스크롤한다 (카드는 두 줄, 프로젝트 사이 빈 줄은 그대로)
+    body, tg, hg = build()
     if not items and not sessions:
         body = [L(), L().put(tr("  실행 중인 Claude가 없습니다", "  No Claude sessions yet"), C["text2"]), L(),
                 L().put("  ", C["text3"]).put("prefix ⇧C", C["text"]).put(tr("  새 Claude", "  new Claude"), C["text3"]),

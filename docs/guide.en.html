@@ -249,11 +249,13 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
 .side2 .sum { padding: 8px 12px 8px; display: flex; gap: 12px; border-bottom: 1px solid #2c3039; margin: 0 12px; padding-inline: 0; }
 .side2 .sum .r { color: #5aa9ff; } .side2 .sum .w { color: #f5a524; font-weight: 700; }
 .side2 .bx { background: color-mix(in srgb, var(--h) 12%, #16181d); margin: 10px 12px 0; padding-bottom: 5px; }
+.side2 .bx .cd + .cd { box-shadow: inset 0 1px 0 color-mix(in srgb, var(--h) 30%, #16181d); }
+.side2 .bx .cd + .cd.sel { box-shadow: -4px 0 0 #e1e6f0, 4px 0 0 #e1e6f0, inset 0 1px 0 color-mix(in srgb, var(--h) 30%, #16181d); }
 .side2 .bx.cur { background: color-mix(in srgb, var(--h) 20%, #16181d); }
 .side2 .pj { display: flex; align-items: center; padding: 1px 8px; margin-bottom: 5px; color: #e6e9ef; font-weight: 700; background: color-mix(in srgb, var(--h) 30%, #16181d); }
 .side2 .bx.cur .pj { background: color-mix(in srgb, var(--h) 45%, #16181d); }
 .side2 .pj span { margin-left: auto; color: color-mix(in srgb, var(--h) 40%, #e6e9ef); font-weight: 400; }
-.side2 .cd { margin: 0 8px 5px; display: grid; grid-template-columns: 1fr auto; column-gap: 6px; padding: 3px 8px; background: #1e2128; border-left: 2px solid #5c6370; color: #e6e9ef; }
+.side2 .cd { margin: 0 8px; display: grid; grid-template-columns: 1fr auto; column-gap: 6px; padding: 3px 8px; background: #1e2128; border-left: 2px solid #5c6370; color: #e6e9ef; }
 .side2 .cd .t { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .side2 .cd b { color: #626a78; font-weight: 400; }
 .side2 .cd .a { color: #9aa3b2; }
@@ -379,7 +381,7 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
       </div>
       <p><kbd>Option</kbd>+number jumps straight to that Claude, even in another project. Clicking a card does the same.</p>
       <p><kbd>Option</kbd>+<kbd>0</kbd> jumps to the Claude that has waited longest. With nothing amber, it goes to a finished green card you have not seen yet. Press it repeatedly to work through everything that is waiting.</p>
-      <p class="result">Running cards have a light band sweeping across and a spinner. Cards that need input pulse amber. The top window list shows a spinner next to running windows too. Numbers follow project names and stay put when states change, so they are easy to remember. The second line of each card shows the state and elapsed time, so you can decide what to look at first. Each project is a box with a header band in the project's color. Widen the sidebar and the boxes go into 2 or 3 columns; when they still do not fit, the blank rows between cards go first, then the list scrolls with the mouse wheel. ▲ ▼ at the end of a rule show more above or below, and every window shares the scroll position, so going to another task keeps the list where it was. To hide the sidebar, press <kbd>Ctrl</kbd>+<kbd>A</kbd> then <kbd>b</kbd>; press again to bring it back.</p>
+      <p class="result">Running cards have a light band sweeping across and a spinner. Cards that need input pulse amber. The top window list shows a spinner next to running windows too. Numbers follow project names and stay put when states change, so they are easy to remember. The second line of each card shows the state and elapsed time, so you can decide what to look at first. Each project is a box with a header band in the project's color. Widen the sidebar and the boxes go into 2 or 3 columns; cards of one project are split by a thin line in its color, with no blank row; when they do not fit, the list scrolls with the mouse wheel. ▲ ▼ at the end of a rule show more above or below, and every window shares the scroll position, so going to another task keeps the list where it was. To hide the sidebar, press <kbd>Ctrl</kbd>+<kbd>A</kbd> then <kbd>b</kbd>; press again to bring it back.</p>
     </div></div>
 
     <div class="st"><div>

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Cards of one project sit together with no blank row between them; a thin
+  line in the project's color under each card tells them apart
+
 ## 0.1.21 — 2026-10-17
 
 - The card of the window you are in stands out more: a lighter background and a

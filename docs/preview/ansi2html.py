@@ -71,7 +71,7 @@ BOX = {"╭": (0, 1, 0, 1), "┌": (0, 1, 0, 1), "╮": (0, 1, 1, 0), "┐": (0,
 def parse(text):
     rows = []
     for line in text.split("\n"):
-        st = dict(fg=None, bg=None, bold=False, dim=False, it=False, ul=False, rev=False)
+        st = dict(fg=None, bg=None, bold=False, dim=False, it=False, ul=False, ulc=None, rev=False)
         cells = []
         for tok in re.split(r"(\x1b\[[0-9;:]*m)", line):
             if tok.startswith("\x1b["):
@@ -79,7 +79,7 @@ def parse(text):
                 i = 0
                 while i < len(ps):
                     p = ps[i]
-                    if p == 0: st.update(fg=None, bg=None, bold=False, dim=False, it=False, ul=False, rev=False)
+                    if p == 0: st.update(fg=None, bg=None, bold=False, dim=False, it=False, ul=False, ulc=None, rev=False)
                     elif p == 1: st["bold"] = True
                     elif p == 2: st["dim"] = True
                     elif p == 3: st["it"] = True
@@ -95,8 +95,9 @@ def parse(text):
                     elif 100 <= p <= 107: st["bg"] = pal256(p - 100 + 8)
                     elif p == 39: st["fg"] = None
                     elif p == 49: st["bg"] = None
-                    elif p in (38, 48):
-                        key = "fg" if p == 38 else "bg"
+                    elif p == 59: st["ulc"] = None
+                    elif p in (38, 48, 58):
+                        key = {38: "fg", 48: "bg", 58: "ulc"}[p]
                         if i + 1 < len(ps) and ps[i + 1] == 5: st[key] = pal256(ps[i + 2]); i += 2
                         elif i + 1 < len(ps) and ps[i + 1] == 2: st[key] = tuple(ps[i + 2:i + 5]); i += 4
                     i += 1
@@ -119,13 +120,14 @@ def render(rows, cols, title):
             if s["dim"]: fg = tuple(int(c * 0.6 + b * 0.4) for c, b in zip(fg, bg))
             shape = block(ch, fg, bg)
             style = [f"width:{w * CW}px"]
+            if s["ul"]:     # underline as a 1px line at the cell bottom, also under block shapes / 칸 아래 1px 선 (도형 칸에도)
+                style.append(f"box-shadow:inset 0 -1px 0 {css(s['ulc'] or fg)}")
             if shape:
                 style.append(f"background:{shape}"); txt = ""
             else:
                 style.append(f"background:{css(bg)};color:{css(fg)}")
                 if s["bold"]: style.append("font-weight:700")
                 if s["it"]: style.append("font-style:italic")
-                if s["ul"]: style.append("text-decoration:underline")
                 # symbols (●○◐✓⠿❯⎿ …) from Menlo: web fonts draw some of them two cells wide
                 # 기호는 Menlo 로: 웹 글꼴은 일부 기호를 두 칸 폭으로 그려 반쪽만 보인다
                 if ord(ch) > 127 and w == 1 and not ("\uac00" <= ch <= "\ud7a3") and ch not in "←→↑↓↕":
