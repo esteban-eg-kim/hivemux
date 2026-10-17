@@ -9,6 +9,9 @@
 - When the boxes do not fit, the sidebar drops the blank rows before it turns
   cards into one line, and one-line cards keep their `Option` number. With 11
   projects it used to go straight to one-line cards without numbers
+- A finished task stays "done" until you look at it on the screen that has the
+  keyboard focus. A screen that was only attached (another Ghostty window,
+  another Mac) used to turn it idle at once, so the "done" mark vanished
 
 ## 0.1.20 — 2026-10-17
 

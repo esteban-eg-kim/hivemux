@@ -923,11 +923,19 @@ def main():
                         tmux("set", "-gu", "@claude_spin")
                     tmux("refresh-client", "-S")
                     last_spin = spin
-                for p in items:  # a finished task you are looking at becomes "seen" / 보고 있는 완료 작업은 "봤음"
-                    if p["pane_id"] == current and p["@claude_state"] == "done":
-                        tmux("set", "-p", "-t", current, "@claude_state", "idle")
-                        tmux("set", "-w", "-t", current, "@claude_state", "idle")
-                        p["@claude_state"] = "idle"
+                # a finished task you are looking at becomes "seen": on the screen that has the keyboard
+                # focus, not one that is only attached (another Ghostty window, another Mac), where it
+                # used to turn idle at once while you looked elsewhere
+                # 보고 있는 완료 작업은 "봤음": 키보드 초점이 있는 화면에 떠 있을 때만. 붙어만 있는 화면
+                # (다른 Ghostty 창, 다른 Mac) 에서도 바로 대기로 바뀌어, 다른 곳을 보는 동안 완료가 사라졌다
+                done_here = next((p for p in items if p["pane_id"] == current and p["@claude_state"] == "done"), None)
+                focused = done_here and done_here["window_id"] in {
+                    l.split(" ", 1)[0] for l in tmux("list-clients", "-F", "#{window_id} #{client_flags}").splitlines()
+                    if "focused" in l}
+                if focused:
+                    tmux("set", "-p", "-t", current, "@claude_state", "idle")
+                    tmux("set", "-w", "-t", current, "@claude_state", "idle")
+                    done_here["@claude_state"] = "idle"
                 # the pickup board (see board), redrawn on every screen only when it changes
                 # 호출판 (board 참고). 바뀔 때만 모든 화면의 상태줄을 다시 그린다
                 # the project badge, as wide as the sidebar (see badges) / 사이드바 폭의 프로젝트 이름표 (badges 참고)
