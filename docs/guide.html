@@ -515,7 +515,7 @@ claude -c
       <div class="key"><span class="combo">사이드바 카드 클릭</span><span class="d">그 Claude로 이동</span></div>
       <div class="key"><span class="combo">프로젝트 이름 클릭</span><span class="d">그 프로젝트로 이동. Claude 창을 모두 닫은 프로젝트도 "Claude 없음"으로 남고, 오른쪽 클릭 → 프로젝트 닫기로 정리합니다</span></div>
       <div class="key"><span class="combo">카드 더블클릭</span><span class="d">작업 이름 바꾸기</span></div>
-      <div class="key"><span class="combo">오른쪽 클릭</span><span class="d">메뉴. 작업 카드: 이동, 이름 바꾸기, 위로 / 아래로 옮기기, 이 프로젝트에 새 Claude, 새 프로젝트. 프로젝트 이름 줄: 이름 바꾸기, 프로젝트 닫기, 새 Claude, 새 프로젝트. 빈 곳: 새 프로젝트. 모든 메뉴 맨 아래에 원격 연결과 설정. 마우스를 올리면 강조되고 클릭하면 실행. <kbd>↑</kbd> <kbd>↓</kbd>와 <kbd>Enter</kbd>, 괄호 안 글자로도 고름. <kbd>Esc</kbd>나 바깥 클릭으로 닫힘</span></div>
+      <div class="key"><span class="combo">오른쪽 클릭</span><span class="d">메뉴. 작업 카드: 이동, 이름 바꾸기, 위로 / 아래로 옮기기, 이 프로젝트에 새 Claude, 새 프로젝트. 프로젝트 이름 줄: 이름 바꾸기, 프로젝트 닫기, 새 Claude, 새 프로젝트. 빈 곳: 새 프로젝트. 모든 메뉴 맨 아래에 경로 열기, 포트 목록, 원격 연결, 설정. 마우스를 올리면 강조되고 클릭하면 실행. <kbd>↑</kbd> <kbd>↓</kbd>와 <kbd>Enter</kbd>, 괄호 안 글자로도 고름. <kbd>Esc</kbd>나 바깥 클릭으로 닫힘</span></div>
       <div class="key"><span class="combo">메뉴 → 새 프로젝트</span><span class="d">가운데 폴더 탐색 창이 열림. <kbd>Enter</kbd>는 고른 폴더에서 <code>hm</code>처럼 시작, <kbd>→</kbd> / <kbd>←</kbd>는 폴더 안 / 상위로, 글자를 치면 걸러 보기 (<code>.</code>으로 시작하면 숨김 폴더도), <kbd>Ctrl</kbd>+<kbd>N</kbd>은 새 폴더</span></div>
       <div class="key"><span class="combo">메뉴 → 설정</span><span class="d">언어 (한국어 / English), 애니메이션 켜기 / 끄기, 알림 켜기 / 끄기, 사이드바 폭. 바꾸면 바로 적용되고 <code>~/.local/share/hivemux</code>에 저장되어 재시작 뒤에도 유지됨. 언어를 바꾸면 사이드바를 다시 띄움</span></div>
       <div class="key"><span class="combo">카드 / 프로젝트 이름 줄 끌기</span><span class="d">작업 순서 / 프로젝트 순서 바꾸기. 놓을 자리가 파랗게 표시되고, <kbd>⌥</kbd>+숫자 번호와 맨 위 창 목록도 같은 순서를 따름. 작업은 같은 프로젝트 안에서만 옮겨짐</span></div>
@@ -530,11 +530,12 @@ claude -c
       <figure><a href="img/menu-empty-ko.png"><img src="img/menu-empty-ko.png" alt="빈 곳 메뉴" width="1088" height="682" loading="lazy"></a><figcaption>빈 곳 오른쪽 클릭: 새 프로젝트와 설정</figcaption></figure>
       <figure><a href="img/reorder-ko.png"><img src="img/reorder-ko.png" alt="카드 끌어서 순서 바꾸기" width="1088" height="682" loading="lazy"></a><figcaption>카드 끌기: 놓을 자리가 파랗게, 끄는 카드는 흐리게</figcaption></figure>
       <figure><a href="img/new-project-ko.png"><img src="img/new-project-ko.png" alt="새 프로젝트 폴더 탐색 창" width="1088" height="682" loading="lazy"></a><figcaption>메뉴 → 새 프로젝트: 폴더 탐색 창. 이미 열린 프로젝트에 "열린 세션" 표시</figcaption></figure>
+      <figure><a href="img/ports-ko.png"><img src="img/ports-ko.png" alt="포트 목록 팝업" width="1088" height="682" loading="lazy"></a><figcaption>메뉴 → 포트 목록 (<kbd>Option</kbd>+<kbd>W</kbd>): 원격으로 붙은 Mac 으로 이어진 개발 서버</figcaption></figure>
       <figure><a href="img/settings-ko.png"><img src="img/settings-ko.png" alt="설정 창" width="1088" height="682" loading="lazy"></a><figcaption>메뉴 → 설정: 언어, 애니메이션, 알림, 사이드바 폭</figcaption></figure>
     </div>
     <h3>파일 경로 열기</h3>
     <div class="keys">
-      <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>O</kbd></span><span class="d">지금 칸의 최근 출력에서 파일 경로를 골라 열기 팝업</span></div>
+      <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>O</kbd></span><span class="d">지금 칸의 최근 출력에서 파일 경로를 골라 열기 팝업. 오른쪽 클릭 메뉴 → 경로 열기와 같음</span></div>
       <div class="key"><span class="combo">팝업에서 글자 입력</span><span class="d">경로 걸러 보기</span></div>
       <div class="key"><span class="combo"><kbd>Enter</kbd></span><span class="d">VS Code에서 열기. 줄 번호가 있으면 그 줄로</span></div>
       <div class="key"><span class="combo"><kbd>Tab</kbd> / <kbd>Ctrl</kbd>+<kbd>F</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></span><span class="d">기본 앱으로 열기 / Finder에서 보기 / 경로 복사</span></div>
@@ -649,7 +650,8 @@ hivemux connect me@work-mac.local</pre></div>
   <ul>
     <li>새 포트가 이어지면 알림이 뜹니다. 이 Mac에서 이미 쓰는 포트면 다음 빈 포트로 잇고 알림에 적습니다.</li>
     <li>서버가 꺼지면 연결도 풀리고, 원격 창을 닫으면 모두 풀립니다. mosh로 붙어도 됩니다 (포트는 ssh로 따로 잇습니다).</li>
-    <li>지금 이어진 포트 보기: <code>hivemux connect --ports</code>. 끄려면 <code>HIVEMUX_PORTS=0 hivemux connect &lt;host&gt;</code>.</li>
+    <li><b>포트 목록</b>: <kbd>Option</kbd>+<kbd>W</kbd>나 오른쪽 클릭 메뉴 → <b>포트 목록</b>. 원격 화면에서도, 그 Mac 앞에서도 이어진 포트가 보입니다. <kbd>Enter</kbd>를 누르면 접속한 Mac의 브라우저로 열리고(몇 초 걸림), <kbd>Ctrl</kbd>+<kbd>Y</kbd>는 주소를 지금 화면이 있는 Mac의 클립보드로 복사합니다.</li>
+    <li>터미널에서 보기: <code>hivemux connect --ports</code>. 끄려면 <code>HIVEMUX_PORTS=0 hivemux connect &lt;host&gt;</code>.</li>
   </ul>
   <div class="note">두 화면에서 같은 프로젝트를 보면 화면을 같이 씁니다. 한쪽에서 창을 바꾸면 다른 쪽도 바뀝니다. 크기는 마지막으로 키보드 초점을 받은 화면에 맞춥니다. 원격 화면이 보고 있는 창에서는 사이드바 애니메이션과 상태줄 스피너가 멈춥니다 (장면마다 네트워크로 가서 입력이 느려지므로).</div>
 </section>
@@ -713,7 +715,7 @@ hivemux-sidebar respawn</pre></div>
       <p class="why">사이드바 칸으로 입력 초점이 옮겨졌다면 <kbd>q</kbd>나 <kbd>Esc</kbd>를 누르면 원래 칸으로 돌아갑니다. 사이드바에서 숫자 키를 눌러도 그 작업으로 이동합니다.</p>
     </div></details>
     <details class="issue" data-c="term"><summary>팝업이 뜨면 맨 위 창 목록에 <code>·</code> 창이 생긴다<span class="pill part tag">터미널</span></summary><div class="body">
-      <p>이름 바꾸기, 새 프로젝트, 설정, <kbd>Option</kbd>+<kbd>O</kbd> 팝업은 지금 화면을 멈춘 사본 위에 뜹니다. <code>·</code> 창이 그 사본이고, 팝업을 닫으면 원래 창으로 돌아가며 사라집니다.</p>
+      <p>이름 바꾸기, 새 프로젝트, 설정, <kbd>Option</kbd>+<kbd>O</kbd>, <kbd>Option</kbd>+<kbd>W</kbd> 팝업은 지금 화면을 멈춘 사본 위에 뜹니다. <code>·</code> 창이 그 사본이고, 팝업을 닫으면 원래 창으로 돌아가며 사라집니다.</p>
       <p class="why">tmux 3.7은 Claude가 출력하는 한글 같은 두 칸 폭 글자를 그 위의 팝업과 메뉴를 뚫고 그려서, 출력 중인 화면 위에 바로 띄우면 팝업이 깨집니다. 오른쪽 클릭 메뉴는 같은 이유로 사이드바가 직접 그립니다.</p>
     </div></details>
     <details class="issue" data-c="term"><summary>깜빡이는 효과를 끄고 싶다<span class="pill part tag">터미널</span></summary><div class="body">
@@ -808,7 +810,7 @@ hivemux uninstall</pre></div>
     <div><code>hivemux-attach</code><span>Ghostty 진입점. 서버가 없으면 복원 후 마지막 세션에, 있으면 최근 세션에 붙습니다</span></div>
     <div><code>hivemux-rename-project</code>, <code>hivemux-rename-project-ui</code><span>프로젝트 이름 바꾸기와 그 팝업</span></div>
     <div><code>hivemux-connect</code>, <code>hivemux-connect-ui</code><span>원격 연결 (<code>hivemux connect</code>)과 그 팝업</span></div>
-    <div><code>hivemux-ports</code><span>원격 연결 중 상대 Mac의 개발 서버 포트를 이 Mac으로 잇기</span></div>
+    <div><code>hivemux-ports</code>, <code>hivemux-ports-ui</code><span>원격 연결 중 상대 Mac의 개발 서버 포트를 이 Mac으로 잇기와 포트 목록 팝업</span></div>
     <div><code>hivemux-close-project</code>, <code>hivemux-close-project-ui</code><span>프로젝트 닫기 (화면 가운데 팝업으로 묻고 그 세션의 창을 모두 닫음)</span></div>
     <div><code>hivemux-hook</code><span>Claude 훅. 세션 ID, 폴더, 상태를 tmux 칸에 기록합니다</span></div>
     <div><code>hivemux-panes</code><span>저장 때 칸과 세션 ID 목록을 남기고, 복원 때 재개 명령을 입력합니다</span></div>

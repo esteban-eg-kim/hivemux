@@ -110,12 +110,13 @@ new hooks once restarted. `hivemux version` shows the installed version; see
 | `Option+1` … `9` | jump to that Claude (any session) |
 | `Option+0` / `prefix Space` | oldest waiting Claude, else oldest unseen finished one |
 | click card / project name | jump · double click a card: rename. A project whose Claude windows are all closed stays listed ("no Claude") until you close it |
-| right click | menu. On a task: go to, rename, move up/down, new Claude, new project. On a project name: rename, close project, new Claude, new project. On empty space: new project. Every menu ends with Connect to… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes |
+| right click | menu. On a task: go to, rename, move up/down, new Claude, new project. On a project name: rename, close project, new Claude, new project. On empty space: new project. Every menu ends with Open path…, Ports…, Connect to… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes |
 | menu → New project | folder browser in the middle: `Enter` starts the selected folder (like `hm`), `→` / `←` in and out, type to filter, `Ctrl+N` new folder |
 | menu → Settings | language (한국어 / English), animation, notifications, sidebar width; applied at once and saved |
 | drag card / project header | reorder tasks / projects |
 | `prefix Shift+↑` / `↓` | move the current task up / down (at a project's edge, the project moves) |
-| `Option+O` | open a file path from recent output (Enter VS Code, Tab default app, ^F Finder, ^Y copy) |
+| `Option+O` / menu → Open path | open a file path from recent output (Enter VS Code, Tab default app, ^F Finder, ^Y copy) |
+| `Option+W` / menu → Ports | dev server ports forwarded between Macs (Enter opens in the browser of the Mac they reach, ^Y copies the address) |
 | `prefix Shift+C` | new window with a named Claude in this folder |
 | menu → Connect to… | another Mac's hivemux in a new Ghostty window (hosts added with `hivemux connect --add`) |
 | `prefix Shift+H` | connect to the last remote host again |
@@ -165,8 +166,9 @@ a VPN such as [Tailscale](https://tailscale.com) on both Macs is the simple way
 - Notifications from the remote tasks show on this Mac.
 - Dev servers started there (`npm run dev` in a remote pane) are forwarded to
   the same port on this Mac's `localhost` while connected, with a notification
-  for each; a port taken here goes to the next free one. `hivemux connect
-  --ports` lists them, `HIVEMUX_PORTS=0` turns it off.
+  for each; a port taken here goes to the next free one. `Option+W` (or
+  menu → Ports) lists them on either Mac; Enter opens one in the browser of the
+  Mac you connect from. `HIVEMUX_PORTS=0` turns it off.
 - With `--mosh` (or `m` in the menu → Connect to… list), the session survives
   sleep and network changes by itself, but notifications do not pass through
   mosh; the list marks such a host "mosh · no notifications". Both Macs need

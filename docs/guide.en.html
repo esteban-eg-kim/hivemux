@@ -505,7 +505,7 @@ claude -c
       <div class="key"><span class="combo">Click a card</span><span class="d">Jump to that Claude</span></div>
       <div class="key"><span class="combo">Click a project name</span><span class="d">Go to that project. A project whose Claude windows are all closed stays as "no Claude"; right-click → Close project to clear it</span></div>
       <div class="key"><span class="combo">Double-click a card</span><span class="d">Rename the task</span></div>
-      <div class="key"><span class="combo">Right click</span><span class="d">Menu. On a task: go to, rename, move up / down, new Claude in this project, new project. On a project name: rename, close project, new Claude, new project. On empty space: new project. Every menu ends with Connect to… and Settings. Hover highlights, a click runs; <kbd>↑</kbd> <kbd>↓</kbd> and <kbd>Enter</kbd> or the letter shown also choose. <kbd>Esc</kbd> or a click outside closes it</span></div>
+      <div class="key"><span class="combo">Right click</span><span class="d">Menu. On a task: go to, rename, move up / down, new Claude in this project, new project. On a project name: rename, close project, new Claude, new project. On empty space: new project. Every menu ends with Open path, Ports, Connect to… and Settings. Hover highlights, a click runs; <kbd>↑</kbd> <kbd>↓</kbd> and <kbd>Enter</kbd> or the letter shown also choose. <kbd>Esc</kbd> or a click outside closes it</span></div>
       <div class="key"><span class="combo">Menu → New project</span><span class="d">A folder browser opens in the middle. <kbd>Enter</kbd> starts in the selected folder like <code>hm</code>, <kbd>→</kbd> / <kbd>←</kbd> move in and out, typing filters (start with <code>.</code> for hidden folders), <kbd>Ctrl</kbd>+<kbd>N</kbd> makes a new folder</span></div>
       <div class="key"><span class="combo">Menu → Settings</span><span class="d">Language (한국어 / English), animation on / off, notifications on / off, sidebar width. Applied at once and saved in <code>~/.local/share/hivemux</code>, so they survive restarts. Changing the language restarts the sidebars</span></div>
       <div class="key"><span class="combo">Drag a card / project header</span><span class="d">Reorder tasks / projects. The drop target turns blue; <kbd>⌥</kbd>+number and the top window list follow the same order. A task moves only within its project</span></div>
@@ -520,11 +520,12 @@ claude -c
       <figure><a href="img/menu-empty-en.png"><img src="img/menu-empty-en.png" alt="Empty-space menu" width="1088" height="682" loading="lazy"></a><figcaption>Right click on empty space: new project and settings</figcaption></figure>
       <figure><a href="img/reorder-en.png"><img src="img/reorder-en.png" alt="Dragging a card to reorder" width="1088" height="682" loading="lazy"></a><figcaption>Dragging a card: the drop target turns blue, the dragged card dims</figcaption></figure>
       <figure><a href="img/new-project-en.png"><img src="img/new-project-en.png" alt="New project folder browser" width="1088" height="682" loading="lazy"></a><figcaption>Menu → New project: the folder browser; projects already open are marked "open"</figcaption></figure>
+      <figure><a href="img/ports-en.png"><img src="img/ports-en.png" alt="Ports popup" width="1088" height="682" loading="lazy"></a><figcaption>Menu → Ports (<kbd>Option</kbd>+<kbd>W</kbd>): dev servers forwarded to a Mac connected here</figcaption></figure>
       <figure><a href="img/settings-en.png"><img src="img/settings-en.png" alt="Settings popup" width="1088" height="682" loading="lazy"></a><figcaption>Menu → Settings: language, animation, notifications, sidebar width</figcaption></figure>
     </div>
     <h3>Open file paths</h3>
     <div class="keys">
-      <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>O</kbd></span><span class="d">Popup listing file paths from this pane's recent output</span></div>
+      <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>O</kbd></span><span class="d">Popup listing file paths from this pane's recent output; same as right-click menu → Open path</span></div>
       <div class="key"><span class="combo">Type in the popup</span><span class="d">Filter the paths</span></div>
       <div class="key"><span class="combo"><kbd>Enter</kbd></span><span class="d">Open in VS Code, at the line when there is one</span></div>
       <div class="key"><span class="combo"><kbd>Tab</kbd> / <kbd>Ctrl</kbd>+<kbd>F</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></span><span class="d">Default app / reveal in Finder / copy path</span></div>
@@ -640,7 +641,8 @@ hivemux connect me@work-mac.local</pre></div>
   <ul>
     <li>A notification shows each new port. A port already taken here goes to the next free one, named in the notification.</li>
     <li>A stopped server is let go, and closing the remote window lets all go. Works over mosh too (ports go over a separate ssh).</li>
-    <li>See the forwarded ports: <code>hivemux connect --ports</code>. Turn it off: <code>HIVEMUX_PORTS=0 hivemux connect &lt;host&gt;</code>.</li>
+    <li><b>Ports</b>: <kbd>Option</kbd>+<kbd>W</kbd> or right-click menu → <b>Ports</b>, on the remote screen or in front of that Mac. <kbd>Enter</kbd> opens one in the browser of the Mac you connect from (takes a few seconds); <kbd>Ctrl</kbd>+<kbd>Y</kbd> copies the address to the clipboard of the Mac this screen is on.</li>
+    <li>From a terminal: <code>hivemux connect --ports</code>. Turn it off: <code>HIVEMUX_PORTS=0 hivemux connect &lt;host&gt;</code>.</li>
   </ul>
   <div class="note">Two screens on the same project share it: switching windows on one moves the other. The size follows the screen that got the keyboard focus last. While a remote screen looks at a window, the sidebar animation and the status line spinner stop (each frame would go over the network and slow typing).</div>
 </section>
@@ -704,7 +706,7 @@ hivemux-sidebar respawn</pre></div>
       <p class="why">If keyboard focus ends up in the sidebar, <kbd>q</kbd> or <kbd>Esc</kbd> returns it to the work pane. Number keys in the sidebar jump to that task.</p>
     </div></details>
     <details class="issue" data-c="term"><summary>A <code>·</code> window appears in the top window list while a popup is open<span class="pill part tag">Terminal</span></summary><div class="body">
-      <p>The rename, new project, settings and <kbd>Option</kbd>+<kbd>O</kbd> popups open over a still copy of the screen. The <code>·</code> window is that copy; it goes away when the popup closes and you are back in your window.</p>
+      <p>The rename, new project, settings, <kbd>Option</kbd>+<kbd>O</kbd> and <kbd>Option</kbd>+<kbd>W</kbd> popups open over a still copy of the screen. The <code>·</code> window is that copy; it goes away when the popup closes and you are back in your window.</p>
       <p class="why">tmux 3.7 draws double-width text (Korean and other CJK) that Claude prints through popups and menus on top of it, so a popup over a printing Claude gets garbled. The right-click menu is drawn by the sidebar itself for the same reason.</p>
     </div></details>
     <details class="issue" data-c="term"><summary>Turn off the animations<span class="pill part tag">Terminal</span></summary><div class="body">
@@ -799,7 +801,7 @@ hivemux uninstall</pre></div>
     <div><code>hivemux-attach</code><span>Ghostty entry point. Restores and attaches to the last session when no server runs, otherwise to the most recent one</span></div>
     <div><code>hivemux-rename-project</code>, <code>hivemux-rename-project-ui</code><span>Rename a project, and its popup</span></div>
     <div><code>hivemux-connect</code>, <code>hivemux-connect-ui</code><span>Connect to another Mac (<code>hivemux connect</code>) and its popup</span></div>
-    <div><code>hivemux-ports</code><span>Forward the other Mac's dev server ports here while connected</span></div>
+    <div><code>hivemux-ports</code>, <code>hivemux-ports-ui</code><span>Forward the other Mac's dev server ports here while connected, and the port list popup</span></div>
     <div><code>hivemux-close-project</code>, <code>hivemux-close-project-ui</code><span>Close a project (asks in a popup in the middle, then closes all its windows)</span></div>
     <div><code>hivemux-hook</code><span>Claude hook. Records session id, folder and state on the tmux pane</span></div>
     <div><code>hivemux-panes</code><span>Saves the pane-to-session list on save; types the resume command on restore</span></div>

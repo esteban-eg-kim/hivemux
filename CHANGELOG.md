@@ -6,8 +6,12 @@
   dev` by Claude or a shell) are forwarded to the same port on this Mac's
   `localhost` over a separate ssh connection, with a notification for each.
   A port taken here goes to the next free one; a stopped server and closing
-  the window let them go. `hivemux connect --ports` lists them,
-  `HIVEMUX_PORTS=0` turns it off
+  the window let them go. `HIVEMUX_PORTS=0` turns it off
+- Port list popup: `Option+W` or right-click menu → Ports, on the remote
+  screen or on the Mac itself. Enter opens the server in the browser of the
+  Mac you connect from, `Ctrl+Y` copies the address. `hivemux connect
+  --ports` lists them in a terminal
+- The right-click menu has Open path… (`Option+O`) too
 
 ## 0.1.22 — 2026-10-17
 

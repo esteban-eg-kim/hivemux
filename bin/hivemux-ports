@@ -4,6 +4,7 @@
 
   hivemux-ports <host> <tty>     run until hivemux-connect (the parent) ends / hivemux-connect(부모)가 끝날 때까지
   hivemux-ports --list           forwarded ports of every connection / 모든 연결의 이어 준 포트
+  hivemux-ports --pick <client>  the port list popup (Option+W, sidebar menu) / 포트 목록 팝업 (Option+W, 사이드바 메뉴)
 
 Every few seconds it asks the other Mac which TCP ports are listened on by processes started
 inside its tmux (a dev server Claude or a shell started: npm run dev, rails s ...), and forwards
@@ -16,8 +17,14 @@ rails s ...)가 듣는 TCP 포트를 묻고, 따로 연 ssh 연결로 이 Mac �
 포트로 잇는다. 새 포트마다 알림을 띄운다 (<tty>, 연결 터미널에 OSC 777).
 State: $XDG_DATA_HOME/hivemux/ports/<host> ("<local> <remote> <command>" per line).
 상태: $XDG_DATA_HOME/hivemux/ports/<host> (한 줄에 "<여기 포트> <거기 포트> <명령>").
+The other Mac's tmux gets the same list as @hivemux-ports-<this Mac>, so its port list popup
+(bin/hivemux-ports-ui) shows it; Enter there sets @hivemux-ports-open-<this Mac> to the port and
+the next poll here opens it in this Mac's browser.
+상대 Mac 의 tmux 에도 같은 목록을 @hivemux-ports-<이 Mac> 으로 둔다. 그래서 거기 포트 목록 팝업
+(bin/hivemux-ports-ui)에 보이고, 거기서 Enter 를 누르면 @hivemux-ports-open-<이 Mac> 에 포트를 적고,
+여기서 다음에 물을 때 이 Mac 의 브라우저로 연다.
 """
-import os, shlex, signal, socket, subprocess, sys, time
+import os, re, shlex, signal, socket, subprocess, sys, time
 
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "ports")
 POLL = 3
@@ -29,11 +36,21 @@ SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ServerAliveInterval=10", "-o", "Server
 # server (its panes and everything they started). ssh gives a plain PATH there.
 # 상대 Mac 에서 실행된다: 그 tmux 서버의 프로세스(칸들과 거기서 시작된 모든 것)가 듣는 TCP 포트마다
 # "<포트> <명령>". ssh 는 기본 PATH 만 준다.
+# Before that, "open <port>" when that Mac's port list popup asked to open one here.
+# 그 앞에, 상대 Mac 의 포트 목록 팝업이 여기서 열어 달라고 했으면 "open <포트>".
 REMOTE = r'''PATH=/opt/homebrew/bin:/usr/local/bin:$PATH
 root=$(tmux display -p '#{pid}' 2>/dev/null) || exit 0
+o=$(tmux show -gqv @hivemux-ports-open-@ME@) && [ -n "$o" ] && { tmux set -gu @hivemux-ports-open-@ME@; echo "open $o"; }
 pids=$(ps -A -o pid= -o ppid= | awk -v r="$root" '{ p[$1] = $2 } END { for (k in p) { x = k; n = 0; while (x > 1 && n++ < 64) { if (x == r) { print k; break } x = p[x] } } }' | paste -sd, -)
 [ -n "$pids" ] || exit 0
 lsof -nP -a -iTCP -sTCP:LISTEN -p "$pids" -Fcn 2>/dev/null | awk '/^c/ { c = substr($0, 2) } /^n/ { n = split($0, a, ":"); print a[n], c }' | sort -un'''
+
+
+def me():
+    """This Mac's name, as a tmux option name part / 이 Mac 이름 (tmux 옵션 이름에 쓸 수 있게)"""
+    n = subprocess.run(["scutil", "--get", "ComputerName"], capture_output=True, text=True).stdout.strip() \
+        or socket.gethostname().split(".")[0]
+    return re.sub(r"[^A-Za-z0-9-]+", "-", n).strip("-") or "mac"
 
 
 def ko():
@@ -66,6 +83,8 @@ class Ports:
         self.master = None
         self.fw = {}                     # remote port -> (local port, command) / 거기 포트 -> (여기 포트, 명령)
         self.state = os.path.join(DATA, host.replace("/", "_"))
+        self.me = me()
+        self.shared = None               # what the other Mac's tmux has / 상대 tmux 에 둔 목록
 
     def ssh(self, *args, timeout=15):
         try:
@@ -93,6 +112,8 @@ class Ports:
 
     def down(self):
         if self.master and self.master.poll() is None:
+            self.fw = {}
+            self.share()
             self.ssh("-O", "exit", self.host, timeout=5)
             try:
                 self.master.wait(3)
@@ -100,6 +121,7 @@ class Ports:
                 self.master.kill()
         self.master = None
         self.fw = {}
+        self.shared = None
         try:
             os.unlink(self.sock)
         except OSError:
@@ -107,17 +129,34 @@ class Ports:
         self.save()
 
     def listening(self):
-        r = self.ssh(self.host, REMOTE)
+        """({remote port: command}, [remote ports asked to open here]) / ({거기 포트: 명령}, [여기서 열어 달라는 거기 포트])"""
+        r = self.ssh(self.host, REMOTE.replace("@ME@", self.me))
         if not r or r.returncode != 0:
-            return None
-        out = {}
+            return None, []
+        out, asked = {}, []
         for ln in r.stdout.splitlines():
             port, _, cmd = ln.partition(" ")
+            if port == "open":
+                asked += [int(x) for x in cmd.split() if x.isdigit()]
+                continue
             # not ssh: forwards someone set up there (or this one, when "there" is this Mac)
             # ssh 는 뺀다: 거기서 누가 열어 둔 포워딩 (또는 "거기"가 이 Mac 일 때 이 연결 자신)
             if port.isdigit() and int(port) >= 1024 and cmd.strip() not in ("ssh", "sshd"):
                 out[int(port)] = cmd.strip() or "?"
-        return out
+        return out, asked
+
+    def share(self):
+        """Put the list in the other Mac's tmux (for its port list popup) when it changed
+        상대 Mac 의 tmux 에 목록을 둔다 (거기 포트 목록 팝업용). 바뀌었을 때만"""
+        val = "\n".join(f"{lp} {rp} {cmd}" for rp, (lp, cmd) in sorted(self.fw.items()))
+        if val == self.shared:
+            return
+        opt = f"@hivemux-ports-{self.me}"
+        cmd = f"PATH=/opt/homebrew/bin:/usr/local/bin:$PATH; " + \
+              (f"tmux set -g {opt} {shlex.quote(val)}" if val else f"tmux set -gu {opt}")
+        r = self.ssh(self.host, cmd)
+        if r and r.returncode == 0:
+            self.shared = val
 
     def notify(self, title, body):
         try:
@@ -140,7 +179,7 @@ class Ports:
                 pass
 
     def sync(self):
-        now = self.listening()
+        now, asked = self.listening()
         if now is None:
             return
         for rp in [p for p in self.fw if p not in now]:
@@ -160,6 +199,15 @@ class Ports:
             self.notify(tr(f"{self.host} 포트 연결", f"Port from {self.host}"),
                         f"{cmd} · {where}")
         self.save()
+        self.share()
+        for rp in asked:                 # Enter in the other Mac's popup / 상대 Mac 팝업에서 Enter
+            if rp in self.fw:
+                url = f"http://localhost:{self.fw[rp][0]}"
+                if os.environ.get("HIVEMUX_DRYRUN"):    # for tests: record instead of opening / 테스트용: 열지 않고 기록만
+                    with open(os.environ["HIVEMUX_DRYRUN"], "a") as f:
+                        f.write(f"open {url}\n")
+                else:
+                    subprocess.run(["open", url])
 
     def run(self):
         parent = os.getppid()
@@ -172,6 +220,21 @@ class Ports:
                 time.sleep(POLL)
         finally:
             self.down()
+
+
+def pick(client):
+    """The port list popup over a still copy of the screen (like the open-path popup)
+    화면을 멈춘 사본 위의 포트 목록 팝업 (경로 열기 팝업처럼)"""
+    here = os.path.dirname(os.path.realpath(__file__))
+    pid = subprocess.run(["tmux", "display", "-p", "#{pid}"], capture_output=True, text=True).stdout.strip()
+    pause = "/tmp/hivemux-pause-%d-%s" % (os.getuid(), pid)    # per tmux server / tmux 서버마다
+    open(pause, "w").close()
+    try:
+        subprocess.run([os.path.join(here, "hivemux-modal"), client, "-E", "-w", "76", "-h", "18", "-b", "rounded",
+                        "-T", "#[fg=#e6e9ef,bold] %s " % tr("포트 목록", "Ports"), "-S", "fg=#5aa9ff", "-s", "bg=#1e2128",
+                        shlex.join([os.path.join(here, "hivemux-ports-ui"), client])], stderr=subprocess.DEVNULL)
+    finally:
+        os.unlink(pause)
 
 
 def listing():
@@ -188,6 +251,8 @@ KO = ko()
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--list":
         listing()
+    elif len(sys.argv) > 1 and sys.argv[1] == "--pick":
+        pick(sys.argv[2] if len(sys.argv) > 2 else "")
     elif len(sys.argv) == 3:
         Ports(sys.argv[1], sys.argv[2]).run()
     else:

@@ -1,8 +1,8 @@
 #!/bin/bash
-# Build docs/img/*-{en,ko}.png: the sidebar menu, reordering, the new-project folder browser and
-# settings, from a real hivemux tmux screen with made-up projects (fake HOME, no real data).
+# Build docs/img/*-{en,ko}.png: the sidebar menu, reordering, the new-project folder browser,
+# settings and the port list, from a real hivemux tmux screen with made-up projects (fake HOME, no real data).
 # 가짜 프로젝트(가짜 HOME, 실제 데이터 없음)로 실제 hivemux tmux 화면을 띄워 사이드바 메뉴, 순서 바꾸기,
-# 새 프로젝트 폴더 탐색, 설정 화면을 docs/img/*-{en,ko}.png 로 만든다.
+# 새 프로젝트 폴더 탐색, 설정, 포트 목록 화면을 docs/img/*-{en,ko}.png 로 만든다.
 # Needs: tmux, Google Chrome, Ghostty terminfo (for truecolor).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -103,5 +103,12 @@ C
   y=$(row "${N3:0:8}"); mouse 2 6 "$y" M; sleep 0.2; mouse 2 6 "$y" m; sleep 0.6
   O send-keys -t 0 s; sleep 2
   shot "settings-$L" "web / login-bug"
+  O send-keys -t 0 Escape; sleep 1.5
+
+  # 6. port list (Option+W): this Mac's dev servers, forwarded to a laptop connected to it
+  # 6. 포트 목록 (Option+W): 이 Mac 의 개발 서버가 여기 붙은 노트북으로 이어짐
+  T set -g @hivemux-ports-MacBook-Air "$(printf '5173 5173 node\n8000 8000 Python')"
+  O send-keys -t 0 M-w; sleep 2
+  shot "ports-$L" "web / login-bug"
   O send-keys -t 0 Escape; sleep 1.5
 done

@@ -123,6 +123,8 @@ bind -n M-0 run-shell -b "#{@hivemux-bin}/hivemux-agents next '#{client_name}'"
 bind Space  run-shell -b "#{@hivemux-bin}/hivemux-agents next '#{client_name}'"
 # Option+O  pick a file path from this pane's recent output and open it
 bind -n M-o run-shell -b "#{@hivemux-bin}/hivemux-open '#{pane_id}' '#{client_name}'"
+# Option+W  dev server ports forwarded between Macs (Option+P is Claude Code's model picker)
+bind -n M-w run-shell -b "#{@hivemux-bin}/hivemux-ports --pick '#{client_name}'"
 # prefix C  new named Claude window   prefix R  Remote Control server window
 bind C run-shell "#{@hivemux-bin}/hivemux-new-claude '#{pane_current_path}'"
 # prefix H: a new window attached to the last remote host (bin/hivemux-connect) / 마지막 원격 호스트에 붙은 새 창

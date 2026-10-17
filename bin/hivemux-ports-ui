@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""Port list popup (runs inside tmux display-popup, see hivemux-ports --pick).
+포트 목록 팝업 (tmux display-popup 안에서 실행, hivemux-ports --pick 참고).
+
+  hivemux-ports-ui <client>
+
+Dev server ports forwarded from another Mac (bin/hivemux-ports):
+- this Mac connected to another one: its ports, forwarded here ($XDG_DATA_HOME/hivemux/ports)
+- another Mac connected to this one: this Mac's ports, forwarded there (@hivemux-ports-<Mac>)
+다른 Mac 에서 이어 준 개발 서버 포트 (bin/hivemux-ports):
+- 이 Mac 이 다른 Mac 에 붙어 있으면: 그 Mac 의 포트, 여기로 이어짐 ($XDG_DATA_HOME/hivemux/ports)
+- 다른 Mac 이 이 Mac 에 붙어 있으면: 이 Mac 의 포트, 거기로 이어짐 (@hivemux-ports-<Mac>)
+  ↑↓ / Ctrl+P N   select / 고르기
+  Enter           open in the browser of the Mac it is forwarded to / 이어진 Mac 의 브라우저로 열기
+  Ctrl+Y          copy the address / 주소 복사      Esc   close / 닫기
+"""
+import os, shutil, subprocess, sys, termios, tty, unicodedata
+
+TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
+DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "ports")
+
+
+def tmux(*a):
+    return subprocess.run([TMUX, *a], capture_output=True, text=True).stdout
+
+
+def _is_ko():
+    """UI language: HIVEMUX_LANG > tmux @hivemux-lang (set by hivemux setup) > LANG / 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG"""
+    v = os.environ.get("HIVEMUX_LANG") or tmux("show", "-gqv", "@hivemux-lang").strip()
+    return (v or os.environ.get("LANG", "")).startswith("ko")
+
+
+KO = _is_ko()
+
+
+def tr(ko, en):
+    return ko if KO else en
+CLIENT = sys.argv[1] if len(sys.argv) > 1 else ""
+
+TEXT, T2, T3 = (230, 233, 239), (154, 163, 178), (98, 106, 120)
+ACC, SEL_BG, BG = (90, 169, 255), (42, 47, 58), (30, 33, 40)
+
+
+def fg(c): return "\x1b[38;2;%d;%d;%dm" % c
+def bg(c): return "\x1b[48;2;%d;%d;%dm" % c
+RST, BOLD = "\x1b[0m", "\x1b[1m"
+
+
+def width(s):
+    return sum(0 if unicodedata.combining(c) else 2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
+
+
+def run(cmd, **kw):
+    dry = os.environ.get("HIVEMUX_DRYRUN")
+    if dry:  # for tests: record instead of running / 테스트용: 실행하지 않고 기록만
+        with open(dry, "a") as f:
+            f.write(" ".join(cmd) + "\n")
+        return
+    subprocess.run(cmd, **kw)
+
+
+def ports():
+    """[{url, where, cmd, mac (None: forwarded to this Mac), rp}] / mac 이 None 이면 이 Mac 으로 이어진 것"""
+    out = []
+    # another Mac looks at this one: its forwards of this Mac's ports / 다른 Mac 이 이 Mac 에 붙음: 이 Mac 포트를 그 Mac 으로
+    for ln in tmux("show", "-g").splitlines():
+        name = ln.split(" ", 1)[0]
+        if not name.startswith("@hivemux-ports-") or name.startswith("@hivemux-ports-open-"):
+            continue
+        mac = name[len("@hivemux-ports-"):]
+        for row in tmux("show", "-gqv", name).splitlines():
+            lp, rp, cmd = (row.split(" ", 2) + ["", "", ""])[:3]
+            if lp.isdigit() and rp.isdigit():
+                out.append(dict(url=f"http://localhost:{lp}", cmd=cmd, mac=mac, rp=rp,
+                                where=tr(f"{mac} 에서 열기 · 여기 {rp}", f"opens on {mac} · here {rp}")))
+    # this Mac connected to another one: its ports here / 이 Mac 이 다른 Mac 에 붙음: 그 Mac 포트를 여기로
+    if os.path.isdir(DATA):
+        for host in sorted(os.listdir(DATA)):
+            with open(os.path.join(DATA, host)) as f:
+                for row in f:
+                    lp, rp, cmd = (row.rstrip("\n").split(" ", 2) + ["", "", ""])[:3]
+                    if lp.isdigit():
+                        out.append(dict(url=f"http://localhost:{lp}", cmd=cmd, mac=None, rp=rp,
+                                        where=tr(f"{host} 의 {rp}", f"{host}:{rp}")))
+    return out
+
+
+def is_remote(client):
+    """The popup's screen is attached from another Mac / 팝업이 뜬 화면이 다른 Mac 에서 붙은 것"""
+    return f" {client} " in f" {tmux('show', '-gqv', '@hivemux-remote-clients')} "
+
+
+def open_it(it):
+    if it["mac"]:
+        # that Mac's hivemux-ports opens it on its next poll / 그 Mac 의 hivemux-ports 가 다음에 물을 때 연다
+        run([TMUX, "set", "-g", f"@hivemux-ports-open-{it['mac']}", it["rp"]])
+    else:
+        run(["open", it["url"]])
+
+
+def copy(it):
+    if is_remote(CLIENT):       # to the clipboard of the Mac this screen is on (OSC 52) / 이 화면이 있는 Mac 의 클립보드로
+        run([TMUX, "set-buffer", "-w", "--", it["url"]])
+    else:
+        run(["pbcopy"], input=it["url"].encode())
+
+
+def main():
+    items = ports()
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    tty.setraw(fd)
+    out = sys.stdout
+    sel, top, msg = 0, 0, ""
+    try:
+        while True:
+            cols, rows = os.get_terminal_size()
+            sel = max(0, min(sel, len(items) - 1))
+            list_h = max(1, (rows - 4) // 2)
+            top = min(max(top, sel - list_h + 1), sel)
+            buf = ["\x1b[H\x1b[2J", bg(BG), "\r\n"]
+            if not items:
+                buf.append(f"  {fg(T2)}{tr('이어진 포트가 없습니다', 'No forwarded ports')}\r\n\r\n")
+                buf.append(f"  {fg(T3)}{tr('원격으로 붙어 있는 동안 상대 Mac 의 tmux 에서 띄운', 'While connected, dev servers started in the other')}\r\n")
+                buf.append(f"  {fg(T3)}{tr('개발 서버(npm run dev 등)가 여기에 나옵니다', 'Mac’s tmux (npm run dev...) show up here')}\r\n")
+            for i in range(top, min(len(items), top + list_h)):
+                it = items[i]
+                if i == sel:
+                    l1 = f"{bg(SEL_BG)}{fg(ACC)} ▌{fg(TEXT)}{BOLD} {it['url']}{RST}{bg(SEL_BG)}  {fg(T2)}{it['cmd']}"
+                    l2 = f"{bg(SEL_BG)}{fg(ACC)} ▌{RST}{bg(SEL_BG)}{fg(T3)} {it['where']}"
+                    pad = lambda s, raw: s + " " * max(0, cols - 2 - width(raw)) + RST + bg(BG)
+                    buf.append(pad(l1, f" ▌ {it['url']}  {it['cmd']}") + "\r\n")
+                    buf.append(pad(l2, f" ▌ {it['where']}") + "\r\n")
+                else:
+                    buf.append(f"{bg(BG)}   {fg(TEXT)}{it['url']}  {fg(T3)}{it['cmd']}\r\n")
+                    buf.append(f"{bg(BG)}   {fg(T3)}{it['where']}\r\n")
+            buf.append(f"\x1b[{rows - 1};1H{fg((44, 48, 57))}  " + "─" * (cols - 4) + "\r\n")
+            hint = msg or (f"{fg(TEXT)}Enter{fg(T3)} {tr('브라우저로 열기', 'open in browser')}   "
+                           f"{fg(TEXT)}^Y{fg(T3)} {tr('주소 복사', 'copy address')}   {fg(TEXT)}Esc{fg(T3)} {tr('닫기', 'close')}")
+            buf.append("  " + hint + RST)
+            out.write("".join(buf))
+            out.flush()
+            msg = ""
+            ch = os.read(fd, 32).decode(errors="ignore")
+            if ch in ("\x1b", "\x03", "q"):
+                return
+            if ch in ("\x1b[A", "\x10", "\x1bOA", "k"):
+                sel -= 1
+            elif ch in ("\x1b[B", "\x0e", "\x1bOB", "j"):
+                sel += 1
+            elif ch in ("\r", "\n") and items:
+                open_it(items[sel]); return
+            elif ch == "\x19" and items:
+                copy(items[sel])
+                msg = f"{fg(ACC)}{tr('복사했습니다', 'Copied')}  {fg(T2)}{items[sel]['url']}"
+    finally:
+        out.write(RST + "\x1b[2J")
+        out.flush()
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 2 and sys.argv[2] == "--list":
+        for it in ports():
+            print(it["url"], it["cmd"], "|", it["where"])
+        sys.exit(0)
+    main()
