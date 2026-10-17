@@ -248,11 +248,12 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
 .side2 .hd .n { margin-left: auto; background: #2a2f3a; color: #e6e9ef; padding: 0 7px; border-radius: 3px; }
 .side2 .sum { padding: 8px 12px 8px; display: flex; gap: 12px; border-bottom: 1px solid #2c3039; margin: 0 12px; padding-inline: 0; }
 .side2 .sum .r { color: #5aa9ff; } .side2 .sum .w { color: #f5a524; font-weight: 700; }
-.side2 .pj { display: flex; align-items: center; gap: 6px; padding: 12px 12px 4px; color: #9aa3b2; }
-.side2 .pj i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
-.side2 .pj.cur { color: #e6e9ef; font-weight: 700; }
-.side2 .pj span { margin-left: auto; color: #626a78; font-weight: 400; }
-.side2 .cd { margin: 0 8px 6px 12px; display: grid; grid-template-columns: 1fr auto; column-gap: 6px; padding: 3px 8px; background: #1e2128; border-left: 2px solid #5c6370; color: #e6e9ef; }
+.side2 .bx { background: color-mix(in srgb, var(--h) 12%, #16181d); margin: 10px 12px 0; padding-bottom: 5px; }
+.side2 .bx.cur { background: color-mix(in srgb, var(--h) 20%, #16181d); }
+.side2 .pj { display: flex; align-items: center; padding: 1px 8px; margin-bottom: 5px; color: #e6e9ef; font-weight: 700; background: color-mix(in srgb, var(--h) 30%, #16181d); }
+.side2 .bx.cur .pj { background: color-mix(in srgb, var(--h) 45%, #16181d); }
+.side2 .pj span { margin-left: auto; color: color-mix(in srgb, var(--h) 40%, #e6e9ef); font-weight: 400; }
+.side2 .cd { margin: 0 8px 5px; display: grid; grid-template-columns: 1fr auto; column-gap: 6px; padding: 3px 8px; background: #1e2128; border-left: 2px solid #5c6370; color: #e6e9ef; }
 .side2 .cd .t { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .side2 .cd b { color: #626a78; font-weight: 400; }
 .side2 .cd .a { color: #9aa3b2; }
@@ -260,7 +261,7 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
 .side2 .cd.done { border-left-color: #3ecf8e; } .side2 .cd.done .s { color: #3ecf8e; }
 .side2 .cd.idle .s { color: #626a78; } .side2 .cd.idle .t { color: #9aa3b2; }
 .side2 .cd.wait { background: #342812; border-left-color: #f5a524; } .side2 .cd.wait .s { color: #f5a524; font-weight: 700; } .side2 .cd.wait .a { color: #f5a524; }
-.side2 .cd.sel { background: #2a2f3a; border-left-width: 4px; } .side2 .cd.sel b { color: #e6e9ef; }
+.side2 .cd.sel { background: #3a4152; border-left-width: 4px; box-shadow: -4px 0 0 #e1e6f0, 4px 0 0 #e1e6f0; } .side2 .cd.sel b { color: #e6e9ef; }
 .side2 .cd.run { position: relative; overflow: hidden; animation: pulse 1.6s ease-in-out infinite; }
 .side2 .cd.run::after { content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 40%; background: radial-gradient(ellipse at center, rgba(52,104,168,.75), transparent 70%); animation: sweep 1.8s linear infinite; pointer-events: none; }
 .side2 .cd.wait { animation: blink 2.2s ease-in-out infinite; }
@@ -349,28 +350,36 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
 
     <div class="st"><div>
       <h3>See every task and jump to it</h3>
-      <p>The <b>sidebar</b> on the left is the board. Whichever project you are in, it always shows every Claude in every project as cards, grouped by project, with the task name. The color of the card's left bar is its state; a card that needs your input turns amber. The task you are looking at is the <b>lighter card with ▶</b>.</p>
+      <p>The <b>sidebar</b> on the left is the board. Whichever project you are in, it always shows every Claude in every project as cards, grouped by project, with the task name. The color of the card's left bar is its state; a card that needs your input turns amber. The task you are looking at is the <b>lighter card with a white line on each side</b>.</p>
       <div class="screen" role="img" aria-label="Example tmux screen: window list on top, sidebar on the left, work pane on the right">
         <div class="tbar"><span class="sess">web</span><span class="win">1:claude <span class="st-wait">●</span></span><span class="win">2:shell</span><span class="win cur">3:login-bug <span class="st-wait">●</span></span><span class="grow"></span><span class="clock">10-06 11:20</span></div>
         <div class="side2">
           <div class="hd">Claude <em>sessions</em><span class="n">5</span></div>
           <div class="sum"><span class="r">◐ 1 running</span><span class="w">● 2 need input</span></div>
-          <div class="pj"><i style="background:#a78bfa"></i>api<span>1</span></div>
-          <div class="cd run"><span class="t">Refactor auth module</span><b>⌥1</b><span class="s">⠹ running</span><span class="a">4m</span></div>
-          <div class="pj"><i style="background:#2dd4bf"></i>docs<span>1</span></div>
-          <div class="cd done"><span class="t">Write API docs</span><b>⌥2</b><span class="s">✓ done</span><span class="a">1m</span></div>
-          <div class="pj cur"><i style="background:#f472b6"></i>web<span>2</span></div>
-          <div class="cd wait"><span class="t">Improve checkout page</span><b>⌥3</b><span class="s">● needs input</span><span class="a">2m</span></div>
-          <div class="cd wait sel"><span class="t">Fix login redirect bug</span><b>⌥4</b><span class="s">● needs input</span><span class="a">40s</span></div>
-          <div class="pj"><i style="background:#fb923c"></i>wayfinder<span>1</span></div>
-          <div class="cd idle"><span class="t">Stage management</span><b>⌥5</b><span class="s">○ idle</span><span class="a"></span></div>
+          <div class="bx" style="--h:#a78bfa">
+            <div class="pj">api</div>
+            <div class="cd run"><span class="t">Refactor auth module</span><b>⌥1</b><span class="s">⠹ running</span><span class="a">4m</span></div>
+          </div>
+          <div class="bx" style="--h:#2dd4bf">
+            <div class="pj">docs</div>
+            <div class="cd done"><span class="t">Write API docs</span><b>⌥2</b><span class="s">✓ done</span><span class="a">1m</span></div>
+          </div>
+          <div class="bx cur" style="--h:#f472b6">
+            <div class="pj">web<span>2</span></div>
+            <div class="cd wait"><span class="t">Improve checkout page</span><b>⌥3</b><span class="s">● needs input</span><span class="a">2m</span></div>
+            <div class="cd wait sel"><span class="t">Fix login redirect bug</span><b>⌥4</b><span class="s">● needs input</span><span class="a">40s</span></div>
+          </div>
+          <div class="bx" style="--h:#fb923c">
+            <div class="pj">wayfinder</div>
+            <div class="cd idle"><span class="t">Stage management</span><b>⌥5</b><span class="s">○ idle</span><span class="a"></span></div>
+          </div>
           <div class="ft"><span class="w"><kbd>⌥0</kbd> go to waiting</span><span><kbd>⌥1-9</kbd> jump · r-click rename</span></div>
         </div>
         <div class="mainpane"><span class="p">~/project/web ❯</span> claude -n login-bug<br><br><span class="hl">Allow edit to src/routes/+page.svelte?</span><br>❯ 1. Yes<br>&nbsp;&nbsp;2. No</div>
       </div>
       <p><kbd>Option</kbd>+number jumps straight to that Claude, even in another project. Clicking a card does the same.</p>
       <p><kbd>Option</kbd>+<kbd>0</kbd> jumps to the Claude that has waited longest. With nothing amber, it goes to a finished green card you have not seen yet. Press it repeatedly to work through everything that is waiting.</p>
-      <p class="result">Running cards have a light band sweeping across and a spinner. Cards that need input pulse amber. The top window list shows a spinner next to running windows too. Numbers follow project names and stay put when states change, so they are easy to remember. The second line of each card shows the state and elapsed time, so you can decide what to look at first. Each project is a box with a header band in the project's color. Widen the sidebar and the boxes go into 2 or 3 columns; when they still do not fit, the blank rows between cards go first, then the list scrolls with the mouse wheel. To hide the sidebar, press <kbd>Ctrl</kbd>+<kbd>A</kbd> then <kbd>b</kbd>; press again to bring it back.</p>
+      <p class="result">Running cards have a light band sweeping across and a spinner. Cards that need input pulse amber. The top window list shows a spinner next to running windows too. Numbers follow project names and stay put when states change, so they are easy to remember. The second line of each card shows the state and elapsed time, so you can decide what to look at first. Each project is a box with a header band in the project's color. Widen the sidebar and the boxes go into 2 or 3 columns; when they still do not fit, the blank rows between cards go first, then the list scrolls with the mouse wheel. ▲ ▼ at the end of a rule show more above or below, and every window shares the scroll position, so going to another task keeps the list where it was. To hide the sidebar, press <kbd>Ctrl</kbd>+<kbd>A</kbd> then <kbd>b</kbd>; press again to bring it back.</p>
     </div></div>
 
     <div class="st"><div>
@@ -426,15 +435,23 @@ claude -c
         <div class="side2">
           <div class="hd">Claude <em>sessions</em><span class="n">5</span></div>
           <div class="sum"><span class="r">◐ 1 running</span><span class="w">● 2 need input</span></div>
-          <div class="pj"><i style="background:#a78bfa"></i>api<span>1</span></div>
-          <div class="cd run"><span class="t">Refactor auth module</span><b>⌥1</b><span class="s">⠹ running</span><span class="a">4m</span></div>
-          <div class="pj"><i style="background:#2dd4bf"></i>docs<span>1</span></div>
-          <div class="cd done"><span class="t">Write API docs</span><b>⌥2</b><span class="s">✓ done</span><span class="a">1m</span></div>
-          <div class="pj cur"><i style="background:#f472b6"></i>web<span>2</span></div>
-          <div class="cd wait"><span class="t">Improve checkout page</span><b>⌥3</b><span class="s">● needs input</span><span class="a">2m</span></div>
-          <div class="cd wait sel"><span class="t">Fix login redirect bug</span><b>⌥4</b><span class="s">● needs input</span><span class="a">40s</span></div>
-          <div class="pj"><i style="background:#fb923c"></i>wayfinder<span>1</span></div>
-          <div class="cd idle"><span class="t">Stage management</span><b>⌥5</b><span class="s">○ idle</span><span class="a"></span></div>
+          <div class="bx" style="--h:#a78bfa">
+            <div class="pj">api</div>
+            <div class="cd run"><span class="t">Refactor auth module</span><b>⌥1</b><span class="s">⠹ running</span><span class="a">4m</span></div>
+          </div>
+          <div class="bx" style="--h:#2dd4bf">
+            <div class="pj">docs</div>
+            <div class="cd done"><span class="t">Write API docs</span><b>⌥2</b><span class="s">✓ done</span><span class="a">1m</span></div>
+          </div>
+          <div class="bx cur" style="--h:#f472b6">
+            <div class="pj">web<span>2</span></div>
+            <div class="cd wait"><span class="t">Improve checkout page</span><b>⌥3</b><span class="s">● needs input</span><span class="a">2m</span></div>
+            <div class="cd wait sel"><span class="t">Fix login redirect bug</span><b>⌥4</b><span class="s">● needs input</span><span class="a">40s</span></div>
+          </div>
+          <div class="bx" style="--h:#fb923c">
+            <div class="pj">wayfinder</div>
+            <div class="cd idle"><span class="t">Stage management</span><b>⌥5</b><span class="s">○ idle</span><span class="a"></span></div>
+          </div>
           <div class="ft"><span class="w"><kbd>⌥0</kbd> go to waiting</span><span><kbd>⌥1-9</kbd> jump · r-click rename</span></div>
         </div>
         <div class="mainpane"><span class="p">~/project/web ❯</span> claude -n login-bug<br><br><span class="hl">Allow edit to src/routes/+page.svelte?</span><br>❯ 1. Yes<br>&nbsp;&nbsp;2. No</div>
@@ -442,10 +459,10 @@ claude -c
   </div>
   <div class="anno">
     <div><b>Claude sessions 5</b><span>Top of the sidebar: number of Claude sessions running inside tmux</span></div>
-    <div><b>● api  1</b><span>Project (tmux session) name with its color dot and the number of Claudes in it. The project you are in is brighter</span></div>
+    <div><b>Project box</b><span>One box per project (tmux session): a header band in the project's color with its name and the number of Claudes (when more than one), its Claude cards below. The project you are in is stronger</span></div>
     <div><b>Task name</b><span>Claude's conversation title or the -n name. Claude may retitle it as the conversation goes</span></div>
-    <div><b>⌥ number</b><span>The number for Option+number</span></div>
-    <div><b>▶ lighter card</b><span>The task you are looking at</span></div>
+    <div><b>⌥ number</b><span>Top right of the card: the number for Option+number</span></div>
+    <div><b>White side lines</b><span>The task you are looking at</span></div>
     <div><b>Top line: web 1:claude …</b><span>Current project and its windows. The highlighted one is the current window</span></div>
   </div>
   <div class="scroll"><table>
@@ -455,7 +472,7 @@ claude -c
       <tr><td><span class="pill" style="background:#303030;color:#87d787;border-left:3px solid #5fd787">✓ done</span></td><td>Finished, not seen yet. Green bar</td><td>Check the result; it turns idle once you look</td></tr>
       <tr><td><span class="pill" style="background:#303030;color:#87d7ff;border-left:3px solid #5fafff">◐ running</span></td><td>Working. A light band sweeps across and the blue bar pulses; the number is how long it has run</td><td>Let it work</td></tr>
       <tr><td><span class="pill" style="background:#303030;color:#8a8a8a;border-left:3px solid #585858">○ idle</span></td><td>Waiting for your next request; you have seen the result</td><td>Go there to give a new task</td></tr>
-      <tr><td><span class="pill" style="background:#4e4e4e;color:#ff87ff">▶ lighter card</span></td><td>The task you are looking at</td><td>Nothing</td></tr>
+      <tr><td><span class="pill" style="background:#3a4152;color:#e6e9ef;box-shadow:-3px 0 0 #e1e6f0,3px 0 0 #e1e6f0;margin-inline:3px">White side lines</span></td><td>The task you are looking at</td><td>Nothing</td></tr>
     </tbody>
   </table></div>
 
@@ -491,7 +508,8 @@ claude -c
       <div class="key"><span class="combo">Menu → Settings</span><span class="d">Language (한국어 / English), animation on / off, notifications on / off, sidebar width. Applied at once and saved in <code>~/.local/share/hivemux</code>, so they survive restarts. Changing the language restarts the sidebars</span></div>
       <div class="key"><span class="combo">Drag a card / project header</span><span class="d">Reorder tasks / projects. The drop target turns blue; <kbd>⌥</kbd>+number and the top window list follow the same order. A task moves only within its project</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Shift</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></span><span class="d">Move the current task up / down one step; at a project's edge the whole project moves</span></div>
-      <div class="key"><span class="combo">Drag the grip</span><span class="d">Drag the grip bar or the border to resize the sidebar; applied to all windows and saved</span></div>
+      <div class="key"><span class="combo">Drag the grip</span><span class="d">Drag the grip bar or the border to resize the sidebar; applied to all windows and saved. Wider, the project boxes go into 2 or 3 columns</span></div>
+      <div class="key"><span class="combo">Mouse wheel on the sidebar</span><span class="d">Scroll when the list does not fit; every window shares the position</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>b</kbd></span><span class="d">Hide / show all sidebars</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Space</kbd></span><span class="d">Same as Option+0</span></div>
     </div>

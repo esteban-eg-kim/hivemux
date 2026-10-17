@@ -248,11 +248,12 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
 .side2 .hd .n { margin-left: auto; background: #2a2f3a; color: #e6e9ef; padding: 0 7px; border-radius: 3px; }
 .side2 .sum { padding: 8px 12px 8px; display: flex; gap: 12px; border-bottom: 1px solid #2c3039; margin: 0 12px; padding-inline: 0; }
 .side2 .sum .r { color: #5aa9ff; } .side2 .sum .w { color: #f5a524; font-weight: 700; }
-.side2 .pj { display: flex; align-items: center; gap: 6px; padding: 12px 12px 4px; color: #9aa3b2; }
-.side2 .pj i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
-.side2 .pj.cur { color: #e6e9ef; font-weight: 700; }
-.side2 .pj span { margin-left: auto; color: #626a78; font-weight: 400; }
-.side2 .cd { margin: 0 8px 6px 12px; display: grid; grid-template-columns: 1fr auto; column-gap: 6px; padding: 3px 8px; background: #1e2128; border-left: 2px solid #5c6370; color: #e6e9ef; }
+.side2 .bx { background: color-mix(in srgb, var(--h) 12%, #16181d); margin: 10px 12px 0; padding-bottom: 5px; }
+.side2 .bx.cur { background: color-mix(in srgb, var(--h) 20%, #16181d); }
+.side2 .pj { display: flex; align-items: center; padding: 1px 8px; margin-bottom: 5px; color: #e6e9ef; font-weight: 700; background: color-mix(in srgb, var(--h) 30%, #16181d); }
+.side2 .bx.cur .pj { background: color-mix(in srgb, var(--h) 45%, #16181d); }
+.side2 .pj span { margin-left: auto; color: color-mix(in srgb, var(--h) 40%, #e6e9ef); font-weight: 400; }
+.side2 .cd { margin: 0 8px 5px; display: grid; grid-template-columns: 1fr auto; column-gap: 6px; padding: 3px 8px; background: #1e2128; border-left: 2px solid #5c6370; color: #e6e9ef; }
 .side2 .cd .t { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .side2 .cd b { color: #626a78; font-weight: 400; }
 .side2 .cd .a { color: #9aa3b2; }
@@ -260,7 +261,7 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
 .side2 .cd.done { border-left-color: #3ecf8e; } .side2 .cd.done .s { color: #3ecf8e; }
 .side2 .cd.idle .s { color: #626a78; } .side2 .cd.idle .t { color: #9aa3b2; }
 .side2 .cd.wait { background: #342812; border-left-color: #f5a524; } .side2 .cd.wait .s { color: #f5a524; font-weight: 700; } .side2 .cd.wait .a { color: #f5a524; }
-.side2 .cd.sel { background: #2a2f3a; border-left-width: 4px; } .side2 .cd.sel b { color: #e6e9ef; }
+.side2 .cd.sel { background: #3a4152; border-left-width: 4px; box-shadow: -4px 0 0 #e1e6f0, 4px 0 0 #e1e6f0; } .side2 .cd.sel b { color: #e6e9ef; }
 .side2 .cd.run { position: relative; overflow: hidden; animation: pulse 1.6s ease-in-out infinite; }
 .side2 .cd.run::after { content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 40%; background: radial-gradient(ellipse at center, rgba(52,104,168,.75), transparent 70%); animation: sweep 1.8s linear infinite; pointer-events: none; }
 .side2 .cd.wait { animation: blink 2.2s ease-in-out infinite; }
@@ -349,28 +350,36 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
 
     <div class="st"><div>
       <h3>모든 작업 상태 보기와 바로 이동</h3>
-      <p>화면 왼쪽의 <b>사이드바</b>가 작업 상태판입니다. 어느 프로젝트를 보고 있든 모든 프로젝트의 Claude가 프로젝트별로 묶여 작업 이름과 함께 카드로 항상 표시됩니다. 카드 왼쪽 선의 색이 상태이고, 입력이 필요한 작업은 카드 전체가 호박색입니다. 지금 보고 있는 작업은 <b>밝은 카드와 ▶</b>로 표시됩니다.</p>
+      <p>화면 왼쪽의 <b>사이드바</b>가 작업 상태판입니다. 어느 프로젝트를 보고 있든 모든 프로젝트의 Claude가 프로젝트별로 묶여 작업 이름과 함께 카드로 항상 표시됩니다. 카드 왼쪽 선의 색이 상태이고, 입력이 필요한 작업은 카드 전체가 호박색입니다. 지금 보고 있는 작업은 <b>양옆에 흰 선이 있는 밝은 카드</b>로 표시됩니다.</p>
       <div class="screen" role="img" aria-label="tmux 화면 예시: 맨 위 창 목록, 왼쪽 사이드바, 오른쪽 작업 칸">
         <div class="tbar"><span class="sess">web</span><span class="win">1:claude <span class="st-wait">●</span></span><span class="win">2:shell</span><span class="win cur">3:login-bug <span class="st-wait">●</span></span><span class="grow"></span><span class="clock">10-06 11:20</span></div>
         <div class="side2">
           <div class="hd">Claude <em>세션</em><span class="n">5</span></div>
           <div class="sum"><span class="r">◐ 1 작업 중</span><span class="w">● 2 입력 필요</span></div>
-          <div class="pj"><i style="background:#a78bfa"></i>api<span>1</span></div>
-          <div class="cd run"><span class="t">인증 모듈 리팩터링</span><b>⌥1</b><span class="s">⠹ 작업 중</span><span class="a">4m</span></div>
-          <div class="pj"><i style="background:#2dd4bf"></i>docs<span>1</span></div>
-          <div class="cd done"><span class="t">API 문서 정리</span><b>⌥2</b><span class="s">✓ 완료</span><span class="a">1m</span></div>
-          <div class="pj cur"><i style="background:#f472b6"></i>web<span>2</span></div>
-          <div class="cd wait"><span class="t">결제 페이지 개선</span><b>⌥3</b><span class="s">● 입력 필요</span><span class="a">2m</span></div>
-          <div class="cd wait sel"><span class="t">로그인 리다이렉트 버그 수정</span><b>⌥4</b><span class="s">● 입력 필요</span><span class="a">40s</span></div>
-          <div class="pj"><i style="background:#fb923c"></i>wayfinder<span>1</span></div>
-          <div class="cd idle"><span class="t">단계 관리 기능</span><b>⌥5</b><span class="s">○ 대기</span><span class="a"></span></div>
+          <div class="bx" style="--h:#a78bfa">
+            <div class="pj">api</div>
+            <div class="cd run"><span class="t">인증 모듈 리팩터링</span><b>⌥1</b><span class="s">⠹ 작업 중</span><span class="a">4m</span></div>
+          </div>
+          <div class="bx" style="--h:#2dd4bf">
+            <div class="pj">docs</div>
+            <div class="cd done"><span class="t">API 문서 정리</span><b>⌥2</b><span class="s">✓ 완료</span><span class="a">1m</span></div>
+          </div>
+          <div class="bx cur" style="--h:#f472b6">
+            <div class="pj">web<span>2</span></div>
+            <div class="cd wait"><span class="t">결제 페이지 개선</span><b>⌥3</b><span class="s">● 입력 필요</span><span class="a">2m</span></div>
+            <div class="cd wait sel"><span class="t">로그인 리다이렉트 버그 수정</span><b>⌥4</b><span class="s">● 입력 필요</span><span class="a">40s</span></div>
+          </div>
+          <div class="bx" style="--h:#fb923c">
+            <div class="pj">wayfinder</div>
+            <div class="cd idle"><span class="t">단계 관리 기능</span><b>⌥5</b><span class="s">○ 대기</span><span class="a"></span></div>
+          </div>
           <div class="ft"><span class="w"><kbd>⌥0</kbd> 기다리는 작업으로</span><span><kbd>⌥1-9</kbd> 이동 · 우클릭 메뉴</span></div>
         </div>
         <div class="mainpane"><span class="p">~/project/web ❯</span> claude -n login-bug<br><br><span class="hl">Allow edit to src/routes/+page.svelte?</span><br>❯ 1. Yes<br>&nbsp;&nbsp;2. No</div>
       </div>
       <p><kbd>Option</kbd>+번호를 누르면 그 Claude로 바로 갑니다. 프로젝트가 달라도 한 번에 이동합니다. 사이드바의 타일을 클릭해도 됩니다.</p>
       <p><kbd>Option</kbd>+<kbd>0</kbd>은 가장 오래 기다린 Claude로 갑니다. 주황색 항목이 없으면 끝났는데 아직 안 본 초록색 항목으로 갑니다. 이 키만 반복해서 누르면 기다리는 작업을 차례로 처리할 수 있습니다.</p>
-      <p class="result">작업 중인 카드는 밝은 빛 띠가 계속 훑고 지나가고 스피너가 돕니다. 입력이 필요한 카드는 호박색으로 깜빡입니다. 맨 위 창 목록에서도 작업 중인 창 옆에 스피너가 돕니다. 번호는 프로젝트 이름순으로 매겨지고 작업이 바뀌어도 그대로라서 손에 익습니다. 타일 아랫줄에 상태와 경과 시간이 보여서 무엇을 먼저 볼지 정할 수 있습니다. 각 프로젝트는 프로젝트 색 머리 띠가 달린 상자로 묶입니다. 사이드바를 넓히면 상자가 2열, 3열로 늘어나고, 그래도 세로로 다 들어가지 않으면 카드 사이 빈 줄을 줄이고, 그다음엔 마우스 휠로 스크롤합니다. 사이드바가 거슬리면 <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>b</kbd>로 숨기고 다시 보일 수 있습니다.</p>
+      <p class="result">작업 중인 카드는 밝은 빛 띠가 계속 훑고 지나가고 스피너가 돕니다. 입력이 필요한 카드는 호박색으로 깜빡입니다. 맨 위 창 목록에서도 작업 중인 창 옆에 스피너가 돕니다. 번호는 프로젝트 이름순으로 매겨지고 작업이 바뀌어도 그대로라서 손에 익습니다. 타일 아랫줄에 상태와 경과 시간이 보여서 무엇을 먼저 볼지 정할 수 있습니다. 각 프로젝트는 프로젝트 색 머리 띠가 달린 상자로 묶입니다. 사이드바를 넓히면 상자가 2열, 3열로 늘어나고, 그래도 세로로 다 들어가지 않으면 카드 사이 빈 줄을 줄이고, 그다음엔 마우스 휠로 스크롤합니다. 위나 아래에 더 있으면 구분선 끝에 ▲ ▼가 보이고, 스크롤 위치는 모든 창이 함께 써서 다른 작업으로 옮겨도 그대로입니다. 사이드바가 거슬리면 <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>b</kbd>로 숨기고 다시 보일 수 있습니다.</p>
     </div></div>
 
     <div class="st"><div>
@@ -427,15 +436,23 @@ claude -c
         <div class="side2">
           <div class="hd">Claude <em>세션</em><span class="n">5</span></div>
           <div class="sum"><span class="r">◐ 1 작업 중</span><span class="w">● 2 입력 필요</span></div>
-          <div class="pj"><i style="background:#a78bfa"></i>api<span>1</span></div>
-          <div class="cd run"><span class="t">인증 모듈 리팩터링</span><b>⌥1</b><span class="s">⠹ 작업 중</span><span class="a">4m</span></div>
-          <div class="pj"><i style="background:#2dd4bf"></i>docs<span>1</span></div>
-          <div class="cd done"><span class="t">API 문서 정리</span><b>⌥2</b><span class="s">✓ 완료</span><span class="a">1m</span></div>
-          <div class="pj cur"><i style="background:#f472b6"></i>web<span>2</span></div>
-          <div class="cd wait"><span class="t">결제 페이지 개선</span><b>⌥3</b><span class="s">● 입력 필요</span><span class="a">2m</span></div>
-          <div class="cd wait sel"><span class="t">로그인 리다이렉트 버그 수정</span><b>⌥4</b><span class="s">● 입력 필요</span><span class="a">40s</span></div>
-          <div class="pj"><i style="background:#fb923c"></i>wayfinder<span>1</span></div>
-          <div class="cd idle"><span class="t">단계 관리 기능</span><b>⌥5</b><span class="s">○ 대기</span><span class="a"></span></div>
+          <div class="bx" style="--h:#a78bfa">
+            <div class="pj">api</div>
+            <div class="cd run"><span class="t">인증 모듈 리팩터링</span><b>⌥1</b><span class="s">⠹ 작업 중</span><span class="a">4m</span></div>
+          </div>
+          <div class="bx" style="--h:#2dd4bf">
+            <div class="pj">docs</div>
+            <div class="cd done"><span class="t">API 문서 정리</span><b>⌥2</b><span class="s">✓ 완료</span><span class="a">1m</span></div>
+          </div>
+          <div class="bx cur" style="--h:#f472b6">
+            <div class="pj">web<span>2</span></div>
+            <div class="cd wait"><span class="t">결제 페이지 개선</span><b>⌥3</b><span class="s">● 입력 필요</span><span class="a">2m</span></div>
+            <div class="cd wait sel"><span class="t">로그인 리다이렉트 버그 수정</span><b>⌥4</b><span class="s">● 입력 필요</span><span class="a">40s</span></div>
+          </div>
+          <div class="bx" style="--h:#fb923c">
+            <div class="pj">wayfinder</div>
+            <div class="cd idle"><span class="t">단계 관리 기능</span><b>⌥5</b><span class="s">○ 대기</span><span class="a"></span></div>
+          </div>
           <div class="ft"><span class="w"><kbd>⌥0</kbd> 기다리는 작업으로</span><span><kbd>⌥1-9</kbd> 이동 · 우클릭 메뉴</span></div>
         </div>
         <div class="mainpane"><span class="p">~/project/web ❯</span> claude -n login-bug<br><br><span class="hl">Allow edit to src/routes/+page.svelte?</span><br>❯ 1. Yes<br>&nbsp;&nbsp;2. No</div>
@@ -452,10 +469,10 @@ claude -c
   </div>
   <div class="anno">
     <div><b>Claude 세션 5</b><span>사이드바 맨 위. tmux 안에서 실행 중인 Claude 세션 수</span></div>
-    <div><b>● api  1</b><span>색 점이 붙은 줄이 프로젝트(세션) 이름과 그 안의 Claude 수. 지금 보는 프로젝트는 더 밝게 표시</span></div>
+    <div><b>프로젝트 상자</b><span>프로젝트(세션)마다 상자 하나. 프로젝트 색 머리 띠에 이름과 Claude 수(2개 이상일 때)가 있고, 그 아래에 Claude 카드가 들어갑니다. 지금 보는 프로젝트는 더 진하게 표시</span></div>
     <div><b>작업 이름</b><span>Claude가 정한 대화 제목이나 -n 이름. 대화가 진행되면 Claude가 제목을 바꿉니다</span></div>
-    <div><b>타일 앞 번호</b><span>Option+번호로 이동할 때 쓰는 번호</span></div>
-    <div><b>▶ 밝은 카드</b><span>지금 보고 있는 작업</span></div>
+    <div><b>⌥ 번호</b><span>카드 오른쪽 위. Option+번호로 이동할 때 쓰는 번호</span></div>
+    <div><b>양옆 흰 선</b><span>지금 보고 있는 작업</span></div>
     <div><b>맨 위 줄 web 1:claude …</b><span>지금 프로젝트 이름과 창 목록. 밝게 표시된 것이 현재 창</span></div>
   </div>
   <div class="scroll"><table>
@@ -465,7 +482,7 @@ claude -c
       <tr><td><span class="pill" style="background:#303030;color:#87d787;border-left:3px solid #5fd787">✓ 완료</span></td><td>응답을 끝냈고 아직 안 봄. 초록 선</td><td>결과 확인. 열어 보면 대기로 바뀜</td></tr>
       <tr><td><span class="pill" style="background:#303030;color:#87d7ff;border-left:3px solid #5fafff">◐ 작업 중</span></td><td>작업 중. 빛 띠가 훑고 지나가고 파란 선이 맥박처럼 밝아짐. 오른쪽 숫자는 작업 시간</td><td>기다리기</td></tr>
       <tr><td><span class="pill" style="background:#303030;color:#8a8a8a;border-left:3px solid #585858">○ 대기</span></td><td>다음 지시를 기다리는 상태. 결과는 이미 봄</td><td>새 지시를 줄 때 이동</td></tr>
-      <tr><td><span class="pill" style="background:#4e4e4e;color:#ff87ff">▶ 밝은 카드</span></td><td>지금 보고 있는 작업</td><td>없음</td></tr>
+      <tr><td><span class="pill" style="background:#3a4152;color:#e6e9ef;box-shadow:-3px 0 0 #e1e6f0,3px 0 0 #e1e6f0;margin-inline:3px">양옆 흰 선</span></td><td>지금 보고 있는 작업</td><td>없음</td></tr>
     </tbody>
   </table></div>
 
@@ -501,7 +518,8 @@ claude -c
       <div class="key"><span class="combo">메뉴 → 설정</span><span class="d">언어 (한국어 / English), 애니메이션 켜기 / 끄기, 알림 켜기 / 끄기, 사이드바 폭. 바꾸면 바로 적용되고 <code>~/.local/share/hivemux</code>에 저장되어 재시작 뒤에도 유지됨. 언어를 바꾸면 사이드바를 다시 띄움</span></div>
       <div class="key"><span class="combo">카드 / 프로젝트 이름 줄 끌기</span><span class="d">작업 순서 / 프로젝트 순서 바꾸기. 놓을 자리가 파랗게 표시되고, <kbd>⌥</kbd>+숫자 번호와 맨 위 창 목록도 같은 순서를 따름. 작업은 같은 프로젝트 안에서만 옮겨짐</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Shift</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></span><span class="d">지금 작업을 한 칸 위 / 아래로. 프로젝트 끝이면 프로젝트 전체가 움직임</span></div>
-      <div class="key"><span class="combo">핸들 막대 끌기</span><span class="d">핸들 막대나 경계선을 끌어 사이드바 폭 바꾸기. 모든 창에 맞추고 저장</span></div>
+      <div class="key"><span class="combo">핸들 막대 끌기</span><span class="d">핸들 막대나 경계선을 끌어 사이드바 폭 바꾸기. 모든 창에 맞추고 저장. 넓히면 프로젝트 상자가 2열, 3열로 늘어남</span></div>
+      <div class="key"><span class="combo">사이드바 위에서 마우스 휠</span><span class="d">목록이 다 들어가지 않을 때 스크롤. 위치는 모든 창이 함께 씀</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>b</kbd></span><span class="d">사이드바 모두 숨기기 / 다시 보이기</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Space</kbd></span><span class="d">Option+0과 같음</span></div>
     </div>

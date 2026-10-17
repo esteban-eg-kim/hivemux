@@ -16,8 +16,10 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
 
 ## Features
 
-- **One board for every session.** Cards grouped by project, with live state and
-  elapsed time. Running cards glow, waiting cards pulse amber.
+- **One board for every session.** A box per project in its own color, with a
+  card per Claude showing live state and elapsed time. Running cards glow,
+  waiting cards pulse amber, and the one you are in has a white line on each
+  side. Widen the sidebar for 2 or 3 columns; a long list scrolls with the wheel.
 - **Notifications.** A macOS notification when a task needs input or finishes,
   except the one you are looking at. Turn it off in Settings.
 - **Jump anywhere.** `Option+1..9`, `Option+0` (oldest waiting), or click a card.
@@ -120,7 +122,8 @@ new hooks once restarted. `hivemux version` shows the installed version; see
 | `prefix Shift+R` | Remote Control server window (start new sessions from the phone) |
 | `prefix b` | hide / show sidebars |
 | `prefix s` / `prefix Shift+S` | session list / full tree |
-| drag the sidebar grip | resize; width is saved |
+| drag the sidebar grip | resize; width is saved. Wider: project boxes in 2–3 columns |
+| mouse wheel on the sidebar | scroll when the list does not fit (shared by every window) |
 
 `prefix` is `Ctrl+A` with the recommended keys, otherwise tmux's `Ctrl+B`.
 

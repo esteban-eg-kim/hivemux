@@ -48,6 +48,10 @@ def block(ch, fg, bg):
         "○": f"radial-gradient(circle at 50% 54%,{b} 0 2.4px,{f} 2.9px 3.6px,{b} 4.1px)",
         "◐": f"radial-gradient(circle at 50% 54%,{f} 0 3.6px,{b} 4.1px) left/50% 100% no-repeat,"
              f"radial-gradient(circle at 50% 54%,{b} 0 2.4px,{f} 2.9px 3.6px,{b} 4.1px)",
+        # round badge ends (powerline \ue0b6 \ue0b4, the pickup board): not in the web fonts
+        # 둥근 배지 끝 (powerline \ue0b6 \ue0b4, 호출판): 웹 글꼴에 없다
+        "\ue0b6": f"radial-gradient(100% 50% at 100% 50%,{f} 96%,{b} 100%)",
+        "\ue0b4": f"radial-gradient(100% 50% at 0 50%,{f} 96%,{b} 100%)",
     }
     if ch in BOX:
         # corners and tees from half lines, so they meet │ and ─ exactly / 반쪽 선으로 모서리와 갈림을 그려 │ ─ 와 정확히 이어지게

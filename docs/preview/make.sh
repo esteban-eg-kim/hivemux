@@ -41,6 +41,9 @@ C
   O -f /dev/null new-session -d -x $COLS -y $ROWS \
     "env -u TMUX TERM=xterm-ghostty TERMINFO_DIRS=/Applications/Ghostty.app/Contents/Resources/terminfo XDG_DATA_HOME=$XDG_DATA_HOME tmux -L hmdemo attach -t web:login-bug"
   sleep 4
+  # the pickup board blinks (on for the first half of each second): capture while it is on
+  # 호출판이 깜빡인다 (매초 앞 절반이 켜짐): 켜진 동안 찍는다
+  python3 -c 'import time; time.sleep((0.3 - time.time()) % 1)'
   O capture-pane -p -e -t 0 > "$TMP/screen.ansi"
   python3 "$ROOT/docs/preview/ansi2html.py" "$TMP/screen.ansi" "$TMP/$L.html" "web / login-bug"
   "$CHROME" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=2 \
