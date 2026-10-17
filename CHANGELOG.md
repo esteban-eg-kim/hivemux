@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- When the sidebar runs short of rows, cards go to one line before the blank row between projects is dropped, so projects stay apart
 - The sidebar shows each project as a box with a header band in the project's
   color, its Claude cards inside. Widen the sidebar (drag the grip) and the
   boxes go into 2 or 3 columns, each box in the shortest column. Click, drag

@@ -432,10 +432,12 @@ def render(items, current, w, h, cur_sess="", sessions=()):
         return [L()] + out, {y + 1: v for y, v in tg.items()}, {y + 1: v for y, v in hg.items()}
 
     reserve = len(lines) + 4
-    # shrink step by step: the blank row between cards in a box, between boxes, then one-line cards
-    # 단계별로 줄인다: 상자 안 카드 사이 빈 줄, 상자 사이 빈 줄, 그다음 한 줄 카드
-    for compact, box_gap, card_gap in ((False, True, True), (False, True, False), (False, False, False),
-                                       (True, True, False), (True, False, False)):
+    # shrink step by step: the blank row between cards in a box, then one-line cards (keeping the
+    # row between boxes, or the list runs together), and only then the row between boxes
+    # 단계별로 줄인다: 상자 안 카드 사이 빈 줄, 그다음 한 줄 카드 (상자 사이 빈 줄은 남긴다.
+    # 없으면 목록이 붙어 보인다), 마지막에 상자 사이 빈 줄
+    for compact, box_gap, card_gap in ((False, True, True), (False, True, False), (True, True, False),
+                                       (False, False, False), (True, False, False)):
         body, tg, hg = build(compact, box_gap, card_gap)
         if reserve + len(body) <= h:
             break
