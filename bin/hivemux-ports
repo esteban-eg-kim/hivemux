@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+"""Forward the other Mac's dev servers to this Mac while connected (started by hivemux-connect).
+연결해 있는 동안 상대 Mac 의 개발 서버를 이 Mac 으로 이어 준다 (hivemux-connect 가 띄운다).
+
+  hivemux-ports <host> <tty>     run until hivemux-connect (the parent) ends / hivemux-connect(부모)가 끝날 때까지
+  hivemux-ports --list           forwarded ports of every connection / 모든 연결의 이어 준 포트
+
+Every few seconds it asks the other Mac which TCP ports are listened on by processes started
+inside its tmux (a dev server Claude or a shell started: npm run dev, rails s ...), and forwards
+each to the same port on this Mac's localhost over its own ssh connection, so
+http://localhost:5173 here opens the server there. A port taken here goes to the next free one.
+Each new port shows a notification (OSC 777 on <tty>, the connection's terminal).
+몇 초마다 상대 Mac 의 tmux 안에서 시작된 프로세스(Claude 나 셸이 띄운 개발 서버: npm run dev,
+rails s ...)가 듣는 TCP 포트를 묻고, 따로 연 ssh 연결로 이 Mac 의 localhost 같은 포트에 잇는다.
+그래서 여기서 http://localhost:5173 을 열면 거기 서버가 열린다. 여기서 이미 쓰는 포트면 다음 빈
+포트로 잇는다. 새 포트마다 알림을 띄운다 (<tty>, 연결 터미널에 OSC 777).
+State: $XDG_DATA_HOME/hivemux/ports/<host> ("<local> <remote> <command>" per line).
+상태: $XDG_DATA_HOME/hivemux/ports/<host> (한 줄에 "<여기 포트> <거기 포트> <명령>").
+"""
+import os, shlex, signal, socket, subprocess, sys, time
+
+DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "ports")
+POLL = 3
+# HIVEMUX_SSH: another ssh command, e.g. "ssh -F <config>" (used for testing) / 다른 ssh 명령 (시험용)
+SSH = shlex.split(os.environ.get("HIVEMUX_SSH") or "ssh")
+SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ServerAliveInterval=10", "-o", "ServerAliveCountMax=3", "-o", "ConnectTimeout=10"]
+
+# Runs on the other Mac: "<port> <command>" for every TCP port listened on by a process of its tmux
+# server (its panes and everything they started). ssh gives a plain PATH there.
+# 상대 Mac 에서 실행된다: 그 tmux 서버의 프로세스(칸들과 거기서 시작된 모든 것)가 듣는 TCP 포트마다
+# "<포트> <명령>". ssh 는 기본 PATH 만 준다.
+REMOTE = r'''PATH=/opt/homebrew/bin:/usr/local/bin:$PATH
+root=$(tmux display -p '#{pid}' 2>/dev/null) || exit 0
+pids=$(ps -A -o pid= -o ppid= | awk -v r="$root" '{ p[$1] = $2 } END { for (k in p) { x = k; n = 0; while (x > 1 && n++ < 64) { if (x == r) { print k; break } x = p[x] } } }' | paste -sd, -)
+[ -n "$pids" ] || exit 0
+lsof -nP -a -iTCP -sTCP:LISTEN -p "$pids" -Fcn 2>/dev/null | awk '/^c/ { c = substr($0, 2) } /^n/ { n = split($0, a, ":"); print a[n], c }' | sort -un'''
+
+
+def ko():
+    v = os.environ.get("HIVEMUX_LANG") or subprocess.run(["tmux", "show", "-gqv", "@hivemux-lang"],
+                                                         capture_output=True, text=True).stdout.strip()
+    return (v or os.environ.get("LANG", "")).startswith("ko")
+
+
+def tr(k, e):
+    return k if KO else e
+
+
+def free(port):
+    """Nothing listens on localhost:port here (v4 and v6) / 여기 localhost:port 를 아무도 안 쓴다 (v4, v6)"""
+    for fam, addr in ((socket.AF_INET, "127.0.0.1"), (socket.AF_INET6, "::1")):
+        s = socket.socket(fam, socket.SOCK_STREAM)
+        try:
+            s.bind((addr, port))
+        except OSError:
+            return False
+        finally:
+            s.close()
+    return True
+
+
+class Ports:
+    def __init__(self, host, tty):
+        self.host, self.tty = host, tty
+        self.sock = "/tmp/hivemux-ports-%d-%d" % (os.getuid(), os.getpid())
+        self.master = None
+        self.fw = {}                     # remote port -> (local port, command) / 거기 포트 -> (여기 포트, 명령)
+        self.state = os.path.join(DATA, host.replace("/", "_"))
+
+    def ssh(self, *args, timeout=15):
+        try:
+            return subprocess.run(SSH + ["-S", self.sock] + SSH_OPTS + list(args), capture_output=True,
+                                  text=True, timeout=timeout, stdin=subprocess.DEVNULL)
+        except subprocess.TimeoutExpired:
+            return None
+
+    def up(self):
+        """The ssh connection the forwards ride on, (re)opened when needed / 포트를 잇는 ssh 연결. 없으면 (다시) 연다"""
+        if self.master and self.master.poll() is None:
+            r = self.ssh("-O", "check", self.host, timeout=5)
+            if r and r.returncode == 0:
+                return True
+        self.down()
+        self.master = subprocess.Popen(SSH + ["-M", "-S", self.sock, "-N", "-o", "ControlPersist=no"] + SSH_OPTS + [self.host],
+                                       stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        for _ in range(40):
+            if self.master.poll() is not None:
+                return False
+            if os.path.exists(self.sock):
+                return True
+            time.sleep(0.25)
+        return False
+
+    def down(self):
+        if self.master and self.master.poll() is None:
+            self.ssh("-O", "exit", self.host, timeout=5)
+            try:
+                self.master.wait(3)
+            except subprocess.TimeoutExpired:
+                self.master.kill()
+        self.master = None
+        self.fw = {}
+        try:
+            os.unlink(self.sock)
+        except OSError:
+            pass
+        self.save()
+
+    def listening(self):
+        r = self.ssh(self.host, REMOTE)
+        if not r or r.returncode != 0:
+            return None
+        out = {}
+        for ln in r.stdout.splitlines():
+            port, _, cmd = ln.partition(" ")
+            # not ssh: forwards someone set up there (or this one, when "there" is this Mac)
+            # ssh 는 뺀다: 거기서 누가 열어 둔 포워딩 (또는 "거기"가 이 Mac 일 때 이 연결 자신)
+            if port.isdigit() and int(port) >= 1024 and cmd.strip() not in ("ssh", "sshd"):
+                out[int(port)] = cmd.strip() or "?"
+        return out
+
+    def notify(self, title, body):
+        try:
+            with open(self.tty, "w") as t:
+                t.write("\x1b]777;notify;%s;%s\x07" % (title.replace(";", ","), body.replace(";", ",")))
+        except OSError:
+            pass
+
+    def save(self):
+        os.makedirs(DATA, exist_ok=True)
+        if self.fw:
+            with open(self.state + ".tmp", "w") as f:
+                for rp, (lp, cmd) in sorted(self.fw.items()):
+                    f.write(f"{lp} {rp} {cmd}\n")
+            os.replace(self.state + ".tmp", self.state)
+        else:
+            try:
+                os.unlink(self.state)
+            except OSError:
+                pass
+
+    def sync(self):
+        now = self.listening()
+        if now is None:
+            return
+        for rp in [p for p in self.fw if p not in now]:
+            lp, _ = self.fw.pop(rp)
+            self.ssh("-O", "cancel", "-L", f"{lp}:localhost:{rp}", self.host)
+        for rp, cmd in now.items():
+            if rp in self.fw:
+                continue
+            lp = next((p for p in range(rp, min(rp + 20, 65536)) if free(p)), None)
+            if lp is None:
+                continue
+            r = self.ssh("-O", "forward", "-L", f"{lp}:localhost:{rp}", self.host)
+            if not r or r.returncode != 0:
+                continue
+            self.fw[rp] = (lp, cmd)
+            where = f"localhost:{lp}" + ("" if lp == rp else tr(f" (거기 {rp})", f" (there {rp})"))
+            self.notify(tr(f"{self.host} 포트 연결", f"Port from {self.host}"),
+                        f"{cmd} · {where}")
+        self.save()
+
+    def run(self):
+        parent = os.getppid()
+        signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+        signal.signal(signal.SIGHUP, lambda *_: sys.exit(0))
+        try:
+            while os.getppid() == parent:
+                if self.up():
+                    self.sync()
+                time.sleep(POLL)
+        finally:
+            self.down()
+
+
+def listing():
+    if not os.path.isdir(DATA):
+        return
+    for name in sorted(os.listdir(DATA)):
+        with open(os.path.join(DATA, name)) as f:
+            for ln in f:
+                lp, rp, cmd = (ln.split(" ", 2) + ["", ""])[:3]
+                print(f"http://localhost:{lp}  ←  {name}:{rp}  {cmd.strip()}")
+
+
+KO = ko()
+if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--list":
+        listing()
+    elif len(sys.argv) == 3:
+        Ports(sys.argv[1], sys.argv[2]).run()
+    else:
+        print(__doc__.split("\n\n")[1], file=sys.stderr)
+        sys.exit(2)

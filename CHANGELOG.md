@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- While connected to another Mac, dev servers started in its tmux (`npm run
+  dev` by Claude or a shell) are forwarded to the same port on this Mac's
+  `localhost` over a separate ssh connection, with a notification for each.
+  A port taken here goes to the next free one; a stopped server and closing
+  the window let them go. `hivemux connect --ports` lists them,
+  `HIVEMUX_PORTS=0` turns it off
+
 ## 0.1.22 — 2026-10-17
 
 - Reloading the tmux config (`hivemux setup`, `tmux source-file`) no longer

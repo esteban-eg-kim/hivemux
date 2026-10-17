@@ -12,6 +12,8 @@
 #   hivemux connect --window [<host>]  open a new Ghostty window attached to <host> (default: the last one)
 #                                      <host> 에 붙은 새 Ghostty 창 열기 (기본: 마지막 호스트)
 #   hivemux connect --pick <client>    the host list popup (sidebar menu) / 호스트 목록 팝업 (사이드바 메뉴)
+#   hivemux connect --ports            dev server ports forwarded here (see hivemux-ports)
+#                                      여기로 이어 준 개발 서버 포트 (hivemux-ports 참고)
 # <host> is anything ssh takes: a Host from ~/.ssh/config, user@address, a VPN (Tailscale...) name.
 # <host> 는 ssh 에 쓰는 무엇이든: ~/.ssh/config 의 Host, 사용자@주소, VPN(Tailscale 등) 기기 이름.
 # Remembered hosts: $XDG_DATA_HOME/hivemux/remote-hosts ("<host>" or "<host> mosh" per line).
@@ -60,6 +62,12 @@ connect() {
   [ -z "$how" ] && how="$(remembered "$host" | awk '{print $2}')"
   mkdir -p "$DATA"; printf '%s\n' "$host" > "$LAST"
   printf '\033]2;⇄ %s\007' "$host"     # window title / 창 제목
+  # dev servers there show up on this Mac's localhost while connected (HIVEMUX_PORTS=0: off)
+  # 연결해 있는 동안 거기 개발 서버를 이 Mac 의 localhost 로 잇는다 (HIVEMUX_PORTS=0: 끔)
+  if [ "${HIVEMUX_PORTS:-1}" != 0 ]; then
+    "$HM_BIN/hivemux-ports" "$host" "$(tty)" </dev/null >/dev/null 2>&1 &
+    trap 'kill $! 2>/dev/null' EXIT
+  fi
   if [ "$how" = mosh ]; then
     # mosh keeps the session through sleep and network changes by itself (no notifications through it)
     # mosh 는 잠자기와 네트워크 변경을 스스로 견딘다 (알림은 지나가지 못한다)
@@ -169,6 +177,9 @@ case "$1" in
   --list)
     [ -f "$HOSTS" ] && cat "$HOSTS"
     ;;
+  --ports)
+    "$HM_BIN/hivemux-ports" --list
+    ;;
   --pick)      # sidebar menu "Connect to…": the host list popup / 사이드바 메뉴 "원격 연결…": 호스트 목록 팝업
     client="$2"
     remote_client "$client" && exit 0
@@ -191,7 +202,7 @@ case "$1" in
       "$cmd" >/dev/null 2>&1 || "$TMUX_BIN" display -d 4000 "$(say "새 창을 열지 못했습니다. 새 터미널에서 실행하세요" "Could not open a window; run in a new terminal"): hivemux connect $host" 2>/dev/null
     ;;
   ""|-h|--help)
-    sed -n '4,17p' "$0" | sed 's/^# \{0,1\}//' ; [ -f "$HOSTS" ] && { echo; cat "$HOSTS"; }
+    sed -n '4,20p' "$0" | sed 's/^# \{0,1\}//' ; [ -f "$HOSTS" ] && { echo; cat "$HOSTS"; }
     ;;
   --ssh) connect "$2" ssh ;;
   --mosh) connect "$2" mosh ;;

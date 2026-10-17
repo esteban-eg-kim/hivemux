@@ -163,6 +163,10 @@ a VPN such as [Tailscale](https://tailscale.com) on both Macs is the simple way
 - The remote window shows `⇄ <Mac name>` at the right of the status line, before the clock.
 - A dropped connection reconnects by itself (`Ctrl+C` stops); `prefix d` detaches and closes the window.
 - Notifications from the remote tasks show on this Mac.
+- Dev servers started there (`npm run dev` in a remote pane) are forwarded to
+  the same port on this Mac's `localhost` while connected, with a notification
+  for each; a port taken here goes to the next free one. `hivemux connect
+  --ports` lists them, `HIVEMUX_PORTS=0` turns it off.
 - With `--mosh` (or `m` in the menu → Connect to… list), the session survives
   sleep and network changes by itself, but notifications do not pass through
   mosh; the list marks such a host "mosh · no notifications". Both Macs need

@@ -635,7 +635,14 @@ hivemux connect me@work-mac.local</pre></div>
     <div class="card"><h3>When it drops</h3><p>"Connection lost" shows and it reconnects after a few seconds; <kbd>Ctrl</kbd>+<kbd>C</kbd> stops. <kbd>Ctrl</kbd>+<kbd>A</kbd> then <kbd>d</kbd> detaches and closes the window.</p></div>
     <div class="card"><h3>Notifications and mosh</h3><p>Notifications from remote tasks show on this Mac. Added with <code>--mosh</code> (or switched with <kbd>m</kbd> in the Connect to… list), the session survives sleep and network changes by itself, but notifications do not pass through mosh; the list marks such a host "mosh · no notifications". Both Macs need <code>brew install mosh</code>; if it stops at UDP, allow <code>mosh-server</code> in the other Mac's firewall.</p></div>
   </div>
-  <div class="note">Two screens on the same project share it: switching windows on one moves the other. The size follows the screen you typed on last. While a remote screen looks at a window, the sidebar animation and the status line spinner stop (each frame would go over the network and slow typing).</div>
+  <h3>Open dev servers started there</h3>
+  <p>While connected, dev servers started inside the other Mac's tmux (<code>npm run dev</code>, <code>rails s</code> and the like, by Claude or a shell) are forwarded to the same port on this Mac's <code>localhost</code>. A server on 5173 there opens here at <code>http://localhost:5173</code>. The address stays <code>localhost</code>, so sign-in callbacks and cookies need no changes.</p>
+  <ul>
+    <li>A notification shows each new port. A port already taken here goes to the next free one, named in the notification.</li>
+    <li>A stopped server is let go, and closing the remote window lets all go. Works over mosh too (ports go over a separate ssh).</li>
+    <li>See the forwarded ports: <code>hivemux connect --ports</code>. Turn it off: <code>HIVEMUX_PORTS=0 hivemux connect &lt;host&gt;</code>.</li>
+  </ul>
+  <div class="note">Two screens on the same project share it: switching windows on one moves the other. The size follows the screen that got the keyboard focus last. While a remote screen looks at a window, the sidebar animation and the status line spinner stop (each frame would go over the network and slow typing).</div>
 </section>
 
 <section id="fix">
@@ -792,6 +799,7 @@ hivemux uninstall</pre></div>
     <div><code>hivemux-attach</code><span>Ghostty entry point. Restores and attaches to the last session when no server runs, otherwise to the most recent one</span></div>
     <div><code>hivemux-rename-project</code>, <code>hivemux-rename-project-ui</code><span>Rename a project, and its popup</span></div>
     <div><code>hivemux-connect</code>, <code>hivemux-connect-ui</code><span>Connect to another Mac (<code>hivemux connect</code>) and its popup</span></div>
+    <div><code>hivemux-ports</code><span>Forward the other Mac's dev server ports here while connected</span></div>
     <div><code>hivemux-close-project</code>, <code>hivemux-close-project-ui</code><span>Close a project (asks in a popup in the middle, then closes all its windows)</span></div>
     <div><code>hivemux-hook</code><span>Claude hook. Records session id, folder and state on the tmux pane</span></div>
     <div><code>hivemux-panes</code><span>Saves the pane-to-session list on save; types the resume command on restore</span></div>
