@@ -85,9 +85,21 @@ set-hook -g after-kill-pane        'run-shell -b "#{@hivemux-bin}/hivemux-sideba
 set-hook -g session-closed         'run-shell -b "#{@hivemux-bin}/hivemux-sidebar wake"'
 set-hook -g window-unlinked        'run-shell -b "#{@hivemux-bin}/hivemux-sidebar wake"'
 set-hook -g window-resized         'run-shell -b "#{@hivemux-bin}/hivemux-sidebar fix"'
-set-hook -g client-attached        'run-shell -b "#{@hivemux-bin}/hivemux-sidebar presize #{client_name}"'
-set-hook -g client-detached        'run-shell -b "#{@hivemux-bin}/hivemux-connect --forget-client #{client_name}"'
-set-hook -g client-resized         'run-shell -b "#{@hivemux-bin}/hivemux-sidebar presize #{client_name}"'
+# client hooks name their client with #{hook_client}: #{client_name} there can be another client
+# (with two screens attached, a resize or detach of one named the other)
+# 클라이언트 훅은 #{hook_client} 로 그 클라이언트를 가리킨다: 거기서 #{client_name} 은 다른 클라이언트일 수 있다
+# (화면 두 개가 붙어 있으면 한쪽의 크기 변경이나 떨어짐이 다른 쪽 이름으로 왔다)
+set-hook -g client-attached        'run-shell -b "#{@hivemux-bin}/hivemux-sidebar presize #{hook_client}; #{@hivemux-bin}/hivemux-sidebar sizer"'
+set-hook -g client-detached        'run-shell -b "#{@hivemux-bin}/hivemux-connect --forget-client #{hook_client}"'
+set-hook -g client-resized         'run-shell -b "#{@hivemux-bin}/hivemux-sidebar presize #{hook_client}"'
+# Only screens with the keyboard focus size the windows (tmux ignore-size on the others): a window shown
+# on two screens of different sizes (this Mac's Ghostty and another Mac over ssh) no longer shrinks and
+# grows each time you go to it, which redrew Claude and the sidebar every time
+# 키보드 초점이 있는 화면만 창 크기를 정한다 (나머지는 tmux ignore-size): 크기가 다른 두 화면 (이 Mac 의
+# Ghostty 와 ssh 로 붙은 다른 Mac) 이 같은 창을 보면, 갈 때마다 창이 줄었다 커지며 Claude 와 사이드바를 다시 그렸다
+set-hook -g client-focus-in        'run-shell -b "#{@hivemux-bin}/hivemux-sidebar sizer in #{hook_client}"'
+set-hook -g client-focus-out       'run-shell -b "#{@hivemux-bin}/hivemux-sidebar sizer out #{hook_client}"'
+run-shell -b "#{@hivemux-bin}/hivemux-sidebar sizer"
 run-shell -b "#{@hivemux-bin}/hivemux-sidebar ensure"
 
 # ── Keys ─────────────────────────────────────────────────────────────────

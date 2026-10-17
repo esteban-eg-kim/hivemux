@@ -12,6 +12,13 @@
 - A finished task stays "done" until you look at it on the screen that has the
   keyboard focus. A screen that was only attached (another Ghostty window,
   another Mac) used to turn it idle at once, so the "done" mark vanished
+- Only screens with the keyboard focus decide window sizes. A window shown on
+  two screens of different sizes (this Mac's Ghostty and another Mac over ssh)
+  used to shrink and grow each time you went to it, redrawing Claude and the
+  sidebar
+- tmux client hooks (attach, resize, detach) act on the right screen. With two
+  screens attached they could get the other one, so a detach removed the wrong
+  screen from the remote list and a resize used the other screen's size
 
 ## 0.1.20 — 2026-10-17
 

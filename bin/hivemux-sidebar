@@ -5,6 +5,8 @@
 #                                        그 창(기본: 모든 창)에 사이드바가 없으면 만든다
 #   hivemux-sidebar fix                  reset every sidebar to @hivemux-sidebar-width
 #                                        모든 사이드바 폭을 @hivemux-sidebar-width 로 되돌린다
+#   hivemux-sidebar sizer [in|out c]     only clients with the keyboard focus size windows
+#                                        키보드 초점이 있는 클라이언트만 창 크기를 정한다
 #   hivemux-sidebar reap                 close windows that only contain a sidebar
 #                                        사이드바만 남은 창을 닫는다
 #   hivemux-sidebar rebuild              after restore: drop sidebars restored as shells, recreate
@@ -108,6 +110,19 @@ case "$1" in
       t resize-window -t "$w" -x "$cw" -y "$ch" && t set -wu -t "$w" window-size
     done
     "$0" fix ;;
+  sizer)
+    # sizer in|out <client>: the client gained / lost the keyboard focus; sizer: set every client by its focus.
+    # A client without focus gets ignore-size, so it does not size the windows (tmux still uses it when
+    # every client has the flag)
+    # sizer in|out <클라이언트>: 키보드 초점을 얻음 / 잃음. sizer: 모든 클라이언트를 초점에 맞춘다.
+    # 초점 없는 클라이언트는 ignore-size 를 받아 창 크기를 정하지 않는다 (모두 그 표시면 tmux 는 그래도 쓴다)
+    case "$2" in
+      in)  t refresh-client -t "$3" -f '!ignore-size' 2>/dev/null ;;
+      out) t refresh-client -t "$3" -f ignore-size 2>/dev/null ;;
+      *)   t list-clients -F '#{client_name} #{client_flags}' | while read -r c f; do
+             case ",$f," in *,focused,*) t refresh-client -t "$c" -f '!ignore-size' ;; *) t refresh-client -t "$c" -f ignore-size ;; esac 2>/dev/null
+           done ;;
+    esac ;;
   fix)
     t list-panes -a -F '#{pane_id} #{pane_title} #{pane_width}' | awk -v T="$TITLE" -v W="$W" '$2==T && $3!=W{print $1}' |
       while read -r p; do t resize-pane -t "$p" -x "$W"; done ;;
@@ -172,6 +187,6 @@ case "$1" in
     else
       t set -g @hivemux-sidebar on; ON=on; "$0" ensure
     fi ;;
-  *) echo "usage: $0 ensure [win]|fix|reap|rebuild|respawn|toggle" >&2; exit 2 ;;
+  *) echo "usage: $0 ensure [win]|fix|sizer [in|out client]|reap|rebuild|respawn|toggle" >&2; exit 2 ;;
 esac
 exit 0
