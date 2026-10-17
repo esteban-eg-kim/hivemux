@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Reloading the tmux config (`hivemux setup`, a sidebar restart) no longer
+  adds another copy of hivemux's `terminal-features` entries each time; the
+  copies piled up by older versions are removed
 - Cards of one project sit together with no blank row between them; a thin
   line in the project's color under each card tells them apart
 

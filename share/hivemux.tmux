@@ -11,8 +11,13 @@ run-shell 'tmux set -g @hivemux-data "${XDG_DATA_HOME:-$HOME/.local/share}/hivem
 
 # ── Terminal / Claude Code compatibility ─────────────────────────────────
 set -g default-terminal "tmux-256color"
-set -as terminal-features ",xterm-ghostty:RGB:extkeys:clipboard:sync:hyperlinks"
-set -as terminal-features ",xterm*:extkeys"
+# Fixed slots, so sourcing this file again overwrites them (set -as appended a copy each
+# time); first drop the copies older versions appended
+# 고정 자리에 둬서 다시 읽어도 덮어쓴다 (set -as 는 읽을 때마다 하나씩 더 붙었다). 먼저 예전
+# 버전이 붙여 둔 사본을 지운다
+run-shell 'tmux show -s terminal-features | awk '"'"'$2 == "xterm-ghostty:RGB:extkeys:clipboard:sync:hyperlinks" || $2 == "xterm*:extkeys" { print $1 }'"'"' | while read -r k; do tmux set -su "$k"; done'
+set -s terminal-features[90] "xterm-ghostty:RGB:extkeys:clipboard:sync:hyperlinks"
+set -s terminal-features[91] "xterm*:extkeys"
 set -s extended-keys on          # Shift+Enter newline in Claude Code
 set -g allow-passthrough all     # notifications from panes that are not on screen
 set -g focus-events on
