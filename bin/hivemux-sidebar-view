@@ -502,9 +502,20 @@ def badges(w, names):
             tmux("refresh-client", "-S", "-t", c)
 
 
+def active_client(sess):
+    """The client that last pressed a key or clicked on sess: a popup goes on the screen that asked
+    for it, not the first client in the list (another Mac's screen, or this Mac's while working from
+    another one over hivemux-attach)
+    sess 에서 마지막으로 키를 누르거나 클릭한 화면: 팝업은 요청한 화면에 띄운다. 목록의 첫 화면이면
+    다른 Mac 에서 붙어 쓰는 동안 이 Mac 화면에 떠서 보이지 않았다"""
+    rows = [l.split(" ", 1) for l in tmux("list-clients", "-t", f"={sess}", "-F",
+                                          "#{client_activity} #{client_name}").splitlines() if " " in l]
+    return max(rows, key=lambda r: int(r[0]) if r[0].isdigit() else 0)[1] if rows else ""
+
+
 def rename(pid):
     sess = tmux("display", "-p", "-t", ME, "#{session_name}").strip()
-    client = (tmux("list-clients", "-t", f"={sess}", "-F", "#{client_name}").split() or [""])[0]
+    client = active_client(sess)
     tmux("run-shell", "-b", os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-rename") + f" prompt {pid} '{client}'")
 
 
@@ -524,7 +535,7 @@ def menu(y, pid=None, sess=None, items=()):
     here = os.path.dirname(os.path.realpath(__file__))
     empty = not pid and not sess        # empty space: only "New project" / 빈 곳: "새 프로젝트" 만
     my = tmux("display", "-p", "-t", ME, "#{session_name}").strip()
-    client = (tmux("list-clients", "-t", f"={my}", "-F", "#{client_name}").split() or [""])[0]
+    client = active_client(my)
     if pid and not sess:
         sess = next((p["session_name"] for p in items if p["pane_id"] == pid), "")
     sess = sess or my
