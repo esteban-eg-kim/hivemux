@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.1.22 — 2026-10-17
 
-- Reloading the tmux config (`hivemux setup`, a sidebar restart) no longer
+- Reloading the tmux config (`hivemux setup`, `tmux source-file`) no longer
   adds another copy of hivemux's `terminal-features` entries each time; the
   copies piled up by older versions are removed
 - Cards of one project sit together with no blank row between them; a thin
