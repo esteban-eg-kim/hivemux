@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.23 — 2026-10-17
 
 - While connected to another Mac, dev servers started in its tmux (`npm run
   dev` by Claude or a shell) are forwarded to the same port on this Mac's
