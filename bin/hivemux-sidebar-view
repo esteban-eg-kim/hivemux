@@ -297,10 +297,11 @@ def render(items, current, w, h, cur_sess="", sessions=()):
     info = {s: (n, pane) for s, n, pane in sessions}
 
     dragging = DRAG and DRAG.get("moved")
-    def build(compact, gaps):
+    def build(compact, gaps, spaced):
         out, tg, hg = [], {}, {}
         for sess, members in groups:
-            out.append(L())
+            if spaced or not out:
+                out.append(L())
             cur = sess == cur_sess
             g = L().put("  ").put("●", hue_of(sess)).put(" ")
             g.put(sess, C["text"] if cur else C["text2"], bold=cur, limit=w - 5)
@@ -355,8 +356,13 @@ def render(items, current, w, h, cur_sess="", sessions=()):
                 rows = []
                 if compact:
                     r = card_line().put(" ", C["text"], card)
-                    r.put(name, C["text"], card, bold=sel or st == "wait", limit=x1 - 7)
-                    r.fill(x1 - 6, card).right(f"{icon} {t}".rstrip(), bar if st != "idle" else C["text3"], card, margin=2).fill(x1, card)
+                    # keep the ⌥ number: it is how you jump to the card / ⌥ 번호는 남긴다: 카드로 가는 키다
+                    r.put(name, C["text"], card, bold=sel or st == "wait", limit=x1 - 11)
+                    stat = f"{icon} {t}".rstrip()
+                    r.fill(w - 2 - width(stat) - (width(key) + 1 if key else 0), card)
+                    if key:
+                        r.put(key + " ", C["text"] if sel else C["text3"], card)
+                    r.put(stat, bar if st != "idle" else C["text3"], card).fill(x1, card)
                     rows.append(r)
                 else:
                     r1 = card_line().put(" ", C["text"], card)
@@ -383,8 +389,11 @@ def render(items, current, w, h, cur_sess="", sessions=()):
         return out, tg, hg
 
     reserve = len(lines) + 4
-    for compact, gaps in ((False, True), (False, False), (True, False)):
-        body, tg, hg = build(compact, gaps)
+    # shrink step by step: gaps between cards, then between projects, then one-line cards
+    # 단계별로 줄인다: 카드 사이 빈 줄, 프로젝트 사이 빈 줄, 그다음 한 줄 카드
+    for compact, gaps, spaced in ((False, True, True), (False, False, True), (False, False, False),
+                                  (True, False, True), (True, False, False)):
+        body, tg, hg = build(compact, gaps, spaced)
         if reserve + len(body) <= h:
             break
     if not items and not sessions:
