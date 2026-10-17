@@ -12,6 +12,9 @@
   Mac you connect from, `Ctrl+Y` copies the address. `hivemux connect
   --ports` lists them in a terminal
 - The right-click menu has Open path… (`Option+O`) too
+- Settings → Editor picks what Enter in Open path uses: VS Code, Cursor, Zed,
+  Sublime Text or the text editor. On a screen attached from another Mac,
+  VS Code and Cursor open the file on that Mac over Remote-SSH
 
 ## 0.1.22 — 2026-10-17
 

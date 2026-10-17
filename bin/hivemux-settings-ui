@@ -4,9 +4,10 @@
 
   ↑↓ choose / 고르기    ←→ or Enter or click: change / 바꾸기    Esc close / 닫기
 
-Changes apply at once and are saved in $XDG_DATA_HOME/hivemux (lang, anim, notify, sidebar-width);
+Changes apply at once and are saved in $XDG_DATA_HOME/hivemux (lang, anim, notify,
+sidebar-width, editor);
 share/hivemux.tmux reads them back when tmux starts.
-바꾸면 바로 적용하고 $XDG_DATA_HOME/hivemux 에 (lang, anim, notify, sidebar-width) 저장한다.
+바꾸면 바로 적용하고 $XDG_DATA_HOME/hivemux 에 (lang, anim, notify, sidebar-width, editor) 저장한다.
 tmux 가 시작할 때 share/hivemux.tmux 가 다시 읽는다.
 """
 import os, re, shutil, subprocess, sys, termios, tty, unicodedata
@@ -61,11 +62,17 @@ def settings():
     except ValueError:
         w = 32
     ws = sorted(set(WIDTHS + [w]))
+    # the open-path popup's Enter (bin/hivemux-open-ui) / 경로 열기 팝업의 Enter (bin/hivemux-open-ui)
+    eds = [("vscode", "VS Code"), ("cursor", "Cursor"), ("zed", "Zed"), ("sublime", "Sublime Text"),
+           ("default", tr("텍스트 편집기", "Text editor"))]
+    ed = tmux("show", "-gqv", "@hivemux-editor").strip() or \
+        ("vscode" if os.path.exists("/Applications/Visual Studio Code.app") else "default")
     return [
         ("lang", tr("언어", "Language"), [("ko", "한국어"), ("en", "English")], 0 if lang() == "ko" else 1),
         ("anim", tr("애니메이션", "Animation"), [("on", tr("켜기", "on")), ("off", tr("끄기", "off"))], 0 if anim else 1),
         ("notify", tr("알림", "Notifications"), [("on", tr("켜기", "on")), ("off", tr("끄기", "off"))], 0 if notify else 1),
         ("width", tr("사이드바 폭", "Sidebar width"), [(str(x), tr(f"{x}칸", f"{x} columns")) for x in ws], ws.index(w)),
+        ("editor", tr("편집기", "Editor"), eds, next((i for i, (k, _) in enumerate(eds) if k == ed), 0)),
     ]
 
 
@@ -76,7 +83,7 @@ def apply(key, value):
         # the sidebars read the language when they start / 사이드바는 시작할 때 언어를 읽는다
         subprocess.Popen([os.path.join(HERE, "hivemux-sidebar"), "respawn"], stdin=subprocess.DEVNULL,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-    elif key in ("anim", "notify"):
+    elif key in ("anim", "notify", "editor"):
         tmux("set", "-g", "@hivemux-" + key, value)
         save(key, value)
     elif key == "width":

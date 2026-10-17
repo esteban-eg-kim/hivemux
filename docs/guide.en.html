@@ -507,7 +507,7 @@ claude -c
       <div class="key"><span class="combo">Double-click a card</span><span class="d">Rename the task</span></div>
       <div class="key"><span class="combo">Right click</span><span class="d">Menu. On a task: go to, rename, move up / down, new Claude in this project, new project. On a project name: rename, close project, new Claude, new project. On empty space: new project. Every menu ends with Open path, Ports, Connect to… and Settings. Hover highlights, a click runs; <kbd>↑</kbd> <kbd>↓</kbd> and <kbd>Enter</kbd> or the letter shown also choose. <kbd>Esc</kbd> or a click outside closes it</span></div>
       <div class="key"><span class="combo">Menu → New project</span><span class="d">A folder browser opens in the middle. <kbd>Enter</kbd> starts in the selected folder like <code>hm</code>, <kbd>→</kbd> / <kbd>←</kbd> move in and out, typing filters (start with <code>.</code> for hidden folders), <kbd>Ctrl</kbd>+<kbd>N</kbd> makes a new folder</span></div>
-      <div class="key"><span class="combo">Menu → Settings</span><span class="d">Language (한국어 / English), animation on / off, notifications on / off, sidebar width. Applied at once and saved in <code>~/.local/share/hivemux</code>, so they survive restarts. Changing the language restarts the sidebars</span></div>
+      <div class="key"><span class="combo">Menu → Settings</span><span class="d">Language (한국어 / English), animation on / off, notifications on / off, sidebar width, the editor for Open path. Applied at once and saved in <code>~/.local/share/hivemux</code>, so they survive restarts. Changing the language restarts the sidebars</span></div>
       <div class="key"><span class="combo">Drag a card / project header</span><span class="d">Reorder tasks / projects. The drop target turns blue; <kbd>⌥</kbd>+number and the top window list follow the same order. A task moves only within its project</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Shift</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></span><span class="d">Move the current task up / down one step; at a project's edge the whole project moves</span></div>
       <div class="key"><span class="combo">Drag the grip</span><span class="d">Drag the grip bar or the border to resize the sidebar; applied to all windows and saved. Wider, the project boxes go into 2 or 3 columns</span></div>
@@ -521,13 +521,13 @@ claude -c
       <figure><a href="img/reorder-en.png"><img src="img/reorder-en.png" alt="Dragging a card to reorder" width="1088" height="682" loading="lazy"></a><figcaption>Dragging a card: the drop target turns blue, the dragged card dims</figcaption></figure>
       <figure><a href="img/new-project-en.png"><img src="img/new-project-en.png" alt="New project folder browser" width="1088" height="682" loading="lazy"></a><figcaption>Menu → New project: the folder browser; projects already open are marked "open"</figcaption></figure>
       <figure><a href="img/ports-en.png"><img src="img/ports-en.png" alt="Ports popup" width="1088" height="682" loading="lazy"></a><figcaption>Menu → Ports (<kbd>Option</kbd>+<kbd>W</kbd>): dev servers forwarded to a Mac connected here</figcaption></figure>
-      <figure><a href="img/settings-en.png"><img src="img/settings-en.png" alt="Settings popup" width="1088" height="682" loading="lazy"></a><figcaption>Menu → Settings: language, animation, notifications, sidebar width</figcaption></figure>
+      <figure><a href="img/settings-en.png"><img src="img/settings-en.png" alt="Settings popup" width="1088" height="682" loading="lazy"></a><figcaption>Menu → Settings: language, animation, notifications, sidebar width, editor</figcaption></figure>
     </div>
     <h3>Open file paths</h3>
     <div class="keys">
       <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>O</kbd></span><span class="d">Popup listing file paths from this pane's recent output; same as right-click menu → Open path</span></div>
       <div class="key"><span class="combo">Type in the popup</span><span class="d">Filter the paths</span></div>
-      <div class="key"><span class="combo"><kbd>Enter</kbd></span><span class="d">Open in VS Code, at the line when there is one</span></div>
+      <div class="key"><span class="combo"><kbd>Enter</kbd></span><span class="d">Open in the editor chosen in Settings (VS Code, Cursor, Zed, Sublime Text, text editor), at the line when there is one</span></div>
       <div class="key"><span class="combo"><kbd>Tab</kbd> / <kbd>Ctrl</kbd>+<kbd>F</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></span><span class="d">Default app / reveal in Finder / copy path</span></div>
       <div class="key"><span class="combo"><kbd>⌘</kbd>+click</span><span class="d">Open paths and URLs that Claude printed as links</span></div>
     </div>
@@ -719,7 +719,7 @@ tmux set -g @hivemux-fps 15</pre></div>
       <p>Ghostty has to send Option as Alt. <code>hivemux setup</code> sets this, but a Ghostty that was open before needs a full quit and restart. Otherwise use <kbd>Ctrl</kbd>+<kbd>A</kbd> then <kbd>Space</kbd>, or click a card.</p>
     </div></details>
     <details class="issue" data-c="term"><summary>Open a file Claude mentioned<span class="pill part tag">Terminal</span></summary><div class="body">
-      <p><kbd>Option</kbd>+<kbd>O</kbd> lists file paths from that pane's recent output, newest first. Only existing files are shown, and relative paths are resolved against Claude's working folder. Paths with a line number, like <code>file:42</code>, open in VS Code at that line.</p>
+      <p><kbd>Option</kbd>+<kbd>O</kbd> lists file paths from that pane's recent output, newest first. Only existing files are shown, and relative paths are resolved against Claude's working folder. Paths with a line number, like <code>file:42</code>, open at that line in the editor from Settings. On a screen attached from another Mac with <code>hivemux connect</code>, VS Code and Cursor open the file on <b>that Mac (the one you connect from)</b> over Remote-SSH (it needs the Remote - SSH extension there). Other editors, <kbd>Tab</kbd> and <kbd>Ctrl</kbd>+<kbd>F</kbd> open it on this Mac, where the file is.</p>
       <p class="why">⌘+click works only where Claude prints the path as a link. Link support applies after Ghostty reattaches to tmux and Claude is restarted.</p>
     </div></details>
     <details class="issue" data-c="term"><summary>Shift+Enter sends instead of adding a new line<span class="pill part tag">Terminal</span></summary><div class="body">

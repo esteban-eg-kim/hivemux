@@ -5,6 +5,7 @@
   hivemux-ports <host> <tty>     run until hivemux-connect (the parent) ends / hivemux-connect(부모)가 끝날 때까지
   hivemux-ports --list           forwarded ports of every connection / 모든 연결의 이어 준 포트
   hivemux-ports --pick <client>  the port list popup (Option+W, sidebar menu) / 포트 목록 팝업 (Option+W, 사이드바 메뉴)
+  hivemux-ports --me             this Mac's name as used in the options below / 아래 옵션에 쓰는 이 Mac 이름
 
 Every few seconds it asks the other Mac which TCP ports are listened on by processes started
 inside its tmux (a dev server Claude or a shell started: npm run dev, rails s ...), and forwards
@@ -23,8 +24,15 @@ the next poll here opens it in this Mac's browser.
 상대 Mac 의 tmux 에도 같은 목록을 @hivemux-ports-<이 Mac> 으로 둔다. 그래서 거기 포트 목록 팝업
 (bin/hivemux-ports-ui)에 보이고, 거기서 Enter 를 누르면 @hivemux-ports-open-<이 Mac> 에 포트를 적고,
 여기서 다음에 물을 때 이 Mac 의 브라우저로 연다.
+The same way, the open-path popup there (bin/hivemux-open-ui) on a screen from this Mac sets
+@hivemux-edit-<this Mac> to "<editor> <line> <col> <path>", and this opens that file of the other
+Mac in VS Code / Cursor here over Remote-SSH. @hivemux-seen-<this Mac> is the time of the last poll,
+so the popup knows a request will be picked up.
+같은 식으로, 이 Mac 에서 붙은 화면의 경로 열기 팝업(bin/hivemux-open-ui)은 @hivemux-edit-<이 Mac> 에
+"<편집기> <줄> <칸> <경로>" 를 적고, 여기서 그 Mac 의 파일을 이 Mac 의 VS Code / Cursor 원격 SSH 로 연다.
+@hivemux-seen-<이 Mac> 은 마지막으로 물은 시각이라, 팝업이 요청이 처리될지 안다.
 """
-import os, re, shlex, signal, socket, subprocess, sys, time
+import os, re, shlex, signal, socket, subprocess, sys, time, urllib.parse
 
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "ports")
 POLL = 3
@@ -40,7 +48,9 @@ SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ServerAliveInterval=10", "-o", "Server
 # 그 앞에, 상대 Mac 의 포트 목록 팝업이 여기서 열어 달라고 했으면 "open <포트>".
 REMOTE = r'''PATH=/opt/homebrew/bin:/usr/local/bin:$PATH
 root=$(tmux display -p '#{pid}' 2>/dev/null) || exit 0
+tmux set -g @hivemux-seen-@ME@ "$(date +%s)"
 o=$(tmux show -gqv @hivemux-ports-open-@ME@) && [ -n "$o" ] && { tmux set -gu @hivemux-ports-open-@ME@; echo "open $o"; }
+e=$(tmux show -gqv @hivemux-edit-@ME@) && [ -n "$e" ] && { tmux set -gu @hivemux-edit-@ME@; echo "edit $e"; }
 pids=$(ps -A -o pid= -o ppid= | awk -v r="$root" '{ p[$1] = $2 } END { for (k in p) { x = k; n = 0; while (x > 1 && n++ < 64) { if (x == r) { print k; break } x = p[x] } } }' | paste -sd, -)
 [ -n "$pids" ] || exit 0
 lsof -nP -a -iTCP -sTCP:LISTEN -p "$pids" -Fcn 2>/dev/null | awk '/^c/ { c = substr($0, 2) } /^n/ { n = split($0, a, ":"); print a[n], c }' | sort -un'''
@@ -114,6 +124,7 @@ class Ports:
         if self.master and self.master.poll() is None:
             self.fw = {}
             self.share()
+            self.ssh(self.host, f"PATH=/opt/homebrew/bin:/usr/local/bin:$PATH; tmux set -gu @hivemux-seen-{self.me}", timeout=5)
             self.ssh("-O", "exit", self.host, timeout=5)
             try:
                 self.master.wait(3)
@@ -129,7 +140,8 @@ class Ports:
         self.save()
 
     def listening(self):
-        """({remote port: command}, [remote ports asked to open here]) / ({거기 포트: 명령}, [여기서 열어 달라는 거기 포트])"""
+        """({remote port: command}, [remote ports asked to open here]) / ({거기 포트: 명령}, [여기서 열어 달라는 거기 포트])
+        Files asked to be edited here are opened right away / 여기서 열어 달라는 파일은 바로 연다"""
         r = self.ssh(self.host, REMOTE.replace("@ME@", self.me))
         if not r or r.returncode != 0:
             return None, []
@@ -139,11 +151,31 @@ class Ports:
             if port == "open":
                 asked += [int(x) for x in cmd.split() if x.isdigit()]
                 continue
+            if port == "edit":
+                self.edit(cmd)
+                continue
             # not ssh: forwards someone set up there (or this one, when "there" is this Mac)
             # ssh 는 뺀다: 거기서 누가 열어 둔 포워딩 (또는 "거기"가 이 Mac 일 때 이 연결 자신)
             if port.isdigit() and int(port) >= 1024 and cmd.strip() not in ("ssh", "sshd"):
                 out[int(port)] = cmd.strip() or "?"
         return out, asked
+
+    def edit(self, req):
+        """Open a file of the other Mac in VS Code / Cursor here (Remote-SSH) / 그 Mac 의 파일을 여기 VS Code / Cursor 로 (원격 SSH)"""
+        editor, line, col, path = (req.split(" ", 3) + ["", "", "", ""])[:4]
+        if editor not in ("vscode", "cursor") or not path.startswith("/"):
+            return
+        url = f"{editor}://vscode-remote/ssh-remote+{urllib.parse.quote(self.host, safe='@.-_')}{urllib.parse.quote(path)}"
+        if line.isdigit() and line != "0":
+            url += f":{line}" + (f":{col}" if col.isdigit() and col != "0" else "")
+        self.run_open(url)
+
+    def run_open(self, url):
+        if os.environ.get("HIVEMUX_DRYRUN"):    # for tests: record instead of opening / 테스트용: 열지 않고 기록만
+            with open(os.environ["HIVEMUX_DRYRUN"], "a") as f:
+                f.write(f"open {url}\n")
+        else:
+            subprocess.run(["open", url])
 
     def share(self):
         """Put the list in the other Mac's tmux (for its port list popup) when it changed
@@ -202,12 +234,7 @@ class Ports:
         self.share()
         for rp in asked:                 # Enter in the other Mac's popup / 상대 Mac 팝업에서 Enter
             if rp in self.fw:
-                url = f"http://localhost:{self.fw[rp][0]}"
-                if os.environ.get("HIVEMUX_DRYRUN"):    # for tests: record instead of opening / 테스트용: 열지 않고 기록만
-                    with open(os.environ["HIVEMUX_DRYRUN"], "a") as f:
-                        f.write(f"open {url}\n")
-                else:
-                    subprocess.run(["open", url])
+                self.run_open(f"http://localhost:{self.fw[rp][0]}")
 
     def run(self):
         parent = os.getppid()
@@ -251,6 +278,8 @@ KO = ko()
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--list":
         listing()
+    elif len(sys.argv) > 1 and sys.argv[1] == "--me":
+        print(me())
     elif len(sys.argv) > 1 and sys.argv[1] == "--pick":
         pick(sys.argv[2] if len(sys.argv) > 2 else "")
     elif len(sys.argv) == 3:

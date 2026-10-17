@@ -1,6 +1,6 @@
 #!/bin/bash
-# Settings popup: language, animation, notifications, sidebar width (sidebar right-click menu "Settings").
-# 설정 팝업: 언어, 애니메이션, 사이드바 폭 (사이드바 오른쪽 클릭 메뉴 "설정").
+# Settings popup: language, animation, notifications, sidebar width, editor (sidebar right-click menu "Settings").
+# 설정 팝업: 언어, 애니메이션, 알림, 사이드바 폭, 편집기 (사이드바 오른쪽 클릭 메뉴 "설정").
 #   hivemux-settings [client]
 HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
 TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
@@ -12,7 +12,7 @@ client="$1"
 # 팝업이 떠 있는 동안 사이드바 애니메이션을 멈춘다 (다시 그릴 때마다 팝업이 깜빡이므로)
 pause="/tmp/hivemux-pause-$(id -u)-$("$TMUX_BIN" display -p '#{pid}')"   # per tmux server / tmux 서버마다
 : > "$pause"; trap 'rm -f "$pause"' EXIT
-"$HM_BIN/hivemux-modal" "$client" -E -w 56 -h 15 -b rounded \
+"$HM_BIN/hivemux-modal" "$client" -E -w 56 -h 17 -b rounded \
   -T "#[fg=#e6e9ef,bold] $(say "설정" "Settings") " -S "fg=#5aa9ff" -s "bg=#1e2128" \
   "$HM_BIN/hivemux-settings-ui" 2>/dev/null || true   # cancel (Esc) is not an error / 취소(Esc)도 정상 종료
 exit 0

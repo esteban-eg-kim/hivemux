@@ -38,10 +38,12 @@ read -ra SSH <<< "${HIVEMUX_SSH:-ssh}"
 # else fall back to xterm-256color with truecolor.
 # 상대 Mac 에서 실행된다. ssh 는 기본 PATH 만 주므로 hivemux 가 설치되는 곳에서 찾는다.
 # 상대가 이 터미널(xterm-ghostty)을 모를 수 있다: Ghostty 가 있으면 그 terminfo 를, 없으면 xterm-256color + 트루컬러.
+# HIVEMUX_FROM: this Mac's name (hivemux-ports --me), so the open-path popup there can ask this Mac to open a file
+# HIVEMUX_FROM: 이 Mac 이름 (hivemux-ports --me). 거기 경로 열기 팝업이 이 Mac 에 파일을 열어 달라고 할 수 있게
 REMOTE='g=/Applications/Ghostty.app/Contents/Resources/terminfo; [ -d "$g" ] && export TERMINFO_DIRS="$g:${TERMINFO_DIRS:-}"
 infocmp "$TERM" >/dev/null 2>&1 || export TERM=xterm-256color COLORTERM=truecolor
 for p in ${HIVEMUX_ATTACH:-} /opt/homebrew/bin/hivemux-attach /usr/local/bin/hivemux-attach "$HOME/.local/share/hivemux/src/bin/hivemux-attach"; do
-  [ -x "$p" ] && HIVEMUX_REMOTE=1 exec "$p"
+  [ -x "$p" ] && HIVEMUX_REMOTE=1 HIVEMUX_FROM=@FROM@ exec "$p"
 done
 echo "hivemux: not installed on $(hostname -s)"; exit 3'
 
@@ -60,6 +62,7 @@ remembered() { [ -f "$HOSTS" ] && awk -v h="$1" '$1==h' "$HOSTS" | head -1; }
 connect() {
   local host="$1" how="$2" n=0 rc start
   [ -z "$how" ] && how="$(remembered "$host" | awk '{print $2}')"
+  REMOTE="${REMOTE//@FROM@/$("$HM_BIN/hivemux-ports" --me)}"
   mkdir -p "$DATA"; printf '%s\n' "$host" > "$LAST"
   printf '\033]2;⇄ %s\007' "$host"     # window title / 창 제목
   # dev servers there show up on this Mac's localhost while connected (HIVEMUX_PORTS=0: off)

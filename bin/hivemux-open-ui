@@ -2,16 +2,20 @@
 """Open-path popup (runs inside tmux display-popup).
 경로 골라 열기 팝업 (tmux display-popup 안에서 실행).
 
-  hivemux-open-ui <pane_id>
+  hivemux-open-ui <pane_id> [client]
 
 Lists existing file/dir paths found in that pane's recent output, newest first.
 그 칸의 최근 출력에서 실제로 있는 파일/폴더 경로를 모아 최근 것부터 보여 준다.
   ↑↓ / Ctrl+P N   select / 고르기       type   filter / 걸러 보기
-  Enter           open in editor (VS Code, at the line) / 편집기로 열기
+  Enter           open in the editor of Settings (at the line) / 설정의 편집기로 열기 (그 줄로)
   Tab             default app / 기본 앱     Ctrl+F  reveal in Finder / Finder에서 보기
   Ctrl+Y          copy path / 경로 복사     Esc     close / 닫기
+On a screen attached from another Mac with VS Code or Cursor, Enter opens the file on that Mac,
+over Remote-SSH (bin/hivemux-ports there picks up @hivemux-edit-<Mac>); otherwise on this Mac.
+다른 Mac 에서 붙은 화면이고 편집기가 VS Code 나 Cursor 면, Enter 는 그 Mac 에서 원격 SSH 로 연다
+(그 Mac 의 bin/hivemux-ports 가 @hivemux-edit-<Mac> 을 가져간다). 아니면 이 Mac 에서 연다.
 """
-import shutil, os, re, subprocess, sys, termios, tty, unicodedata, urllib.parse
+import shutil, os, re, subprocess, sys, termios, time, tty, unicodedata, urllib.parse
 
 TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
 
@@ -29,7 +33,11 @@ KO = _is_ko()
 def tr(ko, en):
     return ko if KO else en
 PANE = sys.argv[1] if len(sys.argv) > 1 else ""
+CLIENT = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] != "--list" else ""
 VSCODE = os.path.exists("/Applications/Visual Studio Code.app")
+# editor for Enter (Settings → Editor, @hivemux-editor) / Enter 로 열 편집기 (설정 → 편집기)
+EDITORS = {"vscode": ("VS Code", "Visual Studio Code", None), "cursor": ("Cursor", "Cursor", None),
+           "zed": ("Zed", "Zed", "zed"), "sublime": ("Sublime Text", "Sublime Text", "subl")}
 
 TEXT, T2, T3 = (230, 233, 239), (154, 163, 178), (98, 106, 120)
 ACC, SEL_BG, BG = (90, 169, 255), (42, 47, 58), (30, 33, 40)
@@ -118,21 +126,47 @@ def run(cmd, **kw):
     subprocess.run(cmd, **kw)
 
 
+def editor():
+    e = tmux("show", "-gqv", "@hivemux-editor").strip()
+    return e if e in EDITORS or e == "default" else ("vscode" if VSCODE else "default")
+
+
+def editor_name(e):
+    return EDITORS[e][0] if e in EDITORS else tr("텍스트 편집기", "text editor")
+
+
+def from_mac():
+    """The Mac this popup's screen is attached from, if its hivemux-ports is polling (bin/hivemux-ports)
+    이 팝업이 뜬 화면이 붙어 온 Mac. 그 Mac 의 hivemux-ports 가 묻고 있을 때만 (bin/hivemux-ports)"""
+    if not CLIENT:
+        return None
+    mac = next((l.split(" ", 1)[1] for l in tmux("show", "-gqv", "@hivemux-remote-from").splitlines()
+                if l.split(" ", 1)[0] == CLIENT and " " in l), None)
+    seen = tmux("show", "-gqv", f"@hivemux-seen-{mac}").strip() if mac else ""
+    return mac if seen.isdigit() and time.time() - int(seen) < 20 else None
+
+
 def open_editor(it):
-    if it["isdir"]:
-        target = it["full"]
-        if VSCODE:
-            run(["open", "-a", "Visual Studio Code", target])
-        else:
-            run(["open", target])
-        return
-    if VSCODE:
-        url = "vscode://file" + urllib.parse.quote(it["full"])
+    """Open in the editor; returns a note when it opens on another Mac / 편집기로 연다. 다른 Mac 에서 열면 알릴 말을 돌려준다"""
+    e = editor()
+    mac = from_mac() if e in ("vscode", "cursor") else None
+    if mac:
+        run([TMUX, "set", "-g", f"@hivemux-edit-{mac}", f"{e} {it['line'] or 0} {it['col'] or 0} {it['full']}"])
+        return tr(f"{mac} 의 {editor_name(e)} 로 엽니다", f"Opening in {editor_name(e)} on {mac}")
+    if e == "default":
+        run(["open", it["full"]] if it["isdir"] else ["open", "-t", it["full"]])
+        return None
+    name, app, cli = EDITORS[e]
+    if e in ("vscode", "cursor") and not it["isdir"]:
+        url = f"{e}://file" + urllib.parse.quote(it["full"])
         if it["line"]:
             url += f":{it['line']}" + (f":{it['col']}" if it["col"] else "")
         run(["open", url])
+    elif cli and shutil.which(cli) and not it["isdir"]:
+        run([shutil.which(cli), it["full"] + (f":{it['line']}" if it["line"] else "") + (f":{it['col']}" if it["line"] and it["col"] else "")])
     else:
-        run(["open", "-t", it["full"]])
+        run(["open", "-a", app, it["full"]])
+    return None
 
 
 def main():
@@ -170,7 +204,7 @@ def main():
                     line = f"{bg(BG)}   {fg(T3)}{icon} {fg(T2)}{name}"
                 buf.append(line + "\r\n")
             buf.append(f"\x1b[{rows - 1};1H{fg((44, 48, 57))}  " + "─" * (cols - 4) + "\r\n")
-            hint = msg or (f"{fg(TEXT)}Enter{fg(T3)} {'VS Code' if VSCODE else tr('편집기', 'editor')}   "
+            hint = msg or (f"{fg(TEXT)}Enter{fg(T3)} {editor_name(editor())}   "
                            f"{fg(TEXT)}Tab{fg(T3)} {tr('기본 앱', 'default app')}   {fg(TEXT)}^F{fg(T3)} Finder   "
                            f"{fg(TEXT)}^Y{fg(T3)} {tr('복사', 'copy')}   {fg(TEXT)}Esc{fg(T3)} {tr('닫기', 'close')}")
             buf.append("  " + hint + RST)
@@ -189,7 +223,12 @@ def main():
             elif ch in ("\x1b[6~",):
                 sel += list_h
             elif ch in ("\r", "\n") and shown:
-                open_editor(shown[sel]); return
+                note = open_editor(shown[sel])
+                if note:            # opening on another Mac: say so for a moment / 다른 Mac 에서 열면 잠깐 알린다
+                    out.write(f"\x1b[{rows};1H\x1b[2K  {fg(ACC)}{note}{RST}")
+                    out.flush()
+                    time.sleep(1.2)
+                return
             elif ch == "\t" and shown:
                 run(["open", shown[sel]["full"]]); return
             elif ch == "\x06" and shown:

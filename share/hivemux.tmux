@@ -76,9 +76,9 @@ set -gq @hivemux-fps 30
 # desktop notification when a task needs input or finishes (sent through the terminal, also over ssh); off to disable
 # 작업이 입력 필요가 되거나 끝나면 데스크톱 알림 (터미널을 거쳐 보내므로 ssh 로 붙어도 온다). off 로 끔
 set -gq @hivemux-notify on
-# language, animation and notifications chosen in the sidebar menu's Settings (saved files win over the lines above)
-# 사이드바 메뉴의 설정에서 고른 언어, 애니메이션, 알림 (저장된 파일이 위 줄보다 우선)
-run-shell 'v=$(cat "#{@hivemux-data}/lang" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-lang "$v"; v=$(cat "#{@hivemux-data}/anim" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-anim "$v"; v=$(cat "#{@hivemux-data}/notify" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-notify "$v"; true'
+# language, animation, notifications and editor chosen in the sidebar menu's Settings (saved files win over the lines above)
+# 사이드바 메뉴의 설정에서 고른 언어, 애니메이션, 알림, 편집기 (저장된 파일이 위 줄보다 우선)
+run-shell 'v=$(cat "#{@hivemux-data}/lang" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-lang "$v"; v=$(cat "#{@hivemux-data}/anim" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-anim "$v"; v=$(cat "#{@hivemux-data}/notify" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-notify "$v"; v=$(cat "#{@hivemux-data}/editor" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-editor "$v"; true'
 set-hook -g after-new-window       'run-shell -b "#{@hivemux-bin}/hivemux-sidebar ensure #{window_id}"'
 set-hook -g after-new-session      'run-shell -b "#{@hivemux-bin}/hivemux-sidebar ensure #{window_id}"'
 set-hook -g client-session-changed 'run-shell -b "#{@hivemux-bin}/hivemux-sidebar ensure #{window_id}"'
