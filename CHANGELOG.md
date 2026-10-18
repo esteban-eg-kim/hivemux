@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Even gaps around the project boxes: one column on the left like the grip
+  column on the right, one column between columns of boxes, and half a row
+  between boxes and under the rule
+
 ## 0.1.23 — 2026-10-17
 
 - While connected to another Mac, dev servers started in its tmux (`npm run

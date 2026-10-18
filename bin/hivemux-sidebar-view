@@ -135,7 +135,7 @@ DRAG = None
 # 프로젝트 목록이 위로 넘어간 줄 수 (마우스 휠), 그리고 마지막으로 맞춰 보인 카드의 칸.
 # 새 사이드바는 자기 카드가 보이게 시작한다
 SCROLL, SCROLL_TO = 0, None
-BOX_MIN, COL_GAP = 20, 2   # narrowest project box, columns between boxes / 상자 최소 폭, 상자 사이 칸
+BOX_MIN, COL_GAP = 20, 1   # narrowest project box, columns between boxes / 상자 최소 폭, 상자 사이 칸
 # Right-click menu while open: {"rows": [(label, key, action) | None], "y": row, "sel": index, "title", "at": {row: index}}
 # 열려 있는 오른쪽 클릭 메뉴: {"rows": [(이름, 키, 동작) | None], "y": 줄, "sel": 고른 번호, "title", "at": {줄: 번호}}
 MENU = None
@@ -298,7 +298,7 @@ def render(items, current, w, h, cur_sess="", sessions=()):
     # Header: title + count
     # 머리: 제목 + 개수
     hd = L().put("  Claude", C["text"], bold=True).put(tr("  세션", "  sessions"), C["text3"])
-    hd.right(f" {len(items)} ", C["text"], C["card_hi"], True, margin=2)
+    hd.right(f" {len(items)} ", C["text"], C["card_hi"], True, margin=1)
     lines += [L(), hd, L()]
     summary = L().put("  ")
     if n_run:
@@ -307,7 +307,7 @@ def render(items, current, w, h, cur_sess="", sessions=()):
         summary.put(tr(f"● {n_wait} 입력 필요", f"● {n_wait} need input"), C["wait"], bold=True)
     if not n_run and not n_wait and items:
         summary.put(tr("모두 대기 중", "all idle"), C["text3"])
-    lines += [summary, L().put("  " + "─" * (w - 4), C["rule"])]
+    lines += [summary, L().put(" " + "─" * (w - 2), C["rule"])]
 
     # groups in project order; a project with no Claude has no members (shown as "no Claude")
     # 프로젝트 순서의 묶음. Claude 가 없는 프로젝트는 멤버 없이 ("Claude 없음") 보인다
@@ -321,7 +321,10 @@ def render(items, current, w, h, cur_sess="", sessions=()):
     # Each box goes to the shortest column, so tall projects do not leave holes.
     # 프로젝트 상자 격자: 사이드바 폭에 들어가는 만큼 열을 둔다 (핸들로 폭을 바꾼다).
     # 상자는 가장 짧은 열에 넣어서 긴 프로젝트가 빈자리를 만들지 않는다.
-    usable = w - 3                      # columns 2 .. w-2 (the last column is the grip) / 2 ~ w-2 열 (끝 칸은 핸들)
+    # columns 1 .. w-2: one free column on the left like the grip column on the right; between boxes
+    # one column, or half a row (about as wide as a column) / 1 ~ w-2 열: 오른쪽 핸들 칸처럼 왼쪽도 한 칸
+    # 비운다. 상자 사이는 한 칸, 위아래로는 반 줄 (한 칸 폭과 비슷하다)
+    usable = w - 2
     ncol = max(1, (usable + COL_GAP) // (BOX_MIN + COL_GAP))
     cw = (usable - COL_GAP * (ncol - 1)) // ncol
 
@@ -422,11 +425,11 @@ def render(items, current, w, h, cur_sess="", sessions=()):
             cols[k].append((rows, cards, sess, hts[k] + gap))
             hts[k] += gap + len(rows)
         height = max(hts) if hts else 0
-        out = [L().put("  ") for _ in range(height)]
+        out = [L().put(" ") for _ in range(height)]
         tg, hg = {}, {}
         for k, col in enumerate(cols):
-            cx = 2 + k * (cw + COL_GAP)
-            for rows, cards, sess, top in col:
+            cx = 1 + k * (cw + COL_GAP)
+            for i, (rows, cards, sess, top) in enumerate(col):
                 for j, r in enumerate(rows):
                     ln = out[top + j]
                     ln.fill(cx)
@@ -436,7 +439,12 @@ def render(items, current, w, h, cur_sess="", sessions=()):
                         tg.setdefault(top + j, []).append((cx, cx + cw, cards[j]))
                     else:
                         hg.setdefault(top + j, []).append((cx, cx + cw, sess))
-        return [L()] + out, {y + 1: v for y, v in tg.items()}, {y + 1: v for y, v in hg.items()}
+                if i < len(col) - 1:        # the gap row: its upper half is this box's bottom / 사이 줄: 위 절반은 이 상자 아래 끝
+                    ln, tile = out[top + len(rows)], rows[-1].cells[0][1]
+                    ln.fill(cx)
+                    ln.cells += [("▀", C["bg"], tile, False)] * cw
+                    ln.n += cw
+        return out, tg, hg
 
     global SCROLL, SCROLL_TO
     avail = h - 3 - len(lines)          # rows for the list / 목록에 쓸 줄 수
@@ -462,14 +470,14 @@ def render(items, current, w, h, cur_sess="", sessions=()):
     # more above / below: an arrow at the right end of the rule above / below the list
     # 위/아래에 더 있음: 목록 위/아래 구분선 오른쪽 끝에 화살표
     if SCROLL:
-        lines[base + SCROLL - 1].cells[w - 6:w - 3] = [(c, BG, C["text2"], True) for c in " ▲ "]
+        lines[base + SCROLL - 1].cells[w - 5:w - 2] = [(c, BG, C["text2"], True) for c in " ▲ "]
     more_below = SCROLL < top_max
     lines = lines[:h - 3]
     while len(lines) < h - 3:
         lines.append(L())
-    lines.append(L().put("  " + "─" * (w - 4), C["rule"]))
+    lines.append(L().put(" " + "─" * (w - 2), C["rule"]))
     if more_below:
-        lines[-1].cells[w - 6:w - 3] = [(c, BG, C["text2"], True) for c in " ▼ "]
+        lines[-1].cells[w - 5:w - 2] = [(c, BG, C["text2"], True) for c in " ▼ "]
     k = L().put("  ")
     if n_wait:
         k.put(" ⌥0 ", C["bg"], C["wait"], True).put(tr("  기다리는 작업으로", "  go to waiting"), C["wait"])
