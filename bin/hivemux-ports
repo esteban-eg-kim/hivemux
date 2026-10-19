@@ -38,7 +38,7 @@ DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.lo
 POLL = 3
 # HIVEMUX_SSH: another ssh command, e.g. "ssh -F <config>" (used for testing) / 다른 ssh 명령 (시험용)
 SSH = shlex.split(os.environ.get("HIVEMUX_SSH") or "ssh")
-SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ServerAliveInterval=10", "-o", "ServerAliveCountMax=3", "-o", "ConnectTimeout=10"]
+SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ServerAliveInterval=3", "-o", "ServerAliveCountMax=2", "-o", "ConnectTimeout=10"]
 
 # Runs on the other Mac: "<port> <command>" for every TCP port listened on by a process of its tmux
 # server (its panes and everything they started). ssh gives a plain PATH there.

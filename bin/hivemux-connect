@@ -29,7 +29,10 @@ TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
 say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux"
 HOSTS="$DATA/remote-hosts"; LAST="$DATA/remote-last"
-SSH_OPTS=(-o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o ConnectTimeout=10)
+# a silent connection (Wi-Fi off on either Mac) counts as lost after ~7 s, not ~37 s: until then the
+# screen just froze, with no word of it / 응답 없는 연결(어느 쪽이든 Wi-Fi 꺼짐)은 ~37초가 아니라 ~7초 뒤
+# 끊긴 것으로 본다: 그때까지 화면은 아무 말 없이 멈춰 있었다
+SSH_OPTS=(-o ServerAliveInterval=3 -o ServerAliveCountMax=2 -o ConnectTimeout=10)
 # HIVEMUX_SSH: another ssh command, e.g. "ssh -F <config>" (used for testing) / 다른 ssh 명령 (시험용)
 read -ra SSH <<< "${HIVEMUX_SSH:-ssh}"
 

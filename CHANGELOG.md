@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- `hivemux connect` notices a silent connection (Wi-Fi off on either Mac) in
+  about 7 seconds instead of 37 and shows the reconnect box; until then the
+  screen just froze with no word of it
+
 ## 0.1.24 — 2026-10-19
 
 - When a `hivemux connect` connection drops, the terminal is put back from the
