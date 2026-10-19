@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.25 — 2026-10-19
 
 - `hivemux connect` notices a silent connection (Wi-Fi off on either Mac) in
   about 7 seconds instead of 37 and shows the reconnect box; until then the
