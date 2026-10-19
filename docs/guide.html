@@ -11,6 +11,7 @@ img { max-width: 100%; }
 </style>
 <title>hivemux 가이드</title>
 <meta name="description" content="Ghostty + tmux + Claude Code 세션 유지와 폰 원격 제어 사용법, 문제 해결">
+<link rel="icon" href="logo/hivemux-logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
@@ -81,6 +82,8 @@ nav.top .tbar a { color: inherit; text-decoration: none; padding: 4px 10px; }
 nav.top .tbar a:hover, nav.top .tbar a:focus-visible { background: #2e3c4a; color: #fff; outline: none; }
 
 header.hero { display: grid; gap: 14px; padding-top: 32px; }
+.brand { display: flex; align-items: center; gap: 12px; font-family: var(--f-mono); font-weight: 600; font-size: 1.5rem; }
+.brand img { width: 48px; height: 48px; }
 
 /* layer stack */
 .stack { display: grid; gap: 6px; }
@@ -301,6 +304,7 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
 </nav>
 
 <header class="hero">
+  <div class="brand"><img src="logo/hivemux-logo.svg" alt="">hivemux</div>
   <span class="label">Ghostty · tmux · Claude Code</span>
   <h1>터미널 세션 유지와 폰 원격 제어</h1>
   <p class="lede">Ghostty 창을 닫거나 Mac을 재부팅해도 프로젝트별 작업 화면과 Claude Code 대화가 유지됩니다. 밖에서는 폰의 Claude 앱으로 같은 세션을 이어서 쓸 수 있습니다.</p>

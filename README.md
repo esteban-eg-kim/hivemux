@@ -1,4 +1,4 @@
-# hivemux
+# <img src="docs/logo/hivemux-logo.svg" alt="" width="40"> hivemux
 
 **English** · [한국어](README.ko.md)
 
