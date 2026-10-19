@@ -164,7 +164,8 @@ a VPN such as [Tailscale](https://tailscale.com) on both Macs is the simple way
 (opening ssh to the internet with port forwarding is not recommended).
 
 - The remote window shows `⇄ <Mac name>` at the right of the status line, before the clock.
-- A dropped connection reconnects by itself (`Ctrl+C` stops); `prefix d` detaches and closes the window.
+- A dropped connection reconnects by itself: a box in the middle counts down to the next try
+  (`Enter` tries now, `Ctrl+C` stops); `prefix d` detaches and closes the window.
 - Notifications from the remote tasks show on this Mac.
 - Dev servers started there (`npm run dev` in a remote pane) are forwarded to
   the same port on this Mac's `localhost` while connected, with a notification

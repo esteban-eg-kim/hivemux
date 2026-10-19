@@ -67,9 +67,11 @@ connect() {
   printf '\033]2;⇄ %s\007' "$host"     # window title / 창 제목
   # dev servers there show up on this Mac's localhost while connected (HIVEMUX_PORTS=0: off)
   # 연결해 있는 동안 거기 개발 서버를 이 Mac 의 localhost 로 잇는다 (HIVEMUX_PORTS=0: 끔)
+  ports=""
   if [ "${HIVEMUX_PORTS:-1}" != 0 ]; then
     "$HM_BIN/hivemux-ports" "$host" "$(tty)" </dev/null >/dev/null 2>&1 &
-    trap 'kill $! 2>/dev/null' EXIT
+    ports=$!
+    trap 'kill "$ports" 2>/dev/null' EXIT
   fi
   if [ "$how" = mosh ]; then
     # mosh keeps the session through sleep and network changes by itself (no notifications through it)
@@ -80,18 +82,23 @@ connect() {
     [ $rc -eq 0 ] || read -rp "$(say "Enter 로 닫기" "Enter to close")" _
     exit $rc
   fi
+  # ssh's own messages (why it failed) go to a file, shown on the reconnect screen
+  # ssh 자신의 메시지(실패 이유)는 파일로 받아 다시 연결 화면에 보인다
+  err="$(mktemp -t hivemux-connect)"; trap 'rm -f "$err"; [ -n "$ports" ] && kill "$ports" 2>/dev/null' EXIT
   while true; do
     start=$(date +%s)
-    "${SSH[@]}" -t "${SSH_OPTS[@]}" "$host" "$REMOTE"; rc=$?
+    "${SSH[@]}" -t "${SSH_OPTS[@]}" "$host" "$REMOTE" 2>"$err"; rc=$?
     # 0: you detached (prefix d) or tmux ended; 3: no hivemux there; others: the connection broke
     # 0: 직접 떼어 냄(prefix d) 또는 tmux 종료, 3: 상대에 hivemux 없음, 그 밖: 연결이 끊김
     [ $rc -eq 0 ] && exit 0
     [ $rc -eq 3 ] && { read -rp "$(say "Enter 로 닫기" "Enter to close")" _; exit 3; }
-    [ $(( $(date +%s) - start )) -gt 30 ] && n=0      # it was up for a while: retry fast / 한동안 붙어 있었으면 바로 다시
+    up=$(( $(date +%s) - start ))
+    [ $up -gt 30 ] && n=0      # it was up for a while: retry fast / 한동안 붙어 있었으면 바로 다시
     n=$((n + 1)); delay=$(( n < 4 ? 2 ** n : 15 ))
-    printf '\n\033[33m%s\033[0m %s\n' "$(say "연결이 끊겼습니다." "Connection lost.")" \
-      "$(say "${delay}초 뒤 $host 에 다시 연결합니다 (Ctrl+C 로 그만)" "Reconnecting to $host in ${delay}s (Ctrl+C to stop)")"
-    sleep "$delay" || exit 1
+    # a box in the middle with a countdown; it first puts the terminal back from the other Mac's tmux
+    # 가운데 상자와 카운트다운. 먼저 터미널을 상대 Mac tmux 가 해 둔 상태에서 되돌린다
+    "$HM_BIN/hivemux-connect-wait" "$host" "$n" "$delay" "$([ $up -gt 5 ] && echo lost || echo failed)" "$err" ||
+      { printf '\033[2J\033[H'; exit 1; }
   done
 }
 

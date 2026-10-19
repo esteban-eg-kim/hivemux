@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- When a `hivemux connect` connection drops, the terminal is put back from the
+  other Mac's tmux state first (mouse reporting printed escape codes over a
+  broken screen), then a box in the middle shows why it dropped and counts
+  down to the next try: `Enter` tries now, `Ctrl+C` stops
 - Even gaps around the project boxes: one column on the left like the grip
   column on the right, one column between columns of boxes, and half a row
   between boxes and under the rule

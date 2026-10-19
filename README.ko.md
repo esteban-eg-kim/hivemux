@@ -124,7 +124,7 @@ hivemux connect me@work-mac.local          # 또는 오른쪽 클릭 → 원격 
 호스트에는 `ssh`에 쓰는 것이면 무엇이든 넣습니다. `~/.ssh/config`의 `Host`, `사용자@주소`, VPN 안의 기기 이름 모두 됩니다. 같은 네트워크에서는 `이름.local`로 붙고, 밖에서는 [Tailscale](https://tailscale.com) 같은 VPN을 두 Mac에 설치하는 방법이 간단합니다. 공유기 포트 포워딩으로 ssh를 인터넷에 여는 것은 권하지 않습니다.
 
 - 원격 창은 상태줄 오른쪽 시계 앞에 `⇄ Mac 이름`이 표시됩니다.
-- 연결이 끊기면 저절로 다시 연결합니다(`Ctrl+C`로 그만). `prefix d`로 떼면 창이 닫힙니다.
+- 연결이 끊기면 화면 가운데 상자에 다음 연결까지 남은 시간이 나오고 저절로 다시 연결합니다(`Enter` 지금 연결, `Ctrl+C` 그만). `prefix d`로 떼면 창이 닫힙니다.
 - 원격 작업의 알림도 이 Mac에 뜹니다.
 - 연결해 있는 동안 상대 Mac에서 띄운 개발 서버(원격 칸의 `npm run dev` 등)는 이 Mac의 `localhost` 같은 포트로 이어지고, 새 포트마다 알림이 뜹니다. 이 Mac에서 이미 쓰는 포트면 다음 빈 포트로 잇습니다. `Option+W`(또는 메뉴 → 포트 목록)로 어느 Mac 에서든 목록을 보고, Enter를 누르면 접속한 Mac의 브라우저로 열립니다. `HIVEMUX_PORTS=0`이면 끕니다.
 - `--mosh`로 등록하거나 메뉴 → 원격 연결… 목록에서 `m`을 누르면 잠자기와 네트워크 변경을 스스로 견딥니다. 대신 알림이 mosh를 지나가지 못하며, 목록에는 "mosh · 알림 없음"으로 표시됩니다. 두 Mac 모두 `brew install mosh`가 필요합니다. "Nothing received from server on UDP port"에서 멈추면 상대 Mac의 방화벽에서 `mosh-server`의 수신 연결을 허용하세요.

@@ -642,7 +642,7 @@ hivemux connect me@work-mac.local</pre></div>
   <p>호스트에는 <code>ssh</code>에 쓰는 것이면 무엇이든 넣습니다. <code>~/.ssh/config</code>의 <code>Host</code>, <code>사용자@주소</code>, VPN 안의 기기 이름 모두 됩니다.</p>
   <div class="cols">
     <div class="card"><h3>원격 창 표시</h3><p>원격으로 붙은 창은 상태줄 오른쪽 시계 앞에 보라색 <b>⇄ Mac 이름</b>이 붙습니다. 원격 창에서 "원격 연결"을 고르면 상대 Mac 화면에 창이 열리므로 막아 둡니다.</p></div>
-    <div class="card"><h3>끊겼을 때</h3><p>"연결이 끊겼습니다"가 나오고 몇 초 뒤 저절로 다시 붙습니다. <kbd>Ctrl</kbd>+<kbd>C</kbd>로 그만둡니다. <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>d</kbd>로 떼면 창이 닫힙니다.</p></div>
+    <div class="card"><h3>끊겼을 때</h3><p>화면 가운데에 "연결이 끊겼습니다" 상자가 뜨고, 남은 시간을 센 뒤 저절로 다시 붙습니다. 끊긴 이유(ssh 메시지)도 보입니다. <kbd>Enter</kbd>는 지금 연결, <kbd>Ctrl</kbd>+<kbd>C</kbd>는 그만. <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>d</kbd>로 떼면 창이 닫힙니다.</p></div>
     <div class="card"><h3>알림과 mosh</h3><p>원격 작업의 알림도 이 Mac에 뜹니다. <code>--mosh</code>로 등록하거나 원격 연결 목록에서 <kbd>m</kbd>을 누르면 잠자기와 네트워크 변경을 스스로 견디지만 알림이 지나가지 못합니다. 목록에는 "mosh · 알림 없음"으로 표시됩니다. 두 Mac 모두 <code>brew install mosh</code>가 필요하고, UDP에서 멈추면 상대 Mac의 방화벽에서 <code>mosh-server</code>를 허용하세요.</p></div>
   </div>
   <h3>원격에서 띄운 개발 서버 열기</h3>

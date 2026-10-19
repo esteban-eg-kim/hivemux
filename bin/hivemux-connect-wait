@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+"""The screen between reconnects of hivemux connect: a box in the middle with a countdown.
+hivemux connect 가 다시 붙기 전에 보이는 화면: 가운데 상자와 카운트다운.
+
+  hivemux-connect-wait <host> <attempt> <seconds> <lost|failed> [error file]
+
+The dropped connection leaves the terminal as the other Mac's tmux set it (other screen, mouse
+reporting on), so mouse moves printed escape codes over a broken layout. This puts the terminal back
+first, then waits. Exit 0: connect now (time is up or Enter); 1: stop (Ctrl+C, Esc, q).
+끊긴 연결은 터미널을 상대 Mac 의 tmux 가 해 둔 상태(다른 화면, 마우스 보고 켜짐)로 남겨서, 마우스를
+움직이면 깨진 화면 위에 이스케이프 문자가 찍혔다. 터미널을 먼저 되돌린 뒤 기다린다.
+끝 코드 0: 지금 연결 (시간이 됨 또는 Enter), 1: 그만 (Ctrl+C, Esc, q).
+"""
+import os, select, shutil, subprocess, sys, termios, time, tty, unicodedata
+
+TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
+
+
+def _is_ko():
+    """UI language: HIVEMUX_LANG > tmux @hivemux-lang (set by hivemux setup) > LANG / 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup 이 정함) > LANG"""
+    v = os.environ.get("HIVEMUX_LANG") or subprocess.run([TMUX, "show", "-gqv", "@hivemux-lang"],
+                                                          capture_output=True, text=True).stdout.strip()
+    return (v or os.environ.get("LANG", "")).startswith("ko")
+
+
+KO = _is_ko()
+
+
+def tr(ko, en):
+    return ko if KO else en
+
+
+TEXT, T2, T3 = (230, 233, 239), (154, 163, 178), (98, 106, 120)
+ACC, WAIT, BOX, BG = (90, 169, 255), (245, 165, 36), (30, 33, 40), (22, 24, 29)
+
+
+def fg(c): return "\x1b[38;2;%d;%d;%dm" % c
+def bg(c): return "\x1b[48;2;%d;%d;%dm" % c
+RST, BOLD = "\x1b[0m", "\x1b[1m"
+# back to a plain terminal: mouse reporting, focus, bracketed paste and the other screen off, cursor on
+# 평범한 터미널로: 마우스 보고, 초점 알림, 붙여넣기 표시, 다른 화면을 끄고 커서를 보인다
+RESET = "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1004l\x1b[?2004l\x1b[?1049l\x1b[?25h\x1b[0m"
+
+
+def width(s):
+    return sum(0 if unicodedata.combining(c) else 2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
+
+
+def fit(s, w):
+    out = ""
+    for c in s:
+        if width(out + c) > w - 1:
+            return out + "…"
+        out += c
+    return out
+
+
+def draw(host, title, color, lines, keys):
+    """A rounded box in the middle; lines are [(text, colour)] / 가운데 둥근 상자. lines 는 [(글자, 색)]"""
+    cols, rows = shutil.get_terminal_size((80, 24))
+    w = min(cols - 4, max(46, max(width(t) for t, _ in lines + [(keys, None)]) + 8))
+    h = len(lines) + 5
+    x, y = max(1, (cols - w) // 2 + 1), max(1, (rows - h) // 2 + 1)
+    head = f" ⇄ {fit(host, w - 8)} "
+    out = ["\x1b[?25l", bg(BG), "\x1b[2J"]
+    out.append(f"\x1b[{y};{x}H{fg(color)}{bg(BG)}╭─{BOLD}{head}{RST}{fg(color)}{bg(BG)}" + "─" * (w - 3 - width(head)) + "╮")
+    body = [("", None)] + lines + [("", None), (keys, None)]
+    for i, (t, c) in enumerate(body):
+        t = fit(t, w - 6)
+        txt = f"{fg(c or T3)}{BOLD if i == 1 else ''}{t}{RST}{bg(BOX)}" if c or i != len(body) - 1 else keys_fmt(t)
+        out.append(f"\x1b[{y + 1 + i};{x}H{fg(color)}{bg(BG)}│{bg(BOX)}  {txt}" + " " * (w - 4 - width(t)) + f"{fg(color)}{bg(BG)}│")
+    out.append(f"\x1b[{y + h - 1};{x}H{fg(color)}{bg(BG)}╰" + "─" * (w - 2) + "╯" + RST)
+    sys.stdout.write("".join(out))
+    sys.stdout.flush()
+
+
+def keys_fmt(t):
+    """'Enter connect now   Ctrl+C stop': keys bright, words dim / 키는 밝게, 설명은 흐리게"""
+    out = []
+    for part in t.split("   "):
+        k, _, d = part.partition(" ")
+        out.append(f"{fg(TEXT)}{k} {fg(T3)}{d}")
+    return f"{bg(BOX)}" + "   ".join(out)
+
+
+def main():
+    host, attempt, secs, why = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), sys.argv[4]
+    err = ""
+    if len(sys.argv) > 5:
+        try:
+            with open(sys.argv[5], errors="ignore") as f:
+                err = next((l.strip() for l in reversed(f.read().splitlines()) if l.strip()), "")
+        except OSError:
+            pass
+    sys.stdout.write(RESET)
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    tty.setcbreak(fd)
+    termios.tcflush(fd, termios.TCIFLUSH)        # drop what the mouse typed meanwhile / 그새 마우스가 찍은 입력은 버린다
+    title = tr("연결이 끊겼습니다", "Connection lost") if why == "lost" else tr("연결하지 못했습니다", "Could not connect")
+    keys = tr("Enter 지금 연결   Ctrl+C 그만", "Enter connect now   Ctrl+C stop")
+    end = time.time() + secs
+    try:
+        while True:
+            left = max(0, int(end - time.time() + 0.99))
+            lines = [(title, WAIT),
+                     (tr(f"{left}초 뒤 다시 연결합니다", f"Reconnecting in {left}s") +
+                      (tr(f" · {attempt}번째", f" · attempt {attempt}") if attempt > 1 else ""), T2)]
+            if err:
+                lines.append((err, T3))
+            lines.append((tr("작업은 상대 Mac 에서 계속 돌고 있습니다", "The work keeps running on the other Mac"), T3))
+            draw(host, title, WAIT, lines, keys)
+            if left == 0:
+                break
+            r, _, _ = select.select([fd], [], [], min(1.0, end - time.time()) if end > time.time() else 0)
+            if r:
+                ch = os.read(fd, 32)
+                if ch in (b"\x03", b"\x1b", b"q"):
+                    return 1
+                if ch in (b"\r", b"\n", b" ", b"r"):
+                    break
+        draw(host, title, ACC, [(tr("다시 연결하는 중…", "Reconnecting…"), ACC),
+                                (tr("작업은 상대 Mac 에서 계속 돌고 있습니다", "The work keeps running on the other Mac"), T3)],
+             tr("Ctrl+C 그만", "Ctrl+C stop"))
+        return 0
+    except KeyboardInterrupt:
+        return 1
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        sys.stdout.write("\x1b[?25h" + RST)
+        sys.stdout.flush()
+
+
+if __name__ == "__main__":
+    sys.exit(main())
