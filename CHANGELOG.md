@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.24 — 2026-10-19
 
 - When a `hivemux connect` connection drops, the terminal is put back from the
   other Mac's tmux state first (mouse reporting printed escape codes over a
