@@ -422,11 +422,11 @@ function plan() {
 // honey in the comb: today's finished tasks minus the jars still carried / 벌집의 꿀: 오늘 끝난 작업 - 아직 들고 있는 꿀단지
 const honeyShown = () => Math.max(0, honeyTotal - [...bees.values()].filter(b => b.state === 'done' || b.deliver).length);
 function whereOf(b) {
-  const crew = b.agents > 0 ? tr(` · 부사수 ${b.agents}명`, ` · ${b.agents} helper${b.agents > 1 ? 's' : ''}`) : '';
+  const aides = b.agents > 0 ? tr(` · 부사수 ${b.agents}명`, ` · ${b.agents} helper${b.agents > 1 ? 's' : ''}`) : '';
   const mates = [...crew.values()].filter(n => n.key2 === 'meet' && n.arrived).length;
   const withMates = mates ? tr(` · 동료 ${mates}명과`, ` · with ${mates} colleague${mates > 1 ? 's' : ''}`) : '';
   if (b.state === 'run') return (b.plan ? (b.atBoard ? tr('회의실 · 화이트보드에 계획 그리는 중', 'meeting room · drawing the plan on the whiteboard') : tr('회의실 · 계획 회의 중', 'meeting room · planning')) + withMates
-    : tr('자리에서 일하는 중', 'working at the desk')) + crew;
+    : tr('자리에서 일하는 중', 'working at the desk')) + aides;
   if (b.state === 'wait') { const i = [...bees.values()].filter(x => x.state === 'wait').sort((a, c) => a.at - c.at).indexOf(b); return tr(`사장실 질문 창구 ${i + 1}번째`, `question window, #${i + 1} in line`); }
   if (b.state === 'done') return tr('자리에서 꿀 들고 자랑하는 중', 'showing off a jar of honey');
   if (b.deliver) return tr('벌집에 꿀 채우러 가는 중', 'taking the honey to the comb');
