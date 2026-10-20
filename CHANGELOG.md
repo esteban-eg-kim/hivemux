@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.32 — 2026-10-21
 
 - Bee office: the name plaques keep their day colors at night (so they match
   the carpets), stay inside the wall when two Macs start in the same row, and
