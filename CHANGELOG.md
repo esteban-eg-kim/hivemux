@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.26 — 2026-10-20
 
 - `Ctrl+V` in a Claude pane on a `hivemux connect` screen pastes the image on
   the clipboard of the Mac you connect from: it is copied to the other Mac and
