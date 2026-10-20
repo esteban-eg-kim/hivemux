@@ -78,10 +78,43 @@ PATH_RE = re.compile(
     r")(?::(\d+))?(?::(\d+))?")
 
 
+# Folders below the bases, for a relative path printed from a folder Claude cd'ed into earlier
+# (a worktree, a sub project). Shallow and capped so a huge tree does not stall the popup.
+# 기준 폴더 아래 폴더들: Claude 가 앞서 cd 해 들어간 폴더(워크트리, 하위 프로젝트)에서 찍힌 상대 경로용.
+# 큰 폴더에서 팝업이 멈추지 않게 얕게, 개수도 제한한다.
+SKIP_DIRS = {"node_modules", "__pycache__", "venv", "dist", "build", "target", "vendor", "Pods"}
+
+
+def below(bases, depth=4, cap=4000):
+    out, seen = [], set()
+    level = [b for b in bases]
+    for _ in range(depth):
+        nxt = []
+        for d in level:
+            try:
+                ents = sorted(os.scandir(d), key=lambda e: e.name)
+            except OSError:
+                continue
+            for e in ents:
+                if e.name.startswith(".") or e.name in SKIP_DIRS or not e.is_dir(follow_symlinks=False):
+                    continue
+                if e.path in seen:
+                    continue
+                seen.add(e.path)
+                nxt.append(e.path)
+                if len(seen) >= cap:
+                    return out + nxt
+        out += nxt
+        level = nxt
+    return out
+
+
 def candidates(pane):
     cwd = tmux("display", "-p", "-t", pane, "#{pane_current_path}").strip()
     ccwd = tmux("show", "-pqv", "-t", pane, "@claude_cwd").strip()
-    bases = [b for b in (ccwd, cwd) if b]
+    pwd = tmux("show", "-pqv", "-t", pane, "@claude_pwd").strip()   # Claude's folder now / Claude 의 지금 폴더
+    bases = list(dict.fromkeys(b for b in (pwd, ccwd, cwd) if b))
+    deep = None   # built on first need / 처음 필요할 때 만든다
     text = tmux("capture-pane", "-p", "-J", "-S", "-3000", "-t", pane)
     seen, out = set(), []
     for line in reversed(text.splitlines()):
@@ -99,6 +132,14 @@ def candidates(pane):
                     if os.path.exists(c):
                         full = c
                         break
+                if not full and "/" in path.strip("/") and not path.startswith("."):
+                    if deep is None:
+                        deep = below(bases)
+                    for b in deep:
+                        c = os.path.join(b, path)
+                        if os.path.exists(c):
+                            full = os.path.normpath(c)
+                            break
             if not full or full in ("/", os.path.expanduser("~")):
                 continue
             # skip the working directory shown in the shell prompt (and its parents)

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Option+O (open path) finds files Claude mentions by a path relative to a
+  folder it `cd`'ed into (a worktree, a sub project). The hook now records the
+  folder Claude works in now (`@claude_pwd`), and paths still not found are
+  looked up a few folders below.
 - The bee office: the 🐝 button at the top of the sidebar (also `prefix B`,
   the right-click menu and `hivemux office`) opens a window where every Claude session
   is a bee: it types at its desk while working, runs to the question window in
