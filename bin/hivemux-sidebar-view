@@ -320,14 +320,18 @@ def render(items, current, w, h, cur_sess="", sessions=()):
         summary.put(tr(f"● {n_wait} 입력 필요", f"● {n_wait} need input"), C["wait"], bold=True)
     if not n_run and not n_wait and items:
         summary.put(tr("모두 대기 중", "all idle"), C["text3"])
-    lines.append(summary)
-    # why the cards stand still: a screen from another Mac is looking at this window
-    # 카드가 멈춘 이유: 다른 Mac 화면이 이 창을 보고 있다
+    # why the cards stand still: a screen from another Mac is looking at this window. At the right end
+    # of the summary, so the list below never moves; shorter forms when the counts leave less room
+    # 카드가 멈춘 이유: 다른 Mac 화면이 이 창을 보고 있다. 요약 줄 오른쪽 끝에 둬서 아래 목록이
+    # 움직이지 않게 한다. 개수가 자리를 차지하면 짧게 줄인다
     if REMOTE_HERE is not None:
-        who = tr(f"{REMOTE_HERE} 에서", f"from {REMOTE_HERE}") if REMOTE_HERE else tr("원격에서", "remotely")
-        lines.append(L().put("  ⇄ ", C["remote"], bold=True)
-                     .put(tr(f"{who} 보는 중 · 움직임 멈춤", f"viewed {who} · motion paused"), C["remote"]))
-    lines.append(L().put(" " + "─" * (w - 2), C["rule"]))
+        mac = REMOTE_HERE or tr("원격", "remote")
+        for note in (tr(f"⇄ {mac}에서 보는 중 · 멈춤", f"⇄ {mac} viewing · paused"),
+                     tr(f"⇄ {mac} · 멈춤", f"⇄ {mac} · paused"), tr("⇄ 원격 · 멈춤", "⇄ remote · paused"), "⇄"):
+            if summary.used() + 1 + width(note) <= w - 1:
+                summary.right(note, C["remote"], margin=1)
+                break
+    lines += [summary, L().put(" " + "─" * (w - 2), C["rule"])]
 
     # groups in project order; a project with no Claude has no members (shown as "no Claude")
     # 프로젝트 순서의 묶음. Claude 가 없는 프로젝트는 멤버 없이 ("Claude 없음") 보인다
