@@ -317,20 +317,23 @@ const SPOT_LABEL = { sofa: ['소파에서 낮잠', 'napping on the sofa'], coffe
   chat: ['카페에서 수다 떠는 중', 'chatting in the cafe'], plant: ['정원에서 화분에 물 주는 중', 'watering the garden'], idle: ['라운지에서 쉬는 중', 'hanging out in the lounge'] };
 const ENTRY = () => ({ x: .5, y: 9.1 + LAY.LOFF });   // the elevator / 엘리베이터
 
+// a pod: two desks a side, each DESK_W wide / 섬: 한쪽에 책상 둘, 책상 폭은 DESK_W
+const POD_ROW = 2, DESK_W = 2.4, DESK_D = .9;
+const podAt = i => ({ x: 1.3 + (i % POD_ROW) * 7.2, y: .7 + Math.floor(i / POD_ROW) * 4.2 });
 function layout(offices) {
-  // pods of four for the sessions that are not resting, each office's pods one after another
-  // 쉬지 않는 세션만큼 4인용 섬. Mac 마다 섬이 이어진다
+  // pods of four for the sessions that are not resting, each office's pods one after another, two to a row
+  // 쉬지 않는 세션만큼 4인용 섬. Mac 마다 섬이 이어지고 한 줄에 둘
   const need = offices.map(o => Math.max(1, Math.ceil(o.sessions.filter(s => s.state !== 'idle').length / 4)));
   const pods = [];
   need.forEach((n, oi) => { for (let k = 0; k < n; k++) pods.push({ oi, n: k }); });
-  const rows = Math.max(2, Math.ceil(pods.length / 3));
+  const rows = Math.max(2, Math.ceil(pods.length / POD_ROW));
   const LOFF = (rows - 2) * 4.2;
   const desks = [];
   pods.forEach((p, i) => {
-    p.x = 1 + (i % 3) * 5; p.y = .7 + Math.floor(i / 3) * 4.2;
+    Object.assign(p, podAt(i));
     for (let k = 0; k < 4; k++) {
-      const far = k < 2, x = p.x + 1 + (k % 2) * 2;   // far row faces this way / 먼 줄은 이쪽을 본다
-      desks.push({ id: `${p.oi}:${p.n}:${k}`, oi: p.oi, far, x, y: far ? p.y + 1.15 : p.y + 1.85, seat: { x, y: far ? p.y + .4 : p.y + 2.6 } });
+      const far = k < 2, x = p.x + 1.5 + (k % 2) * 2.6;   // far row faces this way / 먼 줄은 이쪽을 본다
+      desks.push({ id: `${p.oi}:${p.n}:${k}`, oi: p.oi, far, x, y: far ? p.y + 1.05 : p.y + 1.95, seat: { x, y: far ? p.y + .3 : p.y + 2.7 } });
     }
   });
   SPOTS.forEach(s => { s.x = s.x0; s.y = s.y0 + (s.shift ? LOFF : 0); });
@@ -524,9 +527,13 @@ const cam = { zoom: 1, px: 0, py: 0, rot: 0, tilt: .5 };   // tilt: TH / TW, .3 
 try { Object.assign(cam, JSON.parse(localStorage.getItem('office-view') || '{}')); } catch (e) {}
 setRot(cam.rot); setTilt(cam.tilt);
 const saveView = () => { try { localStorage.setItem('office-view', JSON.stringify({ zoom: cam.zoom, px: cam.px, py: cam.py, rot: cam.rot, tilt: cam.tilt })); } catch (e) {} };
+// the part of the building the view fits: all of it up to one extra row of pods; past that the office
+// keeps a readable size and the rest is a drag (or a zoom) away
+// 화면에 맞추는 건물 부분: 섬 한 줄이 더 늘 때까지는 전부. 그보다 커지면 읽을 수 있는 크기를 지키고, 나머지는 끌거나 줄여서 본다
+const FIT_GY = 15.4 + 4.2;
 function bounds() {
-  const pts = [];
-  for (const [x, y] of [[0, 0], [GX, 0], [GX, LAY.GY], [0, LAY.GY]]) pts.push(P(x, y), P(x, y, WALL));
+  const pts = [], gy = Math.min(LAY.GY, FIT_GY);
+  for (const [x, y] of [[0, 0], [GX, 0], [GX, gy], [0, gy]]) pts.push(P(x, y), P(x, y, WALL));
   const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
   return { x0: Math.min(...xs) - 24, x1: Math.max(...xs) + 24, y0: Math.min(...ys) - 30, y1: Math.max(...ys) + 18 };
 }
@@ -1001,14 +1008,14 @@ function buildScene(t) {
   const owners = new Map([...bees.values()].filter(b => b.desk).map(b => [b.desk.id, b]));
   for (const d of LAY.desks) {
     const o = owners.get(d.id), cy = d.seat.y + (o ? 0 : d.far ? .25 : -.25);
-    add(d.seat.x, cy, () => cyl(d.seat.x, cy, .22, 9, T['m-chair']), -.05);
-    addBox(d.x - .9, d.y - .35, 1.8, .7, 16, T['m-desk']);
+    add(d.seat.x, cy, () => cyl(d.seat.x, cy, .26, 10, T['m-chair']), -.05);
+    addBox(d.x - DESK_W / 2, d.y - DESK_D / 2, DESK_W, DESK_D, 16, T['m-desk']);
     add(d.x, d.y, () => laptop(d, o, t), .3);
   }
-  for (let i = LAY.pods.length; i < LAY.rows * 3; i++) {
-    const x = 1 + (i % 3) * 5, y = .7 + Math.floor(i / 3) * 4.2;
-    add(x + 1, y + 1, () => plant(x + 1, y + 1, 1.2)); add(x + 3, y + 2, () => plant(x + 3, y + 2, .9));
-    addBox(x + .5, y + 1.6, 1.6, .5, 26, T['m-counter']);
+  for (let i = LAY.pods.length; i < LAY.rows * POD_ROW; i++) {
+    const { x, y } = podAt(i);
+    add(x + 1.2, y + 1, () => plant(x + 1.2, y + 1, 1.2)); add(x + 4.6, y + 2.1, () => plant(x + 4.6, y + 2.1, .9));
+    addBox(x + 1.6, y + 1.6, 2.6, .5, 26, T['m-counter']);
   }
   // cafe / 카페
   addBox(.3, 9.8 + LOFF, .9, 4, 18, T['m-counter']);
@@ -1040,17 +1047,17 @@ function laptop(d, owner, t) {
   if (!owner) return;
   const st = owner.state, away = st === 'run' && owner.key2 === 'meet';
   const scr = st === 'run' && !away ? T.run : st === 'wait' ? T.wait : st === 'done' ? T.done : null;
-  const x = d.x - .32, ys = d.far ? d.y + .15 : d.y - .35, toBee = d.far ? -1 : 1;   // the screen plane and its side facing the bee
-  box(x, d.far ? ys - .35 : ys, .64, .4, 1.5, T['m-mon'], 16);
+  const x = d.x - .42, ys = d.far ? d.y + .2 : d.y - .42, toBee = d.far ? -1 : 1;   // the screen plane and its side facing the bee
+  box(x, d.far ? ys - .48 : ys, .84, .48, 1.5, T['m-mon'], 16);
   const screen = toward(0, toBee);
   onFaceY(x, ys, () => {
-    c.fillStyle = screen ? T['m-screen'] : T['m-lid']; c.fillRect(0, 16, .64, 15);
-    if (!screen) { c.fillStyle = T.honey; c.fillRect(.27, 22, .1, 4); return; }
+    c.fillStyle = screen ? T['m-screen'] : T['m-lid']; c.fillRect(0, 16, .84, 19);
+    if (!screen) { c.fillStyle = T.honey; c.fillRect(.36, 23, .12, 5); return; }
     if (!scr) return;
-    c.globalAlpha = .3; c.fillStyle = scr; c.fillRect(.03, 17, .58, 13); c.globalAlpha = 1; c.fillStyle = scr;
-    if (st === 'run') { const k = t * 8 + owner.phase * 10; for (let i = 0; i < 4; i++) c.fillRect(.07, 27.5 - i * 3, .12 + ((Math.floor(k) + i * 3) % 7) * .055, 1.2); }
-    else if (st === 'wait') { if (Math.floor(t * 2) % 2) c.fillRect(.29, 19, .06, 9); }
-    else c.fillRect(.15, 22, .34, 2.5);
+    c.globalAlpha = .3; c.fillStyle = scr; c.fillRect(.04, 17, .76, 17); c.globalAlpha = 1; c.fillStyle = scr;
+    if (st === 'run') { const k = t * 8 + owner.phase * 10; for (let i = 0; i < 5; i++) c.fillRect(.09, 31 - i * 3.2, .15 + ((Math.floor(k) + i * 3) % 7) * .075, 1.4); }
+    else if (st === 'wait') { if (Math.floor(t * 2) % 2) c.fillRect(.39, 20, .07, 11); }
+    else c.fillRect(.2, 24, .44, 3);
   });
 }
 function labels() {
@@ -1168,19 +1175,25 @@ function drawBee(b, t) {
   c.restore();
 }
 // name tags: always for bees that work, wait or finished; resting bees only under the mouse.
-// A tag that would cover one already placed moves up.
-// 이름표: 일하는 벌, 기다리는 벌, 끝난 벌은 늘. 쉬는 벌은 마우스를 올렸을 때만. 이미 놓인 이름표를 가리면 위로 비킨다
+// Waiting, finished and hovered bees go first, and a tag that would cover one already placed moves up;
+// a working bee's tag that would cover another is left out (zoom in, or hover, to see it).
+// 이름표: 일하는 벌, 기다리는 벌, 끝난 벌은 늘. 쉬는 벌은 마우스를 올렸을 때만. 기다리는 벌, 끝난 벌,
+// 마우스 아래 벌을 먼저 놓고, 이미 놓인 이름표를 가리면 위로 비킨다. 일하는 벌의 이름표는 다른 것을 가리면
+// 빼 둔다 (확대하거나 마우스를 올리면 보인다)
 // text stays readable in a small window: it shrinks less than the floor / 작은 창에서도 읽히게 글자는 바닥보다 덜 줄어든다
 const textZoom = () => Math.min(1.8, Math.max(1, .7 / scale));
 function drawTags(t) {
   const placed = [], z = textZoom();
   const list = [...bees.values()].filter(b => !b.popped && (b.state !== 'idle' || b.deliver || b.key === hoverKey))
-    .map(b => ({ b, s: P(b.x, b.y) })).sort((a, b) => b.s.y - a.s.y);
+    .map(b => ({ b, s: P(b.x, b.y), low: b.state === 'run' && b.key !== hoverKey }))
+    .sort((a, b) => a.low - b.low || b.s.y - a.s.y);
   font(10 * z);
-  for (const { b, s } of list) {
+  for (const { b, s, low } of list) {
     const text = nameOf(b), w = c.measureText(text).width + 18 * z, h = 15 * z, x = s.x - w / 2;
     let y = s.y - (66 - (b.moving ? 0 : SIT[poseOf(b)] || 0) + (b.state === 'done' && !b.moving ? 14 : 0)) * BEE - (h - 15);
-    for (let k = 0; k < 6 && placed.some(p => x < p.x + p.w + 2 && p.x < x + w + 2 && Math.abs(p.y - y) < h + 1); k++) y -= h + 1;
+    const hits = () => placed.some(p => x < p.x + p.w + 2 && p.x < x + w + 2 && Math.abs(p.y - y) < h + 1);
+    if (low && hits()) continue;
+    for (let k = 0; k < 6 && hits(); k++) y -= h + 1;
     placed.push({ x, y, w });
     fillRR(x, y, w, h, h / 2, T['tag-bg']);
     circle(x + 8 * z, y + h / 2, 3 * z, T[b.state]);
@@ -1210,7 +1223,7 @@ function drawEffects(t, dt) {
   for (const b of bees.values()) {
     const still = !b.moving && b.arrived, s = P(b.x, b.y);
     if (b.moving && b.sprint && Math.random() < .5) puff({ x: s.x - b.face * 8, y: s.y - 1 }, T.muted, -4);
-    if (still && b.state === 'run' && b.key2 === 'desk' && b.desk && Math.random() < .08) puff(P(b.desk.x + rand(-.3, .3), b.desk.y, 34), T.run, -18);
+    if (still && b.state === 'run' && b.key2 === 'desk' && b.desk && Math.random() < .08) puff(P(b.desk.x + rand(-.4, .4), b.desk.y, 38), T.run, -18);
     if (!still || b.key2 !== 'lounge' || !b.spot) continue;
     if (b.spot.kind === 'coffee' && Math.random() < .06) puff(P(.8, 10.3 + LAY.LOFF, 36), T.muted, -14);
     if (b.spot.kind === 'plant' && Math.random() < .1) puff({ x: s.x + b.face * 12, y: s.y - 14 }, T.run, 14);
@@ -1409,7 +1422,7 @@ function hit(p) {
   if (roofFor(cam.zoom) >= .5) return null;
   let best = null, bd = 20;
   for (const b of bees.values()) { if (b.popped) continue; const s = P(b.x, b.y), d = Math.hypot(s.x - p.x, s.y - 22 * BEE - p.y); if (d < bd) { bd = d; best = b; } }
-  return best || [...bees.values()].find(b => { if (!b.desk) return false; const s = P(b.desk.x, b.desk.y, 12); return Math.abs(p.x - s.x) < 34 && Math.abs(p.y - s.y) < 16; }) || null;
+  return best || [...bees.values()].find(b => { if (!b.desk) return false; const s = P(b.desk.x, b.desk.y, 12); return Math.abs(p.x - s.x) < 42 && Math.abs(p.y - s.y) < 18; }) || null;
 }
 const tip = $('#tip');
 cv.addEventListener('mousemove', e => {
