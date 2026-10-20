@@ -101,6 +101,13 @@ if [ -n "$HIVEMUX_REMOTE" ] || [ -n "$SSH_CONNECTION" ]; then
   # which Mac it is ("<client> <Mac>" per line; hivemux connect passes HIVEMUX_FROM), for bin/hivemux-open-ui
   # 어느 Mac 인지 (한 줄에 "<화면> <Mac>". hivemux connect 가 HIVEMUX_FROM 을 넘긴다). bin/hivemux-open-ui 용
   [ -n "$me" ] && t set -g @hivemux-remote-from "$(t show -gqv @hivemux-remote-from | awk -v c="$me" '$1!=c'; [ -n "$HIVEMUX_FROM" ] && echo "$me $HIVEMUX_FROM")"
+else
+  # a terminal on this Mac may get the name of a remote one whose detach was missed: it is not remote
+  # 이 Mac 의 터미널이 분리를 놓친 원격 화면의 이름을 물려받을 수 있다: 원격이 아니다
+  me="$(tty 2>/dev/null)"
+  case "$(t show -gqv @hivemux-remote-clients)" in
+    *"$me"*) [ -n "$me" ] && t set -g @hivemux-remote-clients " $(t show -gqv @hivemux-remote-clients | tr ' ' '\n' | grep -v '^$' | grep -vxF "$me" | tr '\n' ' ')" ;;
+  esac
 fi
 # Every session is already on a screen (Ghostty restoring several windows, a second window):
 # share the last used one instead of opening an empty numbered session ("8") that piles up

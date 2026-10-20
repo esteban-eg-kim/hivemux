@@ -184,8 +184,14 @@ case "$1" in
     [ -f "$HOSTS" ] && awk -v h="$2" '$1!=h' "$HOSTS" > "$HOSTS.tmp" && mv -f "$HOSTS.tmp" "$HOSTS"
     ;;
   --forget-client)      # client-detached hook: it is no longer on screen / client-detached 훅: 더 이상 붙어 있지 않음
+    # keep only screens still attached (this one and any whose detach was missed), as " a b "
+    # 아직 붙어 있는 화면만 남긴다 (이 화면과, 분리를 놓친 화면은 뺀다). 형식은 " a b "
     cur="$("$TMUX_BIN" show -gqv @hivemux-remote-clients)"
-    case "$cur" in *" $2 "*) "$TMUX_BIN" set -g @hivemux-remote-clients "$(printf '%s' "$cur" | tr ' ' '\n' | grep -vxF "$2" | tr '\n' ' ')" ;; esac
+    if [ -n "${cur// /}" ]; then
+      live="$("$TMUX_BIN" list-clients -F '#{client_name}' | grep -vxF "$2")"
+      keep=""; [ -n "$live" ] && keep="$(printf '%s\n' $cur | grep -xF "$live" | tr '\n' ' ')"
+      "$TMUX_BIN" set -g @hivemux-remote-clients " $keep"
+    fi
     ;;
   --list)
     [ -f "$HOSTS" ] && cat "$HOSTS"

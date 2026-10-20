@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- A screen from another Mac whose detach went unnoticed no longer keeps the
+  status line spinner still, nor freezes the sidebar of a terminal on this Mac
+  that later gets the same tty name: only attached screens count, the list is
+  pruned on every detach, and a local terminal drops its own name from it.
 - When a screen from another Mac is looking at a window, its sidebar says so
   under the summary ("⇄ viewed from <Mac> · motion paused"), so cards that
   stand still there no longer look stuck.

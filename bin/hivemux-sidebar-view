@@ -942,13 +942,15 @@ def main():
                 # them still while it looks at this window (the spinner: while it is attached at all)
                 # 다른 Mac 에서 붙은 화면 (bin/hivemux-attach): 애니메이션 프레임과 상태줄 스피너가 모두
                 # 네트워크로 가서 입력이 느려지므로, 그 화면이 이 창을 보는 동안 멈춘다 (스피너는 붙어 있는 동안)
+                # only screens still attached count: a detach the hook missed leaves its name behind
+                # 지금 붙어 있는 화면만 센다: 훅이 놓친 분리는 이름을 남긴다
                 remote = set(tmux("show", "-gqv", "@hivemux-remote-clients").split())
-                REMOTE_ON = bool(remote)
+                clients = [l.split(" ", 1) for l in tmux("list-clients", "-F", "#{client_name} #{window_id}").splitlines() if " " in l]
+                REMOTE_ON = any(c in remote for c, _ in clients)
                 REMOTE_HERE = None
-                if remote:
+                if REMOTE_ON:
                     mine = tmux("display", "-p", "-t", ME, "#{window_id}").strip()
-                    here = [c for c, w in (l.split(" ", 1) for l in tmux("list-clients", "-F", "#{client_name} #{window_id}").splitlines() if " " in l)
-                            if c in remote and w == mine]
+                    here = [c for c, w in clients if c in remote and w == mine]
                     if here:
                         ANIM = False
                         # the Mac's name when hivemux connect told it (bin/hivemux-attach) / hivemux connect 가 알려 줬으면 그 Mac 이름
