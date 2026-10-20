@@ -29,6 +29,13 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
   yet (green). A waiting one blinks until you answer, a finished one for its
   first 10 seconds. Click a badge to go there; a finished one leaves once you
   look at it.
+- **Bee office.** `hivemux office` opens a window where every Claude session is
+  a bee in a small office: it types at its desk while working, runs to the
+  question window in the boss room when it needs you (and pops out in front of
+  the window), holds up a jar of honey when done, stores it in the honeycomb
+  once you have looked, then rests in the lounge. A task running subagents holds
+  a meeting. Click a bee to go to its session. Sessions of a Mac you are
+  connected to with `hivemux connect` work in an office of their own.
 - **Task names.** Shows Claude's own conversation title. Double-click a card
   (or right-click → Rename) to rename it; hivemux sends `/rename` to that Claude (waits if it is busy).
 - **Your order.** Drag a card to reorder tasks, or a project header to reorder

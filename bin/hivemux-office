@@ -1,0 +1,383 @@
+#!/usr/bin/env python3
+"""The bee office: every Claude session as a bee in a small office, in a window of its own.
+벌 사무실: Claude 세션마다 벌 한 마리가 작은 사무실에서 일하는 모습을 별도 창으로 보여 준다.
+
+  hivemux-office                 open the window (starts the server below if needed)
+                               창 열기 (필요하면 아래 서버를 띄운다)
+  hivemux-office serve           the local web server the window shows (exits a while after the window closes)
+                               창이 보여 주는 로컬 웹 서버 (창을 닫고 잠시 뒤 끝난다)
+  hivemux-office --json          this Mac's sessions as JSON (the server, and the other Mac over ssh, read it)
+                               이 Mac 의 세션을 JSON 으로 (서버와, ssh 로 상대 Mac 이 읽는다)
+  hivemux-office --goto <pane> [--from <mac>]
+                               show that pane on a screen of this Mac (or on the screen attached from <mac>)
+                               그 칸을 이 Mac 화면에 (또는 <mac> 에서 붙은 화면에) 띄운다
+
+The page (share/office/index.html) polls /state every second: this Mac's sessions, plus those of every
+Mac this one is connected to with hivemux connect (asked over the ssh connection hivemux-ports keeps).
+A bee works at its desk (run), runs to the question window in the boss room (wait), holds up a jar of
+honey (done, not seen), takes it to the honeycomb once seen, then rests in the lounge (idle). A task
+running subagents (@claude_agents, counted by bin/hivemux-hook) holds a meeting.
+페이지(share/office/index.html)는 1초마다 /state 를 읽는다: 이 Mac 의 세션, 그리고 hivemux connect 로 붙어
+있는 Mac 마다의 세션 (hivemux-ports 가 유지하는 ssh 연결로 묻는다). 벌은 자리에서 일하고 (run), 사장실
+질문 창구로 뛰어가고 (wait), 꿀단지를 들고 있다가 (done, 안 봄) 보고 나면 벌집에 꿀을 채우고, 라운지에서
+쉰다 (idle). 서브에이전트를 돌리는 작업 (@claude_agents, bin/hivemux-hook 이 센다)은 회의를 한다.
+
+The window is a small native app (share/office/OfficeWindow.swift) built once with swiftc into
+$XDG_DATA_HOME/hivemux/hive/; without swiftc the page opens in the browser.
+창은 작은 네이티브 앱 (share/office/OfficeWindow.swift)으로, swiftc 로 한 번 빌드해
+$XDG_DATA_HOME/hivemux/hive/ 에 둔다. swiftc 가 없으면 브라우저로 연다.
+"""
+import functools, glob, hashlib, http.server, json, os, shlex, shutil, signal, socket, subprocess, sys, threading, time, urllib.request
+
+TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
+HERE = os.path.dirname(os.path.realpath(__file__))
+SHARE = os.path.join(os.path.dirname(HERE), "share", "office")
+LOGO = os.path.join(os.path.dirname(HERE), "docs", "logo", "hivemux-logo-512.png")
+DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux")
+OFFICE_DIR = os.path.join(DATA, "office")
+PORT_FILE = os.path.join(OFFICE_DIR, "port")
+WINDOW_PID = os.path.join(OFFICE_DIR, "window.pid")
+APP_NAME = "hivemux office"   # the window app's file name, shown in the menu bar and the Dock / 창 앱 파일 이름. 메뉴 막대와 Dock 에 보인다
+ORDER_FILE = os.path.join(DATA, "session-order")
+PORT = int(os.environ.get("HIVEMUX_OFFICE_PORT") or 47380)   # fixed, so the page keeps its settings / 고정: 페이지 설정이 유지되게
+IDLE_EXIT = 90               # seconds without a page asking before the server quits / 페이지가 묻지 않은 채 이만큼 지나면 서버 종료
+US = "\x1f"
+FIELDS = ["pane_id", "session_name", "window_index", "window_name", "pane_title", "@claude_state", "@claude_state_at",
+          "@claude_session", "@claude_title", "@claude_name", "@claude_agents", "pane_current_command"]
+SHELLS = {"zsh", "bash", "fish", "sh", "dash", "tcsh", "ksh", "login"}
+SSH = shlex.split(os.environ.get("HIVEMUX_SSH") or "ssh")
+PATH = "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH"
+# Runs on the other Mac: its hivemux-office, wherever it got installed / 상대 Mac 에서 실행: 설치된 곳의 hivemux-office
+# (HIVEMUX_OFFICE: another path there, used for testing / 거기 다른 경로, 시험용)
+REMOTE = ('for p in ${HIVEMUX_OFFICE:-} /opt/homebrew/bin/hivemux-office /usr/local/bin/hivemux-office "$HOME/.local/share/hivemux/src/bin/hivemux-office"; '
+          'do [ -x "$p" ] && exec "$p" %s; done; echo \'{"missing": true}\'')
+
+
+def tmux(*a):
+    return subprocess.run([TMUX, *a], capture_output=True, text=True).stdout
+
+
+def lang():
+    v = os.environ.get("HIVEMUX_LANG") or tmux("show", "-gqv", "@hivemux-lang").strip()
+    return "ko" if (v or os.environ.get("LANG", "")).startswith("ko") else "en"
+
+
+@functools.lru_cache(maxsize=1)
+def me():
+    """This Mac's name, as hivemux-ports uses it / hivemux-ports 가 쓰는 이 Mac 이름"""
+    r = subprocess.run([os.path.join(HERE, "hivemux-ports"), "--me"], capture_output=True, text=True)
+    return r.stdout.strip() or socket.gethostname().split(".")[0]
+
+
+def task_name(p):
+    """Like the sidebar card (bin/hivemux-sidebar-view task_name) / 사이드바 카드와 같게"""
+    if p["@claude_name"]:
+        return p["@claude_name"]
+    t = p["pane_title"].lstrip("✳⠂⠐·*✶✻✽✢ ").strip()
+    host = socket.gethostname()
+    if t and "@" not in t.split(":")[0] and t not in (host, host.split(".")[0]) and t.lower() not in ("claude code", "claude"):
+        return t
+    if p["@claude_title"]:
+        return p["@claude_title"]
+    w = p["window_name"]
+    return w if w not in ("claude", p["session_name"]) else ""
+
+
+def snapshot():
+    """This Mac's Claude sessions in sidebar order (its ⌥ numbers) / 이 Mac 의 Claude 세션, 사이드바 순서 (⌥ 번호)"""
+    fmt = US.join("#{%s}" % f for f in FIELDS)
+    panes = [dict(zip(FIELDS, l.split(US))) for l in tmux("list-panes", "-a", "-F", fmt).splitlines()]
+    items = [p for p in panes if len(p) == len(FIELDS) and p["@claude_session"] and p["@claude_state"]
+             and p["pane_current_command"].lstrip("-") not in SHELLS]
+    rank = {}
+    try:
+        with open(ORDER_FILE) as f:
+            for l in f:
+                rank.setdefault(l.rstrip("\n"), len(rank))
+    except OSError:
+        pass
+    items = [p for _, p in sorted(enumerate(items), key=lambda e: (rank.get(e[1]["session_name"], len(rank)), e[0]))]
+    honey = tmux("show", "-gqv", "@hivemux-honey").split()
+    today = time.strftime("%Y-%m-%d")
+    return {
+        "host": me(), "lang": lang(), "now": int(time.time()),
+        "honey": int(honey[1]) if len(honey) == 2 and honey[0] == today and honey[1].isdigit() else 0,
+        "sessions": [{
+            "pane": p["pane_id"], "idx": i, "project": p["session_name"], "name": task_name(p),
+            "state": p["@claude_state"], "at": int(p["@claude_state_at"]) if p["@claude_state_at"].isdigit() else 0,
+            "agents": int(p["@claude_agents"]) if p["@claude_agents"].isdigit() else 0,
+        } for i, p in enumerate(items, 1)],
+    }
+
+
+def goto(pane, frm=None):
+    """Show pane on a screen: the one attached from Mac <frm>, else the most recently used one of this Mac
+    칸을 화면에 띄운다: <frm> Mac 에서 붙은 화면, 아니면 이 Mac 에서 가장 최근에 쓴 화면"""
+    sess = tmux("display", "-p", "-t", pane, "#{session_name}").strip()
+    win = tmux("display", "-p", "-t", pane, "#{window_id}").strip()
+    if not sess:
+        return False
+    remote = set(tmux("show", "-gqv", "@hivemux-remote-clients").split())
+    if frm:
+        clients = [l.split(" ", 1)[0] for l in tmux("show", "-gqv", "@hivemux-remote-from").splitlines()
+                   if l.split(" ", 1)[1:] == [frm]]
+    else:
+        rows = [l.split(" ") for l in tmux("list-clients", "-F", "#{client_activity} #{client_name}").splitlines()]
+        clients = [c for _, c in sorted((r for r in rows if len(r) == 2 and r[1] not in remote), reverse=True)]
+    if not clients:
+        return False
+    tmux("switch-client", "-c", clients[0], "-t", f"={sess}")
+    tmux("select-window", "-t", win)
+    tmux("select-pane", "-t", pane)
+    return True
+
+
+def front_terminal():
+    subprocess.run(["open", "-a", "Ghostty"], capture_output=True)
+
+
+# ── the other Macs / 상대 Mac ──────────────────────────────────────────
+
+def connections():
+    """(host, ssh control socket) of every running hivemux-ports (one per hivemux connect)
+    돌고 있는 hivemux-ports 마다 (호스트, ssh 제어 소켓) (hivemux connect 하나에 하나)"""
+    out = []
+    for sock in glob.glob(f"/tmp/hivemux-ports-{os.getuid()}-*"):
+        pid = sock.rsplit("-", 1)[1]
+        args = subprocess.run(["ps", "-o", "args=", "-p", pid], capture_output=True, text=True).stdout.split()
+        i = next((i for i, a in enumerate(args) if a.endswith("hivemux-ports")), None)
+        if i is not None and i + 1 < len(args) and not args[i + 1].startswith("-"):
+            out.append((args[i + 1], sock))
+    return out
+
+
+def remote_run(sock, host, args, timeout=8):
+    cmd = f"{PATH}; " + REMOTE % " ".join(shlex.quote(a) for a in args)
+    try:
+        return subprocess.run(SSH + ["-S", sock, "-o", "ControlMaster=no", "-o", "BatchMode=yes", host, cmd],
+                              capture_output=True, text=True, timeout=timeout, stdin=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired:
+        return None
+
+
+class Remotes(threading.Thread):
+    """Asks each connected Mac for its sessions every 1.5 s / 붙어 있는 Mac 마다 1.5초에 한 번 세션을 묻는다"""
+
+    def __init__(self):
+        super().__init__(daemon=True)
+        self.offices, self.lock = {}, threading.Lock()
+
+    def run(self):
+        while True:
+            conns = connections()
+            got = {}
+            for host, sock in conns:
+                r = remote_run(sock, host, ["--json"])
+                try:
+                    o = json.loads(r.stdout) if r and r.returncode == 0 else None
+                except ValueError:
+                    o = None
+                if o is None:
+                    with self.lock:
+                        o = self.offices.get(host)      # keep the last answer through a hiccup / 잠깐 끊겨도 마지막 답을 둔다
+                if o is not None:
+                    o["ssh"] = host
+                    got[host] = o
+            with self.lock:
+                self.offices = got
+            time.sleep(1.5)
+
+    def list(self):
+        with self.lock:
+            return list(self.offices.values())
+
+
+# ── server / 서버 ────────────────────────────────────────────────────
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    remotes = None
+    last = time.time()
+
+    def log_message(self, *a):
+        pass
+
+    def send(self, code, body, ctype="application/json"):
+        b = body if isinstance(body, bytes) else body.encode()
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(b)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(b)
+
+    def local(self):
+        """Asked for by name 127.0.0.1 or localhost, so another site cannot reach it by DNS rebinding
+        127.0.0.1 이나 localhost 라는 이름으로 왔다: 다른 사이트가 DNS 리바인딩으로 닿지 못하게"""
+        port = self.server.server_port
+        return self.headers.get("Host") in (f"127.0.0.1:{port}", f"localhost:{port}")
+
+    def do_GET(self):
+        if not self.local():
+            return self.send(403, "{}")
+        path = self.path.split("?", 1)[0]
+        if path == "/ping":
+            return self.send(200, "hivemux-office", "text/plain")
+        if path == "/state":
+            Handler.last = time.time()
+            local = snapshot()
+            return self.send(200, json.dumps({"lang": local["lang"], "offices": [local] + Handler.remotes.list()}))
+        if path in ("/", "/index.html"):
+            with open(os.path.join(SHARE, "index.html"), "rb") as f:
+                return self.send(200, f.read(), "text/html; charset=utf-8")
+        if path == "/logo.svg":
+            with open(os.path.join(os.path.dirname(LOGO), "hivemux-logo.svg"), "rb") as f:
+                return self.send(200, f.read(), "image/svg+xml")
+        self.send(404, "{}")
+
+    def do_POST(self):
+        # only the page itself may ask (a browser tab of another site would send its own Origin)
+        # 이 페이지만 요청할 수 있다 (다른 사이트의 브라우저 탭이면 다른 Origin 을 보낸다)
+        origin = self.headers.get("Origin")
+        if not self.local():
+            return self.send(403, "{}")
+        if origin and origin not in (f"http://127.0.0.1:{self.server.server_port}", f"http://localhost:{self.server.server_port}"):
+            return self.send(403, "{}")
+        if self.path != "/goto":
+            return self.send(404, "{}")
+        try:
+            req = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+        except ValueError:
+            return self.send(400, "{}")
+        pane, ssh = str(req.get("pane", "")), req.get("ssh")
+        if not pane.startswith("%"):
+            return self.send(400, "{}")
+        if ssh:
+            sock = next((s for h, s in connections() if h == ssh), None)
+            r = remote_run(sock, ssh, ["--goto", pane, "--from", me()]) if sock else None
+            ok = bool(r and r.returncode == 0)
+        else:
+            ok = goto(pane)
+        if ok:
+            front_terminal()
+        self.send(200, json.dumps({"ok": ok}))
+
+
+def ping(port):
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/ping", timeout=1) as r:
+            return r.read() == b"hivemux-office"
+    except OSError:
+        return False
+
+
+def running_port():
+    try:
+        port = int(open(PORT_FILE).read())
+    except (OSError, ValueError):
+        return None
+    return port if ping(port) else None
+
+
+def serve():
+    os.makedirs(OFFICE_DIR, exist_ok=True)
+    srv = None
+    for port in range(PORT, PORT + 20):
+        try:
+            srv = http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
+            break
+        except OSError:
+            if ping(port):          # another server of ours already runs / 이미 우리 서버가 있다
+                return
+    if not srv:
+        sys.exit("hivemux-office: no free port")
+    with open(PORT_FILE, "w") as f:
+        f.write(str(srv.server_port))
+    Handler.remotes = Remotes()
+    Handler.remotes.start()
+
+    def reaper():
+        while time.time() - Handler.last < IDLE_EXIT:
+            time.sleep(5)
+        os._exit(0)
+    threading.Thread(target=reaper, daemon=True).start()
+    srv.serve_forever()
+
+
+def start_server():
+    port = running_port()
+    if port:
+        return port
+    subprocess.Popen([sys.executable, os.path.realpath(__file__), "serve"], start_new_session=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    for _ in range(50):
+        time.sleep(.1)
+        port = running_port()
+        if port:
+            return port
+    sys.exit("hivemux-office: the server did not start")
+
+
+def window_app():
+    """The window app, built from share/office/OfficeWindow.swift on first use and again when that changes
+    (None without swiftc). Its file name stays the same, so macOS keeps its window place and settings.
+    창 앱. 처음 쓸 때와 share/office/OfficeWindow.swift 가 바뀌었을 때 빌드한다 (swiftc 가 없으면 None).
+    파일 이름은 그대로라 macOS 가 창 위치와 설정을 기억한다."""
+    src = os.path.join(SHARE, "OfficeWindow.swift")
+    with open(src, "rb") as f:
+        tag = hashlib.sha1(f.read()).hexdigest()
+    app, stamp = os.path.join(OFFICE_DIR, APP_NAME), os.path.join(OFFICE_DIR, "app.sha1")
+    try:
+        if os.path.exists(app) and open(stamp).read() == tag:
+            return app
+    except OSError:
+        pass
+    swiftc = subprocess.run(["xcrun", "--find", "swiftc"], capture_output=True, text=True).stdout.strip()
+    if not swiftc:
+        return None
+    os.makedirs(OFFICE_DIR, exist_ok=True)
+    print("hivemux: building the office window (once, ~30 s) / 사무실 창을 만드는 중 (한 번만, 30초쯤)", file=sys.stderr)
+    r = subprocess.run([swiftc, "-O", "-o", app + ".tmp", src], capture_output=True, text=True)
+    if r.returncode != 0:
+        print(r.stderr, file=sys.stderr)
+        return None
+    os.replace(app + ".tmp", app)
+    with open(stamp, "w") as f:
+        f.write(tag)
+    return app
+
+
+def open_window():
+    port = start_server()
+    url = f"http://127.0.0.1:{port}/"
+    try:                                        # already open: bring it to the front / 이미 열려 있으면 앞으로
+        pid = int(open(WINDOW_PID).read())
+        if APP_NAME in subprocess.run(["ps", "-o", "args=", "-p", str(pid)], capture_output=True, text=True).stdout:
+            os.kill(pid, signal.SIGUSR1)
+            return
+    except (OSError, ValueError):
+        pass
+    app = window_app()
+    if not app:
+        subprocess.run(["open", url])
+        return
+    subprocess.Popen([app, url, LOGO, WINDOW_PID], start_new_session=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def main(argv):
+    if argv[:1] == ["--json"]:
+        print(json.dumps(snapshot()))
+    elif argv[:1] == ["--goto"] and len(argv) >= 2:
+        frm = argv[3] if argv[2:3] == ["--from"] and len(argv) >= 4 else None
+        sys.exit(0 if goto(argv[1], frm) else 1)
+    elif argv[:1] == ["serve"]:
+        serve()
+    elif not argv:
+        open_window()
+    else:
+        print(__doc__.split("\n\n")[1], file=sys.stderr)
+        sys.exit(2)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
