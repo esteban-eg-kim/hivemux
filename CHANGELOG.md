@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.29 — 2026-10-21
 
 - Bee office: bigger desks (pods of four, two to a row) so a desk no longer
   looks smaller than its bee, and a wooden sign on legs with each Mac's name
