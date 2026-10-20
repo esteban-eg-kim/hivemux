@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.31 — 2026-10-21
 
 - Bee office: each Mac's desks sit on a carpet of its color (honey for this
   Mac, lilac for a remote one), and its name is on a plaque on the left wall
