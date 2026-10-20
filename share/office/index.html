@@ -11,6 +11,7 @@
 :root {
   --bg: #e9edf3; --panel: #ffffff; --line: #d3d9e3; --fg: #1b1f27; --muted: #677083;
   --run: #2f7fd6; --wait: #c77d00; --done: #1d9a64; --sleep: #8b94a5; --alert: #d9473a; --honey: #f2b632; --bee-dark: #23201a;
+  --o-grass: #a8d38c; --o-grass2: #a0cc84; --o-soil: #9a7350; --o-path: #e9e0cf; --o-leaf: #5fae5a; --o-leaf2: #4f9b4c; --o-trunk: #7a5636; --o-hedge: #4f9450; --o-hive: #f2c14e; --o-lamp: #ffd98a;
   --m-wall: #3b4250; --m-wallface: #f4efe6; --m-window: #cfe3f5; --m-glass: rgba(170, 200, 230, .28); --m-grass: #d9ead2; --m-lid: #8d96a6; --m-counter: #8a6a4a; --m-office: #efe6d6; --m-plank: rgba(120, 90, 50, .09); --m-remote: #e7e3ef; --m-hall: #dde2ea;
   --m-meet: #d5e1ef; --m-lounge: #f3f5f8; --m-tile: #e3e7ee; --m-mine: #ece5d6; --m-rug: rgba(242, 182, 50, .22);
   --m-desk: #c99c6a; --m-desk-edge: #9c7448; --m-chair: #4a5160; --m-mon: #2a2e37; --m-screen: #14171d;
@@ -24,6 +25,7 @@
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #101217; --panel: #1a1d24; --line: #2b303b; --fg: #e1e6f0; --muted: #8b93a3;
   --run: #5aa9ff; --wait: #f5a524; --done: #3ecf8e; --sleep: #6b7385; --alert: #ff6b5a;
+  --o-grass: #46683a; --o-grass2: #426236; --o-soil: #4e3a28; --o-path: #6f6a62; --o-leaf: #3a7237; --o-leaf2: #30622e; --o-trunk: #5a3f28; --o-hedge: #356b37; --o-hive: #c99a32; --o-lamp: #ffd98a;
   --m-wall: #5a6375; --m-wallface: #2a2d35; --m-window: #22344a; --m-glass: rgba(120, 160, 210, .16); --m-grass: #1f2b20; --m-lid: #5b6372; --m-counter: #5b4430; --m-office: #29251f; --m-plank: rgba(255, 255, 255, .035); --m-remote: #25222d; --m-hall: #1b1e25;
   --m-meet: #1d2532; --m-lounge: #22252c; --m-tile: #1c1f25; --m-mine: #28251e; --m-rug: rgba(242, 182, 50, .12);
   --m-desk: #7a5a3c; --m-desk-edge: #5b412a; --m-chair: #3a404c; --m-mon: #4a5160; --m-screen: #0b0d11;
@@ -34,6 +36,7 @@
 :root[data-theme="dark"] {
   --bg: #101217; --panel: #1a1d24; --line: #2b303b; --fg: #e1e6f0; --muted: #8b93a3;
   --run: #5aa9ff; --wait: #f5a524; --done: #3ecf8e; --sleep: #6b7385; --alert: #ff6b5a;
+  --o-grass: #46683a; --o-grass2: #426236; --o-soil: #4e3a28; --o-path: #6f6a62; --o-leaf: #3a7237; --o-leaf2: #30622e; --o-trunk: #5a3f28; --o-hedge: #356b37; --o-hive: #c99a32; --o-lamp: #ffd98a;
   --m-wall: #5a6375; --m-wallface: #2a2d35; --m-window: #22344a; --m-glass: rgba(120, 160, 210, .16); --m-grass: #1f2b20; --m-lid: #5b6372; --m-counter: #5b4430; --m-office: #29251f; --m-plank: rgba(255, 255, 255, .035); --m-remote: #25222d; --m-hall: #1b1e25;
   --m-meet: #1d2532; --m-lounge: #22252c; --m-tile: #1c1f25; --m-mine: #28251e; --m-rug: rgba(242, 182, 50, .12);
   --m-desk: #7a5a3c; --m-desk-edge: #5b412a; --m-chair: #3a404c; --m-mon: #4a5160; --m-screen: #0b0d11;
@@ -164,6 +167,14 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
         <label><input type="radio" name="sound" id="snd-on" value="on"><span data-t="튀어나올 때 붕|Buzz when popping out"></span></label>
       </div>
     </fieldset>
+    <fieldset>
+      <legend data-t="하늘|Sky"></legend>
+      <div class="seg">
+        <label><input type="radio" name="sky" id="sky-auto" value="auto"><span data-t="시계 따라|Follow the clock"></span></label>
+        <label><input type="radio" name="sky" id="sky-day" value="day"><span data-t="늘 낮|Always day"></span></label>
+        <label><input type="radio" name="sky" id="sky-night" value="night"><span data-t="늘 밤|Always night"></span></label>
+      </div>
+    </fieldset>
     <fieldset id="top-set" hidden>
       <legend data-t="창|Window"></legend>
       <label class="check"><input type="checkbox" id="top"><span data-t="다른 창 위에 띄우기 (⌘T)|Keep on top of other windows (⌘T)"></span></label>
@@ -235,7 +246,7 @@ function applyLang() {
     'Bee office. One bee per Claude session moves between its desk, the meeting room, the lounge and the question window in the boss room.'));
 }
 
-const settings = { pop: 'front', privacy: 'all', sound: 'off' };
+const settings = { pop: 'front', privacy: 'all', sound: 'off', sky: 'auto' };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('office-settings') || '{}')); } catch (e) {}
 const saveSettings = () => { try { localStorage.setItem('office-settings', JSON.stringify(settings)); } catch (e) {} };
 
@@ -541,11 +552,11 @@ function place() {
 const T = {};
 const TOKENS = ['bg', 'panel', 'line', 'fg', 'muted', 'run', 'wait', 'done', 'sleep', 'alert', 'honey', 'bee-dark', 'm-wall', 'm-wallface', 'm-office', 'm-plank', 'm-remote', 'm-meet',
   'm-lounge', 'm-tile', 'm-mine', 'm-rug', 'm-grass', 'm-window', 'm-glass', 'm-desk', 'm-chair', 'm-mon', 'm-screen', 'm-lid', 'm-counter', 'm-sofa', 'm-plant', 'm-pot',
-  'm-pong', 'm-board', 'm-wax', 'm-wax-edge', 'm-label', 'm-shadow', 'm-wing', 'tag-bg', 'tag-fg', 'f-body', 'f-mono'];
+  'm-pong', 'm-board', 'm-wax', 'o-grass', 'o-grass2', 'o-soil', 'o-path', 'o-leaf', 'o-leaf2', 'o-trunk', 'o-hedge', 'o-hive', 'o-lamp', 'm-wax-edge', 'm-label', 'm-shadow', 'm-wing', 'tag-bg', 'tag-fg', 'f-body', 'f-mono'];
 function readTokens() {
   const cs = getComputedStyle(document.documentElement);
   for (const k of TOKENS) T[k] = cs.getPropertyValue('--' + k).trim();
-  T.idle = T.sleep;
+  T.idle = T.sleep; T.win = T['m-window'];
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTokens);
 new MutationObserver(readTokens).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
@@ -650,12 +661,12 @@ function drawBackWalls(t) {
     const a = P(...w.a, WALL), b = P(...w.b, WALL); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
     if (w.deco) w.deco(t, LOFF);
     else onFace(...w.a, (w.b[0] - w.a[0]) / Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]), (w.b[1] - w.a[1]) / Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]), () => {
-      c.fillStyle = T['m-window']; const len = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]); for (let u = 1.2; u < len - 2; u += 3) c.fillRect(u, 24, 1.8, 36);
+      c.fillStyle = T.win; const len = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]); for (let u = 1.2; u < len - 2; u += 3) c.fillRect(u, 24, 1.8, 36);
     });
   }
 }
 function decoBack(t) {
-  onFaceY(0, 0, () => { c.fillStyle = T['m-window']; for (let x = 1.2; x < 14; x += 3) c.fillRect(x, 24, 1.8, 36); });
+  onFaceY(0, 0, () => { c.fillStyle = T.win; for (let x = 1.2; x < 14; x += 3) c.fillRect(x, 24, 1.8, 36); });
   // the whiteboard; the plan grows while a bee draws at it / 화이트보드. 벌이 그리는 동안 계획이 늘어난다
   onFaceY(0, 0, () => {
     c.fillStyle = T['m-wall']; c.fillRect(16.9, 15, 3.2, 40); c.fillStyle = T['m-board']; c.fillRect(17, 16, 3, 38);
@@ -672,7 +683,7 @@ function decoBack(t) {
 }
 function decoLeft(t, LOFF) {
   onFaceX(0, 0, () => {
-    c.fillStyle = T['m-window']; for (let y = 1.2; y < 7.5 + LOFF; y += 3) c.fillRect(y, 24, 1.8, 36);
+    c.fillStyle = T.win; for (let y = 1.2; y < 7.5 + LOFF; y += 3) c.fillRect(y, 24, 1.8, 36);
     // the elevator / 엘리베이터
     const e = 8.5 + LOFF; c.fillStyle = T['m-wall']; c.fillRect(e - .1, 0, 1.4, 52); c.fillStyle = T['m-board']; c.fillRect(e, 0, .58, 48); c.fillRect(e + .62, 0, .58, 48);
     // the cafe menu / 카페 메뉴판
@@ -706,6 +717,107 @@ function glass(x0, y0, x1, y1) {
   c.strokeStyle = T['m-wall']; c.lineWidth = 2;
   c.beginPath(); c.moveTo(a2.x, a2.y); c.lineTo(b2.x, b2.y); c.moveTo(a.x, a.y); c.lineTo(a2.x, a2.y); c.stroke();
 }
+/* ---------- outside: the sky and the yard / 바깥: 하늘과 마당 ----------
+   The sky stays put behind everything and follows the clock (dawn, day, dusk, night; Settings can pin
+   day or night). The building stands on a small island of lawn that turns and zooms with it: a
+   sidewalk, paths, a hedge, trees, flower beds with bees, two hives, lamps that light up at night.
+   하늘은 맨 뒤에 고정되어 시계를 따른다 (새벽, 낮, 노을, 밤. 설정에서 낮이나 밤으로 고정).
+   건물은 함께 돌고 커지는 작은 잔디 섬 위에 선다: 보도, 오솔길, 산울타리, 나무, 벌이 나는 꽃밭,
+   벌통 둘, 밤에 켜지는 가로등. */
+const SKY = [   // hour, top, bottom, daylight / 시각, 위, 아래, 햇빛
+  [0, '#0b1430', '#1d2a4f', 0], [5, '#0f1a3a', '#26335c', 0], [6.5, '#6d7fc4', '#f6b89a', .6], [8, '#8ec5f0', '#dceefa', 1],
+  [16.5, '#8ec5f0', '#e3f1fb', 1], [18.2, '#3d4f8f', '#f39a6b', .5], [19.5, '#101a3a', '#27345c', 0], [24, '#0b1430', '#1d2a4f', 0]];
+const hex = h => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+const mixc = (a, b, k) => { const x = hex(a), y = hex(b); return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * k).toString(16).padStart(2, '0')).join(''); };
+let LIGHT = 1;
+function skyNow() {
+  const d = new Date(), h = settings.sky === 'day' ? 12 : settings.sky === 'night' ? 23 : d.getHours() + d.getMinutes() / 60;
+  const i = SKY.findIndex(k => k[0] > h), a = SKY[i - 1], b = SKY[i], k = (h - a[0]) / (b[0] - a[0]);
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches && document.documentElement.dataset.theme !== 'light' || document.documentElement.dataset.theme === 'dark';
+  const dim = col => dark ? mixc(col, '#05070d', .45) : col;
+  return { top: dim(mixc(a[1], b[1], k)), bottom: dim(mixc(a[2], b[2], k)), light: (a[3] + (b[3] - a[3]) * k) * (dark ? .75 : 1) };
+}
+const STARS = Array.from({ length: 70 }, (_, i) => ({ x: (Math.sin(i * 12.9898) * 43758.5453) % 1, y: (Math.sin(i * 78.233) * 12345.678) % 1, p: i })).map(s => ({ x: Math.abs(s.x), y: Math.abs(s.y) * .6, p: s.p }));
+function drawSky(t) {
+  const s = skyNow();
+  LIGHT = s.light;
+  // window panes glow warm as the light goes / 해가 지면 창문이 따뜻하게 켜진다
+  T.win = mixc(T['m-window'], T['o-lamp'], Math.max(0, 1 - LIGHT * 1.3));
+  c.save(); c.setTransform(1, 0, 0, 1, 0, 0);
+  const g = c.createLinearGradient(0, 0, 0, cv.height); g.addColorStop(0, s.top); g.addColorStop(1, s.bottom);
+  c.fillStyle = g; c.fillRect(0, 0, cv.width, cv.height);
+  if (LIGHT < .5) for (const st of STARS) { c.globalAlpha = (1 - LIGHT * 2) * (.5 + .5 * Math.sin(t * 1.3 + st.p)); circle(st.x * cv.width, st.y * cv.height, (devicePixelRatio || 1) * (st.p % 3 ? .8 : 1.3), '#ffffff'); }
+  if (LIGHT > .3) {
+    c.globalAlpha = Math.min(.85, LIGHT - .2); c.fillStyle = '#ffffff';
+    for (let i = 0; i < 4; i++) {
+      const w = cv.width, x = ((t * 6 + i * 377) * (devicePixelRatio || 1)) % (w + 300) - 150, y = cv.height * (.06 + i * .07), r = (28 + i * 6) * (devicePixelRatio || 1);
+      c.beginPath(); c.ellipse(x, y, r * 1.6, r * .45, 0, 0, 7); c.ellipse(x + r * .7, y - r * .2, r, r * .4, 0, 0, 7); c.fill();
+    }
+  }
+  c.globalAlpha = 1; c.restore();
+}
+const YARD = 7;   // lawn around the building, in tiles / 건물 둘레 잔디 폭 (타일)
+const night = col => mixc(col, '#14203d', (1 - LIGHT) * .55);
+// is a yard spot behind one of the standing back walls (then it is drawn before them)
+// 마당의 한 점이 서 있는 뒷벽 너머인가 (그러면 벽보다 먼저 그린다)
+const behind = (x, y) => (x < 0 && toward(1, 0)) || (y < 0 && toward(0, 1)) || (x > GX && toward(-1, 0)) || (y > LAY.GY && toward(0, -1));
+function yardItems() {
+  const { GY, LOFF } = LAY, E = YARD, items = [];
+  const tree = (x, y, s = 1) => items.push([x, y, () => {
+    cyl(x, y, .16 * s, 20 * s, night(T['o-trunk']));
+    const p = P(x, y, 20 * s);
+    for (const [dx, dy, r, k] of [[0, 0, 15, 0], [-8, -9, 12, .1], [8, -10, 11, .1], [0, -20, 11, .2]]) circle(p.x + dx * s, p.y + dy * s, r * s, night(k ? T['o-leaf2'] : T['o-leaf']));
+  }]);
+  const lamp = (x, y) => items.push([x, y, () => {
+    cyl(x, y, .06, 46, night(T['m-wall']));
+    const p = P(x, y, 50), on = Math.max(0, 1 - LIGHT * 1.6);
+    if (on > 0) { const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, 34); g.addColorStop(0, `rgba(255, 214, 140, ${.55 * on})`); g.addColorStop(1, 'rgba(255, 214, 140, 0)'); c.fillStyle = g; c.beginPath(); c.arc(p.x, p.y, 34, 0, 7); c.fill(); }
+    circle(p.x, p.y, 4, on > 0 ? T['o-lamp'] : night(T['m-board']));
+  }]);
+  const hive = (x, y) => items.push([x, y, () => {
+    box(x - .35, y - .35, .7, .7, 14, night(T['o-hive']));
+    box(x - .42, y - .42, .84, .84, 3, night(T['m-counter']), 14);
+    const p = P(x, y, 6); circle(p.x, p.y + 2, 1.8, T['bee-dark']);
+  }]);
+  const bed = (x, y) => items.push([x, y, () => {
+    const cols = [T.alert, T.honey, '#e889c4', '#ffffff', '#9b7de0'];
+    for (let i = 0; i < 14; i++) { const a = i * 2.4, r = .25 + (i % 5) * .13, p = P(x + Math.cos(a) * r, y + Math.sin(a) * r, 3); circle(p.x, p.y, 2.2, night(cols[i % cols.length])); }
+    if (!reduced) for (let i = 0; i < 2; i++) {   // bees around the flowers / 꽃 주변의 벌
+      const a = t0() * (1.6 + i * .5) + i * 3, p = P(x + Math.cos(a) * .7, y + Math.sin(a) * .5, 16 + Math.sin(a * 3) * 4);
+      circle(p.x, p.y, 2.2, T.honey); circle(p.x + .8, p.y, 1, T['bee-dark']);
+    }
+  }]);
+  for (const [x, y, s] of [[-4, -3, 1.2], [-5.2, 5, 1], [-3.5, 14, 1.3], [5, -4.5, 1.1], [13, -5.2, 1.3], [21, -4, 1], [GX + 4, 2, 1.2], [GX + 5, 9, 1], [GX + 3.5, GY + 4, 1.3],
+    [18, GY + 4.5, 1.1], [6, GY + 5, 1.2], [-4.5, GY + 3.5, 1]]) tree(x, y, s);
+  for (const [x, y] of [[-2.2, 7.8 + LOFF], [-2.2, 11 + LOFF], [11.4, GY + 1.6], [14.4, GY + 4.6]]) lamp(x, y);
+  hive(GX + 2.6, 12.6); hive(GX + 2.6, 14.2);
+  for (const [x, y] of [[-3, 2], [GX + 3, 5.5], [9, -2.6], [3, GY + 3], [GX + 4.5, GY + 1.5]]) bed(x, y);
+  items.push([-3.6, 12.6 + LOFF, () => { box(-4.4, 12.4 + LOFF, 1.6, .45, 8, night(T['m-desk'])); }]);
+  // the hedge around the island, open where the paths leave / 섬 둘레 산울타리. 길이 나가는 곳은 비운다
+  const gap = (x, y) => (x < -E + 1 && Math.abs(y - (9.2 + LOFF)) < 1) || (y > GY + E - 1 && Math.abs(x - 12.9) < 1);
+  for (let x = -E; x < GX + E; x++) for (const y of [-E, GY + E - .5]) if (!gap(x + .5, y)) items.push([x + .5, y + .25, () => box(x, y, 1, .5, 12, night(T['o-hedge']))]);
+  for (let y = -E + .5; y < GY + E - .5; y++) for (const x of [-E, GX + E - .5]) if (!gap(x, y + .5)) items.push([x + .25, y + .5, () => box(x, y, .5, 1, 12, night(T['o-hedge']))]);
+  return items;
+}
+let tNow = 0;
+const t0 = () => tNow;
+function drawYard(t) {
+  tNow = t;
+  const { GY, LOFF } = LAY, E = YARD;
+  // the island: soil sides, mown lawn, the sidewalk around the building and two paths
+  // 섬: 흙 옆면, 깎은 잔디, 건물 둘레 보도, 오솔길 둘
+  box(-E, -E, GX + 2 * E, GY + 2 * E, 22, night(T['o-soil']), -22);
+  floorRect(-E, -E, GX + 2 * E, GY + 2 * E, night(T['o-grass']));
+  for (let x = -E; x < GX + E; x += 2) floorRect(x, -E, 1, GY + 2 * E, night(T['o-grass2']));
+  floorRect(-1, -1, GX + 2, GY + 2, night(T['o-path']));
+  floorRect(-E, 8.6 + LOFF, E, 1.2, night(T['o-path']));
+  floorRect(12.3, GY, 1.2, E, night(T['o-path']));
+  const items = yardItems();
+  items.filter(([x, y]) => behind(x, y)).sort((a, b) => D(a[0], a[1]) - D(b[0], b[1])).forEach(i => i[2]());
+  yardFront = items.filter(([x, y]) => !behind(x, y));
+}
+let yardFront = [];
+
 function buildScene(t) {
   scene.length = 0;
   const { LOFF } = LAY;
@@ -767,6 +879,7 @@ function buildScene(t) {
   for (const b of bees.values()) if (!b.popped) add(b.x, b.y, () => drawBee(b, t), .02);
   for (const h of helpers.values()) add(h.x, h.y, () => drawBee(h, t), .02);
   for (const n of crew.values()) add(n.x, n.y, () => drawBee(n, t), .02);
+  for (const [x, y, draw] of yardFront) add(x, y, draw);
 }
 // the laptop on a desk: its screen faces its bee; from behind the bee we see the state, from the
 // other side the lid
@@ -974,9 +1087,9 @@ function frame(now) {
     if (Math.abs(dk) > .0005) setTilt(reduced ? cam.tilt : TH / TW + dk * Math.min(1, dt * 9));
     place();
     for (const b of [...bees.values(), ...crew.values()]) step(b, dt);
-    c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = T.panel; c.fillRect(0, 0, cv.width, cv.height); c.restore();
+    drawSky(t);
     c.textBaseline = 'top';
-    drawFloor(); drawBackWalls(t);
+    drawYard(t); drawFloor(); drawBackWalls(t);
     buildScene(t);
     scene.sort((a, b) => a.k - b.k).forEach(o => o.draw());
     labels();
@@ -1238,7 +1351,7 @@ function toast(msg) {
 const panel = $('#settings'), gear = $('#gear');
 gear.addEventListener('click', () => { panel.hidden = !panel.hidden; gear.setAttribute('aria-expanded', String(!panel.hidden)); });
 document.addEventListener('click', e => { if (!panel.hidden && !panel.contains(e.target) && !gear.contains(e.target)) { panel.hidden = true; gear.setAttribute('aria-expanded', 'false'); } });
-for (const k of ['pop', 'privacy', 'sound']) { const r = panel.querySelector(`input[name="${k}"][value="${settings[k]}"]`); if (r) r.checked = true; }
+for (const k of ['pop', 'privacy', 'sound', 'sky']) { const r = panel.querySelector(`input[name="${k}"][value="${settings[k]}"]`); if (r) r.checked = true; }
 panel.addEventListener('submit', e => e.preventDefault());
 panel.addEventListener('change', e => {
   if (e.target.id === 'top') return tell({ top: e.target.checked });
