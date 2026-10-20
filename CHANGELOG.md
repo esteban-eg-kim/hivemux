@@ -3,9 +3,8 @@
 ## Unreleased
 
 - Bee office: each Mac's desks sit on a carpet of its color (honey for this
-  Mac, lilac for a remote one), and its name is on a wooden sign hung level
-  from the ceiling over the aisle, painted on both sides, instead of a sign on
-  legs
+  Mac, lilac for a remote one), and its name is on a plaque on the left wall
+  beside the row where its desks start, instead of a sign on legs
 
 ## 0.1.30 — 2026-10-21
 
