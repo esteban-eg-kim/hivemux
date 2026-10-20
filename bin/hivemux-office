@@ -241,8 +241,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if not self.local():
             return self.send(403, "{}")
         path = self.path.split("?", 1)[0]
-        if path == "/ping":
-            return self.send(200, "hivemux-office", "text/plain")
+        if path == "/ping":       # with where its files are: a server left from before an upgrade has none
+            return self.send(200, f"hivemux-office {SHARE}", "text/plain")   # 파일 위치와 함께: 업그레이드 전 서버는 파일이 없다
         if path == "/state":
             Handler.last = time.time()
             local = snapshot()
@@ -287,11 +287,32 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 def ping(port):
+    """"ours" when our server answers on port, "old" when one of another install (one left running from
+    before an upgrade: brew removed its files, so its page no longer loads), else None
+    port 에서 우리 서버가 답하면 "ours", 다른 설치본 서버면 (업그레이드 전부터 돌던 것: brew 가 파일을 지워
+    페이지가 안 열린다) "old", 아니면 None"""
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/ping", timeout=1) as r:
-            return r.read() == b"hivemux-office"
+            body = r.read().decode(errors="replace")
     except OSError:
-        return False
+        return None
+    if not body.startswith("hivemux-office"):
+        return None
+    return "ours" if body == f"hivemux-office {SHARE}" else "old"
+
+
+def stop_old(port):
+    """Stop the server of another install listening on port / port 에서 듣는 다른 설치본 서버를 끈다"""
+    pids = subprocess.run(["lsof", "-t", "-a", f"-iTCP:{port}", "-sTCP:LISTEN"], capture_output=True, text=True).stdout.split()
+    for pid in pids:
+        try:
+            os.kill(int(pid), signal.SIGTERM)
+        except (OSError, ValueError):
+            pass
+    for _ in range(20):
+        if not ping(port):
+            return
+        time.sleep(.1)
 
 
 def running_port():
@@ -299,7 +320,10 @@ def running_port():
         port = int(open(PORT_FILE).read())
     except (OSError, ValueError):
         return None
-    return port if ping(port) else None
+    state = ping(port)
+    if state == "old":
+        stop_old(port)
+    return port if state == "ours" else None
 
 
 def serve():
@@ -310,8 +334,16 @@ def serve():
             srv = http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
             break
         except OSError:
-            if ping(port):          # another server of ours already runs / 이미 우리 서버가 있다
+            state = ping(port)
+            if state == "ours":     # another server of ours already runs / 이미 우리 서버가 있다
                 return
+            if state == "old":      # left from before an upgrade: take its place / 업그레이드 전 서버: 자리를 넘겨받는다
+                stop_old(port)
+                try:
+                    srv = http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
+                    break
+                except OSError:
+                    pass
     if not srv:
         sys.exit("hivemux-office: no free port")
     with open(PORT_FILE, "w") as f:
@@ -416,6 +448,16 @@ def build_screen(popup):
         out.write(f"\r  \x1b[32m✓\x1b[0m {t('다 됐어요. 창을 엽니다', 'Done. Opening the window')}          \n")
     else:
         out.write(f"\r  \x1b[31m!\x1b[0m {t('창을 만들지 못해 브라우저로 엽니다', 'Could not build the window; opening the browser')}   \n")
+        try:
+            why = open(os.path.join(OFFICE_DIR, "build.log")).read().strip().splitlines()[0][:120]
+        except (OSError, IndexError):
+            why = ""
+        if why:
+            out.write(f"    {why}\n")
+            if "standard library" in why or "SDK" in why:
+                out.write("    " + t("Xcode Command Line Tools 가 망가진 것 같아요. 다시 설치하세요:",
+                                     "The Xcode Command Line Tools look broken. Reinstall them:") + "\n"
+                          "      sudo rm -rf /Library/Developer/CommandLineTools && xcode-select --install\n")
     out.flush()
     if popup:
         time.sleep(1.2)

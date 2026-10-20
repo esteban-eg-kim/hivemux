@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Bee office: a server still running from before an upgrade (whose files
+  Homebrew removed, so the page said "This page isn't working") is replaced
+  by the new one. When the window cannot be built, the reason is shown, with
+  how to reinstall the Command Line Tools when they look broken
+
 ## 0.1.29 — 2026-10-21
 
 - Bee office: bigger desks (pods of four, two to a row) so a desk no longer
