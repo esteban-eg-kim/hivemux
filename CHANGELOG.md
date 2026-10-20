@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.30 — 2026-10-21
 
 - Bee office: a server still running from before an upgrade (whose files
   Homebrew removed, so the page said "This page isn't working") is replaced
