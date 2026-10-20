@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.28 — 2026-10-20
 
 - The bee office button (🐝, `prefix B`, the menu) on a screen attached from
   another Mac opens the window on that Mac, the one you are looking at, with
