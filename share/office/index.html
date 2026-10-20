@@ -527,6 +527,7 @@ const saveView = () => { try { localStorage.setItem('office-view', JSON.stringif
 function bounds() {
   const pts = [];
   for (const [x, y] of [[0, 0], [GX, 0], [GX, LAY.GY], [0, LAY.GY]]) pts.push(P(x, y), P(x, y, WALL));
+  const g = planet(); pts.push({ x: g.x - g.R * 1.06, y: g.y - g.R * 1.06 }, { x: g.x + g.R * 1.06, y: g.y + g.R * 1.06 });
   const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
   return { x0: Math.min(...xs) - 24, x1: Math.max(...xs) + 24, y0: Math.min(...ys) - 30, y1: Math.max(...ys) + 18 };
 }
@@ -774,87 +775,85 @@ function sunPos() {
   return [23.44 * Math.sin(2 * Math.PI * (284 + doy) / 365), (12 - d.getUTCHours() - d.getUTCMinutes() / 60) * 15];
 }
 const RAD = Math.PI / 180;
-// a point on the globe seen from above HOME: x right, y up, z toward us (unit sphere)
-// HOME 위에서 본 지구 위의 점: x 오른쪽, y 위, z 이쪽 (단위 구)
-function ortho(lat, lon) {
-  const p = lat * RAD, l = (lon - HOME[1]) * RAD, p0 = HOME[0] * RAD;
+/* The office sits on top of a tiny planet, like a picture book: the ground is a round cap around the
+   building, trees stand along its rim, and below it the ball of the Earth shows oceans and land, with
+   the night side dark where it is night now. Turning the view turns the planet.
+   사무실은 그림책처럼 작은 행성 꼭대기에 있다: 땅은 건물을 둘러싼 둥근 꼭대기이고, 가장자리를 따라
+   나무가 서 있고, 그 아래로 바다와 육지가 보이는 지구 공이 있다. 지금 밤인 쪽은 어둡다.
+   보기를 돌리면 행성도 돈다. */
+const CAP = 18.5;   // the ground around the building, in tiles / 건물 둘레 땅의 반지름 (타일)
+// the ball: a circle through the left, right and back of the round cap seen at the current angle
+// 공: 지금 각도에서 본 둥근 꼭대기의 왼쪽, 오른쪽, 뒤쪽을 지나는 원
+function planet() {
+  const s = TH / TW, rho = CAP * TW * Math.SQRT2, down = rho * (1 - s * s) / (2 * s), o = P(CX, CY);
+  return { x: o.x, y: o.y + down, R: rho * s + down, rho, s };
+}
+// a point on the globe seen from above (lat0, lon0): x right, y up, z toward us (unit sphere)
+// (lat0, lon0) 위에서 본 지구 위의 점: x 오른쪽, y 위, z 이쪽 (단위 구)
+function orthoAt(lat, lon, lat0, lon0) {
+  const p = lat * RAD, l = (lon - lon0) * RAD, p0 = lat0 * RAD;
   return [Math.cos(p) * Math.sin(l), Math.cos(p0) * Math.sin(p) - Math.sin(p0) * Math.cos(p) * Math.cos(l), Math.sin(p0) * Math.sin(p) + Math.cos(p0) * Math.cos(p) * Math.cos(l)];
 }
-// the Earth's radius on screen grows steeply with zoom: the whole globe far out, flat ground near
-// 화면 위 지구 반지름은 줌에 따라 가파르게 커진다: 멀리선 지구 전체, 가까이선 평평한 땅
-const earthR = () => 120 * Math.pow(cam.zoom / .02, 2) * VIEW.w / 1000;
-function drawEarth() {
-  const dpr = devicePixelRatio || 1, R = earthR(), o = P(CX, CY);
-  const cx = VIEW.w / 2 + (o.x - VIEW.cx) * scale, cy = VIEW.h / 2 + (o.y - VIEW.cy) * scale;
-  const ground = night(T['o-wild']);
-  c.save(); c.setTransform(dpr, 0, 0, dpr, 0, 0);
-  if (R > 5e4) { c.fillStyle = ground; c.fillRect(0, 0, VIEW.w, VIEW.h); c.restore(); return; }
-  const far = Math.min(1, (5e4 - R) / 4e4);   // 0 near, 1 far: how much it looks like a globe / 0 가까움, 1 멂
-  // near, the ground carries the local night itself; far, the night side shades the globe instead
-  // 가까이선 땅 색이 이곳의 밤을 담고, 멀리선 대신 밤 반구가 지구를 어둡게 한다
-  const land = mixc(ground, T['o-wild'], far);
-  // the air around it / 대기
-  const glow = c.createRadialGradient(cx, cy, R * .98, cx, cy, R * 1.08);
-  glow.addColorStop(0, 'rgba(120, 180, 255, .45)'); glow.addColorStop(1, 'rgba(120, 180, 255, 0)');
-  c.fillStyle = glow; c.beginPath(); c.arc(cx, cy, R * 1.08, 0, 7); c.fill();
-  c.beginPath(); c.arc(cx, cy, R, 0, 7); c.fillStyle = mixc(T['o-sea'], land, 1 - far); c.fill();
-  c.save(); c.beginPath(); c.arc(cx, cy, R, 0, 7); c.clip();
-  c.translate(cx, cy); c.rotate(-ROT);
-  // land: points on the far side are pulled to the edge / 육지: 뒤쪽 점은 가장자리로 붙인다
-  c.fillStyle = land;
+// the point of the globe facing the viewer: from HOME (at the top) toward us by 90° minus the view's height
+// 보는 사람을 향한 지구의 점: 꼭대기의 HOME 에서 이쪽으로 (90° - 보는 높이)만큼
+function facing() {
+  const e = Math.asin(TH / TW), d = Math.PI / 2 - e, b = Math.PI - ROT, p1 = HOME[0] * RAD, l1 = HOME[1] * RAD;
+  const p2 = Math.asin(Math.sin(p1) * Math.cos(d) + Math.cos(p1) * Math.sin(d) * Math.cos(b));
+  const l2 = l1 + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(p1), Math.cos(d) - Math.sin(p1) * Math.sin(p2));
+  return [p2 / RAD, l2 / RAD];
+}
+function drawPlanet() {
+  const g = planet(), [la, lo] = facing(), R = g.R;
+  // the air / 대기
+  const air = c.createRadialGradient(g.x, g.y, R * .97, g.x, g.y, R * 1.1);
+  air.addColorStop(0, 'rgba(130, 190, 255, .5)'); air.addColorStop(1, 'rgba(130, 190, 255, 0)');
+  c.fillStyle = air; c.beginPath(); c.arc(g.x, g.y, R * 1.1, 0, 7); c.fill();
+  c.beginPath(); c.arc(g.x, g.y, R, 0, 7); c.fillStyle = T['o-sea']; c.fill();
+  c.save(); c.beginPath(); c.arc(g.x, g.y, R, 0, 7); c.clip();
+  c.translate(g.x, g.y);
+  // turn so HOME is straight up / HOME 이 바로 위로 오게 돌린다
+  const [hx, hy] = orthoAt(HOME[0], HOME[1], la, lo); c.rotate(-Math.PI / 2 - Math.atan2(-hy, hx));
+  const edge = (x, y, z) => { if (z < 0) { const k = 1 / Math.hypot(x, y); x *= k; y *= k; } return [x * R, -y * R]; };
+  c.fillStyle = T['o-wild'];
   for (const ring of LAND) {
     c.beginPath();
-    for (let i = 0; i < ring.length; i += 2) {
-      let [x, y, z] = ortho(ring[i + 1], ring[i]);
-      if (z < 0) { const k = 1 / Math.hypot(x, y); x *= k; y *= k; }
-      i ? c.lineTo(x * R, -y * R) : c.moveTo(x * R, -y * R);
-    }
+    for (let i = 0; i < ring.length; i += 2) { const [x, y] = edge(...orthoAt(ring[i + 1], ring[i], la, lo)); i ? c.lineTo(x, y) : c.moveTo(x, y); }
     c.fill();
   }
-  // polar ice / 극지 얼음
   c.fillStyle = T['o-ice'];
-  for (const lat of [-90, 90]) {
-    c.beginPath(); let first = true;
-    for (let lon = -180; lon <= 180; lon += 10) { let [x, y, z] = ortho(lat > 0 ? 82 : -78, lon); if (z < 0) { const k = 1 / Math.hypot(x, y); x *= k; y *= k; } first ? c.moveTo(x * R, -y * R) : c.lineTo(x * R, -y * R); first = false; }
-    c.fill();
-  }
-  // night: the half turned from the sun, bounded by the terminator ellipse / 밤: 해 반대쪽 반구 (경계는 타원)
-  const [sx, sy, sz] = ortho(...sunPos()), a = Math.atan2(-sy, sx), sxy = Math.hypot(sx, sy);
-  c.rotate(a);
-  c.fillStyle = `rgba(6, 10, 30, ${.62 * far})`;
-  c.beginPath();
-  c.arc(0, 0, R, Math.PI / 2, Math.PI * 1.5);   // the half away from the sun (sun on +x) / 해가 +x 쪽일 때 반대쪽 반원
-  c.ellipse(0, 0, R * Math.abs(sz), R, 0, -Math.PI / 2, Math.PI / 2, sz > 0);
-  c.fill();
-  if (sxy < 1e-3) { c.beginPath(); c.arc(0, 0, R, 0, 7); c.fillStyle = sz < 0 ? `rgba(6, 10, 30, ${.62 * far})` : 'transparent'; c.fill(); }
+  for (const cap of [82, -78]) { c.beginPath(); for (let lon = -180; lon <= 180; lon += 10) { const [x, y] = edge(...orthoAt(cap, lon, la, lo)); lon > -180 ? c.lineTo(x, y) : c.moveTo(x, y); } c.fill(); }
+  // night: the half turned from the sun / 밤: 해 반대쪽 반구
+  const [sx, sy, sz] = orthoAt(...sunPos(), la, lo);
+  c.rotate(Math.atan2(-sy, sx));
+  c.fillStyle = 'rgba(6, 10, 30, .5)';
+  c.beginPath(); c.arc(0, 0, R, Math.PI / 2, Math.PI * 1.5); c.ellipse(0, 0, R * Math.abs(sz), R, 0, -Math.PI / 2, Math.PI / 2, sz > 0); c.fill();
   c.restore();
-  c.restore();
+  // roundness: light from the upper left, shade toward the bottom / 입체감: 왼쪽 위 빛, 아래로 그늘
+  const sh = c.createRadialGradient(g.x - R * .35, g.y - R * .45, R * .1, g.x, g.y, R);
+  sh.addColorStop(0, 'rgba(255, 255, 255, .12)'); sh.addColorStop(.7, 'rgba(0, 0, 0, 0)'); sh.addColorStop(1, 'rgba(0, 0, 0, .35)');
+  c.fillStyle = sh; c.beginPath(); c.arc(g.x, g.y, R, 0, 7); c.fill();
 }
-// beyond the hedge: wild grass with darker and lighter patches, trees, bushes and flowers, the same
-// ones every time (from a hash of the tile), fewer as the view pulls back
-// 산울타리 밖: 얼룩진 풀밭과 나무, 덤불, 꽃. 타일 해시로 정해 늘 같은 자리이고, 멀어질수록 줄어든다
 const hash = (i, j, k = 0) => { const s = Math.sin(i * 127.1 + j * 311.7 + k * 74.7) * 43758.5453; return s - Math.floor(s); };
-function unP(sx, sy) {   // a screen point of the scene back to the floor / 장면 화면 점을 바닥 점으로
-  const a = sx / TW, b = sy / TH, rx = (a + b) / 2 - CX, ry = (b - a) / 2 - CY;
-  return [CX + rx * COS + ry * SIN, CY - rx * SIN + ry * COS];
-}
+const inCap = (x, y, m = 0) => Math.hypot(x - CX, y - CY) < CAP - m;
+// trees along the rim, and grass patches, bushes and flowers between the building and the rim; the same
+// ones every time (from a hash)
+// 가장자리를 따라 선 나무, 건물과 가장자리 사이의 풀 얼룩, 덤불, 꽃. 해시로 정해 늘 같은 자리
 function wildItems() {
-  const { GY } = LAY, E = YARD, out = [], patches = [];
-  if (cam.zoom < .18) return { out, patches };
-  const pts = [[0, 0], [VIEW.w, 0], [0, VIEW.h], [VIEW.w, VIEW.h]].map(([px, py]) => unP((px - VIEW.w / 2) / scale + VIEW.cx, (py - VIEW.h / 2) / scale + VIEW.cy + 40));
-  const x0 = Math.max(-90, Math.floor(Math.min(...pts.map(p => p[0])))), x1 = Math.min(GX + 90, Math.ceil(Math.max(...pts.map(p => p[0]))));
-  const y0 = Math.max(-90, Math.floor(Math.min(...pts.map(p => p[1])))), y1 = Math.min(GY + 90, Math.ceil(Math.max(...pts.map(p => p[1]))));
-  const stepN = Math.max(1, Math.ceil(Math.sqrt((x1 - x0) * (y1 - y0) / 2600)));   // keep it to ~2600 tiles / 약 2600칸까지
-  for (let i = x0 - (x0 % stepN); i < x1; i += stepN) for (let j = y0 - (y0 % stepN); j < y1; j += stepN) {
-    if (i >= -E && i < GX + E && j >= -E && j < GY + E) continue;
-    const h = hash(i, j), fx = i + hash(i, j, 1) * stepN, fy = j + hash(i, j, 2) * stepN;
-    if (hash(Math.floor(i / 6), Math.floor(j / 6), 3) < .35 && h < .5) patches.push([fx, fy, hash(i, j, 4) < .5]);
-    const near = Math.max(0, 1 - Math.min(Math.abs(i < 0 ? i + E : i - GX - E), Math.abs(j < 0 ? j + E : j - GY - E)) / 4);
-    if (h < .14 - near * .06) out.push([fx, fy, 'tree', .8 + hash(i, j, 5) * .7]);
-    else if (h < .2) out.push([fx, fy, 'bush', .6 + hash(i, j, 6) * .5]);
-    else if (h < .23) out.push([fx, fy, 'flowers', 1]);
+  const out = [], patches = [], { GY } = LAY;
+  for (let a = 0; a < 360; a += 8) {
+    const r = CAP - .6 - hash(a, 1) * .5, x = CX + Math.cos(a * RAD) * r, y = CY + Math.sin(a * RAD) * r;
+    out.push([x, y, hash(a, 2) < .78 ? 'tree' : 'bush', .9 + hash(a, 3) * .6]);
   }
-  return { out: out.slice(0, 900), patches };
+  for (let i = -8; i < GX + 8; i++) for (let j = -8; j < GY + 8; j++) {
+    const x = i + hash(i, j, 1), y = j + hash(i, j, 2);
+    if (!inCap(x, y, 1.6) || (x > -1.5 && x < GX + 1.5 && y > -1.5 && y < GY + 1.5)) continue;
+    const h = hash(i, j);
+    if (h < .3) patches.push([x, y, h < .15]);
+    if (h > .9) out.push([x, y, 'tree', .8 + hash(i, j, 5) * .4]);
+    else if (h > .84) out.push([x, y, 'flowers', 1]);
+    else if (h > .8) out.push([x, y, 'bush', .7]);
+  }
+  return { out, patches };
 }
 
 const YARD = 7;
@@ -902,28 +901,28 @@ function yardItems() {
   hive(GX + 2.6, 12.6); hive(GX + 2.6, 14.2);
   for (const [x, y] of [[-3, 2], [GX + 3, 5.5], [9, -2.6], [3, GY + 3], [GX + 4.5, GY + 1.5]]) bed(x, y);
   items.push([-3.6, 12.6 + LOFF, () => { box(-4.4, 12.4 + LOFF, 1.6, .45, 8, night(T['m-desk'])); }]);
-  // the hedge around the island, open where the paths leave / 섬 둘레 산울타리. 길이 나가는 곳은 비운다
-  const gap = (x, y) => (x < -E + 1 && Math.abs(y - (9.2 + LOFF)) < 1) || (y > GY + E - 1 && Math.abs(x - 12.9) < 1);
-  for (let x = -E; x < GX + E; x++) for (const y of [-E, GY + E - .5]) if (!gap(x + .5, y)) items.push([x + .5, y + .25, () => box(x, y, 1, .5, 12, night(T['o-hedge']))]);
-  for (let y = -E + .5; y < GY + E - .5; y++) for (const x of [-E, GX + E - .5]) if (!gap(x, y + .5)) items.push([x + .25, y + .5, () => box(x, y, .5, 1, 12, night(T['o-hedge']))]);
   return items;
 }
 let tNow = 0;
 const t0 = () => tNow;
 function drawYard(t) {
   tNow = t;
-  const { GY, LOFF } = LAY, E = YARD;
-  // the island: soil sides, mown lawn, the sidewalk around the building and two paths
-  // 섬: 흙 옆면, 깎은 잔디, 건물 둘레 보도, 오솔길 둘
-  if (cam.zoom < .12) { yardFront = []; return; }
+  const { GY, LOFF } = LAY, E = YARD, g = planet();
+  // the round ground on top of the planet, darker toward the rim where it curves away
+  // 행성 꼭대기의 둥근 땅. 휘어 내려가는 가장자리 쪽이 더 어둡다
+  c.save();
+  c.beginPath(); c.ellipse(g.x, g.y - (g.R - g.rho * g.s), g.rho, g.rho * g.s, 0, 0, 7);
+  c.fillStyle = night(T['o-grass']); c.fill(); c.clip();
   const wild = wildItems();
-  for (const [x, y, light] of wild.patches) floorOval(x, y, 1.6, 1.2, night(light ? mixc(T['o-wild'], T['o-grass'], .6) : T['o-wild2']));
-  floorRect(-E, -E, GX + 2 * E, GY + 2 * E, night(T['o-grass']));
-  for (let x = -E; x < GX + E; x += 2) floorRect(x, -E, 1, GY + 2 * E, night(T['o-grass2']));
+  for (const [x, y, light] of wild.patches) floorOval(x, y, 1.3, 1, night(light ? mixc(T['o-wild'], T['o-grass'], .5) : T['o-wild2']));
   floorRect(-1, -1, GX + 2, GY + 2, night(T['o-path']));
   floorRect(-E, 8.6 + LOFF, E, 1.2, night(T['o-path']));
   floorRect(12.3, GY, 1.2, E, night(T['o-path']));
-  const items = yardItems();
+  const rim = c.createRadialGradient(g.x, g.y - (g.R - g.rho * g.s), g.rho * .75, g.x, g.y - (g.R - g.rho * g.s), g.rho);
+  rim.addColorStop(0, 'rgba(0, 0, 0, 0)'); rim.addColorStop(1, 'rgba(0, 0, 0, .22)');
+  c.fillStyle = rim; c.fillRect(g.x - g.rho, g.y - g.R, g.rho * 2, g.R * 2);
+  c.restore();
+  const items = yardItems().filter(([x, y]) => inCap(x, y, .4));
   for (const [x, y, kind, sz] of wild.out) items.push([x, y, () => plantWild(kind, x, y, sz)]);
   items.filter(([x, y]) => behind(x, y)).sort((a, b) => D(a[0], a[1]) - D(b[0], b[1])).forEach(i => i[2]());
   yardFront = items.filter(([x, y]) => !behind(x, y));
@@ -1199,37 +1198,18 @@ function frame(now) {
     if (Math.abs(dk) > .0005) setTilt(reduced ? cam.tilt : TH / TW + dk * Math.min(1, dt * 9));
     place();
     for (const b of [...bees.values(), ...crew.values()]) step(b, dt);
-    drawSky(t); drawEarth();
+    drawSky(t); drawPlanet();
     c.textBaseline = 'top';
-    // far out the office fades into a light on the Earth / 멀어지면 사무실은 지구 위의 불빛이 된다
-    const fade = Math.max(0, Math.min(1, (cam.zoom - .12) / .23));
-    if (fade > 0) {
-      c.globalAlpha = fade;
-      drawYard(t); drawFloor(); drawBackWalls(t);
-      buildScene(t);
-      scene.sort((a, b) => a.k - b.k).forEach(o => o.draw());
-      c.globalAlpha = 1;
-      if (fade > .6) {
-        labels();
-        drawEffects(t, dt);
-        drawTags(t);
-        [...bees.values(), ...helpers.values(), ...crew.values()].forEach(drawBubble);
-      }
-    }
-    if (fade < 1) homeLight(t, 1 - fade);
+    drawYard(t); drawFloor(); drawBackWalls(t);
+    buildScene(t);
+    scene.sort((a, b) => a.k - b.k).forEach(o => o.draw());
+    labels();
+    drawEffects(t, dt);
+    drawTags(t);
+    [...bees.values(), ...helpers.values(), ...crew.values()].forEach(drawBubble);
     if (pop) drawPopBee(t);
   }
   requestAnimationFrame(frame);
-}
-function homeLight(t, k) {
-  const dpr = devicePixelRatio || 1, o = P(CX, CY), x = VIEW.w / 2 + (o.x - VIEW.cx) * scale, y = VIEW.h / 2 + (o.y - VIEW.cy) * scale;
-  const working = [...bees.values()].filter(b => b.state === 'run').length, pulse = reduced ? 0 : (Math.sin(t * 3) + 1) / 2;
-  c.save(); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.globalAlpha = k;
-  const g = c.createRadialGradient(x, y, 0, x, y, 16 + pulse * 6); g.addColorStop(0, 'rgba(242, 182, 50, .9)'); g.addColorStop(1, 'rgba(242, 182, 50, 0)');
-  c.fillStyle = g; c.beginPath(); c.arc(x, y, 22, 0, 7); c.fill(); circle(x, y, 3.5, '#fff6d8');
-  font(11, 600); c.textAlign = 'center'; c.textBaseline = 'bottom'; c.fillStyle = '#f4f6fb';
-  c.fillText(`${offices[0] ? offices[0].host : ''}${working ? ' · ' + tr(`${working}마리 일하는 중`, `${working} working`) : ''}`, x, y - 14);
-  c.textAlign = 'left'; c.textBaseline = 'top'; c.restore();
 }
 // walk in tiles per second; face and back follow the direction on screen
 // 초당 타일만큼 걷는다. 얼굴 방향과 뒷모습은 화면에서의 방향을 따른다
@@ -1372,7 +1352,7 @@ cv.addEventListener('click', e => { if (dragged) { dragged = false; return; } co
    키: Q/E 돌리기, W/S 높이, +/- 확대, 0 전체 보기. 다음에도 그대로. */
 const Q = Math.PI / 4;
 function zoomAt(f, mx, my) {
-  const z = Math.max(.015, Math.min(4, cam.zoom * f));
+  const z = Math.max(.5, Math.min(6, cam.zoom * f));
   if (mx !== undefined) {   // keep the point under the mouse in place / 마우스 아래 점을 제자리에
     const r = cv.getBoundingClientRect(), ox = mx - r.left - VIEW.w / 2, oy = my - r.top - VIEW.h / 2, s2 = scale * z / cam.zoom;
     cam.px += ox / s2 - ox / scale; cam.py += oy / s2 - oy / scale;
@@ -1427,7 +1407,7 @@ let gest = null;
 cv.addEventListener('gesturestart', e => { e.preventDefault(); gest = { zoom: cam.zoom, rot: cam.rot }; });
 cv.addEventListener('gesturechange', e => {
   e.preventDefault(); if (!gest) return;
-  cam.zoom = Math.max(.015, Math.min(4, gest.zoom * e.scale));
+  cam.zoom = Math.max(.5, Math.min(6, gest.zoom * e.scale));
   cam.rot = gest.rot + e.rotation * Math.PI / 180; setRot(cam.rot);
 });
 cv.addEventListener('gestureend', e => { e.preventDefault(); gest = null; saveView(); });
