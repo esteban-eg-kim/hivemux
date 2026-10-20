@@ -32,6 +32,8 @@ Ctrl+V in a Claude pane there on a screen from this Mac (bin/hivemux-paste) sets
 @hivemux-paste-<this Mac> to "<id> <pane> <client>" and wakes the tmux channel hivemux-paste-<this Mac>,
 which this waits on over the same ssh connection: the image on this Mac's clipboard is copied there and
 its path pasted into that pane, and Claude Code turns it into [Image #N].
+The bee office button there (bin/hivemux-office) on a screen from this Mac sets @hivemux-office-<this Mac>
+and wakes the same channel: the window opens on this Mac, with the other Mac's sessions next door.
 같은 식으로, 이 Mac 에서 붙은 화면의 경로 열기 팝업(bin/hivemux-open-ui)은 @hivemux-edit-<이 Mac> 에
 "<편집기> <줄> <칸> <경로>" 를 적고, 여기서 그 Mac 의 파일을 이 Mac 의 VS Code / Cursor 원격 SSH 로 연다.
 @hivemux-seen-<이 Mac> 은 마지막으로 물은 시각이라, 팝업이 요청이 처리될지 안다.
@@ -39,6 +41,8 @@ its path pasted into that pane, and Claude Code turns it into [Image #N].
 "<번호> <칸> <화면>" 을 적고 tmux 채널 hivemux-paste-<이 Mac> 을 깨운다. 여기서는 같은 ssh 연결로 그 채널을
 기다리다가, 이 Mac 클립보드의 이미지를 그쪽에 복사하고 경로를 그 칸에 붙여 넣는다. Claude Code 가 그걸
 [Image #N] 으로 바꾼다.
+이 Mac 에서 붙은 화면의 벌 사무실 버튼(bin/hivemux-office)은 @hivemux-office-<이 Mac> 을 적고 같은 채널을
+깨운다. 그러면 창이 이 Mac 에서 열리고, 상대 Mac 의 세션은 옆 사무실에 나온다.
 """
 import os, re, shlex, signal, socket, subprocess, sys, tempfile, threading, time, urllib.parse
 
@@ -149,10 +153,13 @@ class Ports:
             return None
 
     def waiter(self):
-        """Wait for Ctrl+V requests from the other Mac (bin/hivemux-paste), in a thread
-        상대 Mac 의 Ctrl+V 요청(bin/hivemux-paste)을 기다린다. 스레드에서 돈다"""
-        opt, chan = f"@hivemux-paste-{self.me}", f"hivemux-paste-{self.me}"
-        cmd = f"{PATH}; tmux wait-for {chan} && tmux show -gqv {opt} && tmux set -gu {opt}"
+        """Wait for Ctrl+V (bin/hivemux-paste) and bee office (bin/hivemux-office) requests from the other Mac,
+        in a thread. Both wake the same channel and leave their request in their own option.
+        상대 Mac 의 Ctrl+V (bin/hivemux-paste)와 벌 사무실 (bin/hivemux-office) 요청을 기다린다. 스레드에서 돈다.
+        둘 다 같은 채널을 깨우고 요청은 각자의 옵션에 둔다"""
+        opt, office, chan = f"@hivemux-paste-{self.me}", f"@hivemux-office-{self.me}", f"hivemux-paste-{self.me}"
+        cmd = (f"{PATH}; tmux wait-for {chan} && {{ tmux show -gqv {opt} | sed 's/^/paste /'; tmux set -gu {opt}; "
+               f"tmux show -gqv {office} | sed 's/^/office /'; tmux set -gu {office}; }}")
         while True:
             if not (self.master and self.master.poll() is None and os.path.exists(self.sock)):
                 time.sleep(1)
@@ -162,9 +169,22 @@ class Ports:
                 time.sleep(1)
                 continue
             for ln in r.stdout.splitlines():
-                parts = ln.split(" ", 2)
-                if len(parts) == 3:
+                kind, _, req = ln.partition(" ")
+                parts = req.split(" ", 2)
+                if kind == "paste" and len(parts) == 3:
                     self.paste(parts[1], parts[2])
+                elif kind == "office" and req:
+                    self.office()
+
+    def office(self):
+        """Open the bee office window on this Mac; the other Mac's sessions show next door
+        이 Mac 에서 벌 사무실 창을 연다. 상대 Mac 의 세션은 옆 사무실에 나온다"""
+        if os.environ.get("HIVEMUX_DRYRUN"):    # for tests: record instead of opening / 테스트용: 열지 않고 기록만
+            with open(os.environ["HIVEMUX_DRYRUN"], "a") as f:
+                f.write("office\n")
+            return
+        subprocess.Popen([os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-office")],
+                         start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def paste(self, pane, client):
         """Copy this Mac's clipboard image there and paste its path into pane

@@ -432,14 +432,11 @@ def open_window(popup=False):
 
 def from_tmux(client):
     """Open it for a tmux screen: the first build shows its progress in a popup there. A screen attached
-    from another Mac would get the window on this Mac's display, so it is told to run it there.
+    from another Mac would get the window on this Mac's display, so that Mac opens it (open_there).
     tmux 화면에서 열기: 처음 빌드는 그 화면의 팝업에 진행을 보인다. 다른 Mac 에서 붙은 화면이면 창이 이 Mac
-    화면에 뜨므로, 그 Mac 에서 실행하라고 알린다."""
-    ko = lang() == "ko"
+    화면에 뜨므로, 그 Mac 이 연다 (open_there)."""
     if client and f" {client} " in f" {tmux('show', '-gqv', '@hivemux-remote-clients')} ":
-        tmux("display", "-c", client, "-d", "4000",
-             "다른 Mac 에서 붙은 화면입니다. 벌 사무실은 그 Mac 에서 여세요 (사이드바 🐝, prefix B). 이 Mac 의 세션도 옆 사무실에 나옵니다"
-             if ko else "This screen is attached from another Mac. Open the bee office on that Mac (sidebar 🐝, prefix B); this Mac's sessions show there too")
+        open_there(client)
         return
     if app_state()[2] or not swiftc() or not client or running_window():
         open_window()
@@ -454,6 +451,35 @@ def from_tmux(client):
                         f"{shlex.quote(os.path.realpath(__file__))} --popup"], stdin=subprocess.DEVNULL)
     finally:
         os.remove(pause)
+
+
+def open_there(client):
+    """Ask the Mac the screen is attached from to open the window: its hivemux-ports waits on the channel
+    hivemux-paste-<Mac> over the ssh connection it keeps (bin/hivemux-ports) and takes the request from
+    @hivemux-office-<Mac>. This Mac's sessions show there next door.
+    화면이 붙어 온 Mac 에 창을 열어 달라고 한다: 그 Mac 의 hivemux-ports 가 유지하는 ssh 연결로 채널
+    hivemux-paste-<Mac> 을 기다리다가 @hivemux-office-<Mac> 에서 요청을 가져간다. 이 Mac 의 세션은 거기 옆 사무실에 나온다."""
+    ko = lang() == "ko"
+    mac = next((l.split(" ", 1)[1] for l in tmux("show", "-gqv", "@hivemux-remote-from").splitlines()
+                if l.split(" ", 1)[0] == client and " " in l), "")
+    seen = tmux("show", "-gqv", f"@hivemux-seen-{mac}").strip() if mac else ""
+    if seen.isdigit() and time.time() - int(seen) <= 20:
+        opt, tag = f"@hivemux-office-{mac}", str(os.getpid())
+        tmux("set", "-g", opt, tag)
+        tmux("wait-for", "-S", f"hivemux-paste-{mac}")
+        for _ in range(20):          # hivemux-ports clears it when it takes it / 가져가면 지운다
+            time.sleep(0.25)
+            if tmux("show", "-gqv", opt).strip() != tag:
+                tmux("display", "-c", client, "-d", "3000",
+                     f"🐝 {mac} 에서 벌 사무실을 엽니다" if ko else f"🐝 Opening the bee office on {mac}")
+                return
+        tmux("set", "-gu", opt)      # no answer: an older hivemux there / 대답이 없음: 거기 hivemux 가 예전 것
+        msg = (f"{mac} 에서 벌 사무실을 열지 못했습니다. 그 Mac 의 hivemux 를 업데이트하세요" if ko
+               else f"Could not open the bee office on {mac}. Update hivemux there")
+    else:
+        msg = ("다른 Mac 에서 붙은 화면입니다. 벌 사무실은 그 Mac 에서 여세요 (사이드바 🐝, prefix B)" if ko
+               else "This screen is attached from another Mac. Open the bee office on that Mac (sidebar 🐝, prefix B)")
+    tmux("display", "-c", client, "-d", "5000", msg)
 
 
 def running_window():

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- The bee office button (🐝, `prefix B`, the menu) on a screen attached from
+  another Mac opens the window on that Mac, the one you are looking at, with
+  this Mac's sessions in the office next door. It used to only say to open it
+  there. Both Macs need this version
+
 ## 0.1.27 — 2026-10-20
 
 - A screen from another Mac whose detach went unnoticed no longer keeps the
