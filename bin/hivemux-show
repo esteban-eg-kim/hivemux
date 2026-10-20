@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""Open files with the default app of the Mac you are looking from (hivemux open).
+보고 있는 Mac 의 기본 앱으로 파일을 연다 (hivemux open).
+
+  hivemux-show [--client <client>] <file>...
+
+On a screen attached from another Mac with hivemux connect, the files are copied to that Mac and
+opened there (a picture in Preview, a PDF, a page in the browser), so a screenshot Claude made here
+shows up on the laptop you are using. Otherwise they open on this Mac, like open(1).
+Without --client it goes by the screen that last looked at this pane's session (Claude's Bash runs
+it this way), or at any session when none does.
+How: it puts "<id> <client>" and the paths, one a line, in @hivemux-show-<Mac> and wakes the tmux
+channel hivemux-paste-<Mac>; that Mac's hivemux-ports waits on it over the ssh connection it keeps,
+copies each file to /tmp/hivemux-show-<uid>/ there and opens it (bin/hivemux-ports).
+hivemux connect 로 다른 Mac 에서 붙은 화면이면 파일을 그 Mac 으로 복사해 거기서 연다 (사진은 미리보기,
+PDF, 페이지는 브라우저). 그래서 Claude 가 여기서 찍은 스크린샷이 지금 쓰는 노트북에 뜬다. 아니면 open(1)
+처럼 이 Mac 에서 연다.
+--client 가 없으면 이 칸의 세션을 마지막으로 본 화면을 따른다 (Claude 의 Bash 가 이렇게 실행한다).
+그런 화면이 없으면 아무 세션이나 마지막으로 쓴 화면.
+방법: @hivemux-show-<Mac> 에 "<번호> <화면>" 과 경로를 한 줄에 하나씩 적고 tmux 채널 hivemux-paste-<Mac> 을
+깨운다. 그 Mac 의 hivemux-ports 가 유지하는 ssh 연결로 기다리다가 파일마다 그쪽 /tmp/hivemux-show-<uid>/ 로
+복사해 연다 (bin/hivemux-ports).
+"""
+import os, shutil, subprocess, sys, time
+
+TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
+
+
+def tmux(*a):
+    return subprocess.run([TMUX, *a], capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout
+
+
+def tr(ko, en):
+    v = os.environ.get("HIVEMUX_LANG") or tmux("show", "-gqv", "@hivemux-lang").strip()
+    return ko if (v or os.environ.get("LANG", "")).startswith("ko") else en
+
+
+def looking():
+    """The screen that last looked at this pane's session, else the last one used
+    이 칸의 세션을 마지막으로 본 화면. 없으면 마지막으로 쓴 화면"""
+    rows = [l.split(" ", 2) for l in tmux("list-clients", "-F", "#{client_activity} #{session_id} #{client_name}").splitlines()]
+    rows = sorted((r for r in rows if len(r) == 3), key=lambda r: int(r[0]) if r[0].isdigit() else 0, reverse=True)
+    pane = os.environ.get("TMUX_PANE")
+    sess = tmux("display", "-p", "-t", pane, "#{session_id}").strip() if pane else ""
+    mine = [r for r in rows if r[1] == sess]
+    return (mine or rows or [["", "", ""]])[0][2]
+
+
+def mac_of(client):
+    """(id, shown name) of the Mac a screen is attached from, when its hivemux-ports is polling
+    화면이 붙어 온 Mac 의 (이름표, 보이는 이름). 그 Mac 의 hivemux-ports 가 묻고 있을 때만"""
+    if not client or f" {client} " not in f" {tmux('show', '-gqv', '@hivemux-remote-clients')} ":
+        return None, None
+    mac = next((l.split(" ", 1)[1] for l in tmux("show", "-gqv", "@hivemux-remote-from").splitlines()
+                if l.split(" ", 1)[0] == client and " " in l), "")
+    seen = tmux("show", "-gqv", f"@hivemux-seen-{mac}").strip() if mac else ""
+    if not (seen.isdigit() and time.time() - int(seen) <= 20):
+        return "", ""
+    return mac, tmux("show", "-gqv", f"@hivemux-name-{mac}").strip() or mac
+
+
+def main(argv):
+    client = ""
+    if argv[:1] == ["--client"] and len(argv) >= 2:
+        client, argv = argv[1], argv[2:]
+    if not argv or argv[0] in ("-h", "--help"):
+        print("usage: hivemux open [--client <client>] <file>...", file=sys.stderr)
+        return 2
+    paths = [os.path.abspath(os.path.expanduser(p)) for p in argv]
+    missing = [p for p in paths if not os.path.exists(p)]
+    if missing:
+        print(tr(f"없는 파일: {missing[0]}", f"No such file: {missing[0]}"), file=sys.stderr)
+        return 1
+    mac, name = mac_of(client or looking())
+    if mac is None:                      # a screen of this Mac / 이 Mac 의 화면
+        return subprocess.run(["open", *paths]).returncode
+    if not mac:
+        print(tr("붙어 온 Mac 과 연결이 없어 열 수 없습니다 (hivemux connect 를 다시 하세요)",
+                 "Cannot reach the Mac this screen comes from (connect again with hivemux connect)"), file=sys.stderr)
+        return 1
+    dirs = [p for p in paths if os.path.isdir(p)]
+    if dirs:
+        print(tr(f"폴더는 다른 Mac 에서 열 수 없습니다: {dirs[0]}", f"A folder cannot be opened on another Mac: {dirs[0]}"), file=sys.stderr)
+        return 1
+    opt, tag = f"@hivemux-show-{mac}", str(os.getpid())
+    tmux("set", "-g", opt, "\n".join([f"{tag} {client or looking()}", *paths]))
+    tmux("wait-for", "-S", f"hivemux-paste-{mac}")
+    for _ in range(20):                  # hivemux-ports clears it when it takes it / 가져가면 지운다
+        time.sleep(0.25)
+        if tmux("show", "-gqv", opt).split(" ", 1)[0] != tag:
+            print(tr(f"{name} 에서 엽니다", f"Opening on {name}"))
+            return 0
+    tmux("set", "-gu", opt)              # no answer: an older hivemux there / 대답이 없음: 거기 hivemux 가 예전 것
+    print(tr(f"{name} 에서 열지 못했습니다. 그 Mac 의 hivemux 를 업데이트하고 다시 붙으세요",
+             f"Could not open it on {name}. Update hivemux there and connect again"), file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

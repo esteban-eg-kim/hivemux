@@ -21,7 +21,7 @@ hivemux는 모든 tmux 창 왼쪽에 사이드바를 붙입니다. 사이드바�
 - **원하는 순서:** 카드를 끌어 작업 순서를, 프로젝트 이름 줄을 끌어 프로젝트 순서를 바꿉니다. `Option+숫자` 번호와 맨 위 창 목록도 같은 순서를 따릅니다.
 - **끊기지 않음:** 터미널을 닫아도 tmux가 세션을 살려 둡니다. 재부팅하면 tmux-resurrect가 배치를 복원하고, hivemux가 알맞은 칸에서 `claude --resume <id>`를 실행합니다.
 - **프로젝트:** `hm ~/code/api`로 폴더 하나에 tmux 세션 하나를 엽니다. 이름 붙인 Claude 창과 셸 창이 함께 생깁니다.
-- **Claude가 말한 경로 열기:** `Option+O`를 누르면 그 칸의 최근 출력에 나온 파일 경로가 목록으로 나옵니다. Enter를 누르면 설정에서 고른 편집기(VS Code, Cursor, Zed, Sublime Text, 텍스트 편집기)로 그 줄을 엽니다. 다른 Mac에서 붙은 화면이면 VS Code와 Cursor는 그 Mac에서 원격 SSH로 엽니다.
+- **Claude가 말한 경로 열기:** `Option+O`를 누르면 그 칸의 최근 출력에 나온 파일 경로가 목록으로 나옵니다. Enter를 누르면 설정에서 고른 편집기(VS Code, Cursor, Zed, Sublime Text, 텍스트 편집기)로 그 줄을 엽니다. 다른 Mac에서 붙은 화면이면 VS Code와 Cursor는 그 Mac에서 원격 SSH로 열고, Tab(기본 앱)은 파일을 그 Mac으로 복사해 거기서 엽니다. `hivemux open <파일>`도 같은 식이라, 원격으로 일할 때 Claude가 만든 스크린샷을 노트북에서 바로 볼 수 있습니다.
 - **폰에서:** 원하면 모든 세션의 Remote Control을 켭니다. Claude 앱에서 같은 세션을 보고 조작할 수 있습니다.
 - **설정을 덮어쓰지 않는 설치:** 기존 설정 파일에 표시된 블록만 추가하고, `hivemux uninstall`로 그 블록만 정확히 지웁니다.
 

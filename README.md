@@ -52,7 +52,9 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
 - **Open paths Claude mentions.** `Option+O` lists file paths from the pane's
   recent output; Enter opens it at the line in the editor chosen in Settings
   (VS Code, Cursor, Zed, Sublime Text or the text editor). From a screen
-  attached from another Mac, VS Code and Cursor open it on that Mac over Remote-SSH.
+  attached from another Mac, VS Code and Cursor open it on that Mac over Remote-SSH,
+  and Tab (default app) copies it to that Mac and opens it there. `hivemux open <file>`
+  does the same, so a screenshot Claude made shows up on the laptop you work from.
 - **From your phone.** Optionally turns on Remote Control for every session, so
   the Claude app shows and drives the same sessions.
 - **Polite installer.** Adds marked blocks to your configs and removes exactly

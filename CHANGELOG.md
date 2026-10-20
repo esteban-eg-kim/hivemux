@@ -8,6 +8,11 @@
   instead of shrinking (drag or zoom out to see the rest); when name tags
   crowd, working bees' tags step aside for waiting and finished ones (hover or
   zoom in to see them)
+- `hivemux open <file>` opens files with the default app of the Mac you look
+  from: on a `hivemux connect` screen they are copied to that Mac and opened
+  there (a screenshot Claude made shows up on the laptop), else on this Mac.
+  Tab in the open-path popup (Option+O) does the same on such a screen. Both
+  Macs need this version
 - Settings has "This Mac's name": the bee office, the ⇄ badge on remote
   screens and the other Mac's sidebar note show it instead of the computer
   name. Each Mac names itself, so nothing is set per connection
