@@ -7,16 +7,16 @@
 On a screen attached from another Mac with hivemux connect, the files are copied to that Mac and
 opened there (a picture in Preview, a PDF, a page in the browser), so a screenshot Claude made here
 shows up on the laptop you are using. Otherwise they open on this Mac, like open(1).
-Without --client it goes by the screen that last looked at this pane's session (Claude's Bash runs
-it this way), or at any session when none does.
+Without --client it goes by a screen from another Mac looking at this pane's session (Claude's Bash
+runs it this way), else the screen used last.
 How: it puts "<id> <client>" and the paths, one a line, in @hivemux-show-<Mac> and wakes the tmux
 channel hivemux-paste-<Mac>; that Mac's hivemux-ports waits on it over the ssh connection it keeps,
 copies each file to /tmp/hivemux-show-<uid>/ there and opens it (bin/hivemux-ports).
 hivemux connect 로 다른 Mac 에서 붙은 화면이면 파일을 그 Mac 으로 복사해 거기서 연다 (사진은 미리보기,
 PDF, 페이지는 브라우저). 그래서 Claude 가 여기서 찍은 스크린샷이 지금 쓰는 노트북에 뜬다. 아니면 open(1)
 처럼 이 Mac 에서 연다.
---client 가 없으면 이 칸의 세션을 마지막으로 본 화면을 따른다 (Claude 의 Bash 가 이렇게 실행한다).
-그런 화면이 없으면 아무 세션이나 마지막으로 쓴 화면.
+--client 가 없으면 이 칸의 세션을 보는, 다른 Mac 에서 붙은 화면을 따른다 (Claude 의 Bash 가 이렇게 실행한다).
+없으면 마지막으로 쓴 화면.
 방법: @hivemux-show-<Mac> 에 "<번호> <화면>" 과 경로를 한 줄에 하나씩 적고 tmux 채널 hivemux-paste-<Mac> 을
 깨운다. 그 Mac 의 hivemux-ports 가 유지하는 ssh 연결로 기다리다가 파일마다 그쪽 /tmp/hivemux-show-<uid>/ 로
 복사해 연다 (bin/hivemux-ports).
@@ -36,14 +36,18 @@ def tr(ko, en):
 
 
 def looking():
-    """The screen that last looked at this pane's session, else the last one used
-    이 칸의 세션을 마지막으로 본 화면. 없으면 마지막으로 쓴 화면"""
+    """The screen to open for: one from another Mac looking at this pane's session (the Mac's own terminal
+    often shows the same session, but someone working from a laptop looks there), else the last one used
+    열 화면: 이 칸의 세션을 보는, 다른 Mac 에서 붙은 화면 (이 Mac 의 터미널도 같은 세션을 띄우고 있는 일이
+    많지만, 노트북에서 붙어 일하는 사람은 거기를 본다). 없으면 마지막으로 쓴 화면"""
     rows = [l.split(" ", 2) for l in tmux("list-clients", "-F", "#{client_activity} #{session_id} #{client_name}").splitlines()]
     rows = sorted((r for r in rows if len(r) == 3), key=lambda r: int(r[0]) if r[0].isdigit() else 0, reverse=True)
     pane = os.environ.get("TMUX_PANE")
     sess = tmux("display", "-p", "-t", pane, "#{session_id}").strip() if pane else ""
+    remote = f" {tmux('show', '-gqv', '@hivemux-remote-clients')} "
     mine = [r for r in rows if r[1] == sess]
-    return (mine or rows or [["", "", ""]])[0][2]
+    there = [r for r in mine if f" {r[2]} " in remote]
+    return (there or mine or rows or [["", "", ""]])[0][2]
 
 
 def mac_of(client):
