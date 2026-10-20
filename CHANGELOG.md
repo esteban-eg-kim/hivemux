@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.27 — 2026-10-20
 
 - A screen from another Mac whose detach went unnoticed no longer keeps the
   status line spinner still, nor freezes the sidebar of a terminal on this Mac
