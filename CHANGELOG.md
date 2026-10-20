@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- When a screen from another Mac is looking at a window, its sidebar says so
+  under the summary ("⇄ viewed from <Mac> · motion paused"), so cards that
+  stand still there no longer look stuck.
 - Option+O (open path) finds files Claude mentions by a path relative to a
   folder it `cd`'ed into (a worktree, a sub project). The hook now records the
   folder Claude works in now (`@claude_pwd`), and paths still not found are

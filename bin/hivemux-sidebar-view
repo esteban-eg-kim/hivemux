@@ -112,7 +112,8 @@ C = {
     "wait_bg_sel": (96, 70, 22),
     "done":    (62, 207, 142),
     "idle":    (92, 99, 112),
-    "drop":    (36, 62, 100),    # drop target while dragging / 끄는 중 놓을 자리
+    "drop":    (36, 62, 100),
+    "remote":  (167, 139, 250),  # "viewed from another Mac" note (the status line's ⇄ badge) / 원격 화면 안내 (상태줄 ⇄ 표시)    # drop target while dragging / 끄는 중 놓을 자리
 }
 STATE_TEXT = {"wait": tr("입력 필요", "needs input"), "run": tr("작업 중", "running"), "done": tr("완료", "done"), "idle": tr("대기", "idle")}
 STATE_ICON = {"wait": "●", "run": "◐", "done": "✓", "idle": "○"}
@@ -139,6 +140,7 @@ BOX_MIN, COL_GAP = 20, 1   # narrowest project box, columns between boxes / 상�
 # Right-click menu while open: {"rows": [(label, key, action) | None], "y": row, "sel": index, "title", "at": {row: index}}
 # 열려 있는 오른쪽 클릭 메뉴: {"rows": [(이름, 키, 동작) | None], "y": 줄, "sel": 고른 번호, "title", "at": {줄: 번호}}
 MENU = None
+REMOTE_HERE = None  # a screen from another Mac looks at this window: that Mac's name, or "" / 다른 Mac 화면이 이 창을 봄: 그 Mac 이름 또는 ""
 OFFICE_BTN = None   # (row, first column, end column) of the bee office button / 벌 사무실 버튼의 (줄, 첫 열, 끝 열)
 PENDING = None      # menu action to run once the closed menu is off the screen / 닫힌 메뉴가 화면에서 지워진 뒤 실행할 동작
 
@@ -318,7 +320,14 @@ def render(items, current, w, h, cur_sess="", sessions=()):
         summary.put(tr(f"● {n_wait} 입력 필요", f"● {n_wait} need input"), C["wait"], bold=True)
     if not n_run and not n_wait and items:
         summary.put(tr("모두 대기 중", "all idle"), C["text3"])
-    lines += [summary, L().put(" " + "─" * (w - 2), C["rule"])]
+    lines.append(summary)
+    # why the cards stand still: a screen from another Mac is looking at this window
+    # 카드가 멈춘 이유: 다른 Mac 화면이 이 창을 보고 있다
+    if REMOTE_HERE is not None:
+        who = tr(f"{REMOTE_HERE} 에서", f"from {REMOTE_HERE}") if REMOTE_HERE else tr("원격에서", "remotely")
+        lines.append(L().put("  ⇄ ", C["remote"], bold=True)
+                     .put(tr(f"{who} 보는 중 · 움직임 멈춤", f"viewed {who} · motion paused"), C["remote"]))
+    lines.append(L().put(" " + "─" * (w - 2), C["rule"]))
 
     # groups in project order; a project with no Claude has no members (shown as "no Claude")
     # 프로젝트 순서의 묶음. Claude 가 없는 프로젝트는 멤버 없이 ("Claude 없음") 보인다
@@ -896,7 +905,7 @@ def main():
     signal.set_wakeup_fd(WAKE_W, warn_on_full_buffer=False)
     resized = [True]
     signal.signal(signal.SIGWINCH, lambda *_: resized.__setitem__(0, True))
-    global FRAME, ANIM, NOW_T, TICK, PENDING
+    global FRAME, ANIM, NOW_T, TICK, PENDING, REMOTE_HERE
     prev, prev_size = None, None     # last frame, for drawing only the rows that changed / 직전 프레임(바뀐 줄만 그리기용)
     border = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-border")
     targets, heads, buf = {}, {}, ""
@@ -935,11 +944,16 @@ def main():
                 # 네트워크로 가서 입력이 느려지므로, 그 화면이 이 창을 보는 동안 멈춘다 (스피너는 붙어 있는 동안)
                 remote = set(tmux("show", "-gqv", "@hivemux-remote-clients").split())
                 REMOTE_ON = bool(remote)
+                REMOTE_HERE = None
                 if remote:
                     mine = tmux("display", "-p", "-t", ME, "#{window_id}").strip()
-                    if any(c in remote and w == mine for c, w in
-                           (l.split(" ", 1) for l in tmux("list-clients", "-F", "#{client_name} #{window_id}").splitlines() if " " in l)):
+                    here = [c for c, w in (l.split(" ", 1) for l in tmux("list-clients", "-F", "#{client_name} #{window_id}").splitlines() if " " in l)
+                            if c in remote and w == mine]
+                    if here:
                         ANIM = False
+                        # the Mac's name when hivemux connect told it (bin/hivemux-attach) / hivemux connect 가 알려 줬으면 그 Mac 이름
+                        macs = dict(l.split(" ", 1) for l in tmux("show", "-gqv", "@hivemux-remote-from").splitlines() if " " in l)
+                        REMOTE_HERE = next((macs[c] for c in here if c in macs), "")
                 # @hivemux-fps: animation frames per second (default 30; lower saves CPU)
                 # @hivemux-fps: 초당 애니메이션 프레임 (기본 30, 낮추면 CPU 절약)
                 fps = tmux("show", "-gqv", "@hivemux-fps").strip()
