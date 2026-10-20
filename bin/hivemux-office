@@ -235,8 +235,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
             Handler.last = time.time()
             local = snapshot()
             return self.send(200, json.dumps({"lang": local["lang"], "offices": [local] + Handler.remotes.list()}))
-        if path in ("/", "/index.html"):
-            with open(os.path.join(SHARE, "index.html"), "rb") as f:
+        # the office seen at an angle, or the flat plan seen from above (the page switches between them)
+        # 비스듬히 본 사무실, 또는 위에서 본 평면도 (페이지에서 서로 바꾼다)
+        page = {"/": "index.html", "/index.html": "index.html", "/2d": "index-2d.html"}.get(path)
+        if page:
+            with open(os.path.join(SHARE, page), "rb") as f:
                 return self.send(200, f.read(), "text/html; charset=utf-8")
         if path == "/logo.svg":
             with open(os.path.join(os.path.dirname(LOGO), "hivemux-logo.svg"), "rb") as f:

@@ -6,12 +6,12 @@
 <title>hivemux office</title>
 <link rel="icon" href="/logo.svg" type="image/svg+xml">
 <style>
-/* Layout: a virtual office floor (canvas): one office per Mac on top, the hall, then the meeting room,
-   the lounge and the boss room with the question window and the honeycomb. The roster below. */
+/* Layout: an office floor seen at an angle (canvas): desks in the back corner, the meeting room and the
+   boss room behind glass, the lounge in front. The roster below. */
 :root {
   --bg: #e9edf3; --panel: #ffffff; --line: #d3d9e3; --fg: #1b1f27; --muted: #677083;
   --run: #2f7fd6; --wait: #c77d00; --done: #1d9a64; --sleep: #8b94a5; --alert: #d9473a; --honey: #f2b632; --bee-dark: #23201a;
-  --m-wall: #3b4250; --m-office: #efe6d6; --m-plank: rgba(120, 90, 50, .09); --m-remote: #e7e3ef; --m-hall: #dde2ea;
+  --m-wall: #3b4250; --m-wallface: #f4efe6; --m-window: #cfe3f5; --m-glass: rgba(170, 200, 230, .28); --m-grass: #d9ead2; --m-lid: #8d96a6; --m-counter: #8a6a4a; --m-office: #efe6d6; --m-plank: rgba(120, 90, 50, .09); --m-remote: #e7e3ef; --m-hall: #dde2ea;
   --m-meet: #d5e1ef; --m-lounge: #f3f5f8; --m-tile: #e3e7ee; --m-mine: #ece5d6; --m-rug: rgba(242, 182, 50, .22);
   --m-desk: #c99c6a; --m-desk-edge: #9c7448; --m-chair: #4a5160; --m-mon: #2a2e37; --m-screen: #14171d;
   --m-sofa: #5a7bb5; --m-plant: #4caf6e; --m-pot: #b56a45; --m-pong: #2f8f5b; --m-board: #ffffff; --m-wax: #f1e2b4; --m-wax-edge: #d2ad52;
@@ -24,7 +24,7 @@
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #101217; --panel: #1a1d24; --line: #2b303b; --fg: #e1e6f0; --muted: #8b93a3;
   --run: #5aa9ff; --wait: #f5a524; --done: #3ecf8e; --sleep: #6b7385; --alert: #ff6b5a;
-  --m-wall: #5a6375; --m-office: #29251f; --m-plank: rgba(255, 255, 255, .035); --m-remote: #25222d; --m-hall: #1b1e25;
+  --m-wall: #5a6375; --m-wallface: #2a2d35; --m-window: #22344a; --m-glass: rgba(120, 160, 210, .16); --m-grass: #1f2b20; --m-lid: #5b6372; --m-counter: #5b4430; --m-office: #29251f; --m-plank: rgba(255, 255, 255, .035); --m-remote: #25222d; --m-hall: #1b1e25;
   --m-meet: #1d2532; --m-lounge: #22252c; --m-tile: #1c1f25; --m-mine: #28251e; --m-rug: rgba(242, 182, 50, .12);
   --m-desk: #7a5a3c; --m-desk-edge: #5b412a; --m-chair: #3a404c; --m-mon: #4a5160; --m-screen: #0b0d11;
   --m-sofa: #3d5683; --m-plant: #3d9a5d; --m-pot: #8a4f33; --m-pong: #23704a; --m-board: #d9dee8; --m-wax: #3e341c; --m-wax-edge: #7d6427;
@@ -34,7 +34,7 @@
 :root[data-theme="dark"] {
   --bg: #101217; --panel: #1a1d24; --line: #2b303b; --fg: #e1e6f0; --muted: #8b93a3;
   --run: #5aa9ff; --wait: #f5a524; --done: #3ecf8e; --sleep: #6b7385; --alert: #ff6b5a;
-  --m-wall: #5a6375; --m-office: #29251f; --m-plank: rgba(255, 255, 255, .035); --m-remote: #25222d; --m-hall: #1b1e25;
+  --m-wall: #5a6375; --m-wallface: #2a2d35; --m-window: #22344a; --m-glass: rgba(120, 160, 210, .16); --m-grass: #1f2b20; --m-lid: #5b6372; --m-counter: #5b4430; --m-office: #29251f; --m-plank: rgba(255, 255, 255, .035); --m-remote: #25222d; --m-hall: #1b1e25;
   --m-meet: #1d2532; --m-lounge: #22252c; --m-tile: #1c1f25; --m-mine: #28251e; --m-rug: rgba(242, 182, 50, .12);
   --m-desk: #7a5a3c; --m-desk-edge: #5b412a; --m-chair: #3a404c; --m-mon: #4a5160; --m-screen: #0b0d11;
   --m-sofa: #3d5683; --m-plant: #3d9a5d; --m-pot: #8a4f33; --m-pong: #23704a; --m-board: #d9dee8; --m-wax: #3e341c; --m-wax-edge: #7d6427;
@@ -65,6 +65,11 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
 .floor { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: var(--panel); }
 #map { display: block; width: 100%; cursor: default; }
 #map.hand { cursor: pointer; }
+.view { position: absolute; right: 8px; top: 8px; z-index: 4; display: flex; gap: 4px; }
+.view button { min-width: 28px; height: 28px; padding: 0 7px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); font-size: 14px; line-height: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
+.view .v-mode { font: 600 11px var(--f-mono); margin-right: 4px; }
+#map { touch-action: none; }
+#map.grab { cursor: grabbing; }
 .tip { position: absolute; z-index: 5; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; font-size: 12px; box-shadow: 0 6px 18px rgba(0, 0, 0, .18); max-width: 240px; }
 .tip b { display: block; }
 .tip span { color: var(--muted); }
@@ -167,6 +172,16 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
 
   <div class="floor" id="floor">
     <canvas id="map" role="img"></canvas>
+    <div class="view" id="view">
+      <button type="button" id="v-2d" class="v-mode">2D</button>
+      <button type="button" id="v-left" data-k="rotL">⟲</button>
+      <button type="button" id="v-right" data-k="rotR">⟳</button>
+      <button type="button" id="v-up" data-k="up">⤒</button>
+      <button type="button" id="v-down" data-k="down">⤓</button>
+      <button type="button" id="v-out" data-k="out">−</button>
+      <button type="button" id="v-in" data-k="in">+</button>
+      <button type="button" id="v-home" data-k="home">⌂</button>
+    </div>
     <div class="tip" id="tip" hidden></div>
   </div>
 
@@ -205,6 +220,7 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 const native = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.office;
 const tell = msg => { try { native && native.postMessage(msg); } catch (e) {} };
 
+try { if (localStorage.getItem('office-mode') === '2d') location.replace('/2d'); } catch (e) {}
 let lang = (navigator.language || 'en').startsWith('ko') ? 'ko' : 'en';
 const tr = (ko, en) => lang === 'ko' ? ko : en;
 function applyLang() {
@@ -212,6 +228,9 @@ function applyLang() {
   document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
   $('#gear').setAttribute('aria-label', tr('설정', 'Settings'));
   $('#pop-later').textContent = tr('나중에', 'Later');
+  for (const [id, ko, en] of [['v-2d', '위에서 본 평면도로 바꾸기', 'Switch to the flat plan'], ['v-left', '왼쪽으로 돌리기 (Q, 오른쪽 버튼으로 끌기)', 'Turn left (Q, or right-drag)'], ['v-right', '오른쪽으로 돌리기 (E, 오른쪽 버튼으로 끌기)', 'Turn right (E, or right-drag)'],
+    ['v-up', '더 높이서 보기 (W, 오른쪽 버튼으로 위로 끌기)', 'Look from higher (W, or right-drag up)'], ['v-down', '더 낮게 보기 (S, 오른쪽 버튼으로 아래로 끌기)', 'Look from lower (S, or right-drag down)'],
+    ['v-out', '축소 (-, 휠)', 'Zoom out (-, wheel)'], ['v-in', '확대 (+, 휠)', 'Zoom in (+, wheel)'], ['v-home', '전체 보기 (0)', 'Whole floor (0)']]) { const el = $('#' + id); el.title = tr(ko, en); el.setAttribute('aria-label', tr(ko, en)); }
   $('#map').setAttribute('aria-label', tr('벌 사무실. Claude 세션마다 벌 한 마리가 자리, 회의실, 라운지, 사장실 질문 창구를 오가요.',
     'Bee office. One bee per Claude session moves between its desk, the meeting room, the lounge and the question window in the boss room.'));
 }
@@ -227,73 +246,98 @@ const CREW_TALK = [['이건 어때요?', 'How about this?'], ['엣지 케이스�
 const HELP_TALK = [['찾았어요!', 'Found it!'], ['이 파일이에요', 'This file'], ['보고서 드릴게요', 'Report coming'], ['다 읽었어요', 'Read it all'], ['…', '…']];
 const CHAT_TALK = [['ㅋㅋㅋ', 'haha'], ['점심 뭐 먹지', 'Lunch?'], ['꿀 맛있다', 'Nice honey'], ['…', '…'], ['아까 그 버그 봤어?', 'Saw that bug?'], ['오늘 빠르네', 'Fast day']];
 
-/* ---------- floor plan (world units, 960 wide) ----------
-   Top: one office per Mac, desks in rows of 150 x 112. Then the hall (60) and the bottom rooms (230),
-   whose fixed coordinates below are written for a hall at y 290..350 and shifted by LAY.DY.
-   위: Mac 마다 사무실 하나, 책상은 150 x 112 칸. 그 아래 복도(60)와 아래층 방(230). 아래층 좌표는
-   복도가 y 290..350 일 때 기준이고 LAY.DY 만큼 내린다. */
-const W = 960;
+/* ---------- the floor, seen at an angle (isometric) ----------
+   World units are floor tiles: x runs to the lower right of the screen, y to the lower left, and the
+   two back walls stand on x = 0 and y = 0. Bees walk and plan in tiles; P() turns a floor point into
+   a screen point only when drawing.
+   Back corner: the work area, pods of four desks for the sessions that are not resting (hot desks;
+   resting bees have no desk). Right of it the meeting room and the boss room behind glass. The front
+   half is the lounge: a cafe, a sofa corner, ping-pong and a garden.
+   바닥 단위는 타일: x 는 화면 오른쪽 아래, y 는 왼쪽 아래로 가고 뒷벽 둘은 x = 0, y = 0 에 선다.
+   벌은 타일 좌표로 걷고 계획하며, 그릴 때만 P() 로 화면 좌표가 된다.
+   안쪽 구석이 작업 공간: 쉬지 않는 세션 수만큼 4인용 책상 섬 (공용 책상. 쉬는 벌은 자리가 없다).
+   그 오른쪽에 유리벽 회의실과 사장실. 앞쪽 절반은 라운지: 카페, 소파 코너, 탁구대, 정원. */
+const TW = 32, WALL = 74, BEE = 1.05;   // half a tile on screen, back wall height, bee size
+// the viewing height: TH is how tall half a tile looks (16 = the classic angle, 32 = from straight above);
+// heights shrink as the view climbs (ZF is 1 at the classic angle)
+// 보는 높이: TH 는 타일 반쪽이 보이는 높이 (16 = 기본 각도, 32 = 바로 위). 높이 올라갈수록 세로 높이는 줄어든다 (기본 각도에서 ZF = 1)
+let TH = 16, ZF = 1;
+function setTilt(k) { TH = TW * k; ZF = Math.sqrt(Math.max(0, 1 - k * k)) / Math.sqrt(.75); }
+// the view turns the floor around its middle before the angled projection (ROT in radians)
+// 보기 회전: 비스듬히 그리기 전에 바닥을 가운데를 중심으로 돌린다 (ROT, 라디안)
+let ROT = 0, COS = 1, SIN = 0, CX = 13, CY = 8;
+const turn = (x, y) => { const dx = x - CX, dy = y - CY; return [CX + dx * COS - dy * SIN, CY + dx * SIN + dy * COS]; };
+const P = (x, y, z = 0) => { const [rx, ry] = turn(x, y); return { x: (rx - ry) * TW, y: (rx + ry) * TH - z * ZF }; };
+const D = (x, y) => { const [rx, ry] = turn(x, y); return rx + ry; };   // depth: larger is nearer / 깊이: 클수록 가깝다
+// does a floor direction point toward the viewer, and to which side of the screen
+// 바닥 위 방향이 보는 사람 쪽인지, 화면 어느 쪽인지
+const toward = (dx, dy) => (dx * COS - dy * SIN) + (dx * SIN + dy * COS) > 0;
+const sideOf = (dx, dy) => (dx * COS - dy * SIN) - (dx * SIN + dy * COS) >= 0 ? 1 : -1;
+const GX = 26;
 let LAY = null;
-const BOTTOM = {
-  meet: { x: 20, w: 285, door: 160, name: ['회의실', 'Meeting room'] },
-  lounge: { x: 305, w: 340, door: 475, name: ['라운지', 'Lounge'] },
-  boss: { x: 645, w: 295, door: 720, name: ['사장실', 'Boss room'] },
+const ROOMS = {
+  meet: { x0: 16, x1: 22, door: 19, name: ['회의실', 'Meeting room'] },
+  boss: { x0: 22, x1: 26, door: 23, name: ['사장실', 'Boss room'] },
 };
-const MEET_C = { x: 160, y: 470 };
-const MEET_CHAIRS = Array.from({ length: 6 }, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 3; return { x: MEET_C.x + Math.cos(a) * 62, y: MEET_C.y + Math.sin(a) * 58 }; });
-const BOARD_SPOT = { x: 54, y: 462 };   // in front of the whiteboard / 화이트보드 앞
-// helper bees by the desk, relative to its center (a desk slot is 150 wide) / 책상 옆 부사수 자리 (책상 가운데 기준, 칸 폭 150)
-const HELP_SPOTS = [{ dx: -63, dy: 22 }, { dx: 63, dy: 22 }, { dx: 63, dy: -18 }];
-const MEET_STAND = [{ x: 70, y: 400 }, { x: 250, y: 400 }, { x: 60, y: 560 }, { x: 260, y: 560 }, { x: 110, y: 560 }, { x: 210, y: 560 }];
-const SPOTS = [
-  { kind: 'sofa', x: 382, y: 536 }, { kind: 'sofa', x: 422, y: 536 }, { kind: 'sofa', x: 462, y: 536 },
-  { kind: 'coffee', x: 600, y: 418 },
-  { kind: 'pong', x: 418, y: 452 }, { kind: 'pong', x: 532, y: 452 },
-  { kind: 'chat', x: 345, y: 420 }, { kind: 'chat', x: 380, y: 410 },
-  { kind: 'plant', x: 600, y: 540 },
-  { kind: 'idle', x: 340, y: 480 }, { kind: 'idle', x: 590, y: 480 }, { kind: 'idle', x: 520, y: 400 }, { kind: 'idle', x: 430, y: 400 },
+const ROOM_Y = 6;   // the glass front of both rooms / 두 방의 유리벽 앞면
+const MEET_C = { x: 19, y: 3.1 };
+const MEET_CHAIRS = Array.from({ length: 6 }, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 3; return { x: MEET_C.x + Math.cos(a) * 1.75, y: MEET_C.y + Math.sin(a) * 1.75 }; });
+const MEET_STAND = [{ x: 16.6, y: 0.9 }, { x: 21.4, y: 0.9 }, { x: 16.6, y: 5.3 }, { x: 21.4, y: 5.3 }, { x: 17.6, y: 5.5 }, { x: 20.4, y: 5.5 }];
+const BOARD_SPOT = { x: 18.4, y: 0.75 };   // in front of the whiteboard / 화이트보드 앞
+// helper bees around a seat; the far row has room behind it, the near row in front
+// 자리 옆 부사수 위치. 먼 줄은 뒤쪽에, 가까운 줄은 앞쪽에 자리가 있다
+const HELP_FAR = [{ dx: -.6, dy: -.4 }, { dx: .6, dy: -.4 }, { dx: 0, dy: -.8 }];
+const HELP_NEAR = [{ dx: -.6, dy: .45 }, { dx: .6, dy: .45 }, { dx: 0, dy: .85 }];
+const COMB_SPOT = { x: 23.1, y: .85 };
+const qSpot = i => i < 6 ? { x: 24.3 + (i % 2) * .8, y: 3.75 + Math.floor(i / 2) * .65 } : { x: 22.6 - ((i - 6) % 4) * .7, y: 6.9 + Math.floor((i - 6) / 4) * .7 };
+// resting spots; shift: in the cafe and sofa corner, which move down when the work area grows
+// 쉬는 자리. shift: 작업 공간이 커지면 같이 내려가는 카페와 소파 코너
+const SPOT_DEF = [
+  ['sofa', 8.6, 11.85, 1], ['sofa', 9.8, 11.85, 1], ['sofa', 11, 11.85, 1], ['sofa', 12.2, 11.85, 1],
+  ['coffee', 1.95, 10.6, 1], ['coffee', 1.95, 11.8, 1], ['coffee', 1.95, 13, 1],
+  ['chat', 3.2, 11, 1], ['chat', 4.8, 11, 1],
+  ['idle', 3.2, 13.5, 1], ['idle', 4.8, 13.5, 1], ['idle', 13.9, 14.2, 1], ['idle', 6.4, 14.4, 1],
+  ['pong', 15.75, 10.4, 0], ['pong', 19.45, 10.4, 0],
+  ['plant', 22.3, 8.9, 0], ['plant', 24.4, 11.4, 0],
+  ['idle', 21.8, 12.9, 0], ['idle', 23.4, 13.6, 0], ['idle', 25, 14.3, 0], ['idle', 17.4, 13.4, 0], ['idle', 19.2, 14.2, 0], ['idle', 15.6, 14.4, 0],
 ];
-SPOTS.forEach(s => s.occ = null);
-const SPOT_LABEL = { sofa: ['소파에서 낮잠', 'napping on the sofa'], coffee: ['커피 내리는 중', 'making coffee'], pong: ['탁구 치는 중', 'playing ping-pong'],
-  chat: ['수다 떠는 중', 'chatting'], plant: ['화분에 물 주는 중', 'watering the plant'], idle: ['라운지에서 쉬는 중', 'hanging out in the lounge'] };
-const bt = p => ({ x: p.x, y: p.y + LAY.DY });
+const SPOTS = SPOT_DEF.map(([kind, x, y, shift]) => ({ kind, x0: x, y0: y, shift, x, y, occ: null }));
+const SPOT_LABEL = { sofa: ['소파에서 낮잠', 'napping on the sofa'], coffee: ['커피 마시는 중', 'having coffee'], pong: ['탁구 치는 중', 'playing ping-pong'],
+  chat: ['카페에서 수다 떠는 중', 'chatting in the cafe'], plant: ['정원에서 화분에 물 주는 중', 'watering the garden'], idle: ['라운지에서 쉬는 중', 'hanging out in the lounge'] };
+const ENTRY = () => ({ x: .5, y: 9.1 + LAY.LOFF });   // the elevator / 엘리베이터
 
 function layout(offices) {
-  const n = offices.map(o => Math.max(1, o.sessions.length));
-  const wsum = n.reduce((a, b) => a + Math.max(2, b), 0);
-  let x = 20;
-  const rooms = offices.map((o, i) => {
-    const w = i === offices.length - 1 ? 940 - x : Math.round(920 * Math.max(2, n[i]) / wsum);
-    const cols = Math.max(1, Math.floor(w / 150)), rows = Math.ceil(n[i] / cols);
-    const r = { x, w, cols, rows, host: o.host, local: i === 0, missing: !!o.missing, door: Math.round(x + w / 2) };
-    x += w;
-    return r;
+  // pods of four for the sessions that are not resting, each office's pods one after another
+  // 쉬지 않는 세션만큼 4인용 섬. Mac 마다 섬이 이어진다
+  const need = offices.map(o => Math.max(1, Math.ceil(o.sessions.filter(s => s.state !== 'idle').length / 4)));
+  const pods = [];
+  need.forEach((n, oi) => { for (let k = 0; k < n; k++) pods.push({ oi, n: k }); });
+  const rows = Math.max(2, Math.ceil(pods.length / 3));
+  const LOFF = (rows - 2) * 4.2;
+  const desks = [];
+  pods.forEach((p, i) => {
+    p.x = 1 + (i % 3) * 5; p.y = .7 + Math.floor(i / 3) * 4.2;
+    for (let k = 0; k < 4; k++) {
+      const far = k < 2, x = p.x + 1 + (k % 2) * 2;   // far row faces this way / 먼 줄은 이쪽을 본다
+      desks.push({ id: `${p.oi}:${p.n}:${k}`, oi: p.oi, far, x, y: far ? p.y + 1.15 : p.y + 1.85, seat: { x, y: far ? p.y + .4 : p.y + 2.6 } });
+    }
   });
-  const topH = Math.max(176, 52 + Math.max(...rooms.map(r => r.rows)) * 112);
-  const TB = 20 + topH, B = TB + 60;
-  for (const r of rooms) {
-    const off = (r.w - r.cols * 150) / 2;
-    r.desks = Array.from({ length: r.cols * r.rows }, (_, i) => ({ x: r.x + off + 75 + (i % r.cols) * 150, y: 95 + Math.floor(i / r.cols) * 112 }));
-  }
-  return { rooms, TB, B, HALL_Y: TB + 30, DY: B - 350, H: B + 250 };
+  SPOTS.forEach(s => { s.x = s.x0; s.y = s.y0 + (s.shift ? LOFF : 0); });
+  return { pods, desks, byId: new Map(desks.map(d => [d.id, d])), rows, LOFF, GY: 15.4 + LOFF, WORK_D: 1 + rows * 4.2 - .6,
+    sig: `${rows}|${pods.map(p => p.oi).join()}`, names: offices.map(o => o.host) };
 }
-function roomOf(x, y) {
-  if (y < LAY.TB) return LAY.rooms.find(r => x < r.x + r.w) || LAY.rooms[LAY.rooms.length - 1];
-  if (y > LAY.B) return x < 305 ? BOTTOM.meet : x < 645 ? BOTTOM.lounge : BOTTOM.boss;
-  return null;
-}
+function roomOf(x, y) { return y < ROOM_Y && x >= 16 ? (x < 22 ? ROOMS.meet : ROOMS.boss) : null; }
 function route(from, to) {
   const a = roomOf(from.x, from.y), b = roomOf(to.x, to.y), pts = [];
   if (a === b) return [to];
-  const inside = r => LAY.rooms.includes(r) ? LAY.TB - 20 : LAY.B + 20;
-  if (a) pts.push({ x: a.door, y: inside(a) }, { x: a.door, y: LAY.HALL_Y });
-  if (b) pts.push({ x: b.door, y: LAY.HALL_Y }, { x: b.door, y: inside(b) });
+  if (a) pts.push({ x: a.door, y: ROOM_Y - .7 }, { x: a.door, y: ROOM_Y + .7 });
+  if (b) pts.push({ x: b.door, y: ROOM_Y + .7 }, { x: b.door, y: ROOM_Y - .7 });
   pts.push(to);
   return pts;
 }
 
 /* ---------- live data ---------- */
-let offices = [], fetchedAt = 0, honeyTotal = 0, pop = null, failures = 0;
+let offices = [], fetchedAt = 0, honeyTotal = 0, pop = null, failures = 0, hoverKey = null;
 const bees = new Map();      // "<host>|<pane>" -> bee
 const helpers = new Map();   // "<bee key>|<n>" -> subagent bee
 const crew = new Map();      // office colleagues (not Claude sessions) who join plan meetings / 계획 회의에 오는 사무실 동료 (Claude 세션 아님)
@@ -328,22 +372,21 @@ function ingest(list) {
   list.forEach(o => { o.sessions = o.sessions || []; o.host = o.host || o.ssh || '?'; o.now = o.now || Date.now() / 1000; });
   offices = list; fetchedAt = Date.now();
   honeyTotal = list.reduce((a, o) => a + (o.honey || 0), 0);
-  const prevRooms = LAY && LAY.rooms.map(r => `${r.host}:${r.desks.length}:${r.x}`).join();
+  const prev = LAY && LAY.sig;
   LAY = layout(list);
-  if (prevRooms !== LAY.rooms.map(r => `${r.host}:${r.desks.length}:${r.x}`).join()) resize();
+  if (prev !== LAY.sig) resize();
   const seen = new Set();
-  list.forEach((o, oi) => o.sessions.forEach((s, si) => {
+  list.forEach((o, oi) => o.sessions.forEach(s => {
     const key = `${o.ssh || ''}|${s.pane}`;
     seen.add(key);
     let b = bees.get(key);
-    const desk = LAY.rooms[oi].desks[si];
     if (!b) {
       b = { key, path: [], face: -1, moving: false, sprint: false, arrived: true, goal: null, phase: Math.random() * 9, spot: null, fresh: true };
       bees.set(key, b);
     }
-    const prev = b.state;
-    Object.assign(b, s, { office: o, ssh: o.ssh || null, desk, seat: { x: desk.x, y: desk.y + 31 } });
-    if (prev && prev !== b.state) changed(b, prev);
+    const was = b.state;
+    Object.assign(b, s, { office: o, oi, ssh: o.ssh || null });
+    if (was && was !== b.state) changed(b, was);
   }));
   for (const [k, b] of bees) if (!seen.has(k)) { if (b.spot) b.spot.occ = null; if (pop === b) closePop(); bees.delete(k); }
   plan();
@@ -374,8 +417,23 @@ function setTarget(b, key, p, sprint) {
   b.key2 = key; b.goal = p; b.sprint = !!sprint; b.arrived = false;
   b.path = b.x === undefined ? [] : route({ x: b.x, y: b.y }, p);
 }
+// hot desks: a bee that is not resting keeps its desk, a new one takes the first free desk of its Mac
+// 공용 책상: 쉬지 않는 벌은 자기 책상을 지키고, 새로 온 벌은 그 Mac 의 빈 책상 중 첫 자리에 앉는다
+function assignDesks(all) {
+  const taken = new Set();
+  for (const b of all) {
+    const d = b.state !== 'idle' && b.deskId && LAY.byId.get(b.deskId);
+    if (d && d.oi === b.oi && !taken.has(d.id)) taken.add(d.id); else b.deskId = null;
+  }
+  for (const b of all.filter(b => b.state !== 'idle' && !b.deskId).sort((a, c) => a.idx - c.idx)) {
+    const d = LAY.desks.find(d => d.oi === b.oi && !taken.has(d.id));
+    if (d) { taken.add(d.id); b.deskId = d.id; }
+  }
+  for (const b of all) b.desk = b.deskId ? LAY.byId.get(b.deskId) : null;
+}
 function plan() {
   const all = [...bees.values()];
+  assignDesks(all);
   const waits = all.filter(b => b.state === 'wait').sort((a, b) => a.at - b.at);
   // plan mode: the first planner draws on the whiteboard, the others think at the table
   // 계획 모드: 첫 번째 벌은 화이트보드에 그리고, 나머지는 회의 탁자에서 고민한다
@@ -387,35 +445,34 @@ function plan() {
   // subagents: small helper bees by the desk, or at the table with a planning bee
   // 서브에이전트: 책상 옆의 작은 부사수 벌. 계획 중인 벌이면 회의 탁자에 같이 앉는다
   const alive = new Set();
-  for (const b of all.filter(b => (b.state === 'run' || b.state === 'wait') && b.agents > 0)) {
-    const meeting = planners.includes(b);
+  for (const b of all.filter(b => (b.state === 'run' || b.state === 'wait') && b.agents > 0 && b.desk)) {
+    const meeting = planners.includes(b), s = b.desk.seat;
     for (let i = 0; i < Math.min(3, b.agents); i++) {
       const k = `${b.key}|${i}`; alive.add(k);
-      const o = HELP_SPOTS[i];
-      const p = meeting ? bt(seats[Math.min(seat++, seats.length - 1)]) : { x: b.desk.x + o.dx, y: b.desk.y + o.dy };
+      const o = (b.desk.far ? HELP_FAR : HELP_NEAR)[i];
+      const p = meeting ? seats[Math.min(seat++, seats.length - 1)] : { x: s.x + o.dx, y: s.y + o.dy };
       if (!helpers.has(k)) helpers.set(k, { mini: true, host: b, born: performance.now() + i * 350, phase: Math.random() * 9 });
-      Object.assign(helpers.get(k), { x: p.x, y: p.y, pose: meeting ? 'meet' : 'help', face: meeting ? (p.x < MEET_C.x ? 1 : -1) : (o.dx < 0 ? 1 : -1) });
+      Object.assign(helpers.get(k), { x: p.x, y: p.y, pose: meeting ? 'meet' : 'help', look: meeting ? [MEET_C.x - p.x, MEET_C.y - p.y] : [s.x - p.x, s.y - p.y] });
     }
   }
   for (const k of helpers.keys()) if (!alive.has(k)) helpers.delete(k);
-  // colleagues walk in from the hall while anyone plans and take the next chairs, then leave
-  // 누군가 계획하는 동안 동료가 복도에서 걸어 들어와 다음 의자에 앉고, 끝나면 나간다
-  const hall = { x: 40, y: LAY.HALL_Y };
+  // colleagues come up in the elevator while anyone plans and take the next chairs, then leave
+  // 누군가 계획하는 동안 동료가 엘리베이터로 올라와 다음 의자에 앉고, 끝나면 돌아간다
   CREW.forEach((m, i) => {
     let n = crew.get(m.key);
     if (planners.length) {
-      if (!n) { n = { ...m, npc: true, path: [], x: hall.x - i * 26, y: hall.y, face: 1, phase: Math.random() * 9, arrived: true }; crew.set(m.key, n); }
-      setTarget(n, 'meet', bt(seats[Math.min(seat++, seats.length - 1)]));
-    } else if (n) setTarget(n, 'out', hall);
+      if (!n) { const e = ENTRY(); n = { ...m, npc: true, path: [], x: e.x + i * .5, y: e.y, face: 1, phase: Math.random() * 9, arrived: true }; crew.set(m.key, n); }
+      setTarget(n, 'meet', seats[Math.min(seat++, seats.length - 1)]);
+    } else if (n) setTarget(n, 'out', ENTRY());
   });
   for (const b of all) {
-    if (b.state === 'run') b.plan ? setTarget(b, 'meet', bt(b.meetSeat)) : setTarget(b, 'desk', b.seat);
-    else if (b.state === 'wait') { const i = waits.indexOf(b); setTarget(b, 'q', bt({ x: 765 - (i % 4) * 32, y: 470 + Math.floor(i / 4) * 42 }), true); }
-    else if (b.state === 'done') setTarget(b, 'brag', { x: b.desk.x + 36, y: b.desk.y + 46 });
-    else if (b.deliver) { const p = cellAt(Math.min(honeyShown(), COMB.cols * COMB.rows - 1)); setTarget(b, 'comb', { x: 856, y: Math.max(LAY.B + 62, Math.min(LAY.B + 222, p.y + 46)) }); }
+    if (b.state === 'run') b.plan || !b.desk ? setTarget(b, 'meet', b.plan ? b.meetSeat : MEET_STAND[0]) : setTarget(b, 'desk', b.desk.seat);
+    else if (b.state === 'wait') setTarget(b, 'q', qSpot(waits.indexOf(b)), true);
+    else if (b.state === 'done') setTarget(b, 'brag', b.desk ? { x: b.desk.seat.x + .6, y: b.desk.seat.y + (b.desk.far ? -.1 : .1) } : COMB_SPOT);
+    else if (b.deliver) setTarget(b, 'comb', COMB_SPOT);
     else {
       if (!b.spot || Date.now() > b.spotUntil) freeSpot(b);
-      setTarget(b, 'lounge', b.spot ? bt(b.spot) : bt({ x: 475, y: 500 }));
+      setTarget(b, 'lounge', b.spot ? { x: b.spot.x, y: b.spot.y } : { x: 8 + (b.idx % 7), y: 14 + LAY.LOFF + (b.idx % 2) * .6 });
     }
   }
 }
@@ -449,19 +506,45 @@ setInterval(() => {
 /* ---------- canvas ---------- */
 const cv = $('#map'), mapCtx = cv.getContext('2d');
 let c = mapCtx, scale = 1;
+// camera: the floor fits the canvas at zoom 1; the canvas height is set once from the unturned view
+// 카메라: 줌 1 이면 바닥이 캔버스에 맞는다. 캔버스 높이는 돌리지 않은 보기로 한 번 정한다
+const VIEW = { w: 0, h: 0, s: 1, cx: 0, cy: 0 };
+const cam = { zoom: 1, px: 0, py: 0, rot: 0, tilt: .5 };   // tilt: TH / TW, .3 low .. .85 high / 낮음 .3 ~ 높음 .85   // pan in screen px of the scene / 장면 화면 px 단위 이동
+try { Object.assign(cam, JSON.parse(localStorage.getItem('office-view') || '{}')); } catch (e) {}
+setRot(cam.rot); setTilt(cam.tilt);
+const saveView = () => { try { localStorage.setItem('office-view', JSON.stringify({ zoom: cam.zoom, px: cam.px, py: cam.py, rot: cam.rot, tilt: cam.tilt })); } catch (e) {} };
+function bounds() {
+  const pts = [];
+  for (const [x, y] of [[0, 0], [GX, 0], [GX, LAY.GY], [0, LAY.GY]]) pts.push(P(x, y), P(x, y, WALL));
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+  return { x0: Math.min(...xs) - 24, x1: Math.max(...xs) + 24, y0: Math.min(...ys) - 30, y1: Math.max(...ys) + 18 };
+}
 function resize() {
   if (!LAY) return;
+  CX = GX / 2; CY = LAY.GY / 2;
   const w = cv.parentElement.clientWidth, dpr = devicePixelRatio || 1;
-  scale = w / W;
-  cv.width = Math.round(w * dpr); cv.height = Math.round(LAY.H * scale * dpr);
-  cv.style.height = LAY.H * scale + 'px';
-  mapCtx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+  const saved = ROT, savedT = TH / TW; setRot(0); setTilt(.5); const b = bounds(); setRot(saved); setTilt(savedT);
+  VIEW.w = w; VIEW.h = Math.round(w * (b.y1 - b.y0) / (b.x1 - b.x0));
+  cv.width = Math.round(w * dpr); cv.height = Math.round(VIEW.h * dpr);
+  cv.style.height = VIEW.h + 'px';
+  place();
+}
+function setRot(a) { ROT = a; COS = Math.cos(a); SIN = Math.sin(a); }
+// fit the turned floor in the canvas, then zoom and pan / 돌린 바닥을 캔버스에 맞추고 줌, 이동
+function place() {
+  const b = bounds(), dpr = devicePixelRatio || 1;
+  VIEW.s = Math.min(VIEW.w / (b.x1 - b.x0), VIEW.h / (b.y1 - b.y0)) * cam.zoom;
+  VIEW.cx = (b.x0 + b.x1) / 2 - cam.px; VIEW.cy = (b.y0 + b.y1) / 2 - cam.py;
+  scale = VIEW.s;
+  mapCtx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * (VIEW.w / 2 - VIEW.cx * scale), dpr * (VIEW.h / 2 - VIEW.cy * scale));
 }
 const T = {};
+const TOKENS = ['bg', 'panel', 'line', 'fg', 'muted', 'run', 'wait', 'done', 'sleep', 'alert', 'honey', 'bee-dark', 'm-wall', 'm-wallface', 'm-office', 'm-plank', 'm-remote', 'm-meet',
+  'm-lounge', 'm-tile', 'm-mine', 'm-rug', 'm-grass', 'm-window', 'm-glass', 'm-desk', 'm-chair', 'm-mon', 'm-screen', 'm-lid', 'm-counter', 'm-sofa', 'm-plant', 'm-pot',
+  'm-pong', 'm-board', 'm-wax', 'm-wax-edge', 'm-label', 'm-shadow', 'm-wing', 'tag-bg', 'tag-fg', 'f-body', 'f-mono'];
 function readTokens() {
   const cs = getComputedStyle(document.documentElement);
-  for (const k of ['bg', 'panel', 'line', 'fg', 'muted', 'run', 'wait', 'done', 'sleep', 'alert', 'honey', 'bee-dark', 'm-wall', 'm-office', 'm-plank', 'm-remote', 'm-hall', 'm-meet', 'm-lounge', 'm-tile', 'm-mine', 'm-rug', 'm-desk', 'm-desk-edge', 'm-chair', 'm-mon', 'm-screen', 'm-sofa', 'm-plant', 'm-pot', 'm-pong', 'm-board', 'm-wax', 'm-wax-edge', 'm-label', 'm-shadow', 'm-wing', 'tag-bg', 'tag-fg', 'f-body', 'f-mono'])
-    T[k] = cs.getPropertyValue('--' + k).trim();
+  for (const k of TOKENS) T[k] = cs.getPropertyValue('--' + k).trim();
   T.idle = T.sleep;
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTokens);
@@ -476,134 +559,248 @@ function clipText(text, max) {
   while (text.length > 1 && c.measureText(text + '…').width > max) text = text.slice(0, -1);
   return text + '…';
 }
+// a darker shade of a #rrggbb token for the sides of boxes / 상자 옆면용으로 #rrggbb 토큰을 어둡게
+const shades = new Map();
+function shade(col, k) {
+  const key = col + k;
+  if (!shades.has(key)) {
+    const m = /^#([0-9a-f]{6})$/i.exec(col);
+    if (!m) return col;
+    const n = parseInt(m[1], 16), f = v => Math.round(v * (1 - k));
+    shades.set(key, `rgb(${f(n >> 16)}, ${f((n >> 8) & 255)}, ${f(n & 255)})`);
+  }
+  return shades.get(key);
+}
+function poly(pts, col) { c.beginPath(); pts.forEach((p, i) => i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)); c.closePath(); c.fillStyle = col; c.fill(); }
+const floorRect = (x, y, w, d, col) => poly([P(x, y), P(x + w, y), P(x + w, y + d), P(x, y + d)], col);
+function floorOval(x, y, rx, ry, col) { const p = P(x, y); c.beginPath(); c.ellipse(p.x, p.y, (rx + ry) * TW * .72, (rx + ry) * TH * .72, 0, 0, 7); c.fillStyle = col; c.fill(); }
+// one box: top, then the two faces turned to us (+y on the left, +x on the right)
+// 상자 하나: 윗면과 이쪽을 향한 두 면 (+y 는 왼쪽, +x 는 오른쪽)
+// the sides turned to the viewer, whatever the view's angle; left-facing sides lighter than right
+// 보기 각도에 상관없이 보는 쪽을 향한 옆면만. 왼쪽을 향한 면이 오른쪽보다 밝다
+function box(x, y, w, d, h, col, z = 0) {
+  const k = [[x, y], [x + w, y], [x + w, y + d], [x, y + d]], n = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  for (let i = 0; i < 4; i++) {
+    if (!toward(...n[i])) continue;
+    const a = k[i], b = k[(i + 1) % 4];
+    poly([P(a[0], a[1], z), P(b[0], b[1], z), P(b[0], b[1], z + h), P(a[0], a[1], z + h)], shade(col, sideOf(...n[i]) < 0 ? .14 : .27));
+  }
+  poly(k.map(([px, py]) => P(px, py, z + h)), col);
+}
+function cyl(x, y, r, h, col, z = 0) {
+  const a = P(x, y, z), b = P(x, y, z + h), rx = r * TW * 1.41, ry = r * TH * 1.41;
+  c.fillStyle = shade(col, .2);
+  c.beginPath(); c.ellipse(a.x, a.y, rx, ry, 0, 0, Math.PI); c.lineTo(b.x - rx, b.y); c.ellipse(b.x, b.y, rx, ry, 0, Math.PI, 0, true); c.closePath(); c.fill();
+  c.beginPath(); c.ellipse(b.x, b.y, rx, ry, 0, 0, 7); c.fillStyle = col; c.fill();
+}
+// paint on a vertical face: u along the face in tiles, v up in px / 세로 면에 그리기: u 는 면을 따라 타일, v 는 위로 px
+function onFace(x, y, ux, uy, fn) { const o = P(x, y), e = P(x + ux, y + uy); c.save(); c.translate(o.x, o.y); c.transform(e.x - o.x, e.y - o.y, 0, -ZF, 0, 0); fn(); c.restore(); }
+const onFaceY = (x, y, fn) => onFace(x, y, 1, 0, fn);
+const onFaceX = (x, y, fn) => onFace(x, y, 0, 1, fn);
+function plant(x, y, s = 1) {
+  cyl(x, y, .2 * s, 9 * s, T['m-pot']);
+  const p = P(x, y, 9 * s);
+  for (const [dx, dy, r] of [[-4, -6, 6], [4, -7, 5.5], [0, -12, 6], [0, -4, 6]]) circle(p.x + dx * s, p.y + dy * s, r * s, T['m-plant']);
+}
 
-function drawFloors() {
-  const { TB, B, H } = LAY;
-  c.fillStyle = T.bg; c.fillRect(0, 0, W, H);
-  for (const r of LAY.rooms) { c.fillStyle = T[r.local ? 'm-office' : 'm-remote']; c.fillRect(r.x, 20, r.w, TB - 20); }
-  c.fillStyle = T['m-plank'];
-  for (let y = 38; y < TB; y += 18) c.fillRect(20, y, 920, 1.5);
-  c.fillStyle = T['m-hall']; c.fillRect(20, TB, 920, 60);
-  c.save(); c.translate(0, LAY.DY);
-  c.fillStyle = T['m-meet']; c.fillRect(20, 350, 285, 230);
-  c.fillStyle = T['m-lounge']; c.fillRect(305, 350, 340, 230);
-  c.fillStyle = T['m-mine']; c.fillRect(645, 350, 295, 230);
-  c.fillStyle = T['m-tile'];
-  for (let y = 350; y < 580; y += 24) for (let x = 305 + ((y - 350) / 24 % 2) * 24; x < 645; x += 48) c.fillRect(x, y, 24, 24);
-  c.fillStyle = T['m-rug']; rr(670, 450, 190, 110, 14); c.fill();
-  c.beginPath(); c.ellipse(MEET_C.x, MEET_C.y, 110, 92, 0, 0, 7); c.fill();
-  c.restore();
-}
-function drawWalls() {
-  const { TB, B } = LAY;
-  c.strokeStyle = T['m-wall']; c.lineWidth = 6; c.lineCap = 'round';
-  const seg = (x1, y1, x2, y2) => { c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); };
-  seg(20, 20, 940, 20); seg(20, B + 230, 940, B + 230); seg(20, 20, 20, B + 230); seg(940, 20, 940, B + 230);
-  const xs = [20, ...LAY.rooms.flatMap(r => [r.door - 22, r.door + 22]), 940];
-  for (let i = 0; i < xs.length; i += 2) seg(xs[i], TB, xs[i + 1], TB);
-  seg(20, B, 138, B); seg(182, B, 405, B); seg(545, B, 698, B); seg(742, B, 940, B);
-  seg(305, B, 305, B + 230); seg(645, B, 645, B + 230);
-  c.setLineDash([10, 7]); LAY.rooms.slice(1).forEach(r => seg(r.x, 20, r.x, TB)); c.setLineDash([]);
-  font(11); c.fillStyle = T['m-label']; c.textBaseline = 'top';
-  for (const r of LAY.rooms) {
-    const name = `${r.host} · ${r.local ? tr('이 Mac', 'this Mac') : tr('원격', 'remote')}${r.missing ? tr(' (hivemux 업데이트 필요)', ' (update hivemux there)') : ''}`;
-    c.fillText(clipText(name, r.w - 24), r.x + 12, 30);
+/* the scene: things on the floor, sorted back to front by x + y / 장면: 바닥 위의 것들을 x + y 로 뒤에서부터 */
+const scene = [];
+// a box split into tiles so bees standing next to a long box sort correctly
+// 긴 상자 옆에 선 벌의 앞뒤가 맞도록 상자를 타일 단위로 나눈다
+function addBox(x, y, w, d, h, col, z = 0) {
+  const nx = Math.max(1, Math.round(w)), ny = Math.max(1, Math.round(d));
+  for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) {
+    const bx = x + w * i / nx, by = y + d * j / ny;
+    scene.push({ k: D(bx + w / nx / 2, by + d / ny / 2), draw: () => box(bx, by, w / nx, d / ny, h, col, z) });
   }
-  for (const k in BOTTOM) c.fillText(tr(...BOTTOM[k].name), BOTTOM[k].x + 12, B + 10);
-  c.fillText(tr('복도', 'Hall'), 30, TB + 8);
 }
-function plant(x, y, r = 11) { circle(x, y + 6, r * .7, T['m-pot']); circle(x - 4, y - 3, r * .65, T['m-plant']); circle(x + 4, y - 4, r * .6, T['m-plant']); circle(x, y - 9, r * .6, T['m-plant']); }
-function drawDesk(x, y, owner, t) {
-  if (owner) circle(x, y + 31, 11, T['m-chair']);
-  fillRR(x - 50, y - 17, 100, 34, 5, T['m-desk-edge']);
-  fillRR(x - 50, y - 19, 100, 32, 5, T['m-desk']);
-  if (!owner) { plant(x + 30, y - 4, 9); return; }
-  fillRR(x - 19, y - 30, 38, 24, 3, T['m-mon']);
-  fillRR(x - 4, y - 7, 8, 5, 1, T['m-mon']);
-  const st = owner.state, away = st === 'run' && owner.key2 === 'meet';
-  const scr = st === 'run' && !away ? T.run : st === 'wait' ? T.wait : st === 'done' ? T.done : null;
-  fillRR(x - 16, y - 27, 32, 18, 2, T['m-screen']);
-  if (scr) {
-    c.save(); rr(x - 16, y - 27, 32, 18, 2); c.clip();
-    c.globalAlpha = .25; c.fillStyle = scr; c.fillRect(x - 16, y - 27, 32, 18); c.globalAlpha = 1;
-    if (st === 'run') {
-      c.fillStyle = scr; const k = t * 14 + owner.phase * 10, off = k % 5;
-      for (let i = 0; i < 6; i++) { const w = [20, 14, 17, 9, 22, 12][(i + Math.floor(k / 5)) % 6]; c.fillRect(x - 13 + (i % 3 === 1 ? 4 : 0), y - 25 + i * 5 - off, w, 2); }
-    } else if (st === 'wait') { font(13, 600, 'f-mono'); c.textAlign = 'center'; c.fillStyle = scr; if (Math.floor(t * 2) % 2) c.fillText('?', x, y - 25); c.textAlign = 'left'; }
-    else { c.strokeStyle = scr; c.lineWidth = 2.5; c.lineJoin = 'round'; c.beginPath(); c.moveTo(x - 6, y - 18); c.lineTo(x - 1, y - 13); c.lineTo(x + 7, y - 22); c.stroke(); }
-    c.restore();
-  }
-  fillRR(x - 13, y + 3, 26, 5, 1.5, T['m-mon']);
-  circle(x + 36, y - 2, 5, T.panel); c.strokeStyle = T.muted; c.lineWidth = 1; c.stroke();
-  font(9, 400, 'f-mono'); c.fillStyle = T['m-desk-edge']; c.fillText(`⌥${owner.idx}`, x - 46, y + 1);
+const add = (x, y, draw, bias = 0) => scene.push({ k: D(x, y) + bias, draw });
+
+function drawFloor() {
+  const { GY, LOFF, WORK_D } = LAY;
+  floorRect(0, 0, GX, GY, T['m-lounge']);
+  floorRect(0, 0, 15.6, WORK_D, T['m-office']);
+  c.strokeStyle = T['m-plank']; c.lineWidth = 1;
+  for (let y = .5; y < WORK_D; y += .5) { const a = P(0, y), b = P(15.6, y); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke(); }
+  floorRect(16, 0, 6, ROOM_Y, T['m-meet']);
+  floorRect(22, 0, 4, ROOM_Y, T['m-mine']);
+  for (let y = 0; y < 6; y++) for (let x = (y % 2); x < 7; x += 2) floorRect(x, 9.4 + LOFF + y, 1, Math.min(1, GY - 9.4 - LOFF - y), T['m-tile']);
+  floorRect(20.4, 7, 5.6, GY - 7, T['m-grass']);
+  floorOval(MEET_C.x, MEET_C.y, 2.2, 2.2, T['m-rug']);
+  floorOval(10.2, 13.2 + LOFF, 2.4, 1.4, T['m-rug']);
+  floorOval(24.8, 4.4, 1.2, 1.2, T['m-rug']);
 }
-function drawBottom(t) {
-  c.save(); c.translate(0, LAY.DY);
-  // meeting room / 회의실
-  fillRR(26, 380, 7, 150, 2, T['m-board']);
-  // the plan grows on the whiteboard while a bee draws at it, then starts over / 벌이 그리는 동안 계획이 늘어나고, 다 차면 처음부터
-  const drawer = [...bees.values()].find(b => b.atBoard && b.key2 === 'meet' && b.arrived);
-  if (drawer) {
-    const n = reduced ? 6 : Math.floor((t * .6 + drawer.phase) % 7);
-    c.strokeStyle = T.run; c.lineWidth = 1.5;
-    for (let i = 0; i < n; i++) { c.beginPath(); c.moveTo(28, 388 + i * 22); c.lineTo(31, 388 + i * 22 + [12, 8, 14, 10, 6, 12][i]); c.stroke(); }
-    if (n > 2) fillRR(27, 376 + n * 22, 5, 5, 1, T.wait);
-    const notes = crew.get('crew|notes');
-    if (notes && notes.key2 === 'meet' && notes.arrived) [[24, 398, T.wait], [30, 452, T.done], [24, 500, T.alert]].forEach(([x, y, col]) => fillRR(x, y, 7, 7, 1, col));
+// walls: the far sides of the turned room stand up; the near sides are left open to look in.
+// Windows, the elevator, the cafe menu, the whiteboard and the honeycomb hang on x = 0 and y = 0.
+// 벽: 돌린 방의 먼 쪽 벽만 세우고 가까운 쪽은 열어 둔다. 창문, 엘리베이터, 카페 메뉴판, 화이트보드,
+// 벌집은 x = 0, y = 0 벽에 걸려 있다
+function drawBackWalls(t) {
+  const { GY, LOFF } = LAY;
+  const walls = [
+    { a: [0, 0], b: [GX, 0], n: [0, 1], deco: decoBack },
+    { a: [0, GY], b: [0, 0], n: [1, 0], deco: decoLeft },
+    { a: [GX, 0], b: [GX, GY], n: [-1, 0] },
+    { a: [GX, GY], b: [0, GY], n: [0, -1] },
+  ];
+  c.lineJoin = 'round';
+  for (const w of walls) {
+    if (!toward(...w.n)) continue;
+    poly([P(...w.a), P(...w.b), P(...w.b, WALL), P(...w.a, WALL)], shade(T['m-wallface'], sideOf(...w.n) < 0 ? 0 : .1));
+    c.strokeStyle = T['m-wall']; c.lineWidth = 3;
+    const a = P(...w.a, WALL), b = P(...w.b, WALL); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
+    if (w.deco) w.deco(t, LOFF);
+    else onFace(...w.a, (w.b[0] - w.a[0]) / Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]), (w.b[1] - w.a[1]) / Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]), () => {
+      c.fillStyle = T['m-window']; const len = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]); for (let u = 1.2; u < len - 2; u += 3) c.fillRect(u, 24, 1.8, 36);
+    });
   }
-  MEET_CHAIRS.forEach(p => circle(p.x, p.y, 10, T['m-chair']));
-  circle(MEET_C.x, MEET_C.y, 40, T['m-desk-edge']); circle(MEET_C.x, MEET_C.y - 2, 40, T['m-desk']);
-  plant(285, 565);
-  // lounge / 라운지
-  fillRR(352, 528, 140, 34, 8, T['m-sofa']); fillRR(352, 552, 140, 12, 6, T['m-sofa']);
-  c.globalAlpha = .25; c.fillStyle = '#fff'; for (let i = 0; i < 3; i++) { rr(360 + i * 42, 532, 38, 16, 5); c.fill(); } c.globalAlpha = 1;
-  fillRR(582, 366, 40, 30, 4, T['m-mon']); circle(612, 374, 2.2, T.alert); fillRR(592, 384, 10, 8, 2, T.panel);
-  fillRR(435, 430, 80, 44, 3, T['m-pong']); c.strokeStyle = '#fff'; c.lineWidth = 1.5; rr(435, 430, 80, 44, 3); c.stroke();
-  c.beginPath(); c.moveTo(475, 426); c.lineTo(475, 478); c.stroke();
-  circle(362, 432, 12, T['m-desk']);
-  plant(330, 562); plant(625, 565, 12);
-  // boss room: the boss desk with the question window, the honeycomb / 사장실: 질문 창구가 있는 책상, 벌집
-  circle(765, 374, 14, T['m-chair']);
-  fillRR(700, 392, 130, 38, 6, T['m-desk-edge']); fillRR(700, 390, 130, 36, 6, T['m-desk']);
-  fillRR(792, 393, 32, 18, 2, T['m-mon']); fillRR(795, 396, 26, 12, 1, T['m-screen']);
-  c.textAlign = 'center'; c.textBaseline = 'middle';
-  fillRR(744, 413, 42, 12, 3, T['bee-dark']); font(9); c.fillStyle = T.honey; c.fillText(tr('사장', 'Boss'), 765, 419.5);
-  fillRR(704, 394, 60, 14, 7, T.wait); font(9); c.fillStyle = '#1b1300'; c.fillText(tr('질문 창구', 'Questions'), 734, 401.5);
-  c.textAlign = 'left'; c.textBaseline = 'top';
-  plant(668, 565);
-  c.restore();
+}
+function decoBack(t) {
+  onFaceY(0, 0, () => { c.fillStyle = T['m-window']; for (let x = 1.2; x < 14; x += 3) c.fillRect(x, 24, 1.8, 36); });
+  // the whiteboard; the plan grows while a bee draws at it / 화이트보드. 벌이 그리는 동안 계획이 늘어난다
+  onFaceY(0, 0, () => {
+    c.fillStyle = T['m-wall']; c.fillRect(16.9, 15, 3.2, 40); c.fillStyle = T['m-board']; c.fillRect(17, 16, 3, 38);
+    const drawer = [...bees.values()].find(b => b.atBoard && b.key2 === 'meet' && b.arrived);
+    if (drawer) {
+      const n = reduced ? 6 : Math.floor((t * .6 + drawer.phase) % 7);
+      c.fillStyle = T.run;
+      for (let i = 0; i < n; i++) c.fillRect(17.25 + (i % 2) * 1.4, 48 - Math.floor(i / 2) * 9, [1, .7, 1.2, .9, .5, 1.1][i], 1.6);
+      const notes = crew.get('crew|notes');
+      if (notes && notes.key2 === 'meet' && notes.arrived) [[19.4, 46, T.wait], [19.6, 34, T.done], [18.9, 24, T.alert]].forEach(([u, v, col]) => { c.fillStyle = col; c.fillRect(u, v, .3, 6); });
+    }
+  });
   drawComb();
 }
-
-/* the honeycomb: every task finished today fills one cell, bottom row first / 벌집: 오늘 끝난 작업마다 한 칸, 아래층부터 */
-const COMB = { r: 7.6, cols: 4, rows: 17, x0: 877, y0: 548 };
-COMB.w = Math.sqrt(3) * COMB.r;
-function cellAt(i) {
-  const row = Math.floor(i / COMB.cols), col = i % COMB.cols;
-  return { x: COMB.x0 + COMB.w / 2 + col * COMB.w + (row % 2) * COMB.w / 2, y: COMB.y0 + LAY.DY - row * COMB.r * 1.5 };
+function decoLeft(t, LOFF) {
+  onFaceX(0, 0, () => {
+    c.fillStyle = T['m-window']; for (let y = 1.2; y < 7.5 + LOFF; y += 3) c.fillRect(y, 24, 1.8, 36);
+    // the elevator / 엘리베이터
+    const e = 8.5 + LOFF; c.fillStyle = T['m-wall']; c.fillRect(e - .1, 0, 1.4, 52); c.fillStyle = T['m-board']; c.fillRect(e, 0, .58, 48); c.fillRect(e + .62, 0, .58, 48);
+    // the cafe menu / 카페 메뉴판
+    c.fillStyle = T['m-mon']; c.fillRect(10.4 + LOFF, 34, 2.6, 22);
+    c.fillStyle = T.honey; for (let i = 0; i < 3; i++) c.fillRect(10.7 + LOFF, 50 - i * 6, 1.2 + (i % 2) * .6, 2);
+  });
 }
-function hexPath(x, y, r) { c.beginPath(); for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + k * Math.PI / 3; c.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } c.closePath(); }
+// the honeycomb on the boss room wall: every task finished today fills one cell, bottom row first
+// 사장실 벽의 벌집: 오늘 끝난 작업마다 한 칸, 아래 줄부터
+const COMB = { cols: 6, rows: 8, u0: 22.25, du: .29, v0: 12, dv: 6.4 };
+function cellAt(i) { const row = Math.floor(i / COMB.cols), col = i % COMB.cols; return { u: COMB.u0 + col * COMB.du + (row % 2) * COMB.du / 2, v: COMB.v0 + row * COMB.dv }; }
 let honeyLast = null, honeyPop = 0;
 function drawComb() {
   const honey = honeyShown();
   if (honeyLast !== null && honey > honeyLast) honeyPop = performance.now();
   honeyLast = honey;
-  const cap = COMB.cols * COMB.rows, filled = Math.min(honey, cap);
-  const fresh = Math.min(1, (performance.now() - honeyPop) / 900);
+  const cap = COMB.cols * COMB.rows, filled = Math.min(honey, cap), fresh = Math.min(1, (performance.now() - honeyPop) / 900);
   for (let i = 0; i < cap; i++) {
-    const p = cellAt(i);
-    hexPath(p.x, p.y, COMB.r - .6); c.fillStyle = T['m-wax']; c.fill(); c.strokeStyle = T['m-wax-edge']; c.lineWidth = 1.2; c.stroke();
-    if (i >= filled) continue;
-    const level = i === filled - 1 ? fresh : 1;
-    c.save(); hexPath(p.x, p.y, COMB.r - 1.6); c.clip();
-    const top = p.y + COMB.r - level * COMB.r * 2;
-    c.fillStyle = T.honey; c.fillRect(p.x - COMB.r, top, COMB.r * 2, COMB.r * 2);
-    c.globalAlpha = .45; circle(p.x - 2, Math.max(top + 2.5, p.y - 2.5), 1.6, '#fff'); c.globalAlpha = 1;
-    c.restore();
-    if (i === filled - 1 && fresh < 1) { c.globalAlpha = 1 - fresh; hexPath(p.x, p.y, COMB.r + 4 * fresh); c.strokeStyle = T.honey; c.lineWidth = 2; c.stroke(); c.globalAlpha = 1; }
+    const { u, v } = cellAt(i), p = P(u, 0, v), r = 4.6;
+    c.beginPath(); for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + k * Math.PI / 3; c.lineTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r * .9 + Math.cos(a) * r * .5); } c.closePath();
+    c.fillStyle = i < filled ? T.honey : T['m-wax']; c.fill(); c.strokeStyle = T['m-wax-edge']; c.lineWidth = 1; c.stroke();
+    if (i === filled - 1 && fresh < 1) { c.globalAlpha = 1 - fresh; c.beginPath(); c.arc(p.x, p.y, r + 6 * fresh, 0, 7); c.strokeStyle = T.honey; c.lineWidth = 2; c.stroke(); c.globalAlpha = 1; }
   }
-  font(9, 600, 'f-mono'); c.fillStyle = T['m-label']; c.textAlign = 'center';
-  c.fillText(honey > cap ? tr(`벌집 +${honey - cap}`, `comb +${honey - cap}`) : tr('벌집', 'comb'), COMB.x0 + 31, 560 + LAY.DY); c.textAlign = 'left';
+  if (honey > cap) { const p = P(COMB.u0 + .9, 0, COMB.v0 + COMB.rows * COMB.dv + 4); font(9, 700, 'f-mono'); c.fillStyle = T['m-label']; c.textAlign = 'center'; c.fillText(`+${honey - cap}`, p.x, p.y); c.textAlign = 'left'; }
+}
+// glass walls of the meeting and boss rooms, one tile at a time so bees sort around them
+// 회의실과 사장실의 유리벽. 벌과 앞뒤가 맞게 한 타일씩
+function glass(x0, y0, x1, y1) {
+  const h = 44, a = P(x0, y0), b = P(x1, y1), a2 = P(x0, y0, h), b2 = P(x1, y1, h);
+  poly([a, b, b2, a2], T['m-glass']);
+  c.strokeStyle = T['m-wall']; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(a2.x, a2.y); c.lineTo(b2.x, b2.y); c.moveTo(a.x, a.y); c.lineTo(a2.x, a2.y); c.stroke();
+}
+function buildScene(t) {
+  scene.length = 0;
+  const { LOFF } = LAY;
+  // glass: the meeting room's left side, the front of both rooms (with doors) and the wall between them
+  // 유리: 회의실 왼쪽, 두 방의 앞면 (문 포함), 두 방 사이
+  for (let y = 0; y < ROOM_Y; y++) add(16, y + .5, () => glass(16, y, 16, y + 1));
+  for (let y = 0; y < ROOM_Y; y++) add(22, y + .5, () => glass(22, y, 22, y + 1), -.01);
+  for (let x = 16; x < 26; x++) {
+    const door = Object.values(ROOMS).find(r => x + .5 > r.door - .5 && x + .5 < r.door + .5);
+    add(x + .5, ROOM_Y, () => glass(x, ROOM_Y, door ? x + .1 : x + 1, ROOM_Y));
+  }
+  // meeting room / 회의실
+  MEET_CHAIRS.forEach(p => add(p.x, p.y, () => cyl(p.x, p.y, .24, 8, T['m-chair']), -.05));
+  add(MEET_C.x, MEET_C.y, () => cyl(MEET_C.x, MEET_C.y, 1.05, 14, T['m-desk']));
+  add(21.4, 5.4, () => plant(21.4, 5.4, .9));
+  // boss room: the desk with the question window, the boss chair / 사장실: 질문 창구가 있는 책상, 사장 의자
+  add(24.8, 1.5, () => cyl(24.8, 1.5, .32, 12, T['m-chair']));
+  addBox(24, 2.3, 1.7, .7, 17, T['m-counter']);
+  // a sign hanging over the counter / 카운터 위에 매단 팻말
+  add(24.85, 2.65, () => {
+    const p = P(24.85, 2.65, 50); font(9, 700); c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.strokeStyle = T['m-wall']; c.lineWidth = 1; c.beginPath(); c.moveTo(p.x - 14, p.y - 6); c.lineTo(p.x - 14, p.y - 16); c.moveTo(p.x + 14, p.y - 6); c.lineTo(p.x + 14, p.y - 16); c.stroke();
+    fillRR(p.x - 28, p.y - 7, 56, 14, 7, T.wait); c.fillStyle = '#1b1300'; c.fillText(tr('질문 창구', 'Questions'), p.x, p.y);
+    c.textAlign = 'left'; c.textBaseline = 'top';
+  }, 4);
+  add(25.5, 5.5, () => plant(25.5, 5.5, 1.1));
+  // work area: pods, and a shelf with plants where a pod could go / 작업 공간: 섬, 빈 섬 자리엔 책장과 화분
+  const owners = new Map([...bees.values()].filter(b => b.desk).map(b => [b.desk.id, b]));
+  for (const d of LAY.desks) {
+    const o = owners.get(d.id), cy = d.seat.y + (o ? 0 : d.far ? .25 : -.25);
+    add(d.seat.x, cy, () => cyl(d.seat.x, cy, .22, 9, T['m-chair']), -.05);
+    addBox(d.x - .9, d.y - .35, 1.8, .7, 16, T['m-desk']);
+    add(d.x, d.y, () => laptop(d, o, t), .3);
+  }
+  for (let i = LAY.pods.length; i < LAY.rows * 3; i++) {
+    const x = 1 + (i % 3) * 5, y = .7 + Math.floor(i / 3) * 4.2;
+    add(x + 1, y + 1, () => plant(x + 1, y + 1, 1.2)); add(x + 3, y + 2, () => plant(x + 3, y + 2, .9));
+    addBox(x + .5, y + 1.6, 1.6, .5, 26, T['m-counter']);
+  }
+  // cafe / 카페
+  addBox(.3, 9.8 + LOFF, .9, 4, 18, T['m-counter']);
+  add(.8, 10.3 + LOFF, () => box(.55, 10.05 + LOFF, .5, .5, 14, T['m-mon'], 18), .2);
+  for (const s of SPOTS.filter(s => s.kind === 'coffee')) add(s.x, s.y, () => cyl(s.x, s.y, .18, 10, T['m-chair']), -.05);
+  for (const y of [11, 13.5]) add(4, y + LOFF, () => cyl(4, y + LOFF, .45, 14, T['m-desk']));
+  // sofa corner / 소파 코너
+  addBox(7.9, 11 + LOFF, 4.8, .35, 24, T['m-sofa']);
+  addBox(7.9, 11.35 + LOFF, 4.8, .85, 10, T['m-sofa']);
+  addBox(7.6, 11 + LOFF, .3, 1.2, 16, T['m-sofa']); addBox(12.7, 11 + LOFF, .3, 1.2, 16, T['m-sofa']);
+  addBox(9.4, 12.9 + LOFF, 1.7, .7, 8, T['m-desk']);
+  add(13.6, 11.3 + LOFF, () => plant(13.6, 11.3 + LOFF, 1.2));
+  add(6.6, 15 + LOFF, () => plant(6.6, 15 + LOFF, 1));
+  // ping-pong / 탁구대
+  addBox(16.3, 9.7, 2.6, 1.4, 13, T['m-pong']);
+  add(17.6, 10.4, () => { const a = P(17.6, 9.7, 13), b = P(17.6, 11.1, 13); c.strokeStyle = T['m-board']; c.lineWidth = 2; c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(a.x, a.y - 5); c.lineTo(b.x, b.y - 5); c.lineTo(b.x, b.y); c.stroke(); }, .3);
+  // garden / 정원
+  for (const [x, y, sz] of [[21.6, 8.2, 1.3], [25.3, 7.8, 1.5], [25.3, 11.3, 1.2], [21, 10.6, 1], [25.5, 15, 1.3], [20.9, 14.9, 1.1]]) add(x, y, () => plant(x, y, sz));
+  addBox(22.4, 12.1, 1.8, .45, 9, T['m-desk']);
+  // bees, helpers and colleagues / 벌, 부사수, 동료
+  for (const b of bees.values()) if (!b.popped) add(b.x, b.y, () => drawBee(b, t), .02);
+  for (const h of helpers.values()) add(h.x, h.y, () => drawBee(h, t), .02);
+  for (const n of crew.values()) add(n.x, n.y, () => drawBee(n, t), .02);
+}
+// the laptop on a desk: its screen faces its bee; from behind the bee we see the state, from the
+// other side the lid
+// 책상 위 노트북: 화면은 벌을 향한다. 벌 뒤에서 보면 상태가, 반대쪽에서 보면 뚜껑이 보인다
+function laptop(d, owner, t) {
+  if (!owner) return;
+  const st = owner.state, away = st === 'run' && owner.key2 === 'meet';
+  const scr = st === 'run' && !away ? T.run : st === 'wait' ? T.wait : st === 'done' ? T.done : null;
+  const x = d.x - .32, ys = d.far ? d.y + .15 : d.y - .35, toBee = d.far ? -1 : 1;   // the screen plane and its side facing the bee
+  box(x, d.far ? ys - .35 : ys, .64, .4, 1.5, T['m-mon'], 16);
+  const screen = toward(0, toBee);
+  onFaceY(x, ys, () => {
+    c.fillStyle = screen ? T['m-screen'] : T['m-lid']; c.fillRect(0, 16, .64, 15);
+    if (!screen) { c.fillStyle = T.honey; c.fillRect(.27, 22, .1, 4); return; }
+    if (!scr) return;
+    c.globalAlpha = .3; c.fillStyle = scr; c.fillRect(.03, 17, .58, 13); c.globalAlpha = 1; c.fillStyle = scr;
+    if (st === 'run') { const k = t * 8 + owner.phase * 10; for (let i = 0; i < 4; i++) c.fillRect(.07, 27.5 - i * 3, .12 + ((Math.floor(k) + i * 3) % 7) * .055, 1.2); }
+    else if (st === 'wait') { if (Math.floor(t * 2) % 2) c.fillRect(.29, 19, .06, 9); }
+    else c.fillRect(.15, 22, .34, 2.5);
+  });
+}
+function labels() {
+  const { LOFF } = LAY;
+  font(10.5 * textZoom(), 600); c.fillStyle = T['m-label']; c.textBaseline = 'alphabetic';
+  LAY.pods.filter(p => p.n === 0).forEach(p => {
+    const o = offices[p.oi], name = `${o.host} · ${p.oi === 0 ? tr('이 Mac', 'this Mac') : tr('원격', 'remote')}${o.missing ? tr(' (hivemux 업데이트 필요)', ' (update hivemux there)') : ''}`;
+    const q = P(p.x - .4, p.y + 3.4); c.fillText(clipText(name, 150), q.x - 20, q.y + 8);
+  });
+  const m = P(16.3, 5.7); c.fillText(tr(...ROOMS.meet.name), m.x + 6, m.y + 2);
+  const bo = P(22.3, 5.7); c.fillText(tr(...ROOMS.boss.name), bo.x + 6, bo.y + 2);
+  const cf = P(.2, 15.2 + LOFF); c.fillText(tr('카페', 'Cafe'), cf.x + 8, cf.y + 4);
+  const lg = P(7.6, 15.2 + LOFF); c.fillText(tr('라운지', 'Lounge'), lg.x + 8, lg.y + 4);
+  const gd = P(22.3, 15.2 + LOFF); c.fillText(tr('정원', 'Garden'), gd.x + 8, gd.y + 4);
+  c.textBaseline = 'top';
 }
 
 /* an upright bee person; origin is between the feet. Seen from behind at a desk or walking away.
@@ -616,28 +813,34 @@ function poseOf(b) {
   if (b.state === 'done') return 'done';
   return b.spot && b.key2 === 'lounge' ? b.spot.kind : 'idle';
 }
+
 function drawBee(b, t) {
   const now = performance.now();
-  const mini = b.mini, sc = mini ? .78 : 1;
+  const mini = b.mini, k = b.screen ? 1 : BEE, sc = (mini ? .78 : 1) * k;
   let grow = 1;
   if (mini) { const age = (now - b.born) / 300; if (age < 0) return; grow = Math.min(1, age) * (1 + Math.max(0, .3 - Math.abs(age - .8))); }
   const pose = mini ? b.pose : b.moving ? 'walk' : poseOf(b);
   const urg = b.state === 'wait' && b.office ? Math.min(1, ageOf(b) / 120) : 0;
-  const back = pose === 'type' || pose === 'coffee' || (pose === 'walk' && b.back);
-  const sit = SIT[pose] || 0, f = b.face || -1, dark = T['bee-dark'];
+  // a bee at work looks at something (its laptop, the counter, the whiteboard): from behind it we see its back
+  // 일하는 벌은 무언가를 본다 (노트북, 카운터, 화이트보드). 그 뒤에서 보면 뒷모습
+  const look = !b.moving && b.look, busy = pose === 'type' || pose === 'coffee' || pose === 'board' || pose === 'sofa';
+  const typeFront = pose === 'type' && look && toward(...look);
+  const back = (busy && look ? !toward(...look) : false) || (pose === 'walk' && b.back);
+  const sit = SIT[pose] || 0, f = look ? sideOf(...look) : b.face || -1, dark = T['bee-dark'];
   const carry = pose === 'done' || ((b.state === 'done' || b.deliver) && pose === 'walk');
   const ph = t * (b.sprint ? 18 : 10) + (b.phase || 0);
   const swing = pose === 'walk' ? Math.sin(ph) : 0;
   let bob = 0, tilt = 0, flap = .5 + .5 * Math.sin(t * 6 + (b.phase || 0));
   if (pose === 'walk') { bob = -Math.abs(Math.cos(ph)) * (b.sprint ? 3 : 1.5); tilt = b.sprint ? f * .18 : 0; if (b.sprint) flap = Math.abs(Math.sin(t * 40)); }
   else if (pose === 'wait') { bob = -Math.abs(Math.sin(t * (7 + urg * 9))) * (3 + urg * 5); flap = Math.abs(Math.sin(t * 30)); tilt = urg > .6 ? Math.sin(t * 38) * .1 : 0; }
-  else if (pose === 'pong') bob = -Math.abs(Math.sin(t * 5.5 + (b.spot && b.spot.x > 475 ? Math.PI / 2 : 0))) * 4;
+  else if (pose === 'pong') bob = -Math.abs(Math.sin(t * 5.5 + (b.spot && b.spot.x > 17.6 ? Math.PI / 2 : 0))) * 4;
   else if (pose === 'done') bob = -Math.abs(Math.sin(t * 3)) * 2;
   else if (pose === 'type') bob = -Math.abs(Math.sin(t * 14 + (b.phase || 0))) * .8;
   else if (pose === 'sofa') flap = .3;
   if (reduced) { bob = 0; tilt = 0; }
   c.save();
-  c.translate(b.x, b.y + sit);
+  const s = b.screen ? b : P(b.x, b.y);
+  c.translate(s.x, s.y + sit * k);
   if (!sit) { c.fillStyle = T['m-shadow']; c.beginPath(); c.ellipse(0, 0, 9 * sc, 3 * sc, 0, 0, 7); c.fill(); }
   c.translate(0, bob); c.scale(sc * grow, sc * grow); c.rotate(tilt);
   c.lineCap = 'round'; c.lineJoin = 'round';
@@ -656,11 +859,12 @@ function drawBee(b, t) {
   const arms = [];
   if (pose === 'wait') arms.push([-f, -f * 8, -14], [f, f * (8 + Math.sin(t * (12 + urg * 10)) * 3), -40]);
   else if (carry) arms.push([-1, -5, -44], [1, 5, -44]);
+  else if (typeFront) { const tap = Math.sin(t * 28 + (b.phase || 0)) * 1.5; arms.push([-1, -7, -23 + tap], [1, 7, -23 - tap]); }
   else if (pose === 'type') { const tap = Math.sin(t * 28 + (b.phase || 0)) * 1.5; arms.push([-1, -6, -31 + tap], [1, 6, -31 - tap]); }
   else if (pose === 'coffee') arms.push([-1, -6, -30], [1, 6, -30]);
   else if (pose === 'pong') arms.push([-f, -f * 8, -14], [f, f * 11, -26 + Math.sin(t * 5.5) * 4]);
   else if (pose === 'plant') arms.push([-f, -f * 8, -14], [f, f * 11, -20]);
-  else if (pose === 'board') arms.push([-f, -f * 8, -14], [f, f * 13 + Math.sin(t * 3) * 1.5, -36 + Math.sin(t * 7) * 4]);
+  else if (pose === 'board') arms.push([-1, -8, -14], [1, 9 + Math.sin(t * 3) * 1.5, -46 + Math.sin(t * 7) * 3]);
   else if (pose === 'help') arms.push([-1, -6, -18], [1, 6, -18]);
   else if (pose === 'chat' || pose === 'meet') { const g = b.say && now < b.say.until ? Math.sin(t * 9) * 3 : 0; arms.push([-f, -f * 8, -15], [f, f * 10, -20 + g]); }
   else for (const s of [-1, 1]) arms.push([s, s * 8, -14 + swing * s * 2.5]);
@@ -691,52 +895,64 @@ function drawBee(b, t) {
   if (pose === 'plant') fillRR(f * 10 - 4, -22, 8, 7, 1.5, T.run);
   if (b.look === 'glasses' && !back) { const ex = (b.face || -1) * 2.4; c.strokeStyle = dark; c.lineWidth = 1; for (const s of [-1, 1]) { c.beginPath(); c.arc(ex + s * 3.2, -35, 3.1, 0, 7); c.stroke(); } c.beginPath(); c.moveTo(ex - .3, -35); c.lineTo(ex + .3, -35); c.stroke(); }
   if (b.look === 'notes') { const f2 = b.face || -1; fillRR(f2 * 10 - 4, -27, 8, 8, 1, T.wait); fillRR(f2 * 10 - 4, -27, 8, 2, .5, T.alert); }
-  if (pose === 'board') { c.save(); c.translate(f * 13, -38 + Math.sin(t * 7) * 4); c.rotate(f * .6); fillRR(-1.5, -5, 3, 8, 1, T.run); c.restore(); }
+  if (pose === 'board') { c.save(); c.translate(9 + Math.sin(t * 3) * 1.5, -48 + Math.sin(t * 7) * 3); c.rotate(.5); fillRR(-1.5, -5, 3, 8, 1, T.run); c.restore(); }
   if (pose === 'help') {   // a tiny laptop, its screen busy / 작은 노트북, 화면이 바쁘다
     fillRR(-8, -24, 16, 10, 1.5, T['m-mon']);
     c.fillStyle = T.run; for (let i = 0; i < 3; i++) c.fillRect(-6, -22 + i * 3, 3 + ((Math.floor(t * 6 + (b.phase || 0)) + i * 2) % 9), 1.2);
   }
   c.restore();
 }
-function drawTag(b, t) {
-  const text = nameOf(b), col = T[b.state];
-  font(10);
-  const w = c.measureText(text).width + 18, x = b.x - w / 2;
-  const y = b.y - 66 + (b.moving ? 0 : SIT[poseOf(b)] || 0) - (b.state === 'done' && !b.moving ? 14 : 0);
-  fillRR(x, y, w, 15, 7.5, T['tag-bg']);
-  circle(x + 8, y + 7.5, 3, col);
-  c.fillStyle = T['tag-fg']; c.textBaseline = 'middle'; c.fillText(text, x + 14, y + 8);
-  if (b.state === 'wait' && !b.moving) {
-    const urg = Math.min(1, ageOf(b) / 120), big = 7 + urg * 3 + Math.abs(Math.sin(t * 6)) * 1.5;
-    circle(b.x + w / 2 + 6, y + 2, big, urg > .99 ? T.alert : T.wait);
-    font(10 + urg * 3, 700, 'f-mono'); c.fillStyle = '#1b1300'; c.textAlign = 'center'; c.fillText(urg > .99 ? '!!' : '!', b.x + w / 2 + 6, y + 3); c.textAlign = 'left';
+// name tags: always for bees that work, wait or finished; resting bees only under the mouse.
+// A tag that would cover one already placed moves up.
+// 이름표: 일하는 벌, 기다리는 벌, 끝난 벌은 늘. 쉬는 벌은 마우스를 올렸을 때만. 이미 놓인 이름표를 가리면 위로 비킨다
+// text stays readable in a small window: it shrinks less than the floor / 작은 창에서도 읽히게 글자는 바닥보다 덜 줄어든다
+const textZoom = () => Math.min(1.8, Math.max(1, .7 / scale));
+function drawTags(t) {
+  const placed = [], z = textZoom();
+  const list = [...bees.values()].filter(b => !b.popped && (b.state !== 'idle' || b.deliver || b.key === hoverKey))
+    .map(b => ({ b, s: P(b.x, b.y) })).sort((a, b) => b.s.y - a.s.y);
+  font(10 * z);
+  for (const { b, s } of list) {
+    const text = nameOf(b), w = c.measureText(text).width + 18 * z, h = 15 * z, x = s.x - w / 2;
+    let y = s.y - (66 - (b.moving ? 0 : SIT[poseOf(b)] || 0) + (b.state === 'done' && !b.moving ? 14 : 0)) * BEE - (h - 15);
+    for (let k = 0; k < 6 && placed.some(p => x < p.x + p.w + 2 && p.x < x + w + 2 && Math.abs(p.y - y) < h + 1); k++) y -= h + 1;
+    placed.push({ x, y, w });
+    fillRR(x, y, w, h, h / 2, T['tag-bg']);
+    circle(x + 8 * z, y + h / 2, 3 * z, T[b.state]);
+    c.fillStyle = T['tag-fg']; c.textBaseline = 'middle'; c.fillText(text, x + 14 * z, y + h / 2 + .5);
+    if (b.state === 'wait' && !b.moving) {
+      const urg = Math.min(1, ageOf(b) / 120), big = (7 + urg * 3 + Math.abs(Math.sin(t * 6)) * 1.5) * z;
+      circle(s.x + w / 2 + 6 * z, y + 2, big, urg > .99 ? T.alert : T.wait);
+      font((10 + urg * 3) * z, 700, 'f-mono'); c.fillStyle = '#1b1300'; c.textAlign = 'center'; c.fillText(urg > .99 ? '!!' : '!', s.x + w / 2 + 6 * z, y + 3); c.textAlign = 'left'; font(10 * z);
+    }
+    c.textBaseline = 'top';
   }
-  c.textBaseline = 'top';
 }
 function drawBubble(b) {
   if (!b.say || performance.now() > b.say.until) return;
-  font(10, 400);
-  const w = c.measureText(b.say.text).width + 14, x = b.x - w / 2, y = b.y - (b.mini ? 56 : 88);
-  fillRR(x, y, w, 17, 6, T.panel); c.strokeStyle = T.line; c.lineWidth = 1; rr(x, y, w, 17, 6); c.stroke();
-  c.fillStyle = T.panel; c.beginPath(); c.moveTo(b.x - 4, y + 16.5); c.lineTo(b.x, y + 21); c.lineTo(b.x + 4, y + 16.5); c.fill();
-  c.fillStyle = T.fg; c.textBaseline = 'middle'; c.fillText(b.say.text, x + 7, y + 9); c.textBaseline = 'top';
+  const s = P(b.x, b.y), z = textZoom();
+  font(10 * z, 400);
+  const w = c.measureText(b.say.text).width + 14 * z, h = 17 * z, x = s.x - w / 2, y = s.y - (b.mini ? 56 : 88) * BEE - (h - 17);
+  fillRR(x, y, w, h, 6, T.panel); c.strokeStyle = T.line; c.lineWidth = 1; rr(x, y, w, h, 6); c.stroke();
+  c.fillStyle = T.panel; c.beginPath(); c.moveTo(s.x - 4, y + h - .5); c.lineTo(s.x, y + h + 4); c.lineTo(s.x + 4, y + h - .5); c.fill();
+  c.fillStyle = T.fg; c.textBaseline = 'middle'; c.fillText(b.say.text, x + 7 * z, y + h / 2 + .5); c.textBaseline = 'top';
 }
 const parts = [];
-function puff(x, y, col, vy = -10) { if (!reduced) parts.push({ x, y, vx: rand(-8, 8), vy, life: 1, col, r: rand(1.5, 3) }); }
+function puff(p, col, vy = -10) { if (!reduced) parts.push({ x: p.x, y: p.y, vx: rand(-8, 8), vy, life: 1, col, r: rand(1.5, 3) }); }
 function drawEffects(t, dt) {
   const pp = SPOTS.filter(p => p.kind === 'pong' && p.occ && p.occ.arrived && p.occ.key2 === 'lounge');
-  if (pp.length === 2) { const k = (Math.sin(t * 2.75) + 1) / 2; circle(430 + k * 90, 446 + LAY.DY - Math.abs(Math.sin(t * 5.5)) * 18, 2.6, '#fff'); }
+  if (pp.length === 2) { const k = (Math.sin(t * 2.75) + 1) / 2, p = P(16.5 + k * 2.2, 10.4, 22 + Math.abs(Math.sin(t * 5.5)) * 14); circle(p.x, p.y, 2.6, '#fff'); }
   for (const b of bees.values()) {
-    const still = !b.moving && b.arrived;
-    if (b.moving && b.sprint && Math.random() < .5) puff(b.x - b.face * 8, b.y - 1, T.muted, -4);
-    if (still && b.state === 'run' && b.key2 === 'desk' && Math.random() < .08) puff(b.desk.x + rand(-12, 12), b.desk.y - 32, T.run, -18);
+    const still = !b.moving && b.arrived, s = P(b.x, b.y);
+    if (b.moving && b.sprint && Math.random() < .5) puff({ x: s.x - b.face * 8, y: s.y - 1 }, T.muted, -4);
+    if (still && b.state === 'run' && b.key2 === 'desk' && b.desk && Math.random() < .08) puff(P(b.desk.x + rand(-.3, .3), b.desk.y, 34), T.run, -18);
     if (!still || b.key2 !== 'lounge' || !b.spot) continue;
-    if (b.spot.kind === 'coffee' && Math.random() < .06) puff(605, 380 + LAY.DY, T.muted, -14);
-    if (b.spot.kind === 'plant' && Math.random() < .1) puff(b.x + b.face * 14, b.y - 16, T.run, 14);
+    if (b.spot.kind === 'coffee' && Math.random() < .06) puff(P(.8, 10.3 + LAY.LOFF, 36), T.muted, -14);
+    if (b.spot.kind === 'plant' && Math.random() < .1) puff({ x: s.x + b.face * 12, y: s.y - 14 }, T.run, 14);
     if (b.spot.kind === 'sofa') {
       const k = (t * .8 + b.phase) % 1;
       font(9 + k * 4, 600, 'f-mono'); c.fillStyle = T.muted; c.globalAlpha = 1 - k;
-      c.fillText('z', b.x + 10 + k * 8, b.y - 40 - k * 12); c.globalAlpha = 1;
+      c.fillText('z', s.x + 8 + k * 8, s.y - 36 - k * 12); c.globalAlpha = 1;
     }
   }
   for (let i = parts.length - 1; i >= 0; i--) {
@@ -751,38 +967,52 @@ function frame(now) {
   const dt = Math.min(.1, (now - last) / 1000); last = now;
   const t = now / 1000;
   if (LAY) {
+    // turn smoothly toward the chosen angle / 고른 각도로 부드럽게 돈다
+    const d = cam.rot - ROT;
+    if (Math.abs(d) > .0005) setRot(reduced ? cam.rot : ROT + d * Math.min(1, dt * 9));
+    const dk = cam.tilt - TH / TW;
+    if (Math.abs(dk) > .0005) setTilt(reduced ? cam.tilt : TH / TW + dk * Math.min(1, dt * 9));
+    place();
     for (const b of [...bees.values(), ...crew.values()]) step(b, dt);
-    drawFloors(); drawWalls(); drawBottom(t);
+    c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = T.panel; c.fillRect(0, 0, cv.width, cv.height); c.restore();
     c.textBaseline = 'top';
-    const owners = new Map([...bees.values()].map(b => [`${b.desk.x},${b.desk.y}`, b]));
-    for (const r of LAY.rooms) for (const d of r.desks) drawDesk(d.x, d.y, owners.get(`${d.x},${d.y}`), t);
-    const all = [...[...bees.values()].filter(b => !b.popped), ...helpers.values(), ...crew.values()].sort((a, b) => a.y - b.y);
-    all.forEach(b => drawBee(b, t));
+    drawFloor(); drawBackWalls(t);
+    buildScene(t);
+    scene.sort((a, b) => a.k - b.k).forEach(o => o.draw());
+    labels();
     drawEffects(t, dt);
-    for (const b of bees.values()) if (!b.popped) drawTag(b, t);
-    all.forEach(drawBubble);
+    drawTags(t);
+    [...bees.values(), ...helpers.values(), ...crew.values()].forEach(drawBubble);
     if (pop) drawPopBee(t);
   }
   requestAnimationFrame(frame);
 }
+// walk in tiles per second; face and back follow the direction on screen
+// 초당 타일만큼 걷는다. 얼굴 방향과 뒷모습은 화면에서의 방향을 따른다
 function step(b, dt) {
   if (!b.path.length) { b.moving = false; return; }
-  const p = b.path[0], dx = p.x - b.x, dy = p.y - b.y, d = Math.hypot(dx, dy), v = reduced ? 1e9 : (b.sprint ? 240 : 90) * dt;
-  if (Math.abs(dx) > .5) b.face = dx > 0 ? 1 : -1;
-  b.back = dy < -Math.abs(dx);
+  const p = b.path[0], dx = p.x - b.x, dy = p.y - b.y, d = Math.hypot(dx, dy), v = reduced ? 1e9 : (b.sprint ? 4.2 : 1.7) * dt;
+  const a = P(b.x, b.y), e = P(p.x, p.y), sx = e.x - a.x, sy = e.y - a.y;
+  if (Math.abs(sx) > .5) b.face = sx > 0 ? 1 : -1;
+  b.back = sy < -Math.abs(sx) * .4;
   if (d <= v) { b.x = p.x; b.y = p.y; b.path.shift(); if (!b.path.length) { b.moving = false; b.arrived = true; settle(b); } }
   else { b.x += dx / d * v; b.y += dy / d * v; b.moving = true; }
 }
+// what a bee looks at once it gets there (a floor direction), turned into front/back and left/right when drawn
+// 도착한 벌이 바라보는 곳 (바닥 위 방향). 그릴 때 앞/뒤, 왼쪽/오른쪽이 된다
 function settle(b) {
-  if (b.key2 === 'desk' || b.key2 === 'brag') b.face = -1;
-  if (b.key2 === 'meet') b.face = b.atBoard ? -1 : b.x < MEET_C.x ? 1 : -1;
+  const at = q => [q.x - b.x, q.y - b.y];
+  b.look = null;
+  if (b.key2 === 'desk' && b.desk) b.look = [0, b.desk.far ? 1 : -1];
+  if (b.key2 === 'meet') b.look = b.atBoard ? [0, -1] : at(MEET_C);
   if (b.npc && b.key2 === 'out') crew.delete(b.key);
-  if (b.key2 === 'q') { b.face = 1; maybePop(); }
-  if (b.key2 === 'comb') { b.face = 1; b.deliver = false; say(b, tr('꿀 저장 완료!', 'Honey stored!')); plan(); }
+  if (b.key2 === 'q') { b.look = [0, -1]; maybePop(); }
+  if (b.key2 === 'comb') { b.look = [0, -1]; b.deliver = false; say(b, tr('꿀 저장 완료!', 'Honey stored!')); plan(); }
   if (b.key2 === 'lounge' && b.spot) {
-    const k = b.spot.kind;
-    b.face = k === 'pong' ? (b.spot.x < 475 ? 1 : -1) : k === 'coffee' || k === 'plant' ? 1 : k === 'chat' ? (b.spot.x < 360 ? 1 : -1) : b.face;
+    const k = b.spot.kind, mate = SPOTS.find(q => q.kind === k && q !== b.spot);
+    b.look = (k === 'pong' || k === 'chat') && mate ? at(mate) : k === 'coffee' ? [-1, 0] : k === 'sofa' ? [0, 1] : k === 'plant' ? [b.spot.x < 23 ? -1 : 1, -.5] : null;
   }
+  if (b.look) b.face = sideOf(...b.look);
 }
 
 /* ---------- the pop-out bee / 튀어나오는 벌 ---------- */
@@ -793,13 +1023,13 @@ function drawPopBee(t) {
   popCtx.setTransform(dpr * 2.2, 0, 0, dpr * 2.2, 0, 0);
   popCtx.clearRect(0, 0, 60, 60);
   c = popCtx;
-  drawBee({ x: 30, y: 57, face: -1, state: 'wait', at: pop.at, office: pop.office, phase: 0, moving: false, key2: 'q' }, t);
+  drawBee({ screen: true, x: 30, y: 57, face: -1, state: 'wait', at: pop.at, office: pop.office, phase: 0, moving: false, key2: 'q' }, t);
   c = mapCtx;
 }
 const popEl = $('#pop'), popBee = $('#pop-bee');
 function flyFrom(b) {
   const r = cv.getBoundingClientRect(), p = popBee.getBoundingClientRect();
-  const ax = r.left + b.x * scale, ay = r.top + (b.y - 24) * scale, aw = 50 * scale;
+  const s = P(b.x, b.y), ax = r.left + VIEW.w / 2 + (s.x - VIEW.cx) * scale, ay = r.top + VIEW.h / 2 + (s.y - 24 * BEE - VIEW.cy) * scale, aw = 50 * BEE * scale;
   return `translate(${ax - (p.left + p.width / 2)}px, ${ay - (p.top + p.height / 2)}px) scale(${Math.max(.08, aw / p.width)})`;
 }
 function maybePop() {
@@ -863,16 +1093,18 @@ async function visit(b) {
     if (!j.ok) toast(b.ssh ? tr(`${b.office.host} 에 이 Mac 에서 붙은 화면이 없어요`, `No screen of this Mac is attached to ${b.office.host}`) : tr('세션을 띄울 터미널 화면이 없어요', 'No terminal screen to show it on'));
   } catch (e) { toast(tr('hivemux 와 연결이 끊겼어요', 'Lost hivemux')); }
 }
-function worldAt(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / scale, y: (e.clientY - r.top) / scale }; }
+// the mouse in screen units of the scene (before scaling) / 마우스 위치를 장면의 화면 단위로
+function worldAt(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left - VIEW.w / 2) / scale + VIEW.cx, y: (e.clientY - r.top - VIEW.h / 2) / scale + VIEW.cy }; }
 function hit(p) {
-  let best = null, bd = 22;
-  for (const b of bees.values()) { if (b.popped) continue; const d = Math.hypot(b.x - p.x, b.y - 22 - p.y); if (d < bd) { bd = d; best = b; } }
-  return best || [...bees.values()].find(b => Math.abs(p.x - b.desk.x) < 50 && Math.abs(p.y - b.desk.y + 6) < 26) || null;
+  let best = null, bd = 20;
+  for (const b of bees.values()) { if (b.popped) continue; const s = P(b.x, b.y), d = Math.hypot(s.x - p.x, s.y - 22 * BEE - p.y); if (d < bd) { bd = d; best = b; } }
+  return best || [...bees.values()].find(b => { if (!b.desk) return false; const s = P(b.desk.x, b.desk.y, 12); return Math.abs(p.x - s.x) < 34 && Math.abs(p.y - s.y) < 16; }) || null;
 }
 const tip = $('#tip');
 cv.addEventListener('mousemove', e => {
   const b = LAY && hit(worldAt(e));
   cv.classList.toggle('hand', !!b);
+  hoverKey = b ? b.key : null;
   if (!b) { tip.hidden = true; return; }
   const fr = $('#floor').getBoundingClientRect();
   tip.replaceChildren();
@@ -884,8 +1116,77 @@ cv.addEventListener('mousemove', e => {
   tip.style.left = Math.max(8, Math.min(e.clientX - fr.left + 14, fr.width - tip.offsetWidth - 8)) + 'px';
   tip.style.top = (e.clientY - fr.top + 14) + 'px';
 });
-cv.addEventListener('mouseleave', () => { tip.hidden = true; });
-cv.addEventListener('click', e => { const b = LAY && hit(worldAt(e)); if (b) visit(b); });
+cv.addEventListener('mouseleave', () => { tip.hidden = true; hoverKey = null; });
+cv.addEventListener('click', e => { if (dragged) { dragged = false; return; } const b = LAY && hit(worldAt(e)); if (b) visit(b); });
+
+/* ---------- turning, zooming and moving the view / 보기 돌리기, 확대, 옮기기 ----------
+   Mouse: wheel to zoom at the pointer, drag to move, right-drag (or shift-drag) sideways to turn and
+   up or down to look from higher or lower. Trackpad: pinch to zoom, two-finger turn.
+   Keys: Q/E turn, W/S higher/lower, +/- zoom, 0 whole floor. Kept for next time.
+   마우스: 휠로 가리킨 곳 확대, 끌어서 옮기기, 오른쪽 버튼(또는 shift)으로 옆으로 끌면 돌리기,
+   위아래로 끌면 보는 높이. 트랙패드: 벌려서 확대, 두 손가락으로 돌리기.
+   키: Q/E 돌리기, W/S 높이, +/- 확대, 0 전체 보기. 다음에도 그대로. */
+const Q = Math.PI / 4;
+function zoomAt(f, mx, my) {
+  const z = Math.max(.6, Math.min(4, cam.zoom * f));
+  if (mx !== undefined) {   // keep the point under the mouse in place / 마우스 아래 점을 제자리에
+    const r = cv.getBoundingClientRect(), ox = mx - r.left - VIEW.w / 2, oy = my - r.top - VIEW.h / 2, s2 = scale * z / cam.zoom;
+    cam.px += ox / s2 - ox / scale; cam.py += oy / s2 - oy / scale;
+  }
+  cam.zoom = z; saveView();
+}
+function viewDo(k) {
+  if (k === 'rotL') cam.rot = Math.round((cam.rot - Q) / Q) * Q;
+  if (k === 'rotR') cam.rot = Math.round((cam.rot + Q) / Q) * Q;
+  if (k === 'in') zoomAt(1.25);
+  if (k === 'out') zoomAt(.8);
+  if (k === 'up') cam.tilt = Math.min(.85, cam.tilt + .1);
+  if (k === 'down') cam.tilt = Math.max(.3, cam.tilt - .1);
+  if (k === 'home') { cam.zoom = 1; cam.px = cam.py = 0; cam.rot = 0; cam.tilt = .5; }
+  saveView();
+}
+$('#view').addEventListener('click', e => { const b = e.target.closest('button[data-k]'); if (b) viewDo(b.dataset.k); });
+$('#v-2d').addEventListener('click', () => { try { localStorage.setItem('office-mode', '2d'); } catch (e) {} location.href = '/2d'; });
+addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('input, textarea, select') || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = { q: 'rotL', e: 'rotR', w: 'up', s: 'down', '+': 'in', '=': 'in', '-': 'out', '0': 'home' }[e.key.toLowerCase()];
+  if (k) { viewDo(k); e.preventDefault(); }
+});
+let drag = null, dragged = false;
+cv.addEventListener('pointerdown', e => {
+  if (e.button !== 0 && e.button !== 2) return;
+  drag = { x: e.clientX, y: e.clientY, px: cam.px, py: cam.py, rot: cam.rot, tilt: cam.tilt, turn: e.button === 2 || e.shiftKey }; dragged = false;
+  cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (!dragged && Math.hypot(dx, dy) < 4) return;
+  dragged = true; cv.classList.add('grab'); tip.hidden = true;
+  if (drag.turn) {   // a full turn across ~800px; up looks from higher / 약 800px 끌면 한 바퀴, 위로 끌면 더 높이서
+    cam.rot = drag.rot + dx * .008; setRot(cam.rot);
+    cam.tilt = Math.max(.3, Math.min(.85, drag.tilt - dy * .003)); setTilt(cam.tilt);
+  }
+  else { cam.px = drag.px + dx / scale; cam.py = drag.py + dy / scale; }
+});
+const dragEnd = () => { if (drag && dragged) saveView(); drag = null; cv.classList.remove('grab'); };
+cv.addEventListener('pointerup', dragEnd); cv.addEventListener('pointercancel', dragEnd);
+cv.addEventListener('contextmenu', e => e.preventDefault());
+// the wheel zooms at the pointer (a trackpad pinch arrives as ctrl+wheel) / 휠은 가리킨 곳을 확대 (트랙패드 벌리기는 ctrl+휠로 온다)
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const d = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+  zoomAt(Math.exp(-d * (e.ctrlKey ? .01 : .0015)), e.clientX, e.clientY);
+}, { passive: false });
+// Safari and the window app: pinch and turn gestures / Safari 와 창 앱: 벌리기, 돌리기 제스처
+let gest = null;
+cv.addEventListener('gesturestart', e => { e.preventDefault(); gest = { zoom: cam.zoom, rot: cam.rot }; });
+cv.addEventListener('gesturechange', e => {
+  e.preventDefault(); if (!gest) return;
+  cam.zoom = Math.max(.6, Math.min(4, gest.zoom * e.scale));
+  cam.rot = gest.rot + e.rotation * Math.PI / 180; setRot(cam.rot);
+});
+cv.addEventListener('gestureend', e => { e.preventDefault(); gest = null; saveView(); });
 
 /* ---------- roster and chips / 명단과 칩 ---------- */
 const roster = $('#roster');
