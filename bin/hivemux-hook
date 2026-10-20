@@ -11,6 +11,8 @@
 #   server (@hivemux-honey "<date> <count>") for the bee office (bin/hivemux-office)
 # - 칸에서 Claude 가 돌리는 서브에이전트 수(@claude_agents)와 오늘 이 서버에서 끝난 작업 수
 #   (@hivemux-honey "<날짜> <개수>")를 센다 -> 벌 사무실 (bin/hivemux-office)
+# - marks a pane whose Claude is in plan mode (@claude_plan) -> it plans in the bee office's meeting room
+# - 계획 모드인 Claude 의 칸을 표시 (@claude_plan) -> 벌 사무실 회의실에서 계획을 세운다
 # - records the folder Claude is working in now (@claude_pwd; a Bash cd moves it off @claude_cwd)
 #   so Option+O can find relative paths (bin/hivemux-open-ui)
 # - Claude 가 지금 일하는 폴더를 기록 (@claude_pwd; Bash 에서 cd 하면 @claude_cwd 와 달라진다)
@@ -56,6 +58,16 @@ agents() { # agents <+1|-1|0>
   if [ "$n" = 0 ]; then t set -pu -t "$TMUX_PANE" @claude_agents; else t set -p -t "$TMUX_PANE" @claude_agents "$n"; fi
 }
 
+# Plan mode (permission_mode "plan" on the events that carry it); shift+tab is seen at the next event
+# 계획 모드 (이벤트에 실려 오는 permission_mode 가 "plan"). shift+tab 은 다음 이벤트에 반영된다
+mode_() {
+  local m cur; m="$(field permission_mode)"
+  [ -n "$m" ] || return
+  cur="$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_plan 2>/dev/null)"
+  if [ "$m" = plan ]; then [ -n "$cur" ] || t set -p -t "$TMUX_PANE" @claude_plan 1
+  else [ -z "$cur" ] || t set -pu -t "$TMUX_PANE" @claude_plan; fi
+}
+
 # Where Claude works now: kept apart from @claude_cwd, which is where resume must start
 # Claude 가 지금 일하는 폴더: 재개 위치인 @claude_cwd 와 따로 둔다
 pwd_() {
@@ -80,13 +92,16 @@ case "$event" in
     state idle
     ;;
   UserPromptSubmit|PermissionDenied)
+    mode_
     state run
     ;;
   PostToolUse|PostToolUseFailure)
     case "$(field tool_name)" in Agent|Task) agents -1 ;; Bash) pwd_ ;; esac
+    mode_
     state run
     ;;
   PreToolUse)
+    mode_
     # Tools that only ask the user something wait right away; others are running
     # 사용자에게 묻기만 하는 도구는 바로 입력 필요, 나머지는 작업 중
     case "$(field tool_name)" in
@@ -108,6 +123,7 @@ case "$event" in
   Stop)
     agents 0
     pwd_
+    mode_
     state done
     # If a sidebar rename is pending, send it now that the turn has ended
     # 사이드바에서 바꾼 이름이 보류 중이면 응답이 끝난 지금 보낸다
@@ -125,6 +141,7 @@ case "$event" in
     t set -wu -t "$TMUX_PANE" @claude_state
     t set -pu -t "$TMUX_PANE" @claude_agents
     t set -pu -t "$TMUX_PANE" @claude_pwd
+    t set -pu -t "$TMUX_PANE" @claude_plan
     # Forget the mapping only on a deliberate exit; reboots and kills still resume
     # 직접 종료했을 때만 매핑 삭제 -> 재부팅/강제 종료는 재개된다
     case "$(field reason)" in

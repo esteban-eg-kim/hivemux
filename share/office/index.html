@@ -222,7 +222,8 @@ const saveSettings = () => { try { localStorage.setItem('office-settings', JSON.
 
 const LABEL = { run: ['일하는 중', 'working'], wait: ['기다림', 'waiting'], done: ['끝남', 'done'], idle: ['쉬는 중', 'resting'] };
 const label = st => tr(...LABEL[st]);
-const MEET_TALK = [['그럼 이렇게 나눠요', "Let's split it"], ['테스트는 제가 볼게요', "I'll take the tests"], ['좋아요', 'Sounds good'], ['…', '…'], ['파일 세 개만 고치면 돼요', 'Just three files'], ['타입 먼저 맞춰요', 'Types first']];
+const PLAN_TALK = [['순서부터 정하고', 'Order first'], ['1단계, 2단계…', 'Step 1, step 2…'], ['여기가 핵심', 'This is the key'], ['위험한 곳 체크', 'Mark the risks'], ['음…', 'Hmm…'], ['파일 세 개만 고치면 돼요', 'Just three files']];
+const HELP_TALK = [['찾았어요!', 'Found it!'], ['이 파일이에요', 'This file'], ['보고서 드릴게요', 'Report coming'], ['다 읽었어요', 'Read it all'], ['…', '…']];
 const CHAT_TALK = [['ㅋㅋㅋ', 'haha'], ['점심 뭐 먹지', 'Lunch?'], ['꿀 맛있다', 'Nice honey'], ['…', '…'], ['아까 그 버그 봤어?', 'Saw that bug?'], ['오늘 빠르네', 'Fast day']];
 
 /* ---------- floor plan (world units, 960 wide) ----------
@@ -239,6 +240,9 @@ const BOTTOM = {
 };
 const MEET_C = { x: 160, y: 470 };
 const MEET_CHAIRS = Array.from({ length: 6 }, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 3; return { x: MEET_C.x + Math.cos(a) * 62, y: MEET_C.y + Math.sin(a) * 58 }; });
+const BOARD_SPOT = { x: 54, y: 462 };   // in front of the whiteboard / 화이트보드 앞
+// helper bees by the desk, relative to its center (a desk slot is 150 wide) / 책상 옆 부사수 자리 (책상 가운데 기준, 칸 폭 150)
+const HELP_SPOTS = [{ dx: -63, dy: 22 }, { dx: 63, dy: 22 }, { dx: 63, dy: -18 }];
 const MEET_STAND = [{ x: 70, y: 400 }, { x: 250, y: 400 }, { x: 60, y: 560 }, { x: 260, y: 560 }, { x: 110, y: 560 }, { x: 210, y: 560 }];
 const SPOTS = [
   { kind: 'sofa', x: 382, y: 536 }, { kind: 'sofa', x: 422, y: 536 }, { kind: 'sofa', x: 462, y: 536 },
@@ -370,22 +374,29 @@ function setTarget(b, key, p, sprint) {
 function plan() {
   const all = [...bees.values()];
   const waits = all.filter(b => b.state === 'wait').sort((a, b) => a.at - b.at);
-  // meetings: a working bee with subagents takes a chair, its helpers the next ones / 회의: 서브에이전트가 있는 벌과 도우미가 차례로 앉는다
+  // plan mode: the first planner draws on the whiteboard, the others think at the table
+  // 계획 모드: 첫 번째 벌은 화이트보드에 그리고, 나머지는 회의 탁자에서 고민한다
   const seats = [...MEET_CHAIRS, ...MEET_STAND];
   let seat = 0;
+  const planners = all.filter(b => b.state === 'run' && b.plan);
+  for (const b of all) b.atBoard = false;
+  planners.forEach((b, i) => { b.atBoard = i === 0; b.meetSeat = i === 0 ? BOARD_SPOT : seats[Math.min(seat++, seats.length - 1)]; });
+  // subagents: small helper bees by the desk, or at the table with a planning bee
+  // 서브에이전트: 책상 옆의 작은 부사수 벌. 계획 중인 벌이면 회의 탁자에 같이 앉는다
   const alive = new Set();
-  for (const b of all.filter(b => b.state === 'run' && b.agents > 0)) {
-    b.meetSeat = seats[Math.min(seat++, seats.length - 1)];
+  for (const b of all.filter(b => (b.state === 'run' || b.state === 'wait') && b.agents > 0)) {
+    const meeting = planners.includes(b);
     for (let i = 0; i < Math.min(3, b.agents); i++) {
       const k = `${b.key}|${i}`; alive.add(k);
-      const p = bt(seats[Math.min(seat++, seats.length - 1)]);
+      const o = HELP_SPOTS[i];
+      const p = meeting ? bt(seats[Math.min(seat++, seats.length - 1)]) : { x: b.desk.x + o.dx, y: b.desk.y + o.dy };
       if (!helpers.has(k)) helpers.set(k, { mini: true, host: b, born: performance.now() + i * 350, phase: Math.random() * 9 });
-      Object.assign(helpers.get(k), { x: p.x, y: p.y, face: p.x < MEET_C.x ? 1 : -1 });
+      Object.assign(helpers.get(k), { x: p.x, y: p.y, pose: meeting ? 'meet' : 'help', face: meeting ? (p.x < MEET_C.x ? 1 : -1) : (o.dx < 0 ? 1 : -1) });
     }
   }
   for (const k of helpers.keys()) if (!alive.has(k)) helpers.delete(k);
   for (const b of all) {
-    if (b.state === 'run') b.agents > 0 ? setTarget(b, 'meet', bt(b.meetSeat)) : setTarget(b, 'desk', b.seat);
+    if (b.state === 'run') b.plan ? setTarget(b, 'meet', bt(b.meetSeat)) : setTarget(b, 'desk', b.seat);
     else if (b.state === 'wait') { const i = waits.indexOf(b); setTarget(b, 'q', bt({ x: 765 - (i % 4) * 32, y: 470 + Math.floor(i / 4) * 42 }), true); }
     else if (b.state === 'done') setTarget(b, 'brag', { x: b.desk.x + 36, y: b.desk.y + 46 });
     else if (b.deliver) { const p = cellAt(Math.min(honeyShown(), COMB.cols * COMB.rows - 1)); setTarget(b, 'comb', { x: 856, y: Math.max(LAY.B + 62, Math.min(LAY.B + 222, p.y + 46)) }); }
@@ -398,7 +409,9 @@ function plan() {
 // honey in the comb: today's finished tasks minus the jars still carried / 벌집의 꿀: 오늘 끝난 작업 - 아직 들고 있는 꿀단지
 const honeyShown = () => Math.max(0, honeyTotal - [...bees.values()].filter(b => b.state === 'done' || b.deliver).length);
 function whereOf(b) {
-  if (b.state === 'run') return b.agents > 0 ? tr(`회의실 · 서브에이전트 ${b.agents}명과 회의 중`, `meeting room · with ${b.agents} subagent${b.agents > 1 ? 's' : ''}`) : tr('자리에서 일하는 중', 'working at the desk');
+  const crew = b.agents > 0 ? tr(` · 부사수 ${b.agents}명`, ` · ${b.agents} helper${b.agents > 1 ? 's' : ''}`) : '';
+  if (b.state === 'run') return (b.plan ? (b.atBoard ? tr('회의실 · 화이트보드에 계획 그리는 중', 'meeting room · drawing the plan on the whiteboard') : tr('회의실 · 계획 회의 중', 'meeting room · planning'))
+    : tr('자리에서 일하는 중', 'working at the desk')) + crew;
   if (b.state === 'wait') { const i = [...bees.values()].filter(x => x.state === 'wait').sort((a, c) => a.at - c.at).indexOf(b); return tr(`사장실 질문 창구 ${i + 1}번째`, `question window, #${i + 1} in line`); }
   if (b.state === 'done') return tr('자리에서 꿀 들고 자랑하는 중', 'showing off a jar of honey');
   if (b.deliver) return tr('벌집에 꿀 채우러 가는 중', 'taking the honey to the comb');
@@ -409,7 +422,9 @@ function whereOf(b) {
 function say(b, text, ms = 2200) { b.say = { text, until: performance.now() + ms }; }
 setInterval(() => {
   const members = [...bees.values()].filter(b => b.key2 === 'meet' && b.arrived);
-  if (members.length) { const m = pick([...members, ...helpers.values()]); say(m, tr(...pick(MEET_TALK)), 1800); }
+  if (members.length && Math.random() < .7) say(pick([...members, ...[...helpers.values()].filter(h => h.pose === 'meet')]), tr(...pick(PLAN_TALK)), 1800);
+  const desk = [...helpers.values()].filter(h => h.pose === 'help' && performance.now() > h.born + 600);
+  if (desk.length && Math.random() < .35) say(pick(desk), tr(...pick(HELP_TALK)), 1600);
   const chatters = SPOTS.filter(p => p.kind === 'chat' && p.occ && p.occ.arrived).map(p => p.occ);
   if (chatters.length === 2) say(pick(chatters), tr(...pick(CHAT_TALK)), 1800);
 }, 1700);
@@ -509,7 +524,14 @@ function drawBottom(t) {
   c.save(); c.translate(0, LAY.DY);
   // meeting room / 회의실
   fillRR(26, 380, 7, 150, 2, T['m-board']);
-  if (helpers.size) { c.strokeStyle = T.run; c.lineWidth = 1.5; for (let i = 0; i < 5; i++) { c.beginPath(); c.moveTo(28, 392 + i * 26); c.lineTo(31, 406 + i * 26); c.stroke(); } }
+  // the plan grows on the whiteboard while a bee draws at it, then starts over / 벌이 그리는 동안 계획이 늘어나고, 다 차면 처음부터
+  const drawer = [...bees.values()].find(b => b.atBoard && b.key2 === 'meet' && b.arrived);
+  if (drawer) {
+    const n = reduced ? 6 : Math.floor((t * .6 + drawer.phase) % 7);
+    c.strokeStyle = T.run; c.lineWidth = 1.5;
+    for (let i = 0; i < n; i++) { c.beginPath(); c.moveTo(28, 388 + i * 22); c.lineTo(31, 388 + i * 22 + [12, 8, 14, 10, 6, 12][i]); c.stroke(); }
+    if (n > 2) fillRR(27, 376 + n * 22, 5, 5, 1, T.wait);
+  }
   MEET_CHAIRS.forEach(p => circle(p.x, p.y, 10, T['m-chair']));
   circle(MEET_C.x, MEET_C.y, 40, T['m-desk-edge']); circle(MEET_C.x, MEET_C.y - 2, 40, T['m-desk']);
   plant(285, 565);
@@ -569,7 +591,7 @@ function drawComb() {
    서 있는 벌. 원점은 두 발 사이. 책상에 앉았거나 멀어질 때는 뒷모습 */
 const SIT = { type: 12, meet: 8, sofa: 6 };
 function poseOf(b) {
-  if (b.state === 'run') return b.key2 === 'meet' ? 'meet' : 'type';
+  if (b.state === 'run') return b.key2 === 'meet' ? (b.atBoard ? 'board' : 'meet') : 'type';
   if (b.state === 'wait') return 'wait';
   if (b.state === 'done') return 'done';
   return b.spot && b.key2 === 'lounge' ? b.spot.kind : 'idle';
@@ -579,7 +601,7 @@ function drawBee(b, t) {
   const mini = b.mini, sc = mini ? .78 : 1;
   let grow = 1;
   if (mini) { const age = (now - b.born) / 300; if (age < 0) return; grow = Math.min(1, age) * (1 + Math.max(0, .3 - Math.abs(age - .8))); }
-  const pose = mini ? 'meet' : b.moving ? 'walk' : poseOf(b);
+  const pose = mini ? b.pose : b.moving ? 'walk' : poseOf(b);
   const urg = b.state === 'wait' && b.office ? Math.min(1, ageOf(b) / 120) : 0;
   const back = pose === 'type' || pose === 'coffee' || (pose === 'walk' && b.back);
   const sit = SIT[pose] || 0, f = b.face || -1, dark = T['bee-dark'];
@@ -618,6 +640,8 @@ function drawBee(b, t) {
   else if (pose === 'coffee') arms.push([-1, -6, -30], [1, 6, -30]);
   else if (pose === 'pong') arms.push([-f, -f * 8, -14], [f, f * 11, -26 + Math.sin(t * 5.5) * 4]);
   else if (pose === 'plant') arms.push([-f, -f * 8, -14], [f, f * 11, -20]);
+  else if (pose === 'board') arms.push([-f, -f * 8, -14], [f, f * 13 + Math.sin(t * 3) * 1.5, -36 + Math.sin(t * 7) * 4]);
+  else if (pose === 'help') arms.push([-1, -6, -18], [1, 6, -18]);
   else if (pose === 'chat' || pose === 'meet') { const g = b.say && now < b.say.until ? Math.sin(t * 9) * 3 : 0; arms.push([-f, -f * 8, -15], [f, f * 10, -20 + g]); }
   else for (const s of [-1, 1]) arms.push([s, s * 8, -14 + swing * s * 2.5]);
   if (back) arms.forEach(a => hand(...a));
@@ -645,6 +669,11 @@ function drawBee(b, t) {
   if (carry) { fillRR(-6, -57, 12, 12, 2.5, T.honey); c.strokeStyle = dark; c.lineWidth = 1; rr(-6, -57, 12, 12, 2.5); c.stroke(); fillRR(-7, -59, 14, 3.5, 1, dark); }
   if (pose === 'pong') circle(f * 13, -28 + Math.sin(t * 5.5) * 4, 3.4, T.alert);
   if (pose === 'plant') fillRR(f * 10 - 4, -22, 8, 7, 1.5, T.run);
+  if (pose === 'board') { c.save(); c.translate(f * 13, -38 + Math.sin(t * 7) * 4); c.rotate(f * .6); fillRR(-1.5, -5, 3, 8, 1, T.run); c.restore(); }
+  if (pose === 'help') {   // a tiny laptop, its screen busy / 작은 노트북, 화면이 바쁘다
+    fillRR(-8, -24, 16, 10, 1.5, T['m-mon']);
+    c.fillStyle = T.run; for (let i = 0; i < 3; i++) c.fillRect(-6, -22 + i * 3, 3 + ((Math.floor(t * 6 + (b.phase || 0)) + i * 2) % 9), 1.2);
+  }
   c.restore();
 }
 function drawTag(b, t) {
@@ -724,7 +753,7 @@ function step(b, dt) {
 }
 function settle(b) {
   if (b.key2 === 'desk' || b.key2 === 'brag') b.face = -1;
-  if (b.key2 === 'meet') b.face = b.x < MEET_C.x ? 1 : -1;
+  if (b.key2 === 'meet') b.face = b.atBoard ? -1 : b.x < MEET_C.x ? 1 : -1;
   if (b.key2 === 'q') { b.face = 1; maybePop(); }
   if (b.key2 === 'comb') { b.face = 1; b.deliver = false; say(b, tr('꿀 저장 완료!', 'Honey stored!')); plan(); }
   if (b.key2 === 'lounge' && b.spot) {

@@ -22,11 +22,13 @@ The page (share/office/index.html) polls /state every second: this Mac's session
 Mac this one is connected to with hivemux connect (asked over the ssh connection hivemux-ports keeps).
 A bee works at its desk (run), runs to the question window in the boss room (wait), holds up a jar of
 honey (done, not seen), takes it to the honeycomb once seen, then rests in the lounge (idle). A task
-running subagents (@claude_agents, counted by bin/hivemux-hook) holds a meeting.
+in plan mode (@claude_plan, from bin/hivemux-hook) plans in the meeting room; subagents
+(@claude_agents) stand by the desk as small helper bees.
 페이지(share/office/index.html)는 1초마다 /state 를 읽는다: 이 Mac 의 세션, 그리고 hivemux connect 로 붙어
 있는 Mac 마다의 세션 (hivemux-ports 가 유지하는 ssh 연결로 묻는다). 벌은 자리에서 일하고 (run), 사장실
 질문 창구로 뛰어가고 (wait), 꿀단지를 들고 있다가 (done, 안 봄) 보고 나면 벌집에 꿀을 채우고, 라운지에서
-쉰다 (idle). 서브에이전트를 돌리는 작업 (@claude_agents, bin/hivemux-hook 이 센다)은 회의를 한다.
+쉰다 (idle). 계획 모드 (@claude_plan, bin/hivemux-hook 이 표시)면 회의실에서 계획을 세우고,
+서브에이전트 (@claude_agents)는 책상 옆의 작은 부사수 벌이 된다.
 
 The window is a small native app (share/office/OfficeWindow.swift) built once with swiftc into
 $XDG_DATA_HOME/hivemux/hive/; without swiftc the page opens in the browser.
@@ -49,7 +51,7 @@ PORT = int(os.environ.get("HIVEMUX_OFFICE_PORT") or 47380)   # fixed, so the pag
 IDLE_EXIT = 90               # seconds without a page asking before the server quits / 페이지가 묻지 않은 채 이만큼 지나면 서버 종료
 US = "\x1f"
 FIELDS = ["pane_id", "session_name", "window_index", "window_name", "pane_title", "@claude_state", "@claude_state_at",
-          "@claude_session", "@claude_title", "@claude_name", "@claude_agents", "pane_current_command"]
+          "@claude_session", "@claude_title", "@claude_name", "@claude_agents", "@claude_plan", "pane_current_command"]
 SHELLS = {"zsh", "bash", "fish", "sh", "dash", "tcsh", "ksh", "login"}
 SSH = shlex.split(os.environ.get("HIVEMUX_SSH") or "ssh")
 PATH = "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH"
@@ -112,6 +114,7 @@ def snapshot():
             "pane": p["pane_id"], "idx": i, "project": p["session_name"], "name": task_name(p),
             "state": p["@claude_state"], "at": int(p["@claude_state_at"]) if p["@claude_state_at"].isdigit() else 0,
             "agents": int(p["@claude_agents"]) if p["@claude_agents"].isdigit() else 0,
+            "plan": bool(p["@claude_plan"]),
         } for i, p in enumerate(items, 1)],
     }
 

@@ -34,8 +34,9 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
   a bee in a small office: it types at its desk while working, runs to the
   question window in the boss room when it needs you (and pops out in front of
   the window), holds up a jar of honey when done, stores it in the honeycomb
-  once you have looked, then rests in the lounge. A task running subagents holds
-  a meeting. Click a bee to go to its session. Sessions of a Mac you are
+  once you have looked, then rests in the lounge. In plan mode it plans at the
+  whiteboard in the meeting room; subagents stand by its desk as small helper
+  bees. Click a bee to go to its session. Sessions of a Mac you are
   connected to with `hivemux connect` work in an office of their own.
 - **Task names.** Shows Claude's own conversation title. Double-click a card
   (or right-click → Rename) to rename it; hivemux sends `/rename` to that Claude (waits if it is busy).
