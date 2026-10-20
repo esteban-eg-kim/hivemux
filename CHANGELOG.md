@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Bee office: the name plaques keep their day colors at night (so they match
+  the carpets), stay inside the wall when two Macs start in the same row, and
+  shrink a long Mac name to fit
+
 ## 0.1.31 — 2026-10-21
 
 - Bee office: each Mac's desks sit on a carpet of its color (honey for this

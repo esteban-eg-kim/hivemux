@@ -698,33 +698,46 @@ function decoBack(t) {
   drawComb();
 }
 // name plaques on the left wall at eye level, one per Mac beside the row where its desks start (two in one
-// row sit side by side): the Mac's name, and a strip that says whose (honey: this Mac, lilac: remote)
-// 왼쪽 벽 눈높이의 명패. Mac 마다 그 책상이 시작하는 줄 옆에 (한 줄에 둘이면 나란히): Mac 이름, 그리고
-// 누구 것인지 띠 (꿀색: 이 Mac, 연보라: 원격)
+// row sit side by side, all within the wall): the Mac's name, shrunk to fit, and a strip that says whose
+// (honey: this Mac, lilac: remote). Day colors always, so they match the carpets
+// 왼쪽 벽 눈높이의 명패. Mac 마다 그 책상이 시작하는 줄 옆에 (한 줄에 둘이면 나란히, 모두 벽 안에): 판에
+// 맞게 줄인 Mac 이름, 그리고 누구 것인지 띠 (꿀색: 이 Mac, 연보라: 원격). 카펫과 맞게 늘 낮 색
 const PLAQUE_PX = 34;   // text pixels per tile along the wall / 벽 방향으로 타일당 글자 픽셀
 function plaques() {
-  const first = LAY.pods.filter(p => p.n === 0);
-  return first.map(p => {
-    const o = offices[p.oi], same = first.filter(q => q.y === p.y), k = same.indexOf(p);
-    const name = clipText(o ? o.host : '', 130), sub = (p.oi === 0 ? tr('이 Mac', 'this Mac') : tr('원격', 'remote')) + (o && o.missing ? tr(' · 업데이트 필요', ' · update') : '');
+  const pl = LAY.pods.filter(p => p.n === 0).map(p => {
+    const o = offices[p.oi], sub = (p.oi === 0 ? tr('이 Mac', 'this Mac') : tr('원격', 'remote')) + (o && o.missing ? tr(' · 업데이트 필요', ' · update') : '');
+    let name = o ? o.host : '';
     font(14, 700); const nw = c.measureText(name).width; font(10, 600); const sw = c.measureText(sub).width;
-    const W = Math.min(2.5, Math.max(1.6, (Math.max(nw, sw) + 24) / PLAQUE_PX));
-    return { y: p.y + 1.5 + (same.length > 1 ? (k - (same.length - 1) / 2) * 2.7 : 0), W, name, sub, oi: p.oi };
-  });
+    const W = Math.min(3.6, Math.max(1.6, (Math.max(nw, sw) + 24) / PLAQUE_PX)), room = W * PLAQUE_PX - 16;
+    // the name shrinks to fit (down to 8px), and only then is cut / 이름은 맞게 줄이고 (8px 까지), 그래도 길면 자른다
+    const size = Math.max(8, Math.min(14, 14 * room / Math.max(1, nw)));
+    font(size, 700); name = clipText(name, room);
+    return { y: p.y + 1.5, W, name, size, sub, oi: p.oi };
+  }).sort((a, b) => a.y - b.y || a.oi - b.oi);
+  // side by side without overlapping, and inside the wall: from its corner (y = 0) to the windows by the elevator
+  // 겹치지 않게 나란히, 벽 안에: 모서리 (y = 0) 부터 엘리베이터 옆 창까지
+  for (let i = 0; i < pl.length; i++) {
+    const q = pl[i], prev = pl[i - 1], low = prev ? prev.y + prev.W / 2 + .4 : .3;
+    if (pl[i + 1] && pl[i + 1].y === q.y) q.y -= (q.W + pl[i + 1].W) / 4 + .2;
+    q.y = Math.max(q.y, low + q.W / 2);
+  }
+  const end = 8.2 + LAY.LOFF, over = pl.length ? pl[pl.length - 1].y + pl[pl.length - 1].W / 2 - end : 0;
+  if (over > 0) pl.forEach(q => { q.y = Math.max(q.W / 2 + .3, q.y - over); });
+  return pl;
 }
 function plaque(q) {
-  const y0 = q.y - q.W / 2, edge = night(T['m-desk-edge']);
+  const y0 = q.y - q.W / 2, edge = T['m-desk-edge'];
   c.fillStyle = 'rgba(0, 0, 0, .12)'; c.fillRect(y0 + .06, 24.5, q.W, 30);
   c.fillStyle = edge; c.fillRect(y0, 26, q.W, 30);
-  c.fillStyle = night(mixc(T['m-desk'], '#ffffff', .22)); c.fillRect(y0 + .06, 27.2, q.W - .12, 27.6);
-  c.fillStyle = q.oi === 0 ? night(T.honey) : night('#a78bfa'); c.fillRect(y0 + .06, 27.2, q.W - .12, 9);
+  c.fillStyle = mixc(T['m-desk'], '#ffffff', .22); c.fillRect(y0 + .06, 27.2, q.W - .12, 27.6);
+  c.fillStyle = q.oi === 0 ? T.honey : '#a78bfa'; c.fillRect(y0 + .06, 27.2, q.W - .12, 9);
   // along this wall the floor runs right to left on screen: flip the text so it reads / 이 벽은 바닥 방향이 화면 오른쪽→왼쪽이라 글자를 뒤집어 읽히게
   const text = (t, zc, size, weight, col) => {
     c.save(); c.translate(q.y, zc); c.scale(-1 / PLAQUE_PX, -1);
     font(size, weight); c.fillStyle = col; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(t, 0, 0);
     c.restore();
   };
-  text(q.name, 45.5, 14, 700, '#3a2612');
+  text(q.name, 45.5, q.size, 700, '#3a2612');
   text(q.sub, 31.8, 10, 600, q.oi === 0 ? '#3a2612' : '#ffffff');
   c.textAlign = 'left'; c.textBaseline = 'top';
 }
