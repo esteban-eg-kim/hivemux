@@ -101,7 +101,7 @@ check everything. Use `--yes` to accept defaults, `--no-keys`, `--no-ghostty`,
 ### Update
 
 ```sh
-brew upgrade hivemux && hivemux setup    # Homebrew
+brew update && brew upgrade hivemux && hivemux setup    # Homebrew
 curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install.sh | bash   # git install: same command
 ```
 

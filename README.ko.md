@@ -60,7 +60,7 @@ tmux-resurrect와 tmux-continuum도 받아 옵니다. 이미 `~/.tmux/plugins`�
 ### 업데이트
 
 ```sh
-brew upgrade hivemux && hivemux setup    # Homebrew
+brew update && brew upgrade hivemux && hivemux setup    # Homebrew
 curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install.sh | bash   # git 설치: 같은 명령
 ```
 
