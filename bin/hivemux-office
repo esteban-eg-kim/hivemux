@@ -11,6 +11,12 @@
   hivemux-office --goto <pane> [--from <mac>]
                                show that pane on a screen of this Mac (or on the screen attached from <mac>)
                                그 칸을 이 Mac 화면에 (또는 <mac> 에서 붙은 화면에) 띄운다
+  hivemux-office --client <client>
+                               open it from tmux (sidebar button and menu, prefix B); a first build shows
+                               its progress in a popup on <client>
+                               tmux 에서 열기 (사이드바 버튼과 메뉴, prefix B). 처음 빌드는 <client> 의 팝업에 진행을 보인다
+  hivemux-office --build       build the window app now, quietly (hivemux setup runs it in the background)
+                               창 앱을 지금 조용히 빌드 (hivemux setup 이 뒤에서 실행)
 
 The page (share/office/index.html) polls /state every second: this Mac's sessions, plus those of every
 Mac this one is connected to with hivemux connect (asked over the ssh connection hivemux-ports keeps).
@@ -317,36 +323,88 @@ def start_server():
     sys.exit("hivemux-office: the server did not start")
 
 
-def window_app():
-    """The window app, built from share/office/OfficeWindow.swift on first use and again when that changes
-    (None without swiftc). Its file name stays the same, so macOS keeps its window place and settings.
-    창 앱. 처음 쓸 때와 share/office/OfficeWindow.swift 가 바뀌었을 때 빌드한다 (swiftc 가 없으면 None).
-    파일 이름은 그대로라 macOS 가 창 위치와 설정을 기억한다."""
-    src = os.path.join(SHARE, "OfficeWindow.swift")
-    with open(src, "rb") as f:
+def app_state():
+    """(app path, source hash, built and current?) of the window app. Its file name stays the same
+    across builds, so macOS keeps its window place and settings.
+    창 앱의 (경로, 소스 해시, 최신으로 빌드돼 있나). 파일 이름은 빌드해도 그대로라 macOS 가 창 위치와 설정을 기억한다."""
+    with open(os.path.join(SHARE, "OfficeWindow.swift"), "rb") as f:
         tag = hashlib.sha1(f.read()).hexdigest()
-    app, stamp = os.path.join(OFFICE_DIR, APP_NAME), os.path.join(OFFICE_DIR, "app.sha1")
+    app = os.path.join(OFFICE_DIR, APP_NAME)
     try:
-        if os.path.exists(app) and open(stamp).read() == tag:
-            return app
+        ready = os.path.exists(app) and open(os.path.join(OFFICE_DIR, "app.sha1")).read() == tag
     except OSError:
-        pass
-    swiftc = subprocess.run(["xcrun", "--find", "swiftc"], capture_output=True, text=True).stdout.strip()
-    if not swiftc:
+        ready = False
+    return app, tag, ready
+
+
+def swiftc():
+    return subprocess.run(["xcrun", "--find", "swiftc"], capture_output=True, text=True).stdout.strip()
+
+
+def build(progress=None):
+    """Build the window app from share/office/OfficeWindow.swift; progress(seconds) is called while it runs.
+    Returns the app path, or None (no swiftc, or the build failed).
+    share/office/OfficeWindow.swift 로 창 앱을 빌드한다. 도는 동안 progress(초)를 부른다. 앱 경로나 None 을 돌려준다."""
+    app, tag, ready = app_state()
+    if ready:
+        return app
+    sc = swiftc()
+    if not sc:
         return None
     os.makedirs(OFFICE_DIR, exist_ok=True)
-    print("hivemux: building the office window (once, ~30 s) / 사무실 창을 만드는 중 (한 번만, 30초쯤)", file=sys.stderr)
-    r = subprocess.run([swiftc, "-O", "-o", app + ".tmp", src], capture_output=True, text=True)
-    if r.returncode != 0:
-        print(r.stderr, file=sys.stderr)
+    tmp = f"{app}.{os.getpid()}.tmp"
+    proc = subprocess.Popen([sc, "-O", "-o", tmp, os.path.join(SHARE, "OfficeWindow.swift")],
+                            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    start = time.time()
+    while proc.poll() is None:
+        if progress:
+            progress(time.time() - start)
+        time.sleep(.1)
+    if proc.returncode != 0:
+        err = proc.stderr.read()
+        with open(os.path.join(OFFICE_DIR, "build.log"), "w") as f:
+            f.write(err)
         return None
-    os.replace(app + ".tmp", app)
-    with open(stamp, "w") as f:
+    os.replace(tmp, app)
+    with open(os.path.join(OFFICE_DIR, "app.sha1"), "w") as f:
         f.write(tag)
     return app
 
 
-def open_window():
+SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+
+def build_screen(popup):
+    """The first build, shown while it runs (in a tmux popup, or in the terminal that ran hivemux office)
+    처음 빌드하는 동안 보여 주는 화면 (tmux 팝업, 또는 hivemux office 를 실행한 터미널)"""
+    ko = lang() == "ko"
+    t = lambda k, e: k if ko else e
+    out = sys.stdout if popup else sys.stderr
+    lines = [t("🐝 벌 사무실 창을 준비하고 있어요", "🐝 Getting the bee office window ready"), "",
+             t("처음 한 번만 창을 만들어요. 30초쯤 걸려요.", "The window is built once, the first time. It takes about 30 seconds."),
+             t("Mac 에 있는 Swift 컴파일러(Xcode Command Line Tools)로", "It is built with the Swift compiler of this Mac"),
+             t("빌드합니다. 컴파일러가 없으면 브라우저로 열어요.", "(Xcode Command Line Tools); without it, it opens in the browser."), ""]
+    if popup:
+        out.write("\x1b[?25l\x1b[2J\x1b[H")
+    out.write("".join(f"  {l}\n" for l in lines))
+    tty = popup or out.isatty()
+
+    def progress(sec):
+        if tty:
+            out.write(f"\r  \x1b[33m{SPIN[int(sec * 10) % len(SPIN)]}\x1b[0m {t('만드는 중', 'building')}… {int(sec)}{t('초', 's')}  ")
+            out.flush()
+    app = build(progress)
+    if app:
+        out.write(f"\r  \x1b[32m✓\x1b[0m {t('다 됐어요. 창을 엽니다', 'Done. Opening the window')}          \n")
+    else:
+        out.write(f"\r  \x1b[31m!\x1b[0m {t('창을 만들지 못해 브라우저로 엽니다', 'Could not build the window; opening the browser')}   \n")
+    out.flush()
+    if popup:
+        time.sleep(1.2)
+    return app
+
+
+def open_window(popup=False):
     port = start_server()
     url = f"http://127.0.0.1:{port}/"
     try:                                        # already open: bring it to the front / 이미 열려 있으면 앞으로
@@ -356,12 +414,48 @@ def open_window():
             return
     except (OSError, ValueError):
         pass
-    app = window_app()
+    app, _, ready = app_state()
+    if not ready:
+        app = build_screen(popup) if (popup or swiftc()) else None
     if not app:
         subprocess.run(["open", url])
         return
     subprocess.Popen([app, url, LOGO, WINDOW_PID], start_new_session=True,
                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def from_tmux(client):
+    """Open it for a tmux screen: the first build shows its progress in a popup there. A screen attached
+    from another Mac would get the window on this Mac's display, so it is told to run it there.
+    tmux 화면에서 열기: 처음 빌드는 그 화면의 팝업에 진행을 보인다. 다른 Mac 에서 붙은 화면이면 창이 이 Mac
+    화면에 뜨므로, 그 Mac 에서 실행하라고 알린다."""
+    ko = lang() == "ko"
+    if client and f" {client} " in f" {tmux('show', '-gqv', '@hivemux-remote-clients')} ":
+        tmux("display", "-c", client, "-d", "4000",
+             "다른 Mac 에서 붙은 화면입니다. 벌 사무실은 그 Mac 에서 여세요 (사이드바 🐝, prefix B). 이 Mac 의 세션도 옆 사무실에 나옵니다"
+             if ko else "This screen is attached from another Mac. Open the bee office on that Mac (sidebar 🐝, prefix B); this Mac's sessions show there too")
+        return
+    if app_state()[2] or not swiftc() or not client or running_window():
+        open_window()
+        return
+    # pause the sidebar animation under the popup, like the other popups (bin/hivemux-settings)
+    # 다른 팝업처럼 팝업 아래 사이드바 애니메이션을 멈춘다 (bin/hivemux-settings)
+    pause = "/tmp/hivemux-pause-%d-%s" % (os.getuid(), tmux("display", "-p", "#{pid}").strip())
+    open(pause, "w").close()
+    try:
+        subprocess.run([os.path.join(HERE, "hivemux-modal"), client, "-E", "-w", "66", "-h", "11", "-b", "rounded",
+                        "-T", "#[fg=#e6e9ef,bold] hivemux office ", "-S", "fg=#f5a524", "-s", "bg=#1e2128",
+                        f"{shlex.quote(os.path.realpath(__file__))} --popup"], stdin=subprocess.DEVNULL)
+    finally:
+        os.remove(pause)
+
+
+def running_window():
+    try:
+        pid = int(open(WINDOW_PID).read())
+    except (OSError, ValueError):
+        return False
+    return APP_NAME in subprocess.run(["ps", "-o", "args=", "-p", str(pid)], capture_output=True, text=True).stdout
 
 
 def main(argv):
@@ -372,6 +466,12 @@ def main(argv):
         sys.exit(0 if goto(argv[1], frm) else 1)
     elif argv[:1] == ["serve"]:
         serve()
+    elif argv[:1] == ["--client"]:
+        from_tmux(argv[1] if len(argv) > 1 else "")
+    elif argv[:1] == ["--popup"]:
+        open_window(popup=True)
+    elif argv[:1] == ["--build"]:
+        sys.exit(0 if build() else 1)
     elif not argv:
         open_window()
     else:

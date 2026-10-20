@@ -136,6 +136,8 @@ bind C run-shell "#{@hivemux-bin}/hivemux-new-claude '#{pane_current_path}'"
 # prefix H: a new window attached to the last remote host (bin/hivemux-connect) / 마지막 원격 호스트에 붙은 새 창
 bind H run-shell -b "#{@hivemux-bin}/hivemux-connect --window '' '#{client_name}'"
 bind R run-shell "#{@hivemux-bin}/hivemux-remote '#{pane_current_path}'"
+# prefix B: the bee office window (bin/hivemux-office; also the 🐝 button at the top of the sidebar) / 벌 사무실 창 (사이드바 위 🐝 버튼도)
+bind B run-shell -b "#{@hivemux-bin}/hivemux-office --client '#{client_name}'"
 # prefix b  hide / show sidebars      prefix S  session + window tree
 bind b run-shell -b "#{@hivemux-bin}/hivemux-sidebar toggle"
 bind S choose-tree -Zw

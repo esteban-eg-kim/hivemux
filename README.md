@@ -29,7 +29,8 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
   yet (green). A waiting one blinks until you answer, a finished one for its
   first 10 seconds. Click a badge to go there; a finished one leaves once you
   look at it.
-- **Bee office.** `hivemux office` opens a window where every Claude session is
+- **Bee office.** The 🐝 button at the top of the sidebar (or `prefix B`, the
+  right-click menu, `hivemux office`) opens a window where every Claude session is
   a bee in a small office: it types at its desk while working, runs to the
   question window in the boss room when it needs you (and pops out in front of
   the window), holds up a jar of honey when done, stores it in the honeycomb
@@ -129,6 +130,7 @@ new hooks once restarted. `hivemux version` shows the installed version; see
 | `prefix Shift+C` | new window with a named Claude in this folder |
 | menu → Connect to… | another Mac's hivemux in a new Ghostty window (hosts added with `hivemux connect --add`) |
 | `prefix Shift+H` | connect to the last remote host again |
+| `prefix Shift+B` | open the bee office window (also the 🐝 button at the top of the sidebar) |
 | `prefix Shift+R` | Remote Control server window (start new sessions from the phone) |
 | `prefix b` | hide / show sidebars |
 | `prefix s` / `prefix Shift+S` | session list / full tree |

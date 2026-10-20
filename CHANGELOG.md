@@ -2,14 +2,16 @@
 
 ## Unreleased
 
-- `hivemux office` opens the bee office, a window where every Claude session
+- The bee office: the 🐝 button at the top of the sidebar (also `prefix B`,
+  the right-click menu and `hivemux office`) opens a window where every Claude session
   is a bee: it types at its desk while working, runs to the question window in
   the boss room and pops out in front when it needs you, holds up a jar of
   honey when done and stores it in the honeycomb once seen, and rests in the
   lounge. A task running subagents holds a meeting. Click a bee to go to its
   session. Sessions of a Mac you are connected to show in the office next door
   (that Mac needs this version too). The window is a small native app built
-  once with swiftc; without it the page opens in the browser
+  with swiftc (`hivemux setup` builds it ahead; otherwise a popup shows the
+  build's progress); without swiftc the page opens in the browser
 - The Claude Code hook now counts subagents per pane (`@claude_agents`) and
   tasks finished today (`@hivemux-honey`) for the office
 

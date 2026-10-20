@@ -139,6 +139,7 @@ BOX_MIN, COL_GAP = 20, 1   # narrowest project box, columns between boxes / 상�
 # Right-click menu while open: {"rows": [(label, key, action) | None], "y": row, "sel": index, "title", "at": {row: index}}
 # 열려 있는 오른쪽 클릭 메뉴: {"rows": [(이름, 키, 동작) | None], "y": 줄, "sel": 고른 번호, "title", "at": {줄: 번호}}
 MENU = None
+OFFICE_BTN = None   # (row, first column, end column) of the bee office button / 벌 사무실 버튼의 (줄, 첫 열, 끝 열)
 PENDING = None      # menu action to run once the closed menu is off the screen / 닫힌 메뉴가 화면에서 지워진 뒤 실행할 동작
 
 
@@ -298,7 +299,17 @@ def render(items, current, w, h, cur_sess="", sessions=()):
     # Header: title + count
     # 머리: 제목 + 개수
     hd = L().put("  Claude", C["text"], bold=True).put(tr("  세션", "  sessions"), C["text3"])
-    hd.right(f" {len(items)} ", C["text"], C["card_hi"], True, margin=1)
+    # the bee office button (bin/hivemux-office), left of the count: with its name when there is room, else the bee alone
+    # 벌 사무실 버튼 (bin/hivemux-office). 개수 왼쪽에, 자리가 있으면 이름까지, 없으면 벌만
+    global OFFICE_BTN
+    count, OFFICE_BTN = f" {len(items)} ", None
+    for btn in (tr(" 🐝 사무실 ", " 🐝 office "), " 🐝 "):
+        x0 = w - 1 - width(count) - 1 - width(btn)
+        if x0 >= hd.used() + 1:
+            hd.fill(x0).put(btn, C["wait"], C["card_hi"], True)
+            OFFICE_BTN = (len(lines) + 1, x0, x0 + width(btn))
+            break
+    hd.right(count, C["text"], C["card_hi"], True, margin=1)
     lines += [L(), hd, L()]
     summary = L().put("  ")
     if n_run:
@@ -597,6 +608,12 @@ def rename(pid):
     tmux("run-shell", "-b", os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-rename") + f" prompt {pid} '{client}'")
 
 
+def office():
+    """Open the bee office window (bin/hivemux-office) for the screen that asked / 요청한 화면을 위해 벌 사무실 창을 연다"""
+    sess = tmux("display", "-p", "-t", ME, "#{session_name}").strip()
+    bg_run(os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-office"), "--client", active_client(sess))
+
+
 def bg_run(*argv):
     """Run a helper in the background through tmux (it outlives this call) / tmux 로 도우미를 뒤에서 실행"""
     tmux("run-shell", "-b", " ".join(shlex.quote(x) for x in argv))
@@ -638,6 +655,7 @@ def menu(y, pid=None, sess=None, items=()):
     rows.append((tr("새 프로젝트…", "New project…"), "p", lambda: bg_run(os.path.join(here, "hm"), "--ask", client, d)))
     rows += [None, (tr("경로 열기…", "Open path…"), "o", lambda: bg_run(os.path.join(here, "hivemux-open"), pid or ME, client)),
              (tr("포트 목록…", "Ports…"), "t", lambda: bg_run(os.path.join(here, "hivemux-ports"), "--pick", client)),
+             (tr("벌 사무실", "Bee office"), "b", office),
              None, (tr("원격 연결…", "Connect to…"), "c", lambda: bg_run(os.path.join(here, "hivemux-connect"), "--pick", client)),
              (tr("설정…", "Settings…"), "s", lambda: bg_run(os.path.join(here, "hivemux-settings"), client))]
     # card: the task name; project name row: the project; empty space: "New"
@@ -1130,6 +1148,10 @@ def main():
                             goto(pid)
                     continue
                 if kind != "M" or x >= w_now:   # grip column: tmux handles the drag (see hivemux.tmux) / 오른쪽 끝 핸들: 끌기는 tmux 가 처리한다
+                    continue
+                if b == 0 and OFFICE_BTN and row == OFFICE_BTN[0] and OFFICE_BTN[1] <= x - 1 < OFFICE_BTN[2]:
+                    DRAG, released = None, True     # the bee office button / 벌 사무실 버튼
+                    office()
                     continue
                 if b == 0:
                     # Press: start a possible drag; it is a click if released on the same row

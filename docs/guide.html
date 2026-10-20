@@ -500,7 +500,7 @@ claude -c
   </ul>
 
   <h3>벌 사무실 창</h3>
-  <p>터미널에서 <code>hivemux office</code>를 실행하면 별도 창이 열리고, Claude 세션마다 벌 한 마리가 사무실에서 일합니다. 처음 열 때 창을 한 번 빌드합니다(20초쯤, Xcode Command Line Tools의 swiftc 사용). swiftc가 없으면 브라우저로 엽니다.</p>
+  <p>사이드바 맨 위의 <b>🐝 사무실</b> 버튼을 누르면 별도 창이 열리고, Claude 세션마다 벌 한 마리가 사무실에서 일합니다. <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>Shift</kbd>+<kbd>B</kbd>, 사이드바 오른쪽 클릭 메뉴의 "벌 사무실", 터미널의 <code>hivemux office</code>로도 엽니다. 창은 처음 한 번 Mac의 Swift 컴파일러(Xcode Command Line Tools)로 만듭니다. <code>hivemux setup</code>이 미리 만들어 두고, 아직 없으면 만드는 동안(30초쯤) 진행 상황을 보여 줍니다. 컴파일러가 없으면 브라우저로 엽니다. 다른 Mac에서 붙은 화면에서는 그 Mac에서 여세요.</p>
   <ul>
     <li><b>작업 중</b>: 자기 자리에서 타자를 칩니다. 서브에이전트를 돌리면 회의실에서 작은 벌들과 회의합니다.</li>
     <li><b>입력 필요</b>: 사장실 질문 창구로 뛰어가 기다린 순서대로 줄을 섭니다. 맨 앞 벌은 창 한가운데로 튀어나오고, 다른 창 뒤에 있었으면 창이 앞으로 나옵니다. 오래 기다릴수록 더 크게 흔들고, 2분이 넘으면 빨개집니다.</li>
@@ -585,6 +585,7 @@ claude -c
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Ctrl</kbd>+<kbd>R</kbd></span><span class="d">마지막 저장으로 수동 복원</span></div>
       <div class="key"><span class="combo">메뉴 → 원격 연결</span><span class="d">등록한 호스트 목록. <kbd>Enter</kbd>는 그 Mac에 붙은 새 Ghostty 창, <kbd>m</kbd> ssh ↔ mosh 바꾸기 (확인 후 바꿈), <kbd>a</kbd> 추가 (확인 후 등록, 처음이면 호스트 확인과 비밀번호를 한 번 묻기), <kbd>d</kbd> 지우기. <a href="#remote">다른 Mac에서 이어서 작업</a> 참고</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Shift</kbd>+<kbd>H</kbd></span><span class="d">마지막으로 연결한 원격 호스트에 붙은 새 창</span></div>
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Shift</kbd>+<kbd>B</kbd></span><span class="d">벌 사무실 창 (사이드바 맨 위 🐝 버튼도 같음)</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Shift</kbd>+<kbd>R</kbd></span><span class="d">Remote Control 서버 창 (폰에서 새 세션 시작용)</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>r</kbd></span><span class="d">tmux 설정 다시 읽기</span></div>
     </div>

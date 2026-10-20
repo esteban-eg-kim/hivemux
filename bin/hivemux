@@ -37,6 +37,7 @@ Usage:
 
 Keys inside tmux: Option+1..9 jump · Option+0 oldest waiting · Option+O open path
                   prefix C new named Claude · prefix b hide sidebar · prefix H last remote host
+                  prefix B bee office (or the 🐝 button at the top of the sidebar)
 U
 }
 
@@ -133,6 +134,9 @@ confirm-close-surface = false"
     "$HM_BIN/hivemux-sidebar" respawn >/dev/null 2>&1 && ok "restarted the sidebars"
     "$HM_BIN/hivemux-sidebar" ensure >/dev/null 2>&1      # windows that had none / 사이드바가 없던 창에도
   fi
+  # build the bee office window now, in the background, so opening it later is instant (hivemux office)
+  # 벌 사무실 창을 지금 뒤에서 빌드해 둔다. 나중에 열 때 바로 뜨게 (hivemux office)
+  ( nohup "$HM_BIN/hivemux-office" --build >/dev/null 2>&1 & )
   echo
   echo "${B}Done.${X} Open a new Ghostty window (or run ${B}tmux${X}), then ${B}hm ~/your/project${X}."
   echo "${D}Phone push for approvals: in Claude Code run /config → Push when actions required.${X}"
