@@ -16,8 +16,9 @@
 - The bee office: the 🐝 button at the top of the sidebar (also `prefix B`,
   the right-click menu and `hivemux office`) opens a window where every Claude session
   is a bee in an office seen at an angle (the mouse turns, tilts and zooms it;
-  2D switches to a flat plan), on a small lawn with trees, flower beds and hives
-  under a sky that follows the clock from dawn to night: it types at a shared desk while working, runs to the question window in
+  2D switches to a flat plan), in a yard among fields and trees; zoom far out and
+  the ground curves into the Earth in space, the office a light on it and the
+  night side dark where it is night now: it types at a shared desk while working, runs to the question window in
   the boss room and pops out in front when it needs you, holds up a jar of
   honey when done and stores it in the honeycomb once seen, and rests in the
   cafe, on the sofa, at ping-pong or in the garden. In plan mode it plans at the whiteboard in the meeting room,
