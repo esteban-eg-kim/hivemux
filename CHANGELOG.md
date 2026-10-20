@@ -18,7 +18,8 @@
   is a bee: it types at its desk while working, runs to the question window in
   the boss room and pops out in front when it needs you, holds up a jar of
   honey when done and stores it in the honeycomb once seen, and rests in the
-  lounge. In plan mode it plans at the whiteboard in the meeting room;
+  lounge. In plan mode it plans at the whiteboard in the meeting room,
+  where two office colleagues join it;
   subagents stand by its desk as small helper bees. Click a bee to go to its
   session. Sessions of a Mac you are connected to show in the office next door
   (that Mac needs this version too). The window is a small native app built

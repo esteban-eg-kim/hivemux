@@ -223,6 +223,7 @@ const saveSettings = () => { try { localStorage.setItem('office-settings', JSON.
 const LABEL = { run: ['일하는 중', 'working'], wait: ['기다림', 'waiting'], done: ['끝남', 'done'], idle: ['쉬는 중', 'resting'] };
 const label = st => tr(...LABEL[st]);
 const PLAN_TALK = [['순서부터 정하고', 'Order first'], ['1단계, 2단계…', 'Step 1, step 2…'], ['여기가 핵심', 'This is the key'], ['위험한 곳 체크', 'Mark the risks'], ['음…', 'Hmm…'], ['파일 세 개만 고치면 돼요', 'Just three files']];
+const CREW_TALK = [['이건 어때요?', 'How about this?'], ['엣지 케이스는요?', 'Edge cases?'], ['좋은데요', 'Nice'], ['테스트도 넣죠', 'Add tests too'], ['포스트잇 붙일게요', 'Sticky note!'], ['일정은요?', 'Timeline?']];
 const HELP_TALK = [['찾았어요!', 'Found it!'], ['이 파일이에요', 'This file'], ['보고서 드릴게요', 'Report coming'], ['다 읽었어요', 'Read it all'], ['…', '…']];
 const CHAT_TALK = [['ㅋㅋㅋ', 'haha'], ['점심 뭐 먹지', 'Lunch?'], ['꿀 맛있다', 'Nice honey'], ['…', '…'], ['아까 그 버그 봤어?', 'Saw that bug?'], ['오늘 빠르네', 'Fast day']];
 
@@ -295,6 +296,8 @@ function route(from, to) {
 let offices = [], fetchedAt = 0, honeyTotal = 0, pop = null, failures = 0;
 const bees = new Map();      // "<host>|<pane>" -> bee
 const helpers = new Map();   // "<bee key>|<n>" -> subagent bee
+const crew = new Map();      // office colleagues (not Claude sessions) who join plan meetings / 계획 회의에 오는 사무실 동료 (Claude 세션 아님)
+const CREW = [{ key: 'crew|glasses', look: 'glasses' }, { key: 'crew|notes', look: 'notes' }];
 const snooze = new Map();    // bee key -> time until which it does not pop out
 
 const nowOf = o => o.now + (Date.now() - fetchedAt) / 1000;
@@ -395,6 +398,16 @@ function plan() {
     }
   }
   for (const k of helpers.keys()) if (!alive.has(k)) helpers.delete(k);
+  // colleagues walk in from the hall while anyone plans and take the next chairs, then leave
+  // 누군가 계획하는 동안 동료가 복도에서 걸어 들어와 다음 의자에 앉고, 끝나면 나간다
+  const hall = { x: 40, y: LAY.HALL_Y };
+  CREW.forEach((m, i) => {
+    let n = crew.get(m.key);
+    if (planners.length) {
+      if (!n) { n = { ...m, npc: true, path: [], x: hall.x - i * 26, y: hall.y, face: 1, phase: Math.random() * 9, arrived: true }; crew.set(m.key, n); }
+      setTarget(n, 'meet', bt(seats[Math.min(seat++, seats.length - 1)]));
+    } else if (n) setTarget(n, 'out', hall);
+  });
   for (const b of all) {
     if (b.state === 'run') b.plan ? setTarget(b, 'meet', bt(b.meetSeat)) : setTarget(b, 'desk', b.seat);
     else if (b.state === 'wait') { const i = waits.indexOf(b); setTarget(b, 'q', bt({ x: 765 - (i % 4) * 32, y: 470 + Math.floor(i / 4) * 42 }), true); }
@@ -410,7 +423,9 @@ function plan() {
 const honeyShown = () => Math.max(0, honeyTotal - [...bees.values()].filter(b => b.state === 'done' || b.deliver).length);
 function whereOf(b) {
   const crew = b.agents > 0 ? tr(` · 부사수 ${b.agents}명`, ` · ${b.agents} helper${b.agents > 1 ? 's' : ''}`) : '';
-  if (b.state === 'run') return (b.plan ? (b.atBoard ? tr('회의실 · 화이트보드에 계획 그리는 중', 'meeting room · drawing the plan on the whiteboard') : tr('회의실 · 계획 회의 중', 'meeting room · planning'))
+  const mates = [...crew.values()].filter(n => n.key2 === 'meet' && n.arrived).length;
+  const withMates = mates ? tr(` · 동료 ${mates}명과`, ` · with ${mates} colleague${mates > 1 ? 's' : ''}`) : '';
+  if (b.state === 'run') return (b.plan ? (b.atBoard ? tr('회의실 · 화이트보드에 계획 그리는 중', 'meeting room · drawing the plan on the whiteboard') : tr('회의실 · 계획 회의 중', 'meeting room · planning')) + withMates
     : tr('자리에서 일하는 중', 'working at the desk')) + crew;
   if (b.state === 'wait') { const i = [...bees.values()].filter(x => x.state === 'wait').sort((a, c) => a.at - c.at).indexOf(b); return tr(`사장실 질문 창구 ${i + 1}번째`, `question window, #${i + 1} in line`); }
   if (b.state === 'done') return tr('자리에서 꿀 들고 자랑하는 중', 'showing off a jar of honey');
@@ -422,7 +437,9 @@ function whereOf(b) {
 function say(b, text, ms = 2200) { b.say = { text, until: performance.now() + ms }; }
 setInterval(() => {
   const members = [...bees.values()].filter(b => b.key2 === 'meet' && b.arrived);
-  if (members.length && Math.random() < .7) say(pick([...members, ...[...helpers.values()].filter(h => h.pose === 'meet')]), tr(...pick(PLAN_TALK)), 1800);
+  const mates = [...crew.values()].filter(n => n.key2 === 'meet' && n.arrived);
+  if (mates.length && Math.random() < .5) say(pick(mates), tr(...pick(CREW_TALK)), 1800);
+  else if (members.length && Math.random() < .7) say(pick([...members, ...[...helpers.values()].filter(h => h.pose === 'meet')]), tr(...pick(PLAN_TALK)), 1800);
   const desk = [...helpers.values()].filter(h => h.pose === 'help' && performance.now() > h.born + 600);
   if (desk.length && Math.random() < .35) say(pick(desk), tr(...pick(HELP_TALK)), 1600);
   const chatters = SPOTS.filter(p => p.kind === 'chat' && p.occ && p.occ.arrived).map(p => p.occ);
@@ -531,6 +548,8 @@ function drawBottom(t) {
     c.strokeStyle = T.run; c.lineWidth = 1.5;
     for (let i = 0; i < n; i++) { c.beginPath(); c.moveTo(28, 388 + i * 22); c.lineTo(31, 388 + i * 22 + [12, 8, 14, 10, 6, 12][i]); c.stroke(); }
     if (n > 2) fillRR(27, 376 + n * 22, 5, 5, 1, T.wait);
+    const notes = crew.get('crew|notes');
+    if (notes && notes.key2 === 'meet' && notes.arrived) [[24, 398, T.wait], [30, 452, T.done], [24, 500, T.alert]].forEach(([x, y, col]) => fillRR(x, y, 7, 7, 1, col));
   }
   MEET_CHAIRS.forEach(p => circle(p.x, p.y, 10, T['m-chair']));
   circle(MEET_C.x, MEET_C.y, 40, T['m-desk-edge']); circle(MEET_C.x, MEET_C.y - 2, 40, T['m-desk']);
@@ -591,6 +610,7 @@ function drawComb() {
    서 있는 벌. 원점은 두 발 사이. 책상에 앉았거나 멀어질 때는 뒷모습 */
 const SIT = { type: 12, meet: 8, sofa: 6 };
 function poseOf(b) {
+  if (b.npc) return b.key2 === 'meet' ? 'meet' : 'idle';
   if (b.state === 'run') return b.key2 === 'meet' ? (b.atBoard ? 'board' : 'meet') : 'type';
   if (b.state === 'wait') return 'wait';
   if (b.state === 'done') return 'done';
@@ -669,6 +689,8 @@ function drawBee(b, t) {
   if (carry) { fillRR(-6, -57, 12, 12, 2.5, T.honey); c.strokeStyle = dark; c.lineWidth = 1; rr(-6, -57, 12, 12, 2.5); c.stroke(); fillRR(-7, -59, 14, 3.5, 1, dark); }
   if (pose === 'pong') circle(f * 13, -28 + Math.sin(t * 5.5) * 4, 3.4, T.alert);
   if (pose === 'plant') fillRR(f * 10 - 4, -22, 8, 7, 1.5, T.run);
+  if (b.look === 'glasses' && !back) { const ex = (b.face || -1) * 2.4; c.strokeStyle = dark; c.lineWidth = 1; for (const s of [-1, 1]) { c.beginPath(); c.arc(ex + s * 3.2, -35, 3.1, 0, 7); c.stroke(); } c.beginPath(); c.moveTo(ex - .3, -35); c.lineTo(ex + .3, -35); c.stroke(); }
+  if (b.look === 'notes') { const f2 = b.face || -1; fillRR(f2 * 10 - 4, -27, 8, 8, 1, T.wait); fillRR(f2 * 10 - 4, -27, 8, 2, .5, T.alert); }
   if (pose === 'board') { c.save(); c.translate(f * 13, -38 + Math.sin(t * 7) * 4); c.rotate(f * .6); fillRR(-1.5, -5, 3, 8, 1, T.run); c.restore(); }
   if (pose === 'help') {   // a tiny laptop, its screen busy / 작은 노트북, 화면이 바쁘다
     fillRR(-8, -24, 16, 10, 1.5, T['m-mon']);
@@ -729,12 +751,12 @@ function frame(now) {
   const dt = Math.min(.1, (now - last) / 1000); last = now;
   const t = now / 1000;
   if (LAY) {
-    for (const b of bees.values()) step(b, dt);
+    for (const b of [...bees.values(), ...crew.values()]) step(b, dt);
     drawFloors(); drawWalls(); drawBottom(t);
     c.textBaseline = 'top';
     const owners = new Map([...bees.values()].map(b => [`${b.desk.x},${b.desk.y}`, b]));
     for (const r of LAY.rooms) for (const d of r.desks) drawDesk(d.x, d.y, owners.get(`${d.x},${d.y}`), t);
-    const all = [...[...bees.values()].filter(b => !b.popped), ...helpers.values()].sort((a, b) => a.y - b.y);
+    const all = [...[...bees.values()].filter(b => !b.popped), ...helpers.values(), ...crew.values()].sort((a, b) => a.y - b.y);
     all.forEach(b => drawBee(b, t));
     drawEffects(t, dt);
     for (const b of bees.values()) if (!b.popped) drawTag(b, t);
@@ -754,6 +776,7 @@ function step(b, dt) {
 function settle(b) {
   if (b.key2 === 'desk' || b.key2 === 'brag') b.face = -1;
   if (b.key2 === 'meet') b.face = b.atBoard ? -1 : b.x < MEET_C.x ? 1 : -1;
+  if (b.npc && b.key2 === 'out') crew.delete(b.key);
   if (b.key2 === 'q') { b.face = 1; maybePop(); }
   if (b.key2 === 'comb') { b.face = 1; b.deliver = false; say(b, tr('꿀 저장 완료!', 'Honey stored!')); plan(); }
   if (b.key2 === 'lounge' && b.spot) {
