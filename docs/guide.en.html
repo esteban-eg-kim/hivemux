@@ -498,7 +498,7 @@ claude -c
     <li><b>Idle</b>: leaves its desk to rest in the cafe, on the sofa, at the ping-pong table or in the garden. Desks are shared, so only bees that are not resting have one. More working bees add pods of four desks, two to a row; once the office is very large it keeps a readable size and the rest is a drag or a zoom away. When name tags crowd, working bees' tags step aside and only waiting and finished bees keep theirs (hover or zoom in to see all).</li>
   </ul>
   <p>The office is seen at an angle. The mouse wheel zooms, dragging moves it, and a right-drag (or <kbd>Shift</kbd>-drag) turns it sideways and changes how high you look from up and down. The buttons at the top right work too, as do <kbd>Q</kbd>/<kbd>E</kbd> (turn), <kbd>W</kbd>/<kbd>S</kbd> (height), <kbd>+</kbd>/<kbd>-</kbd> (zoom) and <kbd>0</kbd> (whole floor). <b>2D</b> switches to the flat plan seen from above, and its <b>3D</b> button comes back. The view and the mode are kept for next time. Around the office are fields with trees and a river. Zoom out and the roof goes on; zoom out more and it becomes a tiny cartoon planet: low-poly grass, shores and lakes, trees sticking out all round, the building on top, clouds and a little plane, turning with the view. At night the stars come out and the windows and lamps light up. The gear can keep it always day or always night.</p>
-  <p>Click a bee or a desk to show that session in the terminal. The gear turns popping out off, or hides task and project names for screen sharing. View → Keep on Top (<kbd>⌘</kbd>+<kbd>T</kbd>) keeps the window above others. While you are connected to another Mac with <code>hivemux connect</code>, its sessions work at desks with that Mac's sign; that Mac needs this version of hivemux too.</p>
+  <p>Click a bee or a desk to show that session in the terminal. The gear turns popping out off, or hides task and project names for screen sharing. View → Keep on Top (<kbd>⌘</kbd>+<kbd>T</kbd>) keeps the window above others. While you are connected to another Mac with <code>hivemux connect</code>, its sessions get desks of their own: each Mac's desks sit on a carpet of its color (honey for this Mac, lilac for a remote one), with a name plaque in the same color on the left wall. Settings → This Mac's name changes the name; that Mac needs this version of hivemux too.</p>
 </section>
 
 <section id="keys">
@@ -662,6 +662,7 @@ hivemux connect me@work-mac.local</pre></div>
   </ul>
   <h3>Pasting images</h3>
   <p>Claude Code's <kbd>Ctrl</kbd>+<kbd>V</kbd> reads the image from the clipboard of the Mac Claude runs on, so on a remote screen a screenshot taken here did not paste. Now <kbd>Ctrl</kbd>+<kbd>V</kbd> in a remote Claude pane sends the image on this Mac's clipboard over and pastes it as <code>[Image #1]</code>; the other Mac's clipboard is left alone. With no image on the clipboard, the status line says so. It rides the same ssh connection as the ports, so <code>HIVEMUX_PORTS=0</code> turns it off too, and both Macs need hivemux 0.1.26 or later.</p>
+  <p><code>hivemux open &lt;file&gt;</code> in a remote pane copies the file to this Mac and opens it with its default app (a picture in Preview). Ask Claude to "show the screenshot with hivemux open" and a capture it made on the remote Mac appears on the Mac in front of you. <kbd>Tab</kbd> in the <kbd>Option</kbd>+<kbd>O</kbd> popup does the same, and the 🐝 button on a remote screen opens the bee office on this Mac. It rides the same ssh connection, and both Macs need hivemux 0.1.29 or later.</p>
   <div class="note">Two screens on the same project share it: switching windows on one moves the other. The size follows the screen that got the keyboard focus last. While a remote screen looks at a window, the sidebar animation and the status line spinner stop (each frame would go over the network and slow typing).</div>
 </section>
 
@@ -813,7 +814,7 @@ hivemux uninstall</pre></div>
     <div><code>~/.tmux.conf</code><span>The hivemux block loads <code>share/hivemux.tmux</code> and, if chosen, the recommended keys in <code>share/keys.tmux</code></span></div>
     <div><code>~/.config/ghostty/config</code><span>The hivemux block attaches every Ghostty window to tmux through <code>hivemux-attach</code></span></div>
     <div><code>~/.claude/settings.json</code><span>Eleven hivemux hooks and, if chosen, Remote Control for every session</span></div>
-    <div><code>~/.local/share/hivemux/</code><span>Plugins, the pane-to-session list (<code>panes.tsv</code>), the resume log (<code>panes.log</code>), sidebar width, config backups</span></div>
+    <div><code>~/.local/share/hivemux/</code><span>Plugins, the pane-to-session list (<code>panes.tsv</code>), the resume log (<code>panes.log</code>), sidebar width and settings (<code>mac-name</code> and more), the bee office window (<code>office/</code>; why a build failed in <code>office/build.log</code>), config backups</span></div>
     <div><code>~/.local/share/tmux/resurrect/</code><span>tmux-resurrect layout snapshots</span></div>
     <div><code>hivemux</code>, <code>hm</code><span>Setup, check and uninstall; open a project</span></div>
     <div><code>hivemux-attach</code><span>Ghostty entry point. Restores and attaches to the last session when no server runs, otherwise to the most recent one</span></div>
@@ -822,6 +823,7 @@ hivemux uninstall</pre></div>
     <div><code>hivemux-ports</code>, <code>hivemux-ports-ui</code><span>Forward the other Mac's dev server ports here while connected, and the port list popup</span></div>
     <div><code>hivemux-office</code><span>The bee office window and the local web server it reads (share/office)</span></div>
     <div><code>hivemux-paste</code><span>Ctrl+V in a Claude pane on a remote screen: paste the image on the connecting Mac's clipboard</span></div>
+    <div><code>hivemux-show</code><span><code>hivemux open</code>: open files with the default app of the Mac you look from (on a remote screen, copied to the Mac you connect from)</span></div>
     <div><code>hivemux-close-project</code>, <code>hivemux-close-project-ui</code><span>Close a project (asks in a popup in the middle, then closes all its windows)</span></div>
     <div><code>hivemux-hook</code><span>Claude hook. Records session id, folder and state on the tmux pane</span></div>
     <div><code>hivemux-panes</code><span>Saves the pane-to-session list on save; types the resume command on restore</span></div>
@@ -829,7 +831,7 @@ hivemux uninstall</pre></div>
     <div><code>hivemux-agents</code><span>Option+number jumps, jump to waiting, list output</span></div>
     <div><code>hivemux-rename</code>, <code>hivemux-rename-ui</code><span>Rename popup and sending /rename</span></div>
     <div><code>hivemux-new-project-ui</code><span>New-project folder browser popup</span></div>
-    <div><code>hivemux-settings</code>, <code>hivemux-settings-ui</code><span>Settings popup (language, animation, notifications, sidebar width)</span></div>
+    <div><code>hivemux-settings</code>, <code>hivemux-settings-ui</code><span>Settings popup (language, animation, notifications, sidebar width, editor, this Mac's name)</span></div>
     <div><code>hivemux-modal</code><span>Opens a popup over a still copy of the screen</span></div>
     <div><code>hivemux-order</code><span>Sidebar task / project order</span></div>
     <div><code>hivemux-open</code>, <code>hivemux-open-ui</code><span>Option+O open-path popup</span></div>

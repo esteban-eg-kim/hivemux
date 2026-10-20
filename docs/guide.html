@@ -508,7 +508,7 @@ claude -c
     <li><b>대기</b>: 자리를 비우고 카페, 소파, 탁구대, 정원에서 쉽니다. 책상은 함께 쓰는 자리라서 쉬지 않는 벌만 책상이 있습니다. 일하는 벌이 늘면 4인용 책상 섬이 한 줄에 둘씩 늘어나고, 사무실이 아주 커지면 읽을 수 있는 크기를 지킨 채 나머지는 끌거나 줄여서 봅니다. 벌이 많아 이름표가 겹치면 일하는 벌의 이름표는 빼 두고, 기다리는 벌과 끝난 벌의 이름표만 보입니다(마우스를 올리거나 확대하면 다 보임).</li>
   </ul>
   <p>사무실은 비스듬히 내려다본 모습입니다. 마우스 휠로 확대하고, 끌어서 옮기고, 오른쪽 버튼(또는 <kbd>Shift</kbd>)으로 끌면 옆으로는 돌리고 위아래로는 보는 높이를 바꿉니다. 오른쪽 위 버튼과 <kbd>Q</kbd>/<kbd>E</kbd>(돌리기), <kbd>W</kbd>/<kbd>S</kbd>(높이), <kbd>+</kbd>/<kbd>-</kbd>(확대), <kbd>0</kbd>(전체 보기)도 됩니다. <b>2D</b> 버튼은 위에서 본 평면도로, 평면도의 <b>3D</b> 버튼은 다시 돌아옵니다. 보기와 모드는 다음에 열 때도 그대로입니다. 사무실 둘레는 나무와 강이 있는 들판입니다. 줌 아웃하면 지붕이 덮이고, 더 줄이면 작은 만화 행성이 됩니다. 각진 풀밭과 물가, 사방으로 솟은 나무 위에 건물이 얹혀 있고, 구름과 작은 비행기가 떠 있습니다. 보기를 돌리면 행성도 함께 돕니다. 밤이면 별이 뜨고 창문과 가로등이 켜집니다. 톱니바퀴에서 늘 낮이나 늘 밤으로 고정할 수 있습니다.</p>
-  <p>벌이나 책상을 누르면 그 세션을 터미널에 띄웁니다. 톱니바퀴에서 튀어나오기를 끄거나, 화면 공유할 때 작업 이름과 프로젝트 이름을 숨길 수 있습니다. 메뉴의 보기 → Keep on Top(<kbd>⌘</kbd>+<kbd>T</kbd>)으로 다른 창 위에 띄워 둘 수 있습니다. <code>hivemux connect</code>로 다른 Mac에 붙어 있으면 그 Mac의 세션도 팻말이 붙은 책상에서 일합니다. 그 Mac도 이 버전의 hivemux여야 합니다.</p>
+  <p>벌이나 책상을 누르면 그 세션을 터미널에 띄웁니다. 톱니바퀴에서 튀어나오기를 끄거나, 화면 공유할 때 작업 이름과 프로젝트 이름을 숨길 수 있습니다. 메뉴의 보기 → Keep on Top(<kbd>⌘</kbd>+<kbd>T</kbd>)으로 다른 창 위에 띄워 둘 수 있습니다. <code>hivemux connect</code>로 다른 Mac에 붙어 있으면 그 Mac의 세션도 따로 책상을 받습니다. Mac마다 책상 아래에 그 Mac 색의 카펫(이 Mac은 꿀색, 원격은 연보라)이 깔리고, 왼쪽 벽에 같은 색 띠의 Mac 이름 명패가 붙습니다. 이름은 설정의 "이 Mac 이름"으로 바꿀 수 있습니다. 그 Mac도 이 버전의 hivemux여야 합니다.</p>
 </section>
 
 <section id="keys">
@@ -671,6 +671,7 @@ hivemux connect me@work-mac.local</pre></div>
   </ul>
   <h3>이미지 붙여넣기</h3>
   <p>Claude Code의 <kbd>Ctrl</kbd>+<kbd>V</kbd>는 Claude가 도는 Mac의 클립보드에서 이미지를 읽습니다. 그래서 원격 화면에서는 이 Mac에서 찍은 스크린샷이 붙지 않았습니다. 이제 원격 Claude 칸에서 <kbd>Ctrl</kbd>+<kbd>V</kbd>를 누르면 이 Mac 클립보드의 이미지를 상대 Mac으로 보내 <code>[Image #1]</code>로 붙입니다. 상대 Mac의 클립보드는 건드리지 않습니다. 클립보드에 이미지가 없으면 상태줄에 알려 줍니다. 포트 연결과 같은 ssh 연결을 쓰므로 <code>HIVEMUX_PORTS=0</code>이면 이것도 꺼지고, 두 Mac 모두 hivemux 0.1.26 이상이어야 합니다.</p>
+  <p>원격 칸에서 <code>hivemux open &lt;파일&gt;</code>을 실행하면 그 파일을 이 Mac으로 복사해 기본 앱으로 엽니다(사진은 미리보기). Claude에게 "스크린샷을 hivemux open으로 보여 줘"라고 하면 Claude가 원격 Mac에서 찍은 캡처가 지금 앞에 있는 Mac에 뜹니다. <kbd>Option</kbd>+<kbd>O</kbd> 팝업의 <kbd>Tab</kbd>도 같고, 원격 화면에서 🐝를 누르면 벌 사무실도 이 Mac에서 열립니다. 같은 ssh 연결을 쓰고, 두 Mac 모두 hivemux 0.1.29 이상이어야 합니다.</p>
   <div class="note">두 화면에서 같은 프로젝트를 보면 화면을 같이 씁니다. 한쪽에서 창을 바꾸면 다른 쪽도 바뀝니다. 크기는 마지막으로 키보드 초점을 받은 화면에 맞춥니다. 원격 화면이 보고 있는 창에서는 사이드바 애니메이션과 상태줄 스피너가 멈춥니다 (장면마다 네트워크로 가서 입력이 느려지므로).</div>
 </section>
 
@@ -822,7 +823,7 @@ hivemux uninstall</pre></div>
     <div><code>~/.tmux.conf</code><span>hivemux 블록이 <code>share/hivemux.tmux</code>와 선택한 권장 키 <code>share/keys.tmux</code>를 불러옵니다</span></div>
     <div><code>~/.config/ghostty/config</code><span>hivemux 블록이 모든 Ghostty 창을 <code>hivemux-attach</code>로 tmux에 붙입니다</span></div>
     <div><code>~/.claude/settings.json</code><span>hivemux 훅 열한 개, 선택하면 모든 세션 Remote Control</span></div>
-    <div><code>~/.local/share/hivemux/</code><span>플러그인, 칸과 세션 목록(<code>panes.tsv</code>), 재개 기록(<code>panes.log</code>), 사이드바 폭, 설정 백업</span></div>
+    <div><code>~/.local/share/hivemux/</code><span>플러그인, 칸과 세션 목록(<code>panes.tsv</code>), 재개 기록(<code>panes.log</code>), 사이드바 폭과 설정(<code>mac-name</code> 등), 벌 사무실 창(<code>office/</code>, 빌드 실패 이유는 <code>office/build.log</code>), 설정 백업</span></div>
     <div><code>~/.local/share/tmux/resurrect/</code><span>tmux-resurrect 배치 저장본</span></div>
     <div><code>hivemux</code>, <code>hm</code><span>설치·점검·제거 명령, 프로젝트 열기</span></div>
     <div><code>hivemux-attach</code><span>Ghostty 진입점. 서버가 없으면 복원 후 마지막 세션에, 있으면 최근 세션에 붙습니다</span></div>
@@ -831,6 +832,7 @@ hivemux uninstall</pre></div>
     <div><code>hivemux-ports</code>, <code>hivemux-ports-ui</code><span>원격 연결 중 상대 Mac의 개발 서버 포트를 이 Mac으로 잇기와 포트 목록 팝업</span></div>
     <div><code>hivemux-office</code><span>벌 사무실 창과 그 창이 읽는 로컬 웹 서버 (share/office)</span></div>
     <div><code>hivemux-paste</code><span>원격 화면의 Claude 칸에서 Ctrl+V: 접속한 Mac 클립보드의 이미지 붙이기</span></div>
+    <div><code>hivemux-show</code><span><code>hivemux open</code>: 보고 있는 Mac의 기본 앱으로 파일 열기 (원격 화면이면 접속한 Mac으로 복사해서)</span></div>
     <div><code>hivemux-close-project</code>, <code>hivemux-close-project-ui</code><span>프로젝트 닫기 (화면 가운데 팝업으로 묻고 그 세션의 창을 모두 닫음)</span></div>
     <div><code>hivemux-hook</code><span>Claude 훅. 세션 ID, 폴더, 상태를 tmux 칸에 기록합니다</span></div>
     <div><code>hivemux-panes</code><span>저장 때 칸과 세션 ID 목록을 남기고, 복원 때 재개 명령을 입력합니다</span></div>
@@ -838,7 +840,7 @@ hivemux uninstall</pre></div>
     <div><code>hivemux-agents</code><span>Option+번호 이동, 기다리는 작업으로 이동, 목록 출력</span></div>
     <div><code>hivemux-rename</code>, <code>hivemux-rename-ui</code><span>작업 이름 바꾸기 팝업과 /rename 전달</span></div>
     <div><code>hivemux-new-project-ui</code><span>새 프로젝트 폴더 탐색 팝업</span></div>
-    <div><code>hivemux-settings</code>, <code>hivemux-settings-ui</code><span>설정 팝업 (언어, 애니메이션, 알림, 사이드바 폭)</span></div>
+    <div><code>hivemux-settings</code>, <code>hivemux-settings-ui</code><span>설정 팝업 (언어, 애니메이션, 알림, 사이드바 폭, 편집기, 이 Mac 이름)</span></div>
     <div><code>hivemux-modal</code><span>화면을 멈춘 사본 위에 팝업 띄우기</span></div>
     <div><code>hivemux-order</code><span>사이드바 작업 / 프로젝트 순서 바꾸기</span></div>
     <div><code>hivemux-open</code>, <code>hivemux-open-ui</code><span>Option+O 경로 열기 팝업</span></div>

@@ -39,7 +39,9 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
   whiteboard in the meeting room with two office colleagues; subagents stand by its desk as small helper
   bees. Desks are shared: only bees that are not resting have one. Click a bee to
   go to its session. Sessions of a Mac you are connected to with
-  `hivemux connect` get desks of their own.
+  `hivemux connect` get desks of their own: each Mac's desks sit on a carpet of its
+  color, with its name on a plaque on the wall. On a remote screen the 🐝 button
+  opens the window on the Mac you connect from.
 - **Task names.** Shows Claude's own conversation title. Double-click a card
   (or right-click → Rename) to rename it; hivemux sends `/rename` to that Claude (waits if it is busy).
 - **Your order.** Drag a card to reorder tasks, or a project header to reorder
@@ -189,6 +191,10 @@ a VPN such as [Tailscale](https://tailscale.com) on both Macs is the simple way
 - `Ctrl+V` in a remote Claude pane pastes the image on this Mac's clipboard (a
   screenshot taken here, say): it is copied over and shows up as `[Image #1]`.
   Both Macs need hivemux 0.1.26 or later.
+- `hivemux open <file>` in a remote pane (or Tab in the `Option+O` popup) copies the
+  file to this Mac and opens it with its default app, so a screenshot Claude made
+  there shows up here. The 🐝 button there opens the bee office here. Both Macs
+  need hivemux 0.1.29 or later.
 - With `--mosh` (or `m` in the menu → Connect to… list), the session survives
   sleep and network changes by itself, but notifications do not pass through
   mosh; the list marks such a host "mosh · no notifications". Both Macs need
