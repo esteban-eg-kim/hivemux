@@ -3,7 +3,8 @@
 ## Unreleased
 
 - Bee office: bigger desks (pods of four, two to a row) so a desk no longer
-  looks smaller than its bee; past three rows the office keeps a readable size
+  looks smaller than its bee, and a wooden sign on legs with each Mac's name
+  where its desks start; past three rows the office keeps a readable size
   instead of shrinking (drag or zoom out to see the rest); when name tags
   crowd, working bees' tags step aside for waiting and finished ones (hover or
   zoom in to see them)

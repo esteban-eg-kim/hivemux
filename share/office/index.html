@@ -560,7 +560,7 @@ function place() {
 }
 const T = {};
 const TOKENS = ['bg', 'panel', 'line', 'fg', 'muted', 'run', 'wait', 'done', 'sleep', 'alert', 'honey', 'bee-dark', 'm-wall', 'm-wallface', 'm-office', 'm-plank', 'm-remote', 'm-meet',
-  'm-lounge', 'm-tile', 'm-mine', 'm-rug', 'm-grass', 'm-window', 'm-glass', 'm-desk', 'm-chair', 'm-mon', 'm-screen', 'm-lid', 'm-counter', 'm-sofa', 'm-plant', 'm-pot',
+  'm-lounge', 'm-tile', 'm-mine', 'm-rug', 'm-grass', 'm-window', 'm-glass', 'm-desk', 'm-desk-edge', 'm-chair', 'm-mon', 'm-screen', 'm-lid', 'm-counter', 'm-sofa', 'm-plant', 'm-pot',
   'm-pong', 'm-board', 'm-wax', 'o-grass', 'o-grass2', 'o-wild', 'o-wild2', 'o-sea', 'o-ice', 'o-river', 'o-roof', 'o-roof2', 'o-soil', 'o-path', 'o-leaf', 'o-leaf2', 'o-trunk', 'o-hedge', 'o-hive', 'o-lamp', 'm-wax-edge', 'm-label', 'm-shadow', 'm-wing', 'tag-bg', 'tag-fg', 'f-body', 'f-mono'];
 function readTokens() {
   const cs = getComputedStyle(document.documentElement);
@@ -1012,6 +1012,8 @@ function buildScene(t) {
     addBox(d.x - DESK_W / 2, d.y - DESK_D / 2, DESK_W, DESK_D, 16, T['m-desk']);
     add(d.x, d.y, () => laptop(d, o, t), .3);
   }
+  // a signpost at the start of each Mac's desks / Mac 마다 책상이 시작하는 곳의 팻말
+  LAY.pods.filter(p => p.n === 0).forEach(p => { const x = p.x - .05, y = p.y + 1.5; add(x, y, () => signpost(x, y, offices[p.oi], p.oi), .4); });
   for (let i = LAY.pods.length; i < LAY.rows * POD_ROW; i++) {
     const { x, y } = podAt(i);
     add(x + 1.2, y + 1, () => plant(x + 1.2, y + 1, 1.2)); add(x + 4.6, y + 2.1, () => plant(x + 4.6, y + 2.1, .9));
@@ -1060,13 +1062,34 @@ function laptop(d, owner, t) {
     else c.fillRect(.2, 24, .44, 3);
   });
 }
+// a wooden sign on two legs: the Mac's name, and a strip that says whose (honey: this Mac, lilac: remote)
+// 다리 둘 달린 나무 팻말: Mac 이름, 그리고 누구 것인지 띠 (꿀색: 이 Mac, 연보라: 원격)
+function signpost(x, y, o, oi) {
+  if (!o) return;
+  const z = textZoom(), foot = P(x, y), lift = 34 * ZF, wood = night(mixc(T['m-desk'], '#ffffff', .22)), edge = night(T['m-desk-edge']);
+  const name = clipText(o.host, 170 * z), sub = (oi === 0 ? tr('이 Mac', 'this Mac') : tr('원격', 'remote')) + (o.missing ? tr(' · hivemux 업데이트 필요', ' · update hivemux') : '');
+  font(13 * z, 700); const nw = c.measureText(name).width;
+  font(10 * z, 600); const sw = c.measureText(sub).width;
+  const w = Math.max(nw, sw) + 24 * z, h = 38 * z, bx = foot.x - w / 2, by = foot.y - lift - h;
+  // shadow and legs / 그림자와 다리
+  c.globalAlpha = .18; c.fillStyle = '#000'; c.beginPath(); c.ellipse(foot.x, foot.y, w * .32, 4 * z, 0, 0, 7); c.fill(); c.globalAlpha = 1;
+  c.strokeStyle = edge; c.lineWidth = 3.5 * z; c.lineCap = 'round';
+  for (const k of [-.3, .3]) { c.beginPath(); c.moveTo(foot.x + w * k, by + h); c.lineTo(foot.x + w * k * 1.15, foot.y); c.stroke(); }
+  c.lineCap = 'butt';
+  // the board: its edge below, then the face / 판: 아래 두께, 그다음 앞면
+  fillRR(bx, by + 3 * z, w, h, 5 * z, edge);
+  fillRR(bx, by, w, h, 5 * z, wood);
+  c.strokeStyle = edge; c.lineWidth = 1; rr(bx + .5, by + .5, w - 1, h - 1, 5 * z); c.stroke();
+  c.save(); rr(bx, by, w, h, 5 * z); c.clip(); c.fillStyle = oi === 0 ? T.honey : '#a78bfa'; c.fillRect(bx, by + h - 13 * z, w, 13 * z); c.restore();
+  for (const sx of [bx + 5 * z, bx + w - 5 * z]) circle(sx, by + 5 * z, 1.4 * z, edge);
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  font(13 * z, 700); c.fillStyle = '#3a2612'; c.fillText(name, foot.x, by + 13 * z);
+  font(10 * z, 600); c.fillStyle = oi === 0 ? '#3a2612' : '#ffffff'; c.fillText(sub, foot.x, by + h - 6.2 * z);
+  c.textAlign = 'left'; c.textBaseline = 'top';
+}
 function labels() {
   const { LOFF } = LAY;
   font(10.5 * textZoom(), 600); c.fillStyle = T['m-label']; c.textBaseline = 'alphabetic';
-  LAY.pods.filter(p => p.n === 0).forEach(p => {
-    const o = offices[p.oi], name = `${o.host} · ${p.oi === 0 ? tr('이 Mac', 'this Mac') : tr('원격', 'remote')}${o.missing ? tr(' (hivemux 업데이트 필요)', ' (update hivemux there)') : ''}`;
-    const q = P(p.x - .4, p.y + 3.4); c.fillText(clipText(name, 150), q.x - 20, q.y + 8);
-  });
   const m = P(16.3, 5.7); c.fillText(tr(...ROOMS.meet.name), m.x + 6, m.y + 2);
   const bo = P(22.3, 5.7); c.fillText(tr(...ROOMS.boss.name), bo.x + 6, bo.y + 2);
   const cf = P(.2, 15.2 + LOFF); c.fillText(tr('카페', 'Cafe'), cf.x + 8, cf.y + 4);
