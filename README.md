@@ -172,6 +172,9 @@ a VPN such as [Tailscale](https://tailscale.com) on both Macs is the simple way
   for each; a port taken here goes to the next free one. `Option+W` (or
   menu → Ports) lists them on either Mac; Enter opens one in the browser of the
   Mac you connect from. `HIVEMUX_PORTS=0` turns it off.
+- `Ctrl+V` in a remote Claude pane pastes the image on this Mac's clipboard (a
+  screenshot taken here, say): it is copied over and shows up as `[Image #1]`.
+  Both Macs need hivemux 0.1.26 or later.
 - With `--mosh` (or `m` in the menu → Connect to… list), the session survives
   sleep and network changes by itself, but notifications do not pass through
   mosh; the list marks such a host "mosh · no notifications". Both Macs need

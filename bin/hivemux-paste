@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Ctrl+V in a Claude pane on a screen attached from another Mac (share/hivemux.tmux): paste the image
+# on THAT Mac's clipboard. Claude Code reads images from the clipboard of the Mac it runs on, so
+# without this Ctrl+V found nothing (or an old image of this Mac).
+# This asks that Mac's hivemux-ports (bin/hivemux-ports): it sets @hivemux-paste-<Mac> and wakes the
+# tmux channel hivemux-paste-<Mac> that hivemux-ports waits on. That copies the image here
+# (/tmp/hivemux-paste-<uid>) and pastes its path into the pane, which Claude Code turns into [Image #N].
+# 다른 Mac 에서 붙은 화면의 Claude 칸에서 Ctrl+V (share/hivemux.tmux): 그 Mac 클립보드의 이미지를 붙인다.
+# Claude Code 는 자기가 도는 Mac 의 클립보드에서 이미지를 읽어서, 이것 없이는 Ctrl+V 가 아무것도 (또는
+# 이 Mac 의 예전 이미지를) 못 찾았다.
+# 그 Mac 의 hivemux-ports (bin/hivemux-ports)에 부탁한다: @hivemux-paste-<Mac> 을 적고, hivemux-ports 가
+# 기다리는 tmux 채널 hivemux-paste-<Mac> 을 깨운다. 그쪽이 이미지를 여기(/tmp/hivemux-paste-<uid>)로
+# 복사하고 경로를 칸에 붙여 넣으면 Claude Code 가 [Image #N] 으로 바꾼다.
+#
+#   hivemux-paste <client> <pane>
+client="$1" pane="$2"
+ko() { [[ "$(tmux show -gqv @hivemux-lang)" == ko* ]] || { [ -z "$(tmux show -gqv @hivemux-lang)" ] && [[ "$LANG" == ko* ]]; }; }
+
+mac="$(tmux show -gqv @hivemux-remote-from | awk -v c="$client" '$1 == c { print $2; exit }')"
+seen="$(tmux show -gqv "@hivemux-seen-$mac" 2>/dev/null)"
+# hivemux-ports of that Mac is not polling (HIVEMUX_PORTS=0, gone): a plain Ctrl+V
+# 그 Mac 의 hivemux-ports 가 묻고 있지 않음 (HIVEMUX_PORTS=0, 끝남): 그냥 Ctrl+V
+if [ -z "$mac" ] || ! [[ "$seen" =~ ^[0-9]+$ ]] || (( $(date +%s) - seen > 20 )); then
+  tmux send-keys -t "$pane" C-v
+  exit 0
+fi
+
+tmux set -g "@hivemux-paste-$mac" "$$ $pane $client"
+tmux wait-for -S "hivemux-paste-$mac"
+# hivemux-ports clears the option when it takes the request / hivemux-ports 가 요청을 가져가면 옵션을 지운다
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+  sleep 0.25
+  [ "$(tmux show -gqv "@hivemux-paste-$mac" | cut -d' ' -f1)" = "$$" ] || exit 0
+done
+# no answer (an older hivemux there): a plain Ctrl+V / 대답이 없음 (거기 hivemux 가 예전 것): 그냥 Ctrl+V
+tmux set -gu "@hivemux-paste-$mac"
+tmux send-keys -t "$pane" C-v
+if ko; then
+  tmux display-message -c "$client" "$mac 에서 이미지를 가져오지 못했습니다. 그 Mac 의 hivemux 를 업데이트하세요"
+else
+  tmux display-message -c "$client" "Could not get the image from $mac. Update hivemux there"
+fi

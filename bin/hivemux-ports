@@ -28,14 +28,23 @@ The same way, the open-path popup there (bin/hivemux-open-ui) on a screen from t
 @hivemux-edit-<this Mac> to "<editor> <line> <col> <path>", and this opens that file of the other
 Mac in VS Code / Cursor here over Remote-SSH. @hivemux-seen-<this Mac> is the time of the last poll,
 so the popup knows a request will be picked up.
+Ctrl+V in a Claude pane there on a screen from this Mac (bin/hivemux-paste) sets
+@hivemux-paste-<this Mac> to "<id> <pane> <client>" and wakes the tmux channel hivemux-paste-<this Mac>,
+which this waits on over the same ssh connection: the image on this Mac's clipboard is copied there and
+its path pasted into that pane, and Claude Code turns it into [Image #N].
 같은 식으로, 이 Mac 에서 붙은 화면의 경로 열기 팝업(bin/hivemux-open-ui)은 @hivemux-edit-<이 Mac> 에
 "<편집기> <줄> <칸> <경로>" 를 적고, 여기서 그 Mac 의 파일을 이 Mac 의 VS Code / Cursor 원격 SSH 로 연다.
 @hivemux-seen-<이 Mac> 은 마지막으로 물은 시각이라, 팝업이 요청이 처리될지 안다.
+이 Mac 에서 붙은 화면의 Claude 칸에서 Ctrl+V 를 누르면 (bin/hivemux-paste) @hivemux-paste-<이 Mac> 에
+"<번호> <칸> <화면>" 을 적고 tmux 채널 hivemux-paste-<이 Mac> 을 깨운다. 여기서는 같은 ssh 연결로 그 채널을
+기다리다가, 이 Mac 클립보드의 이미지를 그쪽에 복사하고 경로를 그 칸에 붙여 넣는다. Claude Code 가 그걸
+[Image #N] 으로 바꾼다.
 """
-import os, re, shlex, signal, socket, subprocess, sys, time, urllib.parse
+import os, re, shlex, signal, socket, subprocess, sys, tempfile, threading, time, urllib.parse
 
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "ports")
 POLL = 3
+PATH = "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH"
 # HIVEMUX_SSH: another ssh command, e.g. "ssh -F <config>" (used for testing) / 다른 ssh 명령 (시험용)
 SSH = shlex.split(os.environ.get("HIVEMUX_SSH") or "ssh")
 SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ServerAliveInterval=3", "-o", "ServerAliveCountMax=2", "-o", "ConnectTimeout=10"]
@@ -54,6 +63,42 @@ e=$(tmux show -gqv @hivemux-edit-@ME@) && [ -n "$e" ] && { tmux set -gu @hivemux
 pids=$(ps -A -o pid= -o ppid= | awk -v r="$root" '{ p[$1] = $2 } END { for (k in p) { x = k; n = 0; while (x > 1 && n++ < 64) { if (x == r) { print k; break } x = p[x] } } }' | paste -sd, -)
 [ -n "$pids" ] || exit 0
 lsof -nP -a -iTCP -sTCP:LISTEN -p "$pids" -Fcn 2>/dev/null | awk '/^c/ { c = substr($0, 2) } /^n/ { n = split($0, a, ":"); print a[n], c }' | sort -un'''
+
+
+# This Mac's clipboard image as PNG to argv 1 (screenshots are PNG; images copied from apps are often
+# only TIFF, converted after). Prints png or tiff, nothing when there is no image.
+# 이 Mac 클립보드의 이미지를 PNG 로 argv 1 에 (스크린샷은 PNG, 앱에서 복사한 이미지는 TIFF 만 있을 때가
+# 많아 나중에 바꾼다). png 나 tiff 를 찍고, 이미지가 없으면 아무것도 안 찍는다.
+CLIP = """on run argv
+  repeat with k in {{«class PNGf», "png"}, {«class TIFF», "tiff"}}
+    try
+      set d to the clipboard as (item 1 of k)
+      set f to open for access (POSIX file (item 1 of argv)) with write permission
+      set eof f to 0
+      write d to f
+      close access f
+      return item 2 of k
+    end try
+  end repeat
+  return ""
+end run"""
+
+
+def clip_image():
+    """PNG bytes of the image on this Mac's clipboard, or None / 이 Mac 클립보드 이미지의 PNG 바이트, 없으면 None"""
+    with tempfile.TemporaryDirectory() as d:
+        f = os.path.join(d, "clip")
+        kind = subprocess.run(["osascript", "-e", CLIP, f], capture_output=True, text=True).stdout.strip()
+        if kind == "tiff":
+            subprocess.run(["sips", "-s", "format", "png", f, "--out", f + ".png"], capture_output=True)
+            f += ".png"
+        elif kind != "png":
+            return None
+        try:
+            with open(f, "rb") as fh:
+                return fh.read() or None
+        except OSError:
+            return None
 
 
 def me():
@@ -102,6 +147,43 @@ class Ports:
                                   text=True, timeout=timeout, stdin=subprocess.DEVNULL)
         except subprocess.TimeoutExpired:
             return None
+
+    def waiter(self):
+        """Wait for Ctrl+V requests from the other Mac (bin/hivemux-paste), in a thread
+        상대 Mac 의 Ctrl+V 요청(bin/hivemux-paste)을 기다린다. 스레드에서 돈다"""
+        opt, chan = f"@hivemux-paste-{self.me}", f"hivemux-paste-{self.me}"
+        cmd = f"{PATH}; tmux wait-for {chan} && tmux show -gqv {opt} && tmux set -gu {opt}"
+        while True:
+            if not (self.master and self.master.poll() is None and os.path.exists(self.sock)):
+                time.sleep(1)
+                continue
+            r = self.ssh(self.host, cmd, timeout=None)
+            if not r or r.returncode != 0:
+                time.sleep(1)
+                continue
+            for ln in r.stdout.splitlines():
+                parts = ln.split(" ", 2)
+                if len(parts) == 3:
+                    self.paste(parts[1], parts[2])
+
+    def paste(self, pane, client):
+        """Copy this Mac's clipboard image there and paste its path into pane
+        이 Mac 클립보드 이미지를 그쪽에 복사하고 경로를 그 칸에 붙여 넣는다"""
+        img = clip_image()
+        q = shlex.quote
+        if not img:
+            msg = tr(f"{self.me} 클립보드에 이미지가 없습니다", f"No image on the clipboard of {self.me}")
+            self.ssh(self.host, f"{PATH}; tmux display-message -c {q(client)} {q(msg)}")
+            return
+        # files a day old go (Claude Code has read them long before) / 하루 지난 파일은 지운다 (Claude Code 가 진작 읽었다)
+        cmd = (f"{PATH}; umask 077; d=/tmp/hivemux-paste-$(id -u); mkdir -p \"$d\" && "
+               f"find \"$d\" -type f -mtime +1 -delete; f=\"$d/$(date +%Y%m%d-%H%M%S)-$$.png\"; cat > \"$f\" && "
+               f"tmux set-buffer -b hivemux-paste -- \"$f\" && tmux paste-buffer -p -d -b hivemux-paste -t {q(pane)}")
+        try:
+            subprocess.run(SSH + ["-S", self.sock] + SSH_OPTS + [self.host, cmd], input=img,
+                           capture_output=True, timeout=60)
+        except subprocess.TimeoutExpired:
+            pass
 
     def up(self):
         """The ssh connection the forwards ride on, (re)opened when needed / 포트를 잇는 ssh 연결. 없으면 (다시) 연다"""
@@ -240,6 +322,7 @@ class Ports:
         parent = os.getppid()
         signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
         signal.signal(signal.SIGHUP, lambda *_: sys.exit(0))
+        threading.Thread(target=self.waiter, daemon=True).start()
         try:
             while os.getppid() == parent:
                 if self.up():

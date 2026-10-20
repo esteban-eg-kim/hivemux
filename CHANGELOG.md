@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- `Ctrl+V` in a Claude pane on a `hivemux connect` screen pastes the image on
+  the clipboard of the Mac you connect from: it is copied to the other Mac and
+  its path pasted, which Claude Code shows as `[Image #1]`. Claude Code reads
+  images from the clipboard of the Mac it runs on, so a screenshot taken on the
+  laptop did not paste before. Both Macs need this version
+
 ## 0.1.25 — 2026-10-19
 
 - `hivemux connect` notices a silent connection (Wi-Fi off on either Mac) in

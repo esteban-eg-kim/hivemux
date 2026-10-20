@@ -125,6 +125,12 @@ bind Space  run-shell -b "#{@hivemux-bin}/hivemux-agents next '#{client_name}'"
 bind -n M-o run-shell -b "#{@hivemux-bin}/hivemux-open '#{pane_id}' '#{client_name}'"
 # Option+W  dev server ports forwarded between Macs (Option+P is Claude Code's model picker)
 bind -n M-w run-shell -b "#{@hivemux-bin}/hivemux-ports --pick '#{client_name}'"
+# Ctrl+V in a Claude pane on a screen attached from another Mac: paste the image on that Mac's
+# clipboard (bin/hivemux-paste). Anywhere else Ctrl+V goes through as before
+# 다른 Mac 에서 붙은 화면의 Claude 칸에서 Ctrl+V: 그 Mac 클립보드의 이미지를 붙인다 (bin/hivemux-paste).
+# 나머지는 전처럼 Ctrl+V 를 그대로 보낸다
+bind -n C-v if -F "#{&&:#{@claude_state},#{m:*#{client_name} *,#{@hivemux-remote-from}}}" \
+  "run-shell -b \"#{@hivemux-bin}/hivemux-paste '#{client_name}' '#{pane_id}'\"" "send-keys C-v"
 # prefix C  new named Claude window   prefix R  Remote Control server window
 bind C run-shell "#{@hivemux-bin}/hivemux-new-claude '#{pane_current_path}'"
 # prefix H: a new window attached to the last remote host (bin/hivemux-connect) / 마지막 원격 호스트에 붙은 새 창
