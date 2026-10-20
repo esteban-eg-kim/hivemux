@@ -960,6 +960,9 @@ def main():
                         # the Mac's name when hivemux connect told it (bin/hivemux-attach) / hivemux connect 가 알려 줬으면 그 Mac 이름
                         macs = dict(l.split(" ", 1) for l in tmux("show", "-gqv", "@hivemux-remote-from").splitlines() if " " in l)
                         REMOTE_HERE = next((macs[c] for c in here if c in macs), "")
+                        # the name it goes by there (Settings, sent by its hivemux-ports) / 그 Mac 에서 정한 이름 (설정, 그 Mac 의 hivemux-ports 가 보냄)
+                        if REMOTE_HERE:
+                            REMOTE_HERE = tmux("show", "-gqv", f"@hivemux-name-{REMOTE_HERE}").strip() or REMOTE_HERE
                 # @hivemux-fps: animation frames per second (default 30; lower saves CPU)
                 # @hivemux-fps: 초당 애니메이션 프레임 (기본 30, 낮추면 CPU 절약)
                 fps = tmux("show", "-gqv", "@hivemux-fps").strip()

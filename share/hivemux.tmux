@@ -54,7 +54,7 @@ set -g status-right-length 160
 # then, on a terminal attached from another Mac (bin/hivemux-attach lists it in @hivemux-remote-clients), this Mac's name
 # 호출판 (@hivemux-board, bin/hivemux-sidebar-view 가 적는다): 입력이 필요하거나 끝난 작업.
 # 그다음, 다른 Mac 에서 붙은 터미널 (bin/hivemux-attach 가 @hivemux-remote-clients 에 적음)이면 이 Mac 의 이름
-set -g status-right "#{?@hivemux-nosave,,#(#{@hivemux-continuum-save})}#{E:@hivemux-board}#{?#{m:* #{client_name} *,#{@hivemux-remote-clients}},#[bg=#7c4dff#,fg=#ffffff#,bold] ⇄ #h #[default] ,}#{?client_prefix,#[bg=#f5a524 fg=#16181d bold] PREFIX #[default] ,}#[fg=#626a78]%m-%d  %H:%M  "
+set -g status-right "#{?@hivemux-nosave,,#(#{@hivemux-continuum-save})}#{E:@hivemux-board}#{?#{m:* #{client_name} *,#{@hivemux-remote-clients}},#[bg=#7c4dff#,fg=#ffffff#,bold] ⇄ #{?@hivemux-mac-name,#{@hivemux-mac-name},#h} #[default] ,}#{?client_prefix,#[bg=#f5a524 fg=#16181d bold] PREFIX #[default] ,}#[fg=#626a78]%m-%d  %H:%M  "
 set -g window-status-separator ""
 set -g window-status-format "#[fg=#626a78] #I #[fg=#9aa3b2]#W#{?#{==:#{@claude_state},run}, #[fg=#5aa9ff]#{?@claude_spin,#{@claude_spin},◐},}#{?#{==:#{@claude_state},wait}, #[fg=#f5a524]●,}#{?#{==:#{@claude_state},done}, #[fg=#3ecf8e]✓,} "
 set -g window-status-current-format "#[bg=#2a2f3a,fg=#9aa3b2] #I #[fg=#e6e9ef,bold]#W#[nobold]#{?#{==:#{@claude_state},run}, #[fg=#5aa9ff]#{?@claude_spin,#{@claude_spin},◐},}#{?#{==:#{@claude_state},wait}, #[fg=#f5a524]●,}#{?#{==:#{@claude_state},done}, #[fg=#3ecf8e]✓,} #[default]"
@@ -78,7 +78,7 @@ set -gq @hivemux-fps 30
 set -gq @hivemux-notify on
 # language, animation, notifications and editor chosen in the sidebar menu's Settings (saved files win over the lines above)
 # 사이드바 메뉴의 설정에서 고른 언어, 애니메이션, 알림, 편집기 (저장된 파일이 위 줄보다 우선)
-run-shell 'v=$(cat "#{@hivemux-data}/lang" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-lang "$v"; v=$(cat "#{@hivemux-data}/anim" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-anim "$v"; v=$(cat "#{@hivemux-data}/notify" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-notify "$v"; v=$(cat "#{@hivemux-data}/editor" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-editor "$v"; true'
+run-shell 'v=$(cat "#{@hivemux-data}/lang" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-lang "$v"; v=$(cat "#{@hivemux-data}/anim" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-anim "$v"; v=$(cat "#{@hivemux-data}/notify" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-notify "$v"; v=$(cat "#{@hivemux-data}/editor" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-editor "$v"; v=$(cat "#{@hivemux-data}/mac-name" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-mac-name "$v"; true'
 set-hook -g after-new-window       'run-shell -b "#{@hivemux-bin}/hivemux-sidebar ensure #{window_id}"'
 set-hook -g after-new-session      'run-shell -b "#{@hivemux-bin}/hivemux-sidebar ensure #{window_id}"'
 set-hook -g client-session-changed 'run-shell -b "#{@hivemux-bin}/hivemux-sidebar ensure #{window_id}"'

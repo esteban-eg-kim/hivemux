@@ -77,6 +77,18 @@ def me():
     return r.stdout.strip() or socket.gethostname().split(".")[0]
 
 
+def display_name():
+    """This Mac's name as people see it: the one set in Settings (@hivemux-mac-name), else the Mac's own
+    이 Mac 의 보이는 이름: 설정에서 정한 이름 (@hivemux-mac-name), 없으면 Mac 원래 이름"""
+    v = tmux("show", "-gqv", "@hivemux-mac-name").strip()
+    if not v:
+        try:
+            v = open(os.path.join(DATA, "mac-name")).read().strip()
+        except OSError:
+            v = ""
+    return v or subprocess.run(["scutil", "--get", "ComputerName"], capture_output=True, text=True).stdout.strip() or me()
+
+
 def task_name(p):
     """Like the sidebar card (bin/hivemux-sidebar-view task_name) / 사이드바 카드와 같게"""
     if p["@claude_name"]:
@@ -108,7 +120,7 @@ def snapshot():
     honey = tmux("show", "-gqv", "@hivemux-honey").split()
     today = time.strftime("%Y-%m-%d")
     return {
-        "host": me(), "lang": lang(), "now": int(time.time()),
+        "host": display_name(), "lang": lang(), "now": int(time.time()),
         "honey": int(honey[1]) if len(honey) == 2 and honey[0] == today and honey[1].isdigit() else 0,
         "sessions": [{
             "pane": p["pane_id"], "idx": i, "project": p["session_name"], "name": task_name(p),
@@ -463,6 +475,7 @@ def open_there(client):
     mac = next((l.split(" ", 1)[1] for l in tmux("show", "-gqv", "@hivemux-remote-from").splitlines()
                 if l.split(" ", 1)[0] == client and " " in l), "")
     seen = tmux("show", "-gqv", f"@hivemux-seen-{mac}").strip() if mac else ""
+    name = (tmux("show", "-gqv", f"@hivemux-name-{mac}").strip() or mac) if mac else ""
     if seen.isdigit() and time.time() - int(seen) <= 20:
         opt, tag = f"@hivemux-office-{mac}", str(os.getpid())
         tmux("set", "-g", opt, tag)
@@ -471,11 +484,11 @@ def open_there(client):
             time.sleep(0.25)
             if tmux("show", "-gqv", opt).strip() != tag:
                 tmux("display", "-c", client, "-d", "3000",
-                     f"🐝 {mac} 에서 벌 사무실을 엽니다" if ko else f"🐝 Opening the bee office on {mac}")
+                     f"🐝 {name} 에서 벌 사무실을 엽니다" if ko else f"🐝 Opening the bee office on {name}")
                 return
         tmux("set", "-gu", opt)      # no answer: an older hivemux there / 대답이 없음: 거기 hivemux 가 예전 것
-        msg = (f"{mac} 에서 벌 사무실을 열지 못했습니다. 그 Mac 의 hivemux 를 업데이트하세요" if ko
-               else f"Could not open the bee office on {mac}. Update hivemux there")
+        msg = (f"{name} 에서 벌 사무실을 열지 못했습니다. 그 Mac 의 hivemux 를 업데이트하세요" if ko
+               else f"Could not open the bee office on {name}. Update hivemux there")
     else:
         msg = ("다른 Mac 에서 붙은 화면입니다. 벌 사무실은 그 Mac 에서 여세요 (사이드바 🐝, prefix B)" if ko
                else "This screen is attached from another Mac. Open the bee office on that Mac (sidebar 🐝, prefix B)")

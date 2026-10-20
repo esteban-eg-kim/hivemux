@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Bee office: bigger desks (pods of four, two to a row) so a desk no longer
+  looks smaller than its bee; past three rows the office keeps a readable size
+  instead of shrinking (drag or zoom out to see the rest); when name tags
+  crowd, working bees' tags step aside for waiting and finished ones (hover or
+  zoom in to see them)
+- Settings has "This Mac's name": the bee office, the ⇄ badge on remote
+  screens and the other Mac's sidebar note show it instead of the computer
+  name. Each Mac names itself, so nothing is set per connection
+
 ## 0.1.28 — 2026-10-20
 
 - The bee office button (🐝, `prefix B`, the menu) on a screen attached from

@@ -5,9 +5,13 @@
   ↑↓ choose / 고르기    ←→ or Enter or click: change / 바꾸기    Esc close / 닫기
 
 Changes apply at once and are saved in $XDG_DATA_HOME/hivemux (lang, anim, notify,
-sidebar-width, editor);
+sidebar-width, editor, mac-name);
 share/hivemux.tmux reads them back when tmux starts.
-바꾸면 바로 적용하고 $XDG_DATA_HOME/hivemux 에 (lang, anim, notify, sidebar-width, editor) 저장한다.
+바꾸면 바로 적용하고 $XDG_DATA_HOME/hivemux 에 (lang, anim, notify, sidebar-width, editor, mac-name) 저장한다.
+"This Mac's name" is typed in (Enter edits, Enter saves, Esc cancels; empty goes back to the Mac's own name):
+the bee office and the other Mac (hivemux connect) show it.
+"이 Mac 이름"은 직접 친다 (Enter 로 고치고 Enter 로 저장, Esc 취소. 비우면 Mac 원래 이름): 벌 사무실과
+상대 Mac (hivemux connect)이 이 이름을 보인다.
 tmux 가 시작할 때 share/hivemux.tmux 가 다시 읽는다.
 """
 import os, re, shutil, subprocess, sys, termios, tty, unicodedata
@@ -42,6 +46,10 @@ def tr(ko, en):
     return ko if lang() == "ko" else en
 
 
+def computer_name():
+    return subprocess.run(["scutil", "--get", "ComputerName"], capture_output=True, text=True).stdout.strip() or os.uname().nodename.split(".")[0]
+
+
 def save(name, value):
     os.makedirs(DATA, exist_ok=True)
     tmp = os.path.join(DATA, name + ".tmp")
@@ -65,6 +73,7 @@ def settings():
     # the open-path popup's Enter (bin/hivemux-open-ui) / 경로 열기 팝업의 Enter (bin/hivemux-open-ui)
     eds = [("vscode", "VS Code"), ("cursor", "Cursor"), ("zed", "Zed"), ("sublime", "Sublime Text"),
            ("default", tr("텍스트 편집기", "Text editor"))]
+    nick = tmux("show", "-gqv", "@hivemux-mac-name").strip()
     ed = tmux("show", "-gqv", "@hivemux-editor").strip() or \
         ("vscode" if os.path.exists("/Applications/Visual Studio Code.app") else "default")
     return [
@@ -73,6 +82,7 @@ def settings():
         ("notify", tr("알림", "Notifications"), [("on", tr("켜기", "on")), ("off", tr("끄기", "off"))], 0 if notify else 1),
         ("width", tr("사이드바 폭", "Sidebar width"), [(str(x), tr(f"{x}칸", f"{x} columns")) for x in ws], ws.index(w)),
         ("editor", tr("편집기", "Editor"), eds, next((i for i, (k, _) in enumerate(eds) if k == ed), 0)),
+        ("name", tr("이 Mac 이름", "This Mac's name"), [(nick, nick or computer_name())], 0),
     ]
 
 
@@ -86,6 +96,18 @@ def apply(key, value):
     elif key in ("anim", "notify", "editor"):
         tmux("set", "-g", "@hivemux-" + key, value)
         save(key, value)
+    elif key == "name":
+        # the bee office and the other Mac read it (bin/hivemux-office, bin/hivemux-ports) / 벌 사무실과 상대 Mac 이 읽는다
+        if value:
+            tmux("set", "-g", "@hivemux-mac-name", value)
+            save("mac-name", value)
+        else:
+            tmux("set", "-gu", "@hivemux-mac-name")
+            try:
+                os.remove(os.path.join(DATA, "mac-name"))
+            except OSError:
+                pass
+        tmux("refresh-client", "-S")
     elif key == "width":
         tmux("set", "-g", "@hivemux-sidebar-width", value)
         save("sidebar-width", value)
@@ -100,6 +122,7 @@ def main():
     out = sys.stdout
     out.write("\x1b[?25l\x1b[?1000h\x1b[?1006h")
     sel, msg = 0, ""
+    edit = None                            # the name being typed / 치고 있는 이름
     try:
         while True:
             cols, rows = os.get_terminal_size()
@@ -113,7 +136,14 @@ def main():
                 rows_y[y] = i
                 v = values[cur][1]
                 on = i == sel
-                if on:
+                if on and edit is not None and key == "name":
+                    # the end of what is typed, if it is longer than the column / 열보다 길면 친 것의 끝
+                    shown = edit
+                    while width(shown) > cols - vx - 3:
+                        shown = shown[1:]
+                    buf.append(f"\x1b[{y};1H{bg(SEL_BG)}{fg(ACC)} ▌ {fg(TEXT)}{BOLD}{label}{RST}{bg(SEL_BG)}" + " " * max(0, cols - 4 - width(label)))
+                    buf.append(f"\x1b[{y};{vx}H  {fg(TEXT)}{BOLD}{shown}{fg(ACC)}▏" + RST + bg(BG))
+                elif on:
                     buf.append(f"\x1b[{y};1H{bg(SEL_BG)}{fg(ACC)} ▌ {fg(TEXT)}{BOLD}{label}{RST}{bg(SEL_BG)}" + " " * max(0, cols - 4 - width(label)))
                     buf.append(f"\x1b[{y};{vx}H{fg(ACC)}‹ {fg(TEXT)}{BOLD}{v}{RST}{bg(SEL_BG)} {fg(ACC)}›" + RST + bg(BG))
                 else:
@@ -123,12 +153,31 @@ def main():
             buf.append(f"\x1b[{rows - 1};1H{fg(RULE)}  " + "─" * max(0, cols - 4))
             hint = (f"{fg(TEXT)}↑↓{fg(T3)} {tr('고르기', 'choose')}   {fg(TEXT)}←→{fg(T3)} {tr('바꾸기', 'change')}   "
                     f"{fg(TEXT)}Esc{fg(T3)} {tr('닫기', 'close')}")
+            if edit is not None:
+                hint = (f"{fg(TEXT)}Enter{fg(T3)} {tr('저장', 'save')}   {fg(TEXT)}Esc{fg(T3)} {tr('취소', 'cancel')}   "
+                        f"{fg(T3)}{tr('비우면 원래 이름', 'empty: the Mac’s own name')}")
+            elif items[sel][0] == "name":
+                hint = (f"{fg(TEXT)}Enter{fg(T3)} {tr('이름 고치기', 'edit the name')}   {fg(T3)}"
+                        f"{tr('벌 사무실과 원격 화면에 보입니다', 'shown in the bee office and on remote screens')}")
             buf.append(f"\x1b[{rows};1H  " + (msg or hint) + RST)
             out.write("".join(buf))
             out.flush()
             msg = ""
             data = os.read(fd, 256).decode(errors="ignore")
             for ch in re.findall(r"\x1b\[<\d+;\d+;\d+[Mm]|\x1b\[[0-9;]*[A-Za-z~]|\x1bO[A-Za-z]|\x1b|[\s\S]", data):
+                if edit is not None:
+                    if ch in ("\r", "\n"):
+                        apply("name", edit.strip())
+                        edit = None
+                    elif ch in ("\x1b", "\x03"):
+                        edit = None
+                    elif ch in ("\x7f", "\x08"):
+                        edit = edit[:-1]
+                    elif ch == "\x15":           # Ctrl+U
+                        edit = ""
+                    elif len(ch) == 1 and ch.isprintable() and len(edit) < 32:
+                        edit += ch
+                    continue
                 key, _, values, cur = items[sel]
                 step = 0
                 m = re.match(r"\x1b\[<(\d+);(\d+);(\d+)([Mm])", ch)
@@ -153,6 +202,9 @@ def main():
                     step = -1
                 elif ch in ("\x1b[C", "\x1bOC", "l", "\r", "\n", " "):
                     step = 1
+                if step and key == "name":
+                    edit = values[0][0]
+                    step = 0
                 if step:
                     # width stops at the ends; the others go round / 폭은 끝에서 멈추고, 나머지는 돌아간다
                     n = cur + step

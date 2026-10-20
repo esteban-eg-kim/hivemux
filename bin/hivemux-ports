@@ -26,7 +26,7 @@ the next poll here opens it in this Mac's browser.
 여기서 다음에 물을 때 이 Mac 의 브라우저로 연다.
 The same way, the open-path popup there (bin/hivemux-open-ui) on a screen from this Mac sets
 @hivemux-edit-<this Mac> to "<editor> <line> <col> <path>", and this opens that file of the other
-Mac in VS Code / Cursor here over Remote-SSH. @hivemux-seen-<this Mac> is the time of the last poll,
+Mac in VS Code / Cursor here over Remote-SSH. @hivemux-seen-<this Mac> is the time of the last poll and @hivemux-name-<this Mac> the name shown for it,
 so the popup knows a request will be picked up.
 Ctrl+V in a Claude pane there on a screen from this Mac (bin/hivemux-paste) sets
 @hivemux-paste-<this Mac> to "<id> <pane> <client>" and wakes the tmux channel hivemux-paste-<this Mac>,
@@ -62,6 +62,7 @@ SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ServerAliveInterval=3", "-o", "ServerA
 REMOTE = r'''PATH=/opt/homebrew/bin:/usr/local/bin:$PATH
 root=$(tmux display -p '#{pid}' 2>/dev/null) || exit 0
 tmux set -g @hivemux-seen-@ME@ "$(date +%s)"
+tmux set -g @hivemux-name-@ME@ @NAME@
 o=$(tmux show -gqv @hivemux-ports-open-@ME@) && [ -n "$o" ] && { tmux set -gu @hivemux-ports-open-@ME@; echo "open $o"; }
 e=$(tmux show -gqv @hivemux-edit-@ME@) && [ -n "$e" ] && { tmux set -gu @hivemux-edit-@ME@; echo "edit $e"; }
 pids=$(ps -A -o pid= -o ppid= | awk -v r="$root" '{ p[$1] = $2 } END { for (k in p) { x = k; n = 0; while (x > 1 && n++ < 64) { if (x == r) { print k; break } x = p[x] } } }' | paste -sd, -)
@@ -110,6 +111,18 @@ def me():
     n = subprocess.run(["scutil", "--get", "ComputerName"], capture_output=True, text=True).stdout.strip() \
         or socket.gethostname().split(".")[0]
     return re.sub(r"[^A-Za-z0-9-]+", "-", n).strip("-") or "mac"
+
+
+def display_name():
+    """This Mac's name as people see it (Settings, $XDG_DATA_HOME/hivemux/mac-name), else the Mac's own;
+    the other Mac shows it (@hivemux-name-<this Mac>)
+    이 Mac 의 보이는 이름 (설정, $XDG_DATA_HOME/hivemux/mac-name), 없으면 Mac 원래 이름. 상대 Mac 이 보인다
+    (@hivemux-name-<이 Mac>)"""
+    try:
+        v = open(os.path.join(os.path.dirname(DATA), "mac-name")).read().strip()
+    except OSError:
+        v = ""
+    return v or subprocess.run(["scutil", "--get", "ComputerName"], capture_output=True, text=True).stdout.strip() or me()
 
 
 def ko():
@@ -244,7 +257,7 @@ class Ports:
     def listening(self):
         """({remote port: command}, [remote ports asked to open here]) / ({거기 포트: 명령}, [여기서 열어 달라는 거기 포트])
         Files asked to be edited here are opened right away / 여기서 열어 달라는 파일은 바로 연다"""
-        r = self.ssh(self.host, REMOTE.replace("@ME@", self.me))
+        r = self.ssh(self.host, REMOTE.replace("@ME@", self.me).replace("@NAME@", shlex.quote(display_name())))
         if not r or r.returncode != 0:
             return None, []
         out, asked = {}, []

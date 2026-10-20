@@ -125,7 +125,7 @@ new hooks once restarted. `hivemux version` shows the installed version; see
 | click card / project name | jump · double click a card: rename. A project whose Claude windows are all closed stays listed ("no Claude") until you close it |
 | right click | menu. On a task: go to, rename, move up/down, new Claude, new project. On a project name: rename, close project, new Claude, new project. On empty space: new project. Every menu ends with Open path…, Ports…, Connect to… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes |
 | menu → New project | folder browser in the middle: `Enter` starts the selected folder (like `hm`), `→` / `←` in and out, type to filter, `Ctrl+N` new folder |
-| menu → Settings | language (한국어 / English), animation, notifications, sidebar width, editor for Open path; applied at once and saved |
+| menu → Settings | language (한국어 / English), animation, notifications, sidebar width, editor for Open path, this Mac's name (shown in the bee office and on remote screens); applied at once and saved |
 | drag card / project header | reorder tasks / projects |
 | `prefix Shift+↑` / `↓` | move the current task up / down (at a project's edge, the project moves) |
 | `Option+O` / menu → Open path | open a file path from recent output (Enter editor from Settings, Tab default app, ^F Finder, ^Y copy) |
