@@ -71,6 +71,8 @@ class Roster:
                 self.bees = json.load(r)
         except (OSError, ValueError):
             self.bees = {}
+        if not isinstance(self.bees, dict):
+            self.bees = {}
         self.dirty = False
         return self
 
@@ -109,7 +111,7 @@ class Roster:
 
     def leave(self, project, now):
         for i, b in self.bees.items():
-            if b["project"] == project:
+            if b.get("project") == project:
                 self.quit(i, now)
 
     def quit(self, bid, now):
@@ -131,14 +133,15 @@ def ranks(now=None):
     first = min(starts.values())
     counts = {k: {} for k in starts}
     try:
-        with open(LEDGER) as f:
+        with open(LEDGER, errors="replace") as f:
             for line in f:
                 p = line.split()
                 if len(p) < 2 or not p[0].isdigit() or int(p[0]) < first:
                     continue
+                bid = " ".join(p[1:-1]) if len(p) > 2 else p[1]   # a bee's name may have spaces / 벌 이름에 빈칸이 있을 수 있다
                 for k, s in starts.items():
                     if int(p[0]) >= s:
-                        counts[k][p[1]] = counts[k].get(p[1], 0) + 1
+                        counts[k][bid] = counts[k].get(bid, 0) + 1
     except OSError:
         pass
     return {k: [{"id": i, "honey": n} for i, n in sorted(c.items(), key=lambda e: (-e[1], e[0]))[:10]] for k, c in counts.items()}

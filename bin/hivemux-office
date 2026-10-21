@@ -35,7 +35,7 @@ $XDG_DATA_HOME/hivemux/hive/; without swiftc the page opens in the browser.
 창은 작은 네이티브 앱 (share/office/OfficeWindow.swift)으로, swiftc 로 한 번 빌드해
 $XDG_DATA_HOME/hivemux/hive/ 에 둔다. swiftc 가 없으면 브라우저로 연다.
 """
-import functools, glob, hashlib, http.server, json, os, shlex, shutil, signal, socket, subprocess, sys, threading, time, urllib.request
+import functools, glob, hashlib, http.server, json, os, shlex, shutil, signal, socket, stat, subprocess, sys, threading, time, urllib.request
 
 TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -110,7 +110,6 @@ _spec = importlib.util.spec_from_loader("hivemux_bees", importlib.machinery.Sour
 bees = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(bees)
 _ranks = {"size": -1, "day": "", "value": None}
-_working = set()
 
 
 def ranks():
@@ -131,21 +130,21 @@ GONE_AFTER = 600
 
 def roster(ids, kept=None, projects=None):
     """Hire the bees seen at work for the first time (or back after leaving); let go a bee whose Claude was
-    closed (its project still open, but no pane keeps its session) for ten minutes; the roster for the page.
+    closed (no pane keeps its session, or its project is gone) for ten minutes; the roster for the page.
     kept: bees with a pane that still has their session (running, or stopped by clocking out, an update or a
-    reboot to come back); projects: the open projects
-    처음 일하는 (또는 퇴사 뒤 돌아온) 벌을 입사시키고, Claude 가 닫힌 (프로젝트는 열려 있는데 세션을 가진 칸이 없는)
+    reboot to come back); projects: the open projects (none yet: tmux is still starting, let no one go)
+    처음 일하는 (또는 퇴사 뒤 돌아온) 벌을 입사시키고, Claude 가 닫힌 (세션을 가진 칸이 없거나 프로젝트가 없어진)
     채 10분이 지난 벌은 퇴사시킨다. 페이지에 줄 명부. kept: 세션을 가진 칸이 있는 벌 (실행 중, 또는 퇴근·업데이트·
-    재부팅으로 멈춰 돌아올 벌), projects: 열린 프로젝트"""
+    재부팅으로 멈춰 돌아올 벌), projects: 열린 프로젝트 (없으면 tmux 가 아직 뜨는 중이라 아무도 내보내지 않는다)"""
     now = int(time.time())
     with bees.Roster() as r:
-        if not ids <= _working:
-            for i in ids:
-                r.seen(i, now)
-            _working.clear(); _working.update(ids)
+        for i in ids:      # does nothing for one already on the payroll / 이미 일하는 벌에는 아무것도 안 한다
+            r.seen(i, now)
         if kept is not None and projects:
             for i, b in r.bees.items():
-                if b.get("left") or b["project"] not in projects or i in kept:
+                # a project closed or renamed some other way (not through the sidebar) counts too
+                # 사이드바가 아닌 다른 길로 닫거나 이름을 바꾼 프로젝트도 마찬가지
+                if b.get("left") or i in kept:
                     _gone.pop(i, None); continue
                 if now - _gone.setdefault(i, now) >= GONE_AFTER:
                     r.quit(i, now); _gone.pop(i, None)
@@ -184,7 +183,10 @@ def snapshot():
             "agents": int(p["@claude_agents"]) if p["@claude_agents"].isdigit() else 0,
             "plan": bool(p["@claude_plan"]), "bee": p["bee"],
         } for i, p in enumerate(items, 1)],
-        "bees": roster({p["bee"] for p in items}, set(ids.values()), {p["session_name"] for p in panes if len(p) == len(FIELDS)}), "ranks": ranks(),
+        # clocked out (or rebooted while clocked out), the bees sent home keep their place
+        # 퇴근 중 (또는 퇴근 중 재부팅): 집에 보낸 벌은 자리를 지킨다
+        "bees": roster({p["bee"] for p in items}, set(ids.values()) | set(offwork()),
+                       {p["session_name"] for p in panes if len(p) == len(FIELDS)}), "ranks": ranks(),
     }
     # clocked out: overtime is only a Claude still working or waiting for you; the rest are going home even
     # while their Claude is being stopped (one by one, a few seconds each), so they leave the session list
@@ -197,25 +199,34 @@ def snapshot():
     return out
 
 
+def shift_file():
+    try:
+        with open(os.path.join(DATA, "shift")) as f:
+            return f.read().split()
+    except OSError:
+        return []
+
+
+def offwork():
+    """the bees sent home, while clocked out / 퇴근 중이면 집에 보낸 벌"""
+    if shift_file()[:1] != ["off"]:
+        return []
+    try:
+        with open(os.path.join(DATA, "offwork.tsv"), errors="replace") as f:
+            return [b for b in (line.rstrip("\n").split("\t")[-1] for line in f) if b and b != "-"]
+    except OSError:
+        return []
+
+
 def shift(busy):
     """Clocked in or out (bin/hivemux-shift): off, who is home and who is still on overtime
     출근 또는 퇴근 (bin/hivemux-shift): 퇴근이면 집에 간 벌과 아직 야근 중인 벌"""
-    try:
-        with open(os.path.join(DATA, "shift")) as f:
-            st = f.read().split()
-    except OSError:
-        st = []
+    st = shift_file()
     if not st or st[0] != "off":
         return {"state": "on", "since": int(st[1]) if len(st) > 1 and st[1].isdigit() else 0}
     home, overtime = [], []
-    try:
-        with open(os.path.join(DATA, "offwork.tsv")) as f:
-            for line in f:
-                bee = line.rstrip("\n").split("\t")[-1]
-                if bee:
-                    (overtime if bee in busy else home).append(bee)
-    except OSError:
-        pass
+    for bee in offwork():
+        (overtime if bee in busy else home).append(bee)
     return {"state": "off", "since": int(st[1]) if len(st) > 1 and st[1].isdigit() else 0, "home": home, "overtime": overtime}
 
 
@@ -252,6 +263,12 @@ def connections():
     돌고 있는 hivemux-ports 마다 (호스트, ssh 제어 소켓) (hivemux connect 하나에 하나)"""
     out = []
     for sock in glob.glob(f"/tmp/hivemux-ports-{os.getuid()}-*"):
+        try:    # ours, and a socket: /tmp is shared / 우리 것이고 소켓이어야: /tmp 는 모두가 쓴다
+            st = os.lstat(sock)
+        except OSError:
+            continue
+        if st.st_uid != os.getuid() or not stat.S_ISSOCK(st.st_mode):
+            continue
         pid = sock.rsplit("-", 1)[1]
         args = subprocess.run(["ps", "-o", "args=", "-p", pid], capture_output=True, text=True).stdout.split()
         i = next((i for i, a in enumerate(args) if a.endswith("hivemux-ports")), None)
@@ -274,27 +291,35 @@ class Remotes(threading.Thread):
 
     def __init__(self):
         super().__init__(daemon=True)
-        self.offices, self.lock = {}, threading.Lock()
+        self.offices, self.lock, self.fresh = {}, threading.Lock(), {}
 
     def run(self):
         while True:
-            conns = connections()
-            got = {}
-            for host, sock in conns:
-                r = remote_run(sock, host, ["--json"])
-                try:
-                    o = json.loads(r.stdout) if r and r.returncode == 0 else None
-                except ValueError:
-                    o = None
-                if o is None:
-                    with self.lock:
-                        o = self.offices.get(host)      # keep the last answer through a hiccup / 잠깐 끊겨도 마지막 답을 둔다
-                if o is not None:
-                    o["ssh"] = host
-                    got[host] = o
-            with self.lock:
-                self.offices = got
+            try:
+                self.poll()
+            except Exception as e:      # keep asking / 계속 묻는다
+                print(f"remotes: {e!r}", file=sys.stderr)
             time.sleep(1.5)
+
+    def poll(self):
+        got = {}
+        for host, sock in connections():
+            r = remote_run(sock, host, ["--json"])
+            try:
+                o = json.loads(r.stdout) if r and r.returncode == 0 else None
+            except ValueError:
+                o = None
+            if isinstance(o, dict):
+                self.fresh[host] = time.time()
+            else:
+                # keep the last answer through a hiccup, not for good / 잠깐 끊겨도 마지막 답을 두되, 계속은 아니다
+                with self.lock:
+                    o = self.offices.get(host) if time.time() - self.fresh.get(host, 0) < 30 else None
+            if o is not None:
+                o["ssh"] = host
+                got[host] = o
+        with self.lock:
+            self.offices = got
 
     def list(self):
         with self.lock:
@@ -357,8 +382,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if self.path not in ("/goto", "/shift"):
             return self.send(404, "{}")
         try:
-            req = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+            n = int(self.headers.get("Content-Length") or 0)
+            req = json.loads(self.rfile.read(n) or b"{}") if 0 <= n <= 65536 else None
         except ValueError:
+            req = None
+        if not isinstance(req, dict):
             return self.send(400, "{}")
         if self.path == "/shift":   # clock out or in (bin/hivemux-shift), here or on a connected Mac / 퇴근 또는 출근, 여기 또는 붙어 있는 Mac
             what, ssh = req.get("to"), req.get("ssh")
@@ -503,17 +531,21 @@ def build(progress=None):
         return None
     os.makedirs(OFFICE_DIR, exist_ok=True)
     tmp = f"{app}.{os.getpid()}.tmp"
-    proc = subprocess.Popen([sc, "-O", "-o", tmp, os.path.join(SHARE, "OfficeWindow.swift")],
-                            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
-    start = time.time()
-    while proc.poll() is None:
-        if progress:
-            progress(time.time() - start)
-        time.sleep(.1)
+    # errors go straight to the log: a pipe nobody reads until the end could fill up and stall swiftc
+    # 오류는 바로 로그로: 끝날 때까지 아무도 읽지 않는 파이프는 차서 swiftc 를 멈출 수 있다
+    with open(os.path.join(OFFICE_DIR, "build.log"), "w") as log:
+        proc = subprocess.Popen([sc, "-O", "-o", tmp, os.path.join(SHARE, "OfficeWindow.swift")],
+                                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=log)
+        start = time.time()
+        while proc.poll() is None:
+            if progress:
+                progress(time.time() - start)
+            time.sleep(.1)
     if proc.returncode != 0:
-        err = proc.stderr.read()
-        with open(os.path.join(OFFICE_DIR, "build.log"), "w") as f:
-            f.write(err)
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
         return None
     os.replace(tmp, app)
     with open(os.path.join(OFFICE_DIR, "app.sha1"), "w") as f:
