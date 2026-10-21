@@ -125,14 +125,30 @@ def ranks():
     return _ranks["value"]
 
 
-def roster(ids):
-    """Hire the bees seen at work for the first time (or back after leaving); the roster for the page
-    처음 일하는 (또는 퇴사 뒤 돌아온) 벌을 입사시킨다. 페이지에 줄 명부"""
+_gone = {}   # bee -> when its Claude's pane was first found missing / 벌 -> 그 Claude 칸이 처음 안 보인 때
+GONE_AFTER = 600
+
+
+def roster(ids, kept=None, projects=None):
+    """Hire the bees seen at work for the first time (or back after leaving); let go a bee whose Claude was
+    closed (its project still open, but no pane keeps its session) for ten minutes; the roster for the page.
+    kept: bees with a pane that still has their session (running, or stopped by clocking out, an update or a
+    reboot to come back); projects: the open projects
+    처음 일하는 (또는 퇴사 뒤 돌아온) 벌을 입사시키고, Claude 가 닫힌 (프로젝트는 열려 있는데 세션을 가진 칸이 없는)
+    채 10분이 지난 벌은 퇴사시킨다. 페이지에 줄 명부. kept: 세션을 가진 칸이 있는 벌 (실행 중, 또는 퇴근·업데이트·
+    재부팅으로 멈춰 돌아올 벌), projects: 열린 프로젝트"""
+    now = int(time.time())
     with bees.Roster() as r:
         if not ids <= _working:
             for i in ids:
-                r.seen(i, int(time.time()))
+                r.seen(i, now)
             _working.clear(); _working.update(ids)
+        if kept is not None and projects:
+            for i, b in r.bees.items():
+                if b.get("left") or b["project"] not in projects or i in kept:
+                    _gone.pop(i, None); continue
+                if now - _gone.setdefault(i, now) >= GONE_AFTER:
+                    r.quit(i, now); _gone.pop(i, None)
         cut = time.time() - 30 * 86400   # who left over a month ago is out of sight / 한 달 넘게 전에 떠난 벌은 안 보인다
         return {i: dict({k: b.get(k) for k in ("name", "project", "hired", "left", "rehires", "house")},
                         since=(b.get("history") or [[b.get("hired")]])[-1][0])   # when it last came in / 마지막으로 들어온 때
@@ -168,7 +184,7 @@ def snapshot():
             "agents": int(p["@claude_agents"]) if p["@claude_agents"].isdigit() else 0,
             "plan": bool(p["@claude_plan"]), "bee": p["bee"],
         } for i, p in enumerate(items, 1)],
-        "bees": roster({p["bee"] for p in items}), "ranks": ranks(),
+        "bees": roster({p["bee"] for p in items}, set(ids.values()), {p["session_name"] for p in panes if len(p) == len(FIELDS)}), "ranks": ranks(),
     }
     # clocked out: overtime is only a Claude still working or waiting for you; the rest are going home even
     # while their Claude is being stopped (one by one, a few seconds each), so they leave the session list

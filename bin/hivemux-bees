@@ -8,6 +8,8 @@
                                   그 벌의 꿀 한 칸을 장부에 적는다 (bin/hivemux-hook, 작업이 끝날 때)
   hivemux-bees leave <project>    every bee of that project leaves (bin/hivemux-close-project)
                                   그 프로젝트의 벌이 모두 퇴사한다 (bin/hivemux-close-project)
+  hivemux-bees quit <pane>        the bee in that pane leaves: its Claude was closed on purpose (bin/hivemux-hook)
+                                  그 칸의 벌이 퇴사한다: Claude 를 직접 닫았다 (bin/hivemux-hook)
   hivemux-bees list               the roster as JSON / 명부를 JSON 으로
   hivemux-bees ranks              who made the most honey today, this week, this month (JSON)
                                   오늘, 이번 주, 이번 달 꿀을 가장 많이 모은 벌 (JSON)
@@ -106,12 +108,17 @@ class Roster:
         self.dirty = True
 
     def leave(self, project, now):
-        for b in self.bees.values():
-            if b["project"] == project and not b.get("left"):
-                b["left"] = now
-                if b.get("history") and b["history"][-1][1] is None:
-                    b["history"][-1][1] = now
-                self.dirty = True
+        for i, b in self.bees.items():
+            if b["project"] == project:
+                self.quit(i, now)
+
+    def quit(self, bid, now):
+        b = self.bees.get(bid)
+        if b and not b.get("left"):
+            b["left"] = now
+            if b.get("history") and b["history"][-1][1] is None:
+                b["history"][-1][1] = now
+            self.dirty = True
 
 
 def ranks(now=None):
@@ -148,6 +155,11 @@ def main(a):
             os.makedirs(DATA, exist_ok=True)
             with open(LEDGER, "a") as f:
                 f.write(f"{now} {bid} {sid}\n")
+    elif len(a) == 2 and a[0] == "quit":
+        bid = id_of(a[1])
+        if bid:
+            with Roster() as r:
+                r.quit(bid, now)
     elif len(a) == 2 and a[0] == "leave":
         with Roster() as r:
             r.leave(a[1], now)

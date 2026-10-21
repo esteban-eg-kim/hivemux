@@ -166,6 +166,8 @@ case "$event" in
     # 직접 종료했을 때만 매핑 삭제 -> 재부팅/강제 종료는 재개된다
     case "$(field reason)" in
       prompt_input_exit|logout)
+        # closed on purpose: that bee leaves the company (bin/hivemux-bees) / 직접 닫음: 그 벌은 퇴사 (bin/hivemux-bees)
+        "$(dirname "$0")/hivemux-bees" quit "$TMUX_PANE" >/dev/null 2>&1
         t set -pu -t "$TMUX_PANE" @claude_session
         t set -pu -t "$TMUX_PANE" @claude_cwd ;;
     esac

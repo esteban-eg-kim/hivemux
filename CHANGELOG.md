@@ -23,8 +23,9 @@
   a hipped roof, an A-frame, a smoking chimney) and six kinds of room (cosy
   bedroom, gaming den, books, plants and a hammock, a piano, a big kitchen);
   two-storey houses have stairs to a loft bed
-- Bees are hired, leave (closing the project) and come back (rehired) by
-  project and name, with a house each; a honey ledger ranks them today, this
+- Bees are hired, leave (closing the project, or closing that Claude: `/exit`
+  at once, a closed window after ten minutes; a reboot, clocking out or an
+  update is not leaving) and come back (rehired) by project and name, with a house each; a honey ledger ranks them today, this
   week and this month (list drawer → Honey, and a bee of the month on the
   wall); a full comb goes into a jar on a shelf
 - Bee office: the office fills the window (no more 1000px column), with the
