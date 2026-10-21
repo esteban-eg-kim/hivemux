@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- Clock out: it said "already clocked out" after any clock in
+- Clock in after a reboot: each Claude resumes in its own pane (tmux numbers
+  panes afresh after a reboot, so they could land in another project's);
+  clocking in while a Claude was being stopped no longer loses it; Update
+  Claude leaves clocked-out panes for clocking in to start
+- Bee office: a bee that left and came back is rehired at once (it took a
+  server restart); bees sent home stay on the payroll through a reboot;
+  bees of a project closed outside the sidebar are let go; honey ranks
+  count bee names with spaces
+- Bee office: bees at home no longer drop out of the list after a moment;
+  a connected Mac missing from one update no longer sends its bees to work;
+  one drawing error no longer freezes the page
+- The office server shrugs off a broken ledger, roster or remote answer,
+  and the installer runs only once fully downloaded
 - Bee office: zoomed out at a low angle the fields no longer end in black
   space: they run far past the view, under a sky that follows the clock
   (blue with drifting clouds by day, dusk, deep blue at night), which only
