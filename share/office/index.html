@@ -414,19 +414,19 @@ const offOf = o => !!(o && o.shift && o.shift.state === 'off');
 // own roster (ties: this Mac first), so the same bee keeps the same house.
 // 마을: 길에서 6.5 타일마다 골목이 나고, 집은 골목을 보고 늘어서고 몇 채는 골목 사이 큰길을 본다. 모든 Mac 의
 // 벌이 섞여 산다: 자리는 각자 명부의 집 번호 순 (같으면 이 Mac 먼저) 이라 같은 벌은 같은 집에 산다.
-const LANE = k => -YARD - 9 - k * 6.5;   // past the pub and the park at the village's gate / 마을 어귀의 펍과 공원 너머
-const SLOT_PLAN = [['w', -2.6], ['e', -3.1], ['w', 2.5], ['e', 2.9], ['n', 0], ['s', 0], ['w', -5.4], ['e', -6.1], ['w', 5.3], ['e', 5.8]];
+const LANE = k => -YARD - 14 - k * 9;   // past the pub and the park at the village's gate / 마을 어귀의 펍과 공원 너머
+const SLOT_PLAN = [['w', -2.8], ['e', -3.2], ['w', 2.8], ['e', 3.2], ['n', 0], ['s', 0], ['w', -6.4], ['e', -6.9], ['w', 6.4], ['e', 6.9]];
 function slotAt(i) {
   const block = Math.floor(i / SLOT_PLAN.length), [side, dy] = SLOT_PLAN[i % SLOT_PLAN.length], L = LANE(block), py = pathY();
   const j = (n, a) => (hash(block * 13 + i, n) - .5) * a;   // a little untidy, like a real street / 진짜 골목처럼 조금씩 어긋나게
-  const len = 1.8 + j(1, .4), dep = 1.45 + j(2, .3);
+  const len = 2.8 + j(1, .4), dep = 2.3 + j(2, .3);   // big enough for a bee to live in / 벌이 살 만큼
   if (side === 'w' || side === 'e') {   // along a lane, the ridge along it / 골목 옆, 용마루는 골목 방향
     const cy = py + dy + j(3, .5), gap = .65 + Math.abs(j(4, .4));
     const x = side === 'w' ? L - gap - dep : L + gap;
     return { x, y: cy - len / 2, w: dep, d: len, ridge: 'y', face: side === 'w' ? [1, 0] : [-1, 0], lane: L,
       door: { x: side === 'w' ? L - .35 : L + .35, y: cy }, seed: i };
   }
-  const cx = L - 3.25 + j(3, .6), gap = .9 + Math.abs(j(4, .3));
+  const cx = L - 4.5 + j(3, .4), gap = .9 + Math.abs(j(4, .3));
   const y = side === 'n' ? py - gap - dep : py + gap;
   return { x: cx - len / 2, y, w: len, d: dep, ridge: 'x', face: side === 'n' ? [0, 1] : [0, -1], lane: null,
     door: { x: cx, y: side === 'n' ? py - .65 : py + .65 }, seed: i };
@@ -436,7 +436,7 @@ function slotAt(i) {
    Each bee picks something for a minute or two, then something else; from 11 pm to 6 am they all sleep at home.
    저녁: 퇴근한 벌은 자기 전에 논다. 마을 어귀의 펍 (밖엔 테라스, 안에도 자리), 길 건너 공원 (둘이 하는 공놀이,
    벤치, 분수 옆 수다), 또는 집. 벌마다 1~2분씩 하나를 하다 바꾸고, 밤 11시부터 아침 6시까지는 모두 집에서 잔다. */
-const PUB = () => ({ x: -12.6, y: pathY() - 3.6, w: 2.9, d: 2.3, door: { x: -11.15, y: pathY() - .9 } });
+const PUB = () => ({ x: -13.8, y: pathY() - 4, w: 3.7, d: 3, door: { x: -11.95, y: pathY() - .85 } });
 const PARK = () => ({ x: -15, y: pathY() + 1.1, w: 7.3, d: 4.8 });
 function eveSpots() {
   const py = pathY();
@@ -817,7 +817,7 @@ function bounds() {
   const b = { x0: Math.min(...xs) - m, x1: Math.max(...xs) + m, y0: Math.min(...ys) - 30, y1: Math.max(...ys) + 18 };
   if (VILLAGE.k <= 0) return b;
   // clocked out: take the village in too, sliding there / 퇴근: 마을도 담는다, 미끄러지듯
-  const vx = villageEnd(), py = pathY(), vp = [P(vx, py - 7.5), P(vx, py + 7.5), P(vx, py - 7.5, 40), P(-1, py + 7.5), P(-1, py - 7.5, 40)];
+  const vx = villageEnd(), py = pathY(), vp = [P(vx, py - 9.5), P(vx, py + 9.5), P(vx, py - 9.5, 44), P(-1, py + 9.5), P(-1, py - 9.5, 44)];
   const k = VILLAGE.k * VILLAGE.k * (3 - 2 * VILLAGE.k);
   for (const q of vp) { b.x0 = Math.min(b.x0, b.x0 + (q.x - 30 - b.x0) * k); b.x1 = Math.max(b.x1, b.x1 + (q.x + 30 - b.x1) * k); b.y0 = Math.min(b.y0, b.y0 + (q.y - 40 - b.y0) * k); b.y1 = Math.max(b.y1, b.y1 + (q.y + 20 - b.y1) * k); }
   return b;
@@ -1421,7 +1421,7 @@ function yardItems() {
   }
   for (let k = 0; k < VILL.blocks; k++) {   // trees between the houses / 집들 사이 나무
     const L = LANE(k), py = pathY();
-    for (const [dx, dy, sz] of [[-3.3, -5.2, 1], [-3, 4.6, .9], [2.6, -7.4, 1.1], [-5, -2.6, .8], [-1.4, 7.6, 1]]) tree(L + dx + (hash(k, dy, 3) - .5) * .8, py + dy, sz);
+    for (const [dx, dy, sz] of [[-4.5, -4.6, 1], [-4.5, 4.4, .9], [4, -9.4, 1.1], [-6.6, -8.8, .8], [-2.2, 9.6, 1], [-7.4, 9.2, 1.1]]) tree(L + dx + (hash(k, dy, 3) - .5) * .8, py + dy, sz);
   }
   return items;
 }
@@ -1432,7 +1432,7 @@ function yardItems() {
 // 회색. 누가 사는지는 마우스를 올리면 (houseTip). 색은 Mac 이 아니라 집마다 조금씩: 퇴근하면 소속은 상관없다
 const HOUSE_COLS = ['#f4dfba', '#efe6d2', '#f2d2c4', '#e3e9d4', '#f6e7c8'], ROOF_COLS = ['#b8653f', '#9a5b3a', '#c07a48', '#8f6a4f', '#a94f3a'];
 function house(e) {
-  const { x, y, w, d, ridge, face, seed } = e.h, H = 20, R = 13, gone = !!e.r.left;
+  const { x, y, w, d, ridge, face, seed } = e.h, H = 26, R = 17, gone = !!e.r.left;
   const bee = [...bees.values()].find(b => b.bee === e.id && (b.ssh || '') === (e.o.ssh || '')), home = bee && bee.inside && !bee.atPub;
   const hot = HOVER_HOUSE === e.key;
   const wall = night(gone ? '#d8d3cb' : HOUSE_COLS[seed % HOUSE_COLS.length]), roof = night(gone ? '#9a948c' : ROOF_COLS[(seed * 3 + 1) % ROOF_COLS.length]);
@@ -1441,8 +1441,8 @@ function house(e) {
   const lit = home && LIGHT > .2 ? 1 : home ? .6 : 0, len = ridge === 'y' ? d : w;
   if (toward(...face)) {
     const draw = () => {
-      c.fillStyle = night('#6b4a2e'); c.fillRect(len / 2 - .22, 0, .44, 13);
-      c.fillStyle = lit ? mixc(T['o-lamp'], '#ffffff', .2 * lit) : night(T.win); c.fillRect(.22, 7, .42, 7); c.fillRect(len - .64, 7, .42, 7);
+      c.fillStyle = night('#6b4a2e'); c.fillRect(len / 2 - .28, 0, .56, 17);
+      c.fillStyle = lit ? mixc(T['o-lamp'], '#ffffff', .2 * lit) : night(T.win); c.fillRect(.35, 9, .6, 9); c.fillRect(len - .95, 9, .6, 9);
     };
     if (face[1] === 1) onFaceY(x, y + d, draw); else if (face[1] === -1) onFaceY(x, y, draw);
     else if (face[0] === 1) onFaceX(x + w, y, draw); else onFaceX(x, y, draw);
@@ -1469,7 +1469,9 @@ function house(e) {
    to a sill and the room shows, like the office itself / 들여다보기: 집이나 펍에 마우스를 올리면 (누르면 열린 채로)
    지붕이 벗겨지고 가까운 벽은 턱만 남아 방이 보인다. 사무실처럼 */
 const PEEK = new Set();
-const peeking = key => PEEK.has(key) || HOVER_HOUSE === key;
+// like the office: zoomed in, the roofs come off and you see inside; zoomed out they are on (hover or a
+// click opens one anyway) / 사무실처럼: 확대하면 지붕이 벗겨져 안이 보이고, 줄이면 덮인다 (마우스를 올리거나 누르면 하나씩 열린다)
+const peeking = key => scale >= .95 || PEEK.has(key) || HOVER_HOUSE === key;
 function cutaway(x, y, w, d, H, wall, floor, inside) {
   floorRect(x, y, w, d, floor);
   const walls = [[[x, y], [x + w, y], [0, -1]], [[x + w, y], [x + w, y + d], [1, 0]], [[x + w, y + d], [x, y + d], [0, 1]], [[x, y + d], [x, y], [-1, 0]]];
@@ -1486,7 +1488,7 @@ function beeAt(b, x, y, kind, look) {
 }
 function houseInside(e, wall) {
   const { x, y, w, d } = e.h, bee = [...bees.values()].find(b => b.bee === e.id && (b.ssh || '') === (e.o.ssh || '') && b.inside && !b.atPub);
-  cutaway(x, y, w, d, 20, wall, night('#d9b98c'), () => {
+  cutaway(x, y, w, d, 26, wall, night('#d9b98c'), () => {
     floorOval(x + w / 2, y + d / 2, .45, .35, night('#c97a6a'));                                   // rug / 러그
     const bx = x + .15, by = y + .15, bw = Math.min(w, d) * .55;
     box(bx, by, bw, bw * .8, 6, night('#f4f1ea')); box(bx, by, bw * .3, bw * .8, 8, night('#ffffff'));   // bed and pillow / 침대와 베개
@@ -1620,7 +1622,7 @@ function drawYard(t) {
   floorRect(-E, 8.6 + LOFF, E, 1.2, night(T['o-path']));
   if (houses().length) {   // the village path and its lanes / 마을 큰길과 골목
     const vx = villageEnd(), py = pathY(); floorRect(vx, py - .6, -E - vx, 1.2, night(T['o-path']));
-    for (let k = 0; k < VILL.blocks; k++) floorRect(LANE(k) - .4, py - 6.8, .8, 13.6, night(T['o-path']));
+    for (let k = 0; k < VILL.blocks; k++) floorRect(LANE(k) - .45, py - 8.8, .9, 17.6, night(T['o-path']));
     const pk = PARK(); floorOval(pk.x + pk.w / 2, pk.y + pk.d / 2, 3.3, 1.9, night(mixc(T['o-grass'], '#ffffff', .18)));   // the park / 공원
     floorRect(-9.8, py - 3.5, 2.6, 2.5, night(T['o-path']));   // the terrace / 테라스
   }
