@@ -30,6 +30,10 @@ restore() {
   if [ -n "$HIVEMUX_NO_RESUME" ] || "$TMUX_BIN" show-environment -g HIVEMUX_NO_RESUME >/dev/null 2>&1; then
     log "restore skipped (HIVEMUX_NO_RESUME)"; exit 0
   fi
+  # clocked out (bin/hivemux-shift): they come back when you clock in / 퇴근 중 (bin/hivemux-shift): 출근할 때 돌아온다
+  if [ "$(cut -d' ' -f1 "$STATE_DIR/shift" 2>/dev/null)" = off ]; then
+    "$TMUX_BIN" set -g @hivemux-shift off; log "restore skipped (clocked out)"; exit 0
+  fi
   local claude_cmd="${HIVEMUX_CLAUDE:-$("$TMUX_BIN" show-environment -g HIVEMUX_CLAUDE 2>/dev/null | sed -n 's/^HIVEMUX_CLAUDE=//p')}"
   claude_cmd="${claude_cmd:-claude}"
   local target sid cwd cmd

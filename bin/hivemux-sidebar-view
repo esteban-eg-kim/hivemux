@@ -142,6 +142,24 @@ BOX_MIN, COL_GAP = 20, 1   # narrowest project box, columns between boxes / 상�
 MENU = None
 REMOTE_HERE = None  # a screen from another Mac looks at this window: that Mac's name, or "" / 다른 Mac 화면이 이 창을 봄: 그 Mac 이름 또는 ""
 OFFICE_BTN = None   # (row, first column, end column) of the bee office button / 벌 사무실 버튼의 (줄, 첫 열, 끝 열)
+SHIFT_BTN = None    # row of "clocked out · clock in" / "퇴근 중 · 출근하기" 줄
+SHIFT_FILE = os.path.join(os.path.dirname(ORDER_FILE), "shift")
+_shift = [None, False]
+
+
+def clocked_out():
+    """Clocked out (bin/hivemux-shift), read again only when the file changes / 퇴근 중인지. 파일이 바뀔 때만 다시 읽는다"""
+    try:
+        m = os.stat(SHIFT_FILE).st_mtime
+    except OSError:
+        return False
+    if m != _shift[0]:
+        try:
+            with open(SHIFT_FILE) as f:
+                _shift[:] = [m, f.read().split()[:1] == ["off"]]
+        except OSError:
+            _shift[:] = [m, False]
+    return _shift[1]
 PENDING = None      # menu action to run once the closed menu is off the screen / 닫힌 메뉴가 화면에서 지워진 뒤 실행할 동작
 
 
@@ -331,6 +349,12 @@ def render(items, current, w, h, cur_sess="", sessions=()):
             if summary.used() + 1 + width(note) <= w - 1:
                 summary.right(note, C["remote"], margin=1)
                 break
+    global SHIFT_BTN
+    SHIFT_BTN = None
+    if clocked_out() and not items:
+        # everyone went home: say so, and a click clocks in / 모두 퇴근: 그렇다고 보이고, 누르면 출근
+        summary = L().put("  ").put(tr("🌙 퇴근 중 · 눌러서 출근", "🌙 clocked out · click to clock in"), C["wait"], bold=True)
+        SHIFT_BTN = len(lines)
     lines += [summary, L().put(" " + "─" * (w - 2), C["rule"])]
 
     # groups in project order; a project with no Claude has no members (shown as "no Claude")
@@ -669,6 +693,8 @@ def menu(y, pid=None, sess=None, items=()):
     rows += [None, (tr("경로 열기…", "Open path…"), "o", lambda: bg_run(os.path.join(here, "hivemux-open"), pid or ME, client)),
              (tr("포트 목록…", "Ports…"), "t", lambda: bg_run(os.path.join(here, "hivemux-ports"), "--pick", client)),
              (tr("벌 사무실", "Bee office"), "b", office),
+             (tr("출근하기…", "Clock in…"), "h", lambda: bg_run(os.path.join(here, "hivemux-shift"), "--popup", "on", client)) if clocked_out() else
+             (tr("퇴근하기…", "Clock out…"), "h", lambda: bg_run(os.path.join(here, "hivemux-shift"), "--popup", "off", client)),
              (tr("Claude 업데이트…", "Update Claude…"), "u", lambda: bg_run(os.path.join(here, "hivemux-claude-update"), "--popup", client)),
              None, (tr("원격 연결…", "Connect to…"), "c", lambda: bg_run(os.path.join(here, "hivemux-connect"), "--pick", client)),
              (tr("설정…", "Settings…"), "s", lambda: bg_run(os.path.join(here, "hivemux-settings"), client))]
@@ -1172,6 +1198,11 @@ def main():
                             goto(pid)
                     continue
                 if kind != "M" or x >= w_now:   # grip column: tmux handles the drag (see hivemux.tmux) / 오른쪽 끝 핸들: 끌기는 tmux 가 처리한다
+                    continue
+                if b == 0 and SHIFT_BTN is not None and row == SHIFT_BTN:
+                    DRAG, released = None, True     # clock in / 출근
+                    bg_run(os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-shift"), "--popup", "on",
+                           active_client(tmux("display", "-p", "-t", ME, "#{session_name}").strip()))
                     continue
                 if b == 0 and OFFICE_BTN and row == OFFICE_BTN[0] and OFFICE_BTN[1] <= x - 1 < OFFICE_BTN[2]:
                     DRAG, released = None, True     # the bee office button / 벌 사무실 버튼

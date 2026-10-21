@@ -167,8 +167,30 @@ def snapshot():
             "agents": int(p["@claude_agents"]) if p["@claude_agents"].isdigit() else 0,
             "plan": bool(p["@claude_plan"]), "bee": p["bee"],
         } for i, p in enumerate(items, 1)],
-        "bees": roster({p["bee"] for p in items}), "ranks": ranks(),
+        "bees": roster({p["bee"] for p in items}), "ranks": ranks(), "shift": shift({p["bee"] for p in items}),
     }
+
+
+def shift(working):
+    """Clocked in or out (bin/hivemux-shift): off, who is home and who is still on overtime
+    출근 또는 퇴근 (bin/hivemux-shift): 퇴근이면 집에 간 벌과 아직 야근 중인 벌"""
+    try:
+        with open(os.path.join(DATA, "shift")) as f:
+            st = f.read().split()
+    except OSError:
+        st = []
+    if not st or st[0] != "off":
+        return {"state": "on", "since": int(st[1]) if len(st) > 1 and st[1].isdigit() else 0}
+    home, overtime = [], []
+    try:
+        with open(os.path.join(DATA, "offwork.tsv")) as f:
+            for line in f:
+                bee = line.rstrip("\n").split("\t")[-1]
+                if bee:
+                    (overtime if bee in working else home).append(bee)
+    except OSError:
+        pass
+    return {"state": "off", "since": int(st[1]) if len(st) > 1 and st[1].isdigit() else 0, "home": home, "overtime": overtime}
 
 
 def goto(pane, frm=None):
@@ -306,12 +328,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self.send(403, "{}")
         if origin and origin not in (f"http://127.0.0.1:{self.server.server_port}", f"http://localhost:{self.server.server_port}"):
             return self.send(403, "{}")
-        if self.path != "/goto":
+        if self.path not in ("/goto", "/shift"):
             return self.send(404, "{}")
         try:
             req = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
         except ValueError:
             return self.send(400, "{}")
+        if self.path == "/shift":   # clock out or in (bin/hivemux-shift) / 퇴근 또는 출근 (bin/hivemux-shift)
+            what = req.get("to")
+            if what not in ("on", "off"):
+                return self.send(400, "{}")
+            r = subprocess.run([os.path.join(HERE, "hivemux-shift"), what], capture_output=True, text=True, stdin=subprocess.DEVNULL)
+            return self.send(200, json.dumps({"ok": r.returncode == 0, "say": r.stdout.strip()}))
         pane, ssh = str(req.get("pane", "")), req.get("ssh")
         if not pane.startswith("%"):
             return self.send(400, "{}")
