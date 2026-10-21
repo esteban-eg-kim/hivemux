@@ -574,7 +574,7 @@ function ingest(list) {
       if (r && greet(b, r) && b.fresh) { const e = ENTRY(); Object.assign(b, { x: e.x, y: e.y, fresh: false }); }
     }
     const was = b.state;
-    Object.assign(b, s, { office: o, oi, ssh: o.ssh || null, overtime: overtime.has(`${o.ssh || ''}|${s.bee}`), inside: false });
+    Object.assign(b, s, { office: o, oi, ssh: o.ssh || null, overtime: overtime.has(`${o.ssh || ''}|${s.bee}`), inside: false, commuteUntil: 0 });
     if (was && was !== b.state) changed(b, was);
   }));
   for (const [k, b] of bees) {
@@ -584,6 +584,13 @@ function ingest(list) {
       if (b.state !== 'home') { if (b.spot) b.spot.occ = null; b.spot = null; b.state = 'home'; b.overtime = false; b.clapUntil = performance.now() + 2400; b.deliver = false; }
       home.delete(hk);
       continue;
+    }
+    // clocked in: it walks to work while its Claude starts again (it takes a few seconds), then carries on
+    // as that session; given up after two minutes / 출근: Claude 가 다시 뜨는 동안 (몇 초) 걸어서 출근하고, 뜨면 그 세션으로
+    // 이어진다. 2분이 지나면 포기
+    if (b.state === 'home' && !offOf(list.find(o => (o.ssh || null) === (b.ssh || null)))) {
+      if (!b.commuteUntil) b.commuteUntil = performance.now() + 120000;
+      if (performance.now() < b.commuteUntil) continue;
     }
     if (b.spot) b.spot.occ = null; if (pop === b) closePop(); bees.delete(k);
   }
@@ -648,7 +655,11 @@ function plan() {
   for (const b of everyone) if (b.state === 'home') {
     const e = houseOf(b), door = e ? e.h.door : { x: villageEnd(), y: pathY() };
     b.desk = null; b.deskId = null;
-    if (performance.now() < (b.clapUntil || 0)) setTarget(b, 'clap', { x: b.x, y: b.y });
+    if (b.commuteUntil) {   // clocked in: out of the house and to work / 출근: 집에서 나와 일하러
+      b.inside = false;
+      setTarget(b, 'commute', { x: 8 + Math.floor(b.phase * 10) % 7 + .3, y: 13.6 + LAY.LOFF + (Math.floor(b.phase * 7) % 2) * .7 });
+    }
+    else if (performance.now() < (b.clapUntil || 0)) setTarget(b, 'clap', { x: b.x, y: b.y });
     else setTarget(b, 'home', door);
   }
   assignDesks(all);
@@ -697,6 +708,7 @@ function plan() {
 // honey in the comb: today's finished tasks minus the jars still carried / 벌집의 꿀: 오늘 끝난 작업 - 아직 들고 있는 꿀단지
 const honeyShown = () => Math.max(0, honeyTotal - [...bees.values()].filter(b => b.state === 'done' || b.deliver).length);
 function whereOf(b) {
+  if (b.state === 'home' && b.commuteUntil) return tr('출근하는 중', 'on the way to work');
   if (b.state === 'home') return b.inside ? (LIGHT < .35 ? tr('집에서 자는 중', 'asleep at home') : tr('집에서 쉬는 중', 'resting at home'))
     : b.key2 === 'clap' ? tr('퇴근! 박수 치는 중', 'clocking out! clapping') : tr('집에 가는 중', 'walking home');
   const aides = b.agents > 0 ? tr(` · 부사수 ${b.agents}명`, ` · ${b.agents} helper${b.agents > 1 ? 's' : ''}`) : '';
