@@ -1431,24 +1431,18 @@ function yardItems() {
 // 마을의 집: 벽, 박공지붕, 골목 (또는 큰길) 쪽의 문과 창 둘. 벌이 있으면 불이 켜지고, 자면 "z". 빈집 (벌이 퇴사) 은
 // 회색. 누가 사는지는 마우스를 올리면 (houseTip). 색은 Mac 이 아니라 집마다 조금씩: 퇴근하면 소속은 상관없다
 const HOUSE_COLS = ['#f4dfba', '#efe6d2', '#f2d2c4', '#e3e9d4', '#f6e7c8'], ROOF_COLS = ['#b8653f', '#9a5b3a', '#c07a48', '#8f6a4f', '#a94f3a'];
-function house(e) {
-  const { x, y, w, d, ridge, face, seed } = e.h, H = 26, R = 17, gone = !!e.r.left;
-  const bee = [...bees.values()].find(b => b.bee === e.id && (b.ssh || '') === (e.o.ssh || '')), home = bee && bee.inside && !bee.atPub;
-  const hot = HOVER_HOUSE === e.key;
-  const wall = night(gone ? '#d8d3cb' : HOUSE_COLS[seed % HOUSE_COLS.length]), roof = night(gone ? '#9a948c' : ROOF_COLS[(seed * 3 + 1) % ROOF_COLS.length]);
-  if (peeking(e.key)) return houseInside(e, wall);
-  box(x, y, w, d, H, hot ? mixc(wall, '#fff3c4', .5) : wall);
-  const lit = home && LIGHT > .2 ? 1 : home ? .6 : 0, len = ridge === 'y' ? d : w;
-  if (toward(...face)) {
-    const draw = () => {
-      c.fillStyle = night('#6b4a2e'); c.fillRect(len / 2 - .28, 0, .56, 17);
-      c.fillStyle = lit ? mixc(T['o-lamp'], '#ffffff', .2 * lit) : night(T.win); c.fillRect(.35, 9, .6, 9); c.fillRect(len - .95, 9, .6, 9);
-    };
-    if (face[1] === 1) onFaceY(x, y + d, draw); else if (face[1] === -1) onFaceY(x, y, draw);
-    else if (face[0] === 1) onFaceX(x + w, y, draw); else onFaceX(x, y, draw);
-  }
-  // the roof: the gable ends facing us, then the far slope, then the near one / 지붕: 이쪽 박공, 먼 비탈, 가까운 비탈
-  const o = .15;
+// Every house is its own: a style for the outside and a kind of room inside, both picked from its slot so they
+// stay. Styles: a cottage with a porch roof, a two-storey house, a flat-roofed modern one with a planter on top,
+// a hipped roof, a steep A-frame cabin, and one with a chimney (smoking in the evening).
+// 집마다 다르다: 바깥 모양과 안의 방 종류를 자리에서 정해서 바뀌지 않는다. 모양: 현관 차양이 있는 오두막, 2층집,
+// 옥상 화분이 있는 평지붕 집, 모임지붕 집, 뾰족한 A자 오두막, 굴뚝 집 (저녁이면 연기).
+const STYLES = { cottage: [26, 17], twostory: [46, 16], flat: [30, 0], hip: [26, 19], aframe: [9, 36], chimney: [26, 17] };
+const styleOf = h => Object.keys(STYLES)[(h.seed * 5 + 1) % 6];   // neighbours differ: every six houses have all six / 이웃끼리 다르게: 여섯 집마다 여섯 모양이 다 나온다
+const ROOMS_OF = ['sleepy', 'gamer', 'books', 'plants', 'music', 'kitchen'];
+const roomOf_ = h => ROOMS_OF[(h.seed + 3 + Math.floor(h.seed / 6)) % 6];   // likewise, in another order / 마찬가지로, 다른 순서로
+const ROOM_LABEL = { sleepy: ['아늑한 침실', 'a cosy bedroom'], gamer: ['게임 방', 'a gaming den'], books: ['책으로 가득한 방', 'a room full of books'],
+  plants: ['식물 방', 'a room of plants'], music: ['음악 방', 'a music room'], kitchen: ['부엌이 넓은 집', 'a big kitchen'] };
+function gableRoof(x, y, w, d, H, R, ridge, wall, roof, o = .15) {
   if (ridge === 'x') {
     for (const [gx, nx] of [[x, -1], [x + w, 1]]) if (toward(nx, 0)) poly([P(gx, y, H), P(gx, y + d, H), P(gx, y + d / 2, H + R)], wall);
     const top = [P(x + w + o, y + d / 2, H + R), P(x - o, y + d / 2, H + R)];
@@ -1460,9 +1454,55 @@ function house(e) {
     const slopes = [[P(x - o, y - o, H), P(x - o, y + d + o, H), ...top, shade(roof, .08)], [P(x + w + o, y - o, H), P(x + w + o, y + d + o, H), ...top, roof]];
     (toward(1, 0) ? slopes : slopes.reverse()).forEach(([p1, p2, p3, p4, col]) => poly([p1, p2, p3, p4], col));
   }
+}
+function hipRoof(x, y, w, d, H, R, roof, o = .15) {
+  const ap = P(x + w / 2, y + d / 2, H + R), k = [[x - o, y - o], [x + w + o, y - o], [x + w + o, y + d + o], [x - o, y + d + o]], n = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  const faces = [0, 1, 2, 3].sort((a, b) => (toward(...n[a]) ? 1 : 0) - (toward(...n[b]) ? 1 : 0));
+  for (const i of faces) poly([P(...k[i], H), P(...k[(i + 1) % 4], H), ap], shade(roof, sideOf(...n[i]) < 0 ? .02 : .12));
+}
+function house(e) {
+  const h = e.h, { x, y, w, d, ridge, face, seed } = h, gone = !!e.r.left, style = styleOf(h), [H, R] = STYLES[style];
+  const bee = [...bees.values()].find(b => b.bee === e.id && (b.ssh || '') === (e.o.ssh || '')), home = bee && bee.inside && !bee.atPub;
+  const hot = HOVER_HOUSE === e.key;
+  const wall = night(gone ? '#d8d3cb' : HOUSE_COLS[seed % HOUSE_COLS.length]), roof = night(gone ? '#9a948c' : ROOF_COLS[(seed * 3 + 1) % ROOF_COLS.length]);
+  if (peeking(e.key)) return houseInside(e, wall, style, H);
+  box(x, y, w, d, H, hot ? mixc(wall, '#fff3c4', .5) : wall);
+  const lit = home && LIGHT > .2 ? 1 : home ? .6 : 0, len = ridge === 'y' ? d : w, glass = lit ? mixc(T['o-lamp'], '#ffffff', .2 * lit) : night(T.win);
+  if (toward(...face)) {
+    const draw = () => {
+      c.fillStyle = night('#6b4a2e'); c.fillRect(len / 2 - .28, 0, Math.min(.56, len * .2), Math.min(17, H - 1));
+      c.fillStyle = glass;
+      if (style === 'flat') c.fillRect(.3, 6, len / 2 - .7, 18);                                     // a big window / 큰 창
+      else if (style !== 'aframe') { c.fillRect(.35, 9, .6, 9); c.fillRect(len - .95, 9, .6, 9); }
+      if (style === 'twostory') { c.fillRect(.35, 30, .6, 9); c.fillRect(len / 2 - .3, 30, .6, 9); c.fillRect(len - .95, 30, .6, 9); }
+    };
+    if (face[1] === 1) onFaceY(x, y + d, draw); else if (face[1] === -1) onFaceY(x, y, draw);
+    else if (face[0] === 1) onFaceX(x + w, y, draw); else onFaceX(x, y, draw);
+  }
+  // the roof / 지붕
+  if (style === 'flat') {
+    box(x - .05, y - .05, w + .1, d + .1, 4, shade(roof, .1), H);
+    poly([P(x + .12, y + .12, H + 4), P(x + w - .12, y + .12, H + 4), P(x + w - .12, y + d - .12, H + 4), P(x + .12, y + d - .12, H + 4)], night('#9a9a92'));
+    plant(x + w * .75, y + d * .3, .8); box(x + w * .15, y + d * .5, .6, .4, 3, night('#4d6c8f'), H + 4);   // a planter and a skylight / 화분과 천창
+  } else if (style === 'hip') hipRoof(x, y, w, d, H, R, roof);
+  else gableRoof(x, y, w, d, H, R, style === 'aframe' ? (w > d ? 'x' : 'y') : ridge, wall, roof, style === 'aframe' ? .3 : .15);
+  if (style === 'cottage') {   // a little roof over the door / 문 위 작은 차양
+    const cx = face[0] ? (face[0] > 0 ? x + w : x) : x + w / 2, cy = face[1] ? (face[1] > 0 ? y + d : y) : y + d / 2;
+    const ax = face[0] ? .5 : 1.1, ay = face[1] ? .5 : 1.1;
+    box(cx - (face[0] < 0 ? ax : face[0] > 0 ? 0 : ax / 2), cy - (face[1] < 0 ? ay : face[1] > 0 ? 0 : ay / 2), ax, ay, 2, shade(roof, .05), 18);
+  }
+  if (style === 'chimney') {   // a brick chimney, smoking from dusk / 벽돌 굴뚝, 해 질 무렵부터 연기
+    const chx = x + w * .72, chy = y + d * .28;
+    box(chx, chy, .35, .35, R + 10, night('#9a4f3a'), H);
+    if (LIGHT < .7 && !reduced) for (let i = 0; i < 4; i++) { const k = (t0() * .25 + i / 4 + seed * .1) % 1, p = P(chx + .17 + k * .4, chy + .17, H + R + 12 + k * 40); c.globalAlpha = .45 * (1 - k); circle(p.x, p.y, 3 + k * 7, '#d9d4cc'); c.globalAlpha = 1; }
+  }
+  if (style === 'twostory') {   // a band between the floors / 층 사이 띠
+    const band = (a, b) => { const p1 = P(...a, 24), p2 = P(...b, 24); c.strokeStyle = shade(wall, .15); c.lineWidth = 2; c.beginPath(); c.moveTo(p1.x, p1.y); c.lineTo(p2.x, p2.y); c.stroke(); };
+    if (toward(0, 1)) band([x, y + d], [x + w, y + d]); if (toward(0, -1)) band([x, y], [x + w, y]); if (toward(1, 0)) band([x + w, y], [x + w, y + d]); if (toward(-1, 0)) band([x, y], [x, y + d]);
+  }
   if (home && !reduced) {   // resting, or asleep at night / 쉬는 중, 밤엔 자는 중
     const top = P(x + w / 2, y + d / 2, H + R + 6), k = (t0() * .7 + seed * .37) % 1; font(9 + k * 5, 700, 'f-mono'); c.globalAlpha = 1 - k; c.fillStyle = T.muted;
-    c.fillText(LIGHT < .35 ? 'z' : '♪', top.x + 6 + k * 8, top.y - 6 - k * 14); c.globalAlpha = 1;
+    c.fillText(LIGHT < .35 || late() ? 'z' : '♪', top.x + 6 + k * 8, top.y - 6 - k * 14); c.globalAlpha = 1;
   }
 }
 /* looking in: hover a house or the pub (or click to keep it open) and its roof comes off, the near walls drop
@@ -1486,16 +1526,65 @@ function cutaway(x, y, w, d, H, wall, floor, inside) {
 function beeAt(b, x, y, kind, look) {
   drawBee({ ...b, x, y, inside: false, moving: false, path: [], arrived: true, key2: 'eve', eve: { kind, spot: { look } }, look, popped: false, say: null }, t0());
 }
-function houseInside(e, wall) {
-  const { x, y, w, d } = e.h, bee = [...bees.values()].find(b => b.bee === e.id && (b.ssh || '') === (e.o.ssh || '') && b.inside && !b.atPub);
-  cutaway(x, y, w, d, 26, wall, night('#d9b98c'), () => {
-    floorOval(x + w / 2, y + d / 2, .45, .35, night('#c97a6a'));                                   // rug / 러그
-    const bx = x + .15, by = y + .15, bw = Math.min(w, d) * .55;
-    box(bx, by, bw, bw * .8, 6, night('#f4f1ea')); box(bx, by, bw * .3, bw * .8, 8, night('#ffffff'));   // bed and pillow / 침대와 베개
-    box(bx + bw * .3, by, bw * .7, bw * .8, 7, night('#7fa6d6'));                                     // blanket / 이불
-    cyl(x + w - .4, y + d - .4, .2, 9, night('#a57a4f'));                                              // a little table / 작은 탁자
-    if (LIGHT < .4) { const p = P(x + w - .4, y + d - .4, 14); const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, 26); g.addColorStop(0, 'rgba(255, 214, 140, .55)'); g.addColorStop(1, 'rgba(255, 214, 140, 0)'); c.fillStyle = g; c.beginPath(); c.arc(p.x, p.y, 26, 0, 7); c.fill(); }
-    if (bee) beeAt(bee, bx + bw * .6, by + bw * .4, 'bench', [0, 1]);                                 // in bed / 침대에
+// Inside, every house has its own kind of room; a two-storey one has stairs and a loft bed. The bee sits
+// where that room has it (at the desk, the piano, the armchair...) and goes to bed at night.
+// 안에는 집마다 다른 방이 있다. 2층집은 계단과 다락 침대가 있다. 벌은 그 방의 자리 (책상, 피아노, 안락의자...) 에
+// 있다가 밤이면 침대로 간다.
+function houseInside(e, wall, style, H) {
+  const { x, y, w, d, seed } = e.h, room = roomOf_(e.h), two = style === 'twostory';
+  const bee = [...bees.values()].find(b => b.bee === e.id && (b.ssh || '') === (e.o.ssh || '') && b.inside && !b.atPub);
+  const X = u => x + u * w, Y = v => y + v * d, sleep = late() || LIGHT < .3;
+  const floors = { sleepy: '#d9b98c', gamer: '#5b5f78', books: '#b98f5f', plants: '#c9b98c', music: '#a07850', kitchen: '#e3ddd2' };
+  const things = [], put_ = (u, v, f) => things.push([X(u), Y(v), f]);
+  const bed = (u, v, col) => put_(u + .15, v + .15, () => { box(X(u), Y(v), w * .32, d * .3, 6, night('#f4f1ea')); box(X(u), Y(v), w * .1, d * .3, 8, night('#ffffff')); box(X(u) + w * .1, Y(v), w * .22, d * .3, 7, night(col)); });
+  const glowAt = (gx, gy, z, col) => { const p = P(gx, gy, z), g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, 28); g.addColorStop(0, col); g.addColorStop(1, 'rgba(0, 0, 0, 0)'); c.fillStyle = g; c.beginPath(); c.arc(p.x, p.y, 28, 0, 7); c.fill(); };
+  let seat = [.55, .55, 'bench', [0, 1]], bedAt = [.2, .2];
+  if (room === 'sleepy') {
+    floorOval(X(.55), Y(.6), w * .2, d * .15, night('#c97a6a'));
+    bed(.05, .05, '#7fa6d6'); put_(.85, .15, () => { cyl(X(.85), Y(.15), .18, 9, night('#a57a4f')); if (LIGHT < .5) glowAt(X(.85), Y(.15), 14, 'rgba(255, 214, 140, .5)'); });
+    put_(.75, .75, () => box(X(.65), Y(.75), w * .28, d * .18, 10, night('#8a6a4a')));
+    seat = [.45, .4, 'bench', [0, 1]];
+  } else if (room === 'gamer') {
+    bed(.05, .62, '#3b3f7a');
+    put_(.6, .08, () => { box(X(.45), Y(.05), w * .5, d * .2, 12, night('#2b2b33')); box(X(.55), Y(.07), w * .3, .06, 10, '#1b1d26', 12); poly([P(X(.56), Y(.1), 13), P(X(.84), Y(.1), 13), P(X(.84), Y(.1), 21), P(X(.56), Y(.1), 21)], '#5aa9ff'); glowAt(X(.7), Y(.15), 16, 'rgba(160, 90, 255, .35)'); });
+    seat = [.7, .4, 'type', [0, -1]];
+  } else if (room === 'books') {
+    for (const u of [.05, .4]) put_(u + .15, .08, () => { box(X(u), Y(.03), w * .3, d * .12, 24, night('#7a5236')); for (let i = 0; i < 4; i++) for (let j = 0; j < 6; j++) box(X(u) + .04 + j * w * .045, Y(.03) + .02, w * .035, .05, 4, night(['#c96a4a', '#4f7fb0', '#5b8f6a', '#d9b45a'][(i + j + seed) % 4]), 3 + i * 5.5); });
+    bed(.62, .62, '#c96a4a');
+    put_(.75, .3, () => { box(X(.68), Y(.25), w * .22, d * .22, 8, night('#8a4f3b')); box(X(.68), Y(.25), w * .22, .08, 16, night('#8a4f3b')); if (LIGHT < .55) glowAt(X(.9), Y(.25), 22, 'rgba(255, 214, 140, .5)'); });
+    seat = [.79, .4, 'read', [-1, 1]];
+  } else if (room === 'plants') {
+    for (const [u, v, s2] of [[.12, .15, 1], [.85, .15, 1.2], [.12, .8, .9], [.5, .1, .8], [.88, .55, 1]]) put_(u, v, () => plant(X(u), Y(v), s2));
+    put_(.5, .62, () => {   // a hammock between two posts / 두 기둥 사이 해먹
+      cyl(X(.25), Y(.62), .05, 16, night('#7a5236')); cyl(X(.75), Y(.62), .05, 16, night('#7a5236'));
+      const a = P(X(.25), Y(.62), 14), b2 = P(X(.75), Y(.62), 14), m = P(X(.5), Y(.62), 5);
+      c.strokeStyle = night('#e3a64a'); c.lineWidth = 5; c.beginPath(); c.moveTo(a.x, a.y); c.quadraticCurveTo(m.x, m.y, b2.x, b2.y); c.stroke();
+    });
+    seat = [.5, .66, 'bench', [0, 1]]; bedAt = [.5, .66];
+  } else if (room === 'music') {
+    put_(.3, .12, () => { box(X(.08), Y(.05), w * .45, d * .2, 13, night('#1b1d26')); box(X(.08), Y(.05) + d * .2 - .08, w * .45, .08, 2, '#f4f1ea', 13); });
+    put_(.85, .15, () => { box(X(.82), Y(.08), .3, .25, 16, night('#2b2b33')); circle(P(X(.82) + .15, Y(.08) + .25, 9).x, P(X(.82) + .15, Y(.08) + .25, 9).y, 3, '#666'); });
+    bed(.62, .62, '#9b7de0');
+    seat = [.3, .4, 'type', [0, -1]];
+  } else {   // kitchen / 부엌
+    put_(.4, .08, () => { box(X(.05), Y(.03), w * .7, d * .17, 12, night('#f4f1ea')); box(X(.05), Y(.03), w * .7, d * .17, 1, night('#9a9a92'), 12); });
+    put_(.88, .12, () => box(X(.8), Y(.05), w * .16, d * .2, 24, night('#dfe7ee')));
+    put_(.45, .6, () => { cyl(X(.45), Y(.6), .35, 11, night('#a57a4f')); cyl(X(.45), Y(.6), .1, 3, night('#f2b632'), 11); });
+    bed(.05, .7, '#5b8f6a');
+    seat = [.68, .62, 'read', [-1, 0]];
+  }
+  if (two) {   // stairs up to a loft over the back, with the bed / 뒤쪽 다락으로 오르는 계단, 다락에 침대
+    things.push([X(.92), Y(.6), () => { for (let i = 0; i < 6; i++) box(X(.84), Y(.85) - i * d * .07, w * .14, d * .07, 4 + i * 4, night('#8a6a4a')); }]);
+    things.push([X(.5), Y(.2), () => { box(x, y, w, d * .38, 3, night('#b98f5f'), 24); box(X(.1), Y(.04), w * .3, d * .28, 6, night('#f4f1ea'), 27); box(X(.1), Y(.04), w * .1, d * .28, 8, night('#ffffff'), 27); }]);
+  }
+  cutaway(x, y, w, d, H, wall, night(floors[room]), () => {
+    things.sort((a, b) => D(a[0], a[1]) - D(b[0], b[1])).forEach(t => t[2]());
+    if (bee) {
+      const [u, v] = sleep ? (room === 'plants' ? bedAt : [bedAt[0] + (room === 'sleepy' ? 0 : 0), bedAt[1]]) : seat;
+      const bx = sleep && room !== 'plants' ? (room === 'gamer' ? X(.18) : room === 'kitchen' ? X(.18) : room === 'books' || room === 'music' ? X(.75) : X(.2)) : X(u);
+      const by = sleep && room !== 'plants' ? (room === 'gamer' || room === 'kitchen' ? Y(.78) : room === 'books' || room === 'music' ? Y(.78) : Y(.2)) : Y(v);
+      beeAt(bee, bx, by, sleep ? 'bench' : seat[2], sleep ? [0, 1] : seat[3]);
+    }
   });
 }
 function pubInside(q, wall) {
@@ -1598,7 +1687,7 @@ function houseTip(e) {
     : !b ? tr('출근 안 함', 'not at work') : b.state !== 'home' ? tr('출근해서 일하는 중', 'at work') : b.key2 !== 'home' ? whereOf(b)
     : b.inside ? (late() || LIGHT < .35 ? tr('집에서 자는 중', 'asleep at home') : tr('집에서 쉬는 중', 'resting at home')) : tr('집에 가는 중', 'walking home');
   return {
-    head: r.name === 'claude' ? r.project : `${r.name}`,
+    head: (r.name === 'claude' ? r.project : `${r.name}`) + ` · ${tr(...ROOM_LABEL[roomOf_(e.h)])}`,
     lines: [`${r.project} · ${e.o.host}`, where,
       tr(`입사 ${days}일째`, `${days} days with us`) + (r.rehires ? tr(` · 재입사 ${r.rehires}번`, ` · rehired ×${r.rehires}`) : '') + (month ? tr(` · 이번 달 꿀 ${month.honey}칸`, ` · ${month.honey} honey this month`) : '')],
   };
@@ -1754,7 +1843,7 @@ function badge(b) {
 }
 function poseOf(b) {
   if (b.npc) return b.key2 === 'meet' ? 'meet' : 'idle';
-  if (b.state === 'home') return b.key2 === 'clap' ? 'clap' : b.key2 === 'eve' && b.arrived && b.eve && b.eve.spot ? ({ cheers: 'cheers', kick: 'kick', bench: 'sofa', chat: 'chat' })[b.eve.kind] : 'idle';
+  if (b.state === 'home') return b.key2 === 'clap' ? 'clap' : b.key2 === 'eve' && b.arrived && b.eve && b.eve.spot ? ({ cheers: 'cheers', kick: 'kick', bench: 'sofa', chat: 'chat', type: 'type', read: 'coffee' })[b.eve.kind] : 'idle';
   if (b.state === 'run') return b.key2 === 'meet' ? (b.atBoard ? 'board' : 'meet') : 'type';
   if (b.state === 'wait') return 'wait';
   if (b.state === 'done') return 'done';

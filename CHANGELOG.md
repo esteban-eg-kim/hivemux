@@ -16,7 +16,11 @@
   board with a mug of beer and PUB); hover a house or the pub to look in (its
   roof comes off: a bed and its bee, or the bar, the taps, a shelf of bottles
   and the guests), click to keep it open. Zoomed in, every roof comes off, as
-  in the office; houses and the pub are bigger
+  in the office; houses and the pub are bigger. Every house differs: six
+  styles (a cottage with a porch roof, two storeys, a flat roof with a planter,
+  a hipped roof, an A-frame, a smoking chimney) and six kinds of room (cosy
+  bedroom, gaming den, books, plants and a hammock, a piano, a big kitchen);
+  two-storey houses have stairs to a loft bed
 - Bees are hired, leave (closing the project) and come back (rehired) by
   project and name, with a house each; a honey ledger ranks them today, this
   week and this month (list drawer → Honey, and a bee of the month on the
