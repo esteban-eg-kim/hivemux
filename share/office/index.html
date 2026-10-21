@@ -106,6 +106,24 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
 .open.left .top { left: calc(var(--drawer) + 12px); }
 .d-head { display: flex; align-items: center; gap: 8px; padding: 14px 14px 10px; border-bottom: 1px solid var(--line); }
 .d-head b { font-size: 14px; }
+.tabs { display: flex; gap: 2px; background: color-mix(in srgb, var(--fg) 6%, transparent); border-radius: 8px; padding: 2px; }
+.tabs button { border: 0; background: transparent; padding: 4px 10px; border-radius: 6px; font-size: 13px; font-weight: 600; color: var(--muted); width: auto !important; height: auto !important; margin: 0 !important; }
+.tabs button[aria-selected="true"] { background: var(--panel); color: var(--fg); box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
+.periods { margin: 10px 2px 8px; }
+.ranks { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.ranks li { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--panel) 92%, transparent); }
+.ranks li:hover { outline: 2px solid var(--honey); outline-offset: -1px; }
+.ranks .m { font: 700 14px var(--f-mono); text-align: center; }
+.ranks .who b { display: block; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ranks .who span { font-size: 11px; color: var(--muted); }
+.ranks .h { font: 700 12px var(--f-mono); color: var(--wait); white-space: nowrap; }
+.ranks li.gone { opacity: .55; }
+.shiftbtn { gap: 5px; padding: 0 9px 0 7px !important; font-size: 12px !important; font-weight: 600; }
+.shiftbtn.off { background: #2c3060 !important; color: #fff; border-color: #2c3060 !important; }
+.ask { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 40%, transparent); backdrop-filter: blur(2px); }
+.ask-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; width: min(340px, calc(100vw - 48px)); box-shadow: 0 16px 40px rgba(0, 0, 0, .25); text-align: center; }
+.ask-card p { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
+.ask-card .ask-n { font-size: 12px; font-weight: 400; color: var(--muted); }
 .d-head span { font-size: 12px; color: var(--muted); }
 .d-head em { font-style: normal; color: var(--wait); font-weight: 600; }
 .d-head button { margin-left: auto; width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); line-height: 1; }
@@ -125,6 +143,7 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
 .r .e { font: 600 11px var(--f-mono); color: var(--st); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .r .w { grid-column: 1 / -1; font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .r .w i { font-style: normal; color: var(--st); }
+.r.s-home { --st: var(--sleep); opacity: .75; }
 .r.s-run { --st: var(--run); } .r.s-wait { --st: var(--wait); border-color: var(--wait); } .r.s-done { --st: var(--done); } .r.s-idle { --st: var(--sleep); }
 
 .note { font-size: 12.5px; color: var(--muted); padding: 10px 12px; border: 1px dashed var(--line); border-radius: 8px; }
@@ -235,12 +254,15 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
       <span class="vg"><button type="button" id="v-out" data-k="out"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M8 11h6"/></svg></button><button type="button" id="v-in" data-k="in"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M8 11h6M11 8v6"/></svg></button></span>
       <button type="button" id="v-home" data-k="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M8 13.5 12 11l4 2.5-4 2.5z"/></svg></button>
       <span class="sep"></span>
+      <button type="button" class="shiftbtn" id="shiftbtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="shift-ico" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span id="shift-t"></span></button>
       <button type="button" class="listbtn" id="listbtn" aria-expanded="false" aria-controls="drawer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01" stroke-width="3"/></svg><span id="list-n">0</span><i id="list-dot" hidden></i></button>
       <button class="gear" id="gear" type="button" aria-expanded="false" aria-controls="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
     </div>
     <div class="tip" id="tip" hidden></div>
-    <aside class="drawer" id="drawer"><div class="d-head"><b data-t="세션|Sessions"></b><span id="d-sum"></span><button type="button" id="d-close">×</button></div>
-      <div class="d-body"><div class="roster" id="roster"></div><p class="note" id="empty" hidden></p></div></aside>
+    <aside class="drawer" id="drawer"><div class="d-head"><div class="tabs" role="tablist"><button type="button" role="tab" id="tab-s" aria-selected="true" data-t="세션|Sessions"></button><button type="button" role="tab" id="tab-r" aria-selected="false" data-t="꿀 순위|Honey"></button></div><span id="d-sum"></span><button type="button" id="d-close">×</button></div>
+      <div class="d-body" id="pane-s"><div class="roster" id="roster"></div><p class="note" id="empty" hidden></p></div>
+      <div class="d-body" id="pane-r" hidden><div class="seg periods" id="periods"><label><input type="radio" name="period" value="day" checked><span data-t="오늘|Today"></span></label><label><input type="radio" name="period" value="week"><span data-t="이번 주|This week"></span></label><label><input type="radio" name="period" value="month"><span data-t="이번 달|This month"></span></label></div><ol class="ranks" id="ranks"></ol><p class="note" id="ranks-empty" hidden></p></div></aside>
+    <div class="ask" id="ask" hidden><div class="ask-card"><p id="ask-q"></p><p class="ask-n" id="ask-n"></p><div class="pop-act"><button type="button" class="go" id="ask-go"></button><button type="button" id="ask-no" data-t="취소|Cancel"></button></div></div></div>
   </div>
 
 </div>
@@ -283,6 +305,7 @@ function applyLang() {
   document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
   $('#gear').setAttribute('aria-label', tr('설정', 'Settings'));
   if (typeof PLAN !== 'undefined') planTitle();
+  if (typeof SHIFT !== 'undefined' && $('#shiftbtn')) updateShiftBtn();
   $('#pop-later').textContent = tr('나중에', 'Later');
   for (const [id, ko, en] of [['v-left', '왼쪽으로 돌리기 (Q, 오른쪽 버튼으로 끌기)', 'Turn left (Q, or right-drag)'], ['v-right', '오른쪽으로 돌리기 (E, 오른쪽 버튼으로 끌기)', 'Turn right (E, or right-drag)'],
     ['v-up', '더 높이서 보기 (W, 오른쪽 버튼으로 위로 끌기)', 'Look from higher (W, or right-drag up)'], ['v-down', '더 낮게 보기 (S, 오른쪽 버튼으로 아래로 끌기)', 'Look from lower (S, or right-drag down)'],
@@ -295,7 +318,7 @@ const settings = { pop: 'front', privacy: 'all', sound: 'off', sky: 'auto', side
 try { Object.assign(settings, JSON.parse(localStorage.getItem('office-settings') || '{}')); } catch (e) {}
 const saveSettings = () => { try { localStorage.setItem('office-settings', JSON.stringify(settings)); } catch (e) {} };
 
-const LABEL = { run: ['일하는 중', 'working'], wait: ['기다림', 'waiting'], done: ['끝남', 'done'], idle: ['쉬는 중', 'resting'] };
+const LABEL = { run: ['일하는 중', 'working'], wait: ['기다림', 'waiting'], done: ['끝남', 'done'], idle: ['쉬는 중', 'resting'], home: ['퇴근', 'home'] };
 const label = st => tr(...LABEL[st]);
 const PLAN_TALK = [['순서부터 정하고', 'Order first'], ['1단계, 2단계…', 'Step 1, step 2…'], ['여기가 핵심', 'This is the key'], ['위험한 곳 체크', 'Mark the risks'], ['음…', 'Hmm…'], ['파일 세 개만 고치면 돼요', 'Just three files']];
 const CREW_TALK = [['이건 어때요?', 'How about this?'], ['엣지 케이스는요?', 'Edge cases?'], ['좋은데요', 'Nice'], ['테스트도 넣죠', 'Add tests too'], ['포스트잇 붙일게요', 'Sticky note!'], ['일정은요?', 'Timeline?']];
@@ -363,6 +386,28 @@ const SPOTS = SPOT_DEF.map(([kind, x, y, shift]) => ({ kind, x0: x, y0: y, shift
 const SPOT_LABEL = { sofa: ['소파에서 낮잠', 'napping on the sofa'], coffee: ['커피 마시는 중', 'having coffee'], pong: ['탁구 치는 중', 'playing ping-pong'],
   chat: ['카페에서 수다 떠는 중', 'chatting in the cafe'], plant: ['정원에서 화분에 물 주는 중', 'watering the garden'], idle: ['라운지에서 쉬는 중', 'hanging out in the lounge'] };
 const ENTRY = () => ({ x: .5, y: 9.1 + LAY.LOFF });   // the elevator / 엘리베이터
+/* ---------- clocking out: the village / 퇴근: 마을 ----------
+   Clocked out (bin/hivemux-shift), each bee claps, takes the elevator down, walks the path out past the
+   yard to its own house in the village and goes in (lights on, then asleep at night). Clocked in, it
+   comes out and walks back to work. Houses come from the roster (bin/hivemux-bees): a bee keeps its
+   house; one who left the company leaves an empty house with a sign, until a newcomer takes it.
+   퇴근 (bin/hivemux-shift)하면 벌마다 박수를 치고, 엘리베이터로 내려가, 마당 너머 길을 따라 마을의 자기
+   집으로 가서 들어간다 (불이 켜지고, 밤이면 잔다). 출근하면 나와서 다시 일하러 걸어온다. 집은 명부
+   (bin/hivemux-bees) 에서: 벌은 자기 집을 지키고, 퇴사한 벌의 집은 신입이 들어올 때까지 팻말을 단 빈집이다. */
+let SHIFT = { state: 'on' }, ROSTER = {}, RANKS = null;
+const VILLAGE = { k: 0 };   // how far the view has moved out to take the village in / 마을을 담으려고 보기가 넓어진 정도
+const pathY = () => 9.2 + LAY.LOFF;
+// the view takes the village in while bees go home or are there, and while anyone is outside
+// 벌이 집에 가거나 집에 있는 동안, 그리고 누가 밖에 있는 동안 보기가 마을을 담는다
+const villageWant = () => LAY && houses().length && [...bees.values()].some(b => b.state === 'home' || (b.x !== undefined && !inBuilding(b))) ? 1 : 0;
+function houseAt(n) {
+  const col = Math.floor(n / 2), north = n % 2 === 0, x = -YARD - 3 - col * 2.9, py = pathY(), w = 1.9, d = 1.6;
+  const y = north ? py - .9 - d : py + .9;
+  return { x, y, w, d, north, door: { x: x + w / 2, y: north ? y + d + .25 : y - .25 } };
+}
+const houses = () => Object.entries(ROSTER).filter(([, r]) => r.house !== null && r.house !== undefined).map(([id, r]) => ({ id, r, h: houseAt(r.house) }));
+const villageEnd = () => Math.min(-YARD - 3, ...houses().map(e => e.h.x)) - 1.5;
+const inBuilding = p => p.x >= 0 && p.x <= GX && p.y >= 0 && p.y <= LAY.GY;
 
 // a pod: two desks a side, each DESK_W wide / 섬: 한쪽에 책상 둘, 책상 폭은 DESK_W
 const POD_ROW = 2, DESK_W = 2.4, DESK_D = .9;
@@ -399,6 +444,14 @@ const crossesBlock = (p, q) => {
   return false;
 };
 function route(from, to) {
+  // in or out of the building: by the elevator and the path / 건물 안팎: 엘리베이터와 길로
+  const inA = inBuilding(from), inB = inBuilding(to), py = pathY(), gate = { x: -.8, y: py };
+  if (!inA && !inB) return [{ x: from.x, y: py }, { x: to.x, y: py }, to];
+  if (inA && !inB) return [...routeIn(from, ENTRY()), gate, { x: to.x, y: py }, to];
+  if (!inA && inB) return [{ x: from.x, y: py }, gate, ENTRY(), ...routeIn(ENTRY(), to)];
+  return routeIn(from, to);
+}
+function routeIn(from, to) {
   const a = roomOf(from.x, from.y), b = roomOf(to.x, to.y), pts = [];
   if (a === b) return [to];
   if (a) pts.push({ x: doorX(a), y: ROOM_Y - .7 }, { x: doorX(a), y: ROOM_Y + .7 });
@@ -449,6 +502,11 @@ async function poll() {
 function ingest(list) {
   list.forEach(o => { o.sessions = o.sessions || []; o.host = o.host || o.ssh || '?'; o.now = o.now || Date.now() / 1000; });
   offices = list; fetchedAt = Date.now();
+  const me = list[0] || {};
+  const wasOff = SHIFT.state === 'off';
+  SHIFT = me.shift || { state: 'on' }; ROSTER = me.bees || {}; RANKS = me.ranks || RANKS;
+  const home = new Set(SHIFT.state === 'off' ? SHIFT.home || [] : []), overtime = new Set(SHIFT.state === 'off' ? SHIFT.overtime || [] : []);
+  if (wasOff !== (SHIFT.state === 'off')) updateShiftBtn();
   honeyTotal = list.reduce((a, o) => a + (o.honey || 0), 0);
   const prev = LAY && LAY.sig;
   LAY = layout(list);
@@ -460,17 +518,44 @@ function ingest(list) {
     let b = bees.get(key);
     if (!b) {
       b = { key, path: [], face: -1, moving: false, sprint: false, arrived: true, goal: null, phase: Math.random() * 9, spot: null, fresh: true };
+      // back from home (the page opened while clocked out): walk in from the house / 집에서 출근 (퇴근 중에 연 페이지): 집에서 걸어온다
+      const h = s.bee && bees.get(`home|${s.bee}`);
+      if (h) { Object.assign(b, { x: h.x, y: h.y, fresh: false }); bees.delete(h.key); }
       bees.set(key, b);
+      // a newcomer (or one rehired) walks in from the elevator / 신입 (또는 재입사) 은 엘리베이터에서 걸어 들어온다
+      if (oi === 0 && s.bee && ROSTER[s.bee] && greet(b, ROSTER[s.bee]) && b.fresh) { const e = ENTRY(); Object.assign(b, { x: e.x, y: e.y, fresh: false }); }
     }
     const was = b.state;
-    Object.assign(b, s, { office: o, oi, ssh: o.ssh || null });
+    Object.assign(b, s, { office: o, oi, ssh: o.ssh || null, overtime: oi === 0 && overtime.has(s.bee), inside: false });
     if (was && was !== b.state) changed(b, was);
   }));
-  for (const [k, b] of bees) if (!seen.has(k)) { if (b.spot) b.spot.occ = null; if (pop === b) closePop(); bees.delete(k); }
+  for (const [k, b] of bees) {
+    if (seen.has(k)) continue;
+    if (b.bee && home.has(b.bee)) {   // clocked out: it goes home instead of vanishing / 퇴근: 사라지지 않고 집에 간다
+      if (b.state !== 'home') { if (b.spot) b.spot.occ = null; b.spot = null; b.state = 'home'; b.overtime = false; b.clapUntil = performance.now() + 2400; b.deliver = false; }
+      home.delete(b.bee);
+      continue;
+    }
+    if (b.spot) b.spot.occ = null; if (pop === b) closePop(); bees.delete(k);
+  }
+  // the page opened while clocked out: the bees are already home / 퇴근 중에 연 페이지: 벌들은 이미 집에 있다
+  for (const id of home) {
+    const r = ROSTER[id]; if (!r || r.house === null || r.house === undefined || bees.has(`home|${id}`)) continue;
+    const d = houseAt(r.house).door;
+    bees.set(`home|${id}`, { key: `home|${id}`, bee: id, project: r.project, name: r.name, idx: 0, state: 'home', office: list[0], oi: 0, path: [], face: -1,
+      x: d.x, y: d.y, arrived: true, inside: true, key2: 'home', goal: d, phase: Math.random() * 9, spot: null, at: 0 });
+  }
   plan();
   for (const b of bees.values()) if (b.fresh) { b.fresh = false; const g = b.goal; b.x = g.x; b.y = g.y; b.path = []; b.arrived = true; settle(b); }
   render();
   maybePop();
+}
+// a newcomer, or one coming back to the company / 신입, 또는 회사로 돌아온 벌
+function greet(b, r) {
+  const now = Date.now() / 1000;
+  if (r.rehires > 0 && now - (r.since || 0) < 120) { say(b, tr(`다시 왔어요! (재입사 ${r.rehires}번째)`, `I'm back! (rehired ×${r.rehires})`), 4000); b.badge = { text: tr('재입사', 'back'), until: performance.now() + 15000 }; return true; }
+  if (r.rehires === 0 && now - (r.hired || 0) < 120) { say(b, tr('신입이에요! 잘 부탁해요', "I'm new here! Hi!"), 4000); b.badge = { text: tr('신입', 'new'), until: performance.now() + 15000 }; return true; }
+  return false;
 }
 function changed(b, prev) {
   if (prev === 'done' && b.state === 'idle') b.deliver = true;
@@ -510,7 +595,13 @@ function assignDesks(all) {
   for (const b of all) b.desk = b.deskId ? LAY.byId.get(b.deskId) : null;
 }
 function plan() {
-  const all = [...bees.values()];
+  const everyone = [...bees.values()], all = everyone.filter(b => b.state !== 'home');
+  for (const b of everyone) if (b.state === 'home') {
+    const r = ROSTER[b.bee], door = r && r.house !== null && r.house !== undefined ? houseAt(r.house).door : { x: villageEnd(), y: pathY() };
+    b.desk = null; b.deskId = null;
+    if (performance.now() < (b.clapUntil || 0)) setTarget(b, 'clap', { x: b.x, y: b.y });
+    else setTarget(b, 'home', door);
+  }
   assignDesks(all);
   const waits = all.filter(b => b.state === 'wait').sort((a, b) => a.at - b.at);
   // plan mode: the first planner draws on the whiteboard, the others think at the table
@@ -557,6 +648,8 @@ function plan() {
 // honey in the comb: today's finished tasks minus the jars still carried / 벌집의 꿀: 오늘 끝난 작업 - 아직 들고 있는 꿀단지
 const honeyShown = () => Math.max(0, honeyTotal - [...bees.values()].filter(b => b.state === 'done' || b.deliver).length);
 function whereOf(b) {
+  if (b.state === 'home') return b.inside ? (LIGHT < .35 ? tr('집에서 자는 중', 'asleep at home') : tr('집에서 쉬는 중', 'resting at home'))
+    : b.key2 === 'clap' ? tr('퇴근! 박수 치는 중', 'clocking out! clapping') : tr('집에 가는 중', 'walking home');
   const aides = b.agents > 0 ? tr(` · 부사수 ${b.agents}명`, ` · ${b.agents} helper${b.agents > 1 ? 's' : ''}`) : '';
   const mates = [...crew.values()].filter(n => n.key2 === 'meet' && n.arrived).length;
   const withMates = mates ? tr(` · 동료 ${mates}명과`, ` · with ${mates} colleague${mates > 1 ? 's' : ''}`) : '';
@@ -610,7 +703,13 @@ function bounds() {
   for (const [x, y] of [[0, 0], [GX, 0], [GX, gy], [0, gy]]) pts.push(P(x, y), P(x, y, WALL));
   const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
   const m = 24 + 60 * flat();   // the plan's name plaques stick out over the wall / 평면도의 명패는 벽 밖으로 걸친다
-  return { x0: Math.min(...xs) - m, x1: Math.max(...xs) + m, y0: Math.min(...ys) - 30, y1: Math.max(...ys) + 18 };
+  const b = { x0: Math.min(...xs) - m, x1: Math.max(...xs) + m, y0: Math.min(...ys) - 30, y1: Math.max(...ys) + 18 };
+  if (VILLAGE.k <= 0) return b;
+  // clocked out: take the village in too, sliding there / 퇴근: 마을도 담는다, 미끄러지듯
+  const vx = villageEnd(), py = pathY(), vp = [P(vx, py - 3), P(vx, py + 3), P(vx, py - 3, 40), P(-1, py + 3)];
+  const k = VILLAGE.k * VILLAGE.k * (3 - 2 * VILLAGE.k);
+  for (const q of vp) { b.x0 = Math.min(b.x0, b.x0 + (q.x - 30 - b.x0) * k); b.x1 = Math.max(b.x1, b.x1 + (q.x + 30 - b.x1) * k); b.y0 = Math.min(b.y0, b.y0 + (q.y - 40 - b.y0) * k); b.y1 = Math.max(b.y1, b.y1 + (q.y + 20 - b.y1) * k); }
+  return b;
 }
 function resize() {
   if (!LAY) return;
@@ -836,6 +935,18 @@ function planWalls(t) {
 }
 function decoBack(t) {
   onFaceY(0, 0, () => { c.fillStyle = T.win; for (let x = 1.2; x < 14; x += 3) c.fillRect(x, 24, 1.8, 36); });
+  // "bee of the month": a frame with this month's top honey maker / "이달의 꿀벌": 이번 달 꿀을 가장 많이 모은 벌의 액자
+  const best = RANKS && RANKS.month && RANKS.month[0];
+  if (best) onFaceY(0, 0, () => {
+    const u = 14.25, w = 1.5, r = ROSTER[best.id], name = r ? (r.name === 'claude' ? r.project : r.name) : best.id.split('/').pop();
+    c.fillStyle = T['m-desk-edge']; c.fillRect(u, 22, w, 34); c.fillStyle = '#fffaf0'; c.fillRect(u + .06, 24, w - .12, 30);
+    const text = (t, v, size, weight, col) => { c.save(); c.translate(u + w / 2, v); c.scale(1 / PLAQUE_PX, -1); font(size, weight); c.fillStyle = col; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(t, 0, 0); c.restore(); };
+    text('🏆', 47, 13, 400, '#000');
+    text(tr('이달의 꿀벌', 'Bee of the month'), 38.5, 6.5, 700, T['m-label']);
+    font(10, 800); text(clipText(name, 44), 31, 10, 800, '#3a2612');
+    text(tr(`꿀 ${best.honey}칸`, `${best.honey} honey`), 26, 6.5, 700, T.wait);
+    c.textAlign = 'left'; c.textBaseline = 'top';
+  });
   // the whiteboard; the plan grows while a bee draws at it / 화이트보드. 벌이 그리는 동안 계획이 늘어난다
   onFaceY(0, 0, () => {
     c.fillStyle = T['m-wall']; c.fillRect(16.9, 15, 3.2, 40); c.fillStyle = T['m-board']; c.fillRect(17, 16, 3, 38);
@@ -1187,7 +1298,42 @@ function yardItems() {
   hive(GX + 2.6, 12.6); hive(GX + 2.6, 14.2);
   for (const [x, y] of [[-3, 2], [GX + 3, 5.5], [9, -2.6], [3, GY + 3], [GX + 4.5, GY + 1.5]]) bed(x, y);
   items.push([-3.6, 12.6 + LOFF, () => { box(-4.4, 12.4 + LOFF, 1.6, .45, 8, night(T['m-desk'])); }]);
+  for (const e of houses()) items.push([e.h.x + e.h.w / 2, e.h.y + e.h.d / 2, () => house(e)]);
+  if (houses().length) { const vx = villageEnd(); for (let x = -YARD - 2.5; x > vx; x -= 4.3) { tree(x - 1, pathY() - 4.4, .9); tree(x + .4, pathY() + 4.6, 1); } }
   return items;
+}
+// a house in the village: walls, a gabled roof, the door and windows on the path side, the bee's name;
+// lit when its bee is in, a "z" when it sleeps; an empty house (its bee left) has a sign
+// 마을의 집: 벽, 박공지붕, 길 쪽의 문과 창, 벌 이름. 벌이 있으면 불이 켜지고, 자면 "z". 빈집 (벌이 퇴사) 엔 팻말
+const HOUSE_COLS = ['#f4d6a0', '#cfe3c4', '#f2c6c2', '#c9dcf0', '#e6d4f2', '#f6e3b4'], ROOF_COLS = ['#c96a4a', '#5b8f6a', '#a85d7a', '#4f7fb0', '#8a6bb8', '#c99a3e'];
+function house(e) {
+  const { x, y, w, d, north } = e.h, H = 20, R = 13, n = e.r.house, gone = !!e.r.left;
+  const bee = [...bees.values()].find(b => b.bee === e.id), home = bee && bee.inside;
+  const wall = night(gone ? '#d8d3cb' : HOUSE_COLS[n % HOUSE_COLS.length]), roof = night(gone ? '#9a948c' : ROOF_COLS[n % ROOF_COLS.length]);
+  box(x, y, w, d, H, wall);
+  const fy = north ? y + d : y, faces = north ? toward(0, 1) : toward(0, -1), lit = home && LIGHT > .2 ? 1 : home ? .6 : 0;
+  if (faces) onFaceY(x, fy, () => {
+    c.fillStyle = night('#6b4a2e'); c.fillRect(w / 2 - .22, 0, .44, 13);
+    c.fillStyle = lit ? mixc(T['o-lamp'], '#ffffff', .2 * lit) : night(T.win); c.fillRect(.22, 7, .42, 7); c.fillRect(w - .64, 7, .42, 7);
+  });
+  // the roof: the end facing us, then the far slope, then the near one / 지붕: 이쪽 박공면, 먼 비탈, 가까운 비탈
+  const o = .15, a = P(x - o, y - o, H), b2 = P(x + w + o, y - o, H), cN = P(x + w + o, y + d / 2, H + R), dN = P(x - o, y + d / 2, H + R);
+  const e1 = P(x - o, y + d + o, H), f1 = P(x + w + o, y + d + o, H);
+  for (const [gx, nx] of [[x, -1], [x + w, 1]]) if (toward(nx, 0)) poly([P(gx, y, H), P(gx, y + d, H), P(gx, y + d / 2, H + R)], wall);
+  const slopes = [[a, b2, cN, dN, shade(roof, .08)], [e1, f1, cN, dN, roof]];
+  (toward(0, 1) ? slopes : slopes.reverse()).forEach(([p1, p2, p3, p4, col]) => poly([p1, p2, p3, p4], col));
+  const top = P(x + w / 2, y + d / 2, H + R + 6);
+  if (home && !reduced) {   // resting, or asleep at night / 쉬는 중, 밤엔 자는 중
+    const k = (t0() * .7 + n * .37) % 1; font(9 + k * 5, 700, 'f-mono'); c.globalAlpha = 1 - k; c.fillStyle = T.muted;
+    c.fillText(LIGHT < .35 ? 'z' : '♪', top.x + 6 + k * 8, top.y - 6 - k * 14); c.globalAlpha = 1;
+  }
+  if (scale > .45) {   // the bee's name / 벌 이름
+    const who = gone ? tr('빈집', 'empty') : e.r.name === 'claude' ? e.r.project : e.r.name;
+    font(9, 700); const tw = Math.min(c.measureText(who).width, 90) + 10;
+    fillRR(top.x - tw / 2, top.y - 6, tw, 13, 6.5, gone ? 'rgba(255, 255, 255, .7)' : T['tag-bg']);
+    c.fillStyle = gone ? T.muted : T['tag-fg']; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(clipText(who, 90), top.x, top.y + .5);
+    c.textAlign = 'left'; c.textBaseline = 'top';
+  }
 }
 let tNow = 0;
 const t0 = () => tNow;
@@ -1206,6 +1352,7 @@ function drawYard(t) {
   }
   floorRect(-1, -1, GX + 2, GY + 2, night(T['o-path']));
   floorRect(-E, 8.6 + LOFF, E, 1.2, night(T['o-path']));
+  if (houses().length) { const vx = villageEnd(); floorRect(vx, 8.6 + LOFF, -E - vx, 1.2, night(T['o-path'])); }
   floorRect(12.3, GY, 1.2, E, night(T['o-path']));
   c.restore();
   const items = yardItems();
@@ -1279,7 +1426,7 @@ function buildScene(t) {
   for (const [x, y, sz] of [[21.6, 8.2, 1.3], [25.3, 7.8, 1.5], [25.3, 11.3, 1.2], [21, 10.6, 1], [25.5, 15, 1.3], [20.9, 14.9, 1.1]]) add(x, y, () => plant(x, y, sz));
   addBox(22.4, 12.1, 1.8, .45, 9, T['m-desk']);
   // bees, helpers and colleagues / 벌, 부사수, 동료
-  for (const b of bees.values()) if (!b.popped) add(b.x, b.y, () => drawBee(b, t), .02, .2, 46);
+  for (const b of bees.values()) if (!b.popped && !b.inside) add(b.x, b.y, () => { drawBee(b, t); badge(b); }, .02, .2, 46);
   for (const h of helpers.values()) add(h.x, h.y, () => drawBee(h, t), .02, .15, 36);
   for (const n of crew.values()) add(n.x, n.y, () => drawBee(n, t), .02, .2, 46);
 }
@@ -1317,8 +1464,24 @@ function labels() {
 /* an upright bee person; origin is between the feet. Seen from behind at a desk or walking away.
    서 있는 벌. 원점은 두 발 사이. 책상에 앉았거나 멀어질 때는 뒷모습 */
 const SIT = { type: 12, meet: 8, sofa: 6 };
+// a pill over the head: on overtime after clocking out (with a desk lamp's glow), or new / back for a while
+// 머리 위 알약: 퇴근 뒤 야근 중 (책상 스탠드 불빛과 함께), 또는 한동안 신입 / 재입사
+function badge(b) {
+  const ot = b.overtime && SHIFT.state === 'off', fresh = b.badge && performance.now() < b.badge.until;
+  if (!ot && !fresh) return;
+  const s = P(b.x, b.y), y = s.y - 70 * BEE;
+  if (ot && b.desk) {
+    const l = P(b.desk.x + .8, b.desk.y, 30), g = c.createRadialGradient(l.x, l.y, 0, l.x, l.y, 40);
+    g.addColorStop(0, 'rgba(255, 214, 140, .5)'); g.addColorStop(1, 'rgba(255, 214, 140, 0)'); c.fillStyle = g; c.beginPath(); c.arc(l.x, l.y, 40, 0, 7); c.fill();
+  }
+  const text = ot ? tr('야근 중', 'overtime') : b.badge.text;
+  font(9, 800); const w = c.measureText(text).width + 12;
+  fillRR(s.x - w / 2, y - 7, w, 14, 7, ot ? '#3b3f7a' : T.done);
+  c.fillStyle = '#ffffff'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, s.x, y + .5); c.textAlign = 'left'; c.textBaseline = 'top';
+}
 function poseOf(b) {
   if (b.npc) return b.key2 === 'meet' ? 'meet' : 'idle';
+  if (b.state === 'home') return b.key2 === 'clap' ? 'clap' : 'idle';
   if (b.state === 'run') return b.key2 === 'meet' ? (b.atBoard ? 'board' : 'meet') : 'type';
   if (b.state === 'wait') return 'wait';
   if (b.state === 'done') return 'done';
@@ -1371,7 +1534,8 @@ function drawBee(b, t) {
   if (!back) wings();
   const hand = (s, hx, hy) => { c.strokeStyle = dark; c.lineWidth = 2.2; c.beginPath(); c.moveTo(s * 6, -22); c.quadraticCurveTo(s * 8.5, (hy - 22) / 2 - 2, hx, hy); c.stroke(); circle(hx, hy, 1.8, dark); };
   const arms = [];
-  if (pose === 'wait') arms.push([-f, -f * 8, -14], [f, f * (8 + Math.sin(t * (12 + urg * 10)) * 3), -40]);
+  if (pose === 'clap') { const k = 1.5 + Math.abs(Math.sin(t * 13 + (b.phase || 0))) * 5; arms.push([-1, -k, -36], [1, k, -36]); }
+  else if (pose === 'wait') arms.push([-f, -f * 8, -14], [f, f * (8 + Math.sin(t * (12 + urg * 10)) * 3), -40]);
   else if (carry) arms.push([-1, -5, -44], [1, 5, -44]);
   else if (typeFront) { const tap = Math.sin(t * 28 + (b.phase || 0)) * 1.5; arms.push([-1, -7, -23 + tap], [1, 7, -23 - tap]); }
   else if (pose === 'type') { const tap = Math.sin(t * 28 + (b.phase || 0)) * 1.5; arms.push([-1, -6, -31 + tap], [1, 6, -31 - tap]); }
@@ -1426,7 +1590,7 @@ function drawBee(b, t) {
 const textZoom = () => Math.min(1.8, Math.max(1, .7 / scale));
 function drawTags(t) {
   const placed = [], z = textZoom();
-  const list = [...bees.values()].filter(b => !b.popped && (b.state !== 'idle' || b.deliver || b.key === hoverKey))
+  const list = [...bees.values()].filter(b => !b.popped && !b.inside && ((b.state !== 'idle' && b.state !== 'home') || b.deliver || b.key === hoverKey))
     .map(b => ({ b, s: P(b.x, b.y), low: b.state === 'run' && b.key !== hoverKey }))
     .sort((a, b) => a.low - b.low || b.s.y - a.s.y);
   font(10 * z);
@@ -1492,7 +1656,7 @@ let last = performance.now(), touched = 0;
 // 하다. 연기는 세지 않는다: 거의 늘 하나쯤 있다
 function frameGap(now) {
   if (now - touched < 1500 || drag || gest || pop) return 0;
-  if (Math.abs(cam.rot - ROT) > .0005 || Math.abs(drawerWant() - DRAWER.cur) > .5) return 0;
+  if (Math.abs(cam.rot - ROT) > .0005 || Math.abs(drawerWant() - DRAWER.cur) > .5 || Math.abs(villageWant() - VILLAGE.k) > .005) return 0;
   for (const m of [bees, crew, helpers]) for (const b of m.values()) if (b.moving) return 1000 / 30;
   return 1000 / 20;
 }
@@ -1508,6 +1672,8 @@ function frame(now) {
     const gz = globeFor(cam.zoom), want = cam.tilt + (Math.max(cam.tilt, GLOBE_TILT) - cam.tilt) * gz;   // look down on the planet / 행성은 내려다본다
     const dk = want - TH / TW;
     if (Math.abs(dk) > .0005) setTilt(reduced ? want : TH / TW + dk * Math.min(1, dt * 9));
+    const vk = villageWant() - VILLAGE.k;
+    VILLAGE.k = reduced || Math.abs(vk) < .005 ? VILLAGE.k + vk : VILLAGE.k + vk * Math.min(1, dt * 1.5);
     const dw = drawerWant() - DRAWER.cur;
     DRAWER.cur = reduced || Math.abs(dw) < .5 ? DRAWER.cur + dw : DRAWER.cur + dw * Math.min(1, dt * 9);
     place();
@@ -1585,6 +1751,7 @@ function step(b, dt) {
 function settle(b) {
   const at = q => [q.x - b.x, q.y - b.y];
   b.look = null;
+  if (b.key2 === 'home') { b.inside = true; return; }
   if (b.key2 === 'desk' && b.desk) b.look = [0, b.desk.far ? 1 : -1];
   if (b.key2 === 'meet') b.look = b.atBoard ? [0, -1] : at(MEET_C);
   if (b.npc && b.key2 === 'out') crew.delete(b.key);
@@ -1680,7 +1847,7 @@ function worldAt(e) { const r = cv.getBoundingClientRect(); return { x: (e.clien
 function hit(p) {
   if (roofFor(cam.zoom) >= .5) return null;
   let best = null, bd = 20;
-  for (const b of bees.values()) { if (b.popped) continue; const s = P(b.x, b.y), d = Math.hypot(s.x - p.x, s.y - 22 * BEE - p.y); if (d < bd) { bd = d; best = b; } }
+  for (const b of bees.values()) { if (b.popped || b.inside) continue; const s = P(b.x, b.y), d = Math.hypot(s.x - p.x, s.y - 22 * BEE - p.y); if (d < bd) { bd = d; best = b; } }
   return best || [...bees.values()].find(b => { if (!b.desk) return false; const s = P(b.desk.x, b.desk.y, 12); return Math.abs(p.x - s.x) < 42 && Math.abs(p.y - s.y) < 18; }) || null;
 }
 const tip = $('#tip');
@@ -1791,7 +1958,7 @@ cv.addEventListener('gestureend', e => { e.preventDefault(); gest = null; saveVi
 const roster = $('#roster');
 // grouped by Mac (this one first), waiting first in each; a row shows ⌥ number, name, time and what the bee does
 // Mac 별로 묶고 (이 Mac 먼저) 묶음마다 기다리는 세션 먼저. 행: ⌥ 번호, 이름, 시간, 벌이 하는 일
-const ORDER = { wait: 0, run: 1, done: 2, idle: 3 };
+const ORDER = { wait: 0, run: 1, done: 2, idle: 3, home: 4 };
 function render() {
   const list = [...bees.values()];
   const rows = new Map([...roster.querySelectorAll('.r')].map(el => [el.dataset.key, el]));
@@ -1818,7 +1985,7 @@ function render() {
       rows.delete(b.key);
       const age = ageOf(b);
       r.className = 'r s-' + b.state;
-      r.querySelector('.k').textContent = `⌥${b.idx}`;
+      r.querySelector('.k').textContent = b.state === 'home' ? '🏠' : `⌥${b.idx}`;
       r.querySelector('.n').textContent = nameOf(b);
       r.querySelector('.e').textContent = b.state === 'done' ? tr(`${fmt(age)} 전 끝남`, `done ${fmt(age)} ago`) : b.state === 'idle' ? label('idle') : `${label(b.state)} ${fmt(age)}`;
       r.querySelector('.w i').textContent = whereOf(b);
@@ -1837,6 +2004,8 @@ function render() {
   $('#listbtn').classList.toggle('hot', waiting > 0 && !DRAWER.open);
   const sum = $('#d-sum'); sum.textContent = `${list.length}`;
   if (waiting) { const em = document.createElement('em'); em.textContent = `${tr('기다림', 'waiting')} ${waiting}`; sum.append(' · ', em); }
+  if (SHIFT.state === 'off') { const em = document.createElement('em'); em.textContent = tr('🌙 퇴근 중', '🌙 clocked out'); sum.append(' · ', em); }
+  renderRanks();
   const n = st => list.filter(b => b.state === st).length;
   const chips = $('#chips');
   chips.replaceChildren(...[['run'], ['wait'], ['done'], ['idle']].map(([k]) => chip(k === 'idle' ? 'sleep' : k, label(k), n(k), k === 'wait' && n('wait') > 0)),
@@ -1871,6 +2040,63 @@ panel.addEventListener('change', e => {
 if (native) $('#top-set').hidden = false;
 window.officeTop = on => { $('#top').checked = !!on; };
 
+/* ---------- clock out / in, the honey ranking / 퇴근·출근, 꿀 순위 ---------- */
+const beeName = r => r ? (r.name === 'claude' ? r.project : `${r.project} · ${r.name}`) : '';
+function updateShiftBtn() {
+  const off = SHIFT.state === 'off', b = $('#shiftbtn');
+  b.classList.toggle('off', off);
+  $('#shift-t').textContent = off ? tr('출근', 'Clock in') : tr('퇴근', 'Clock out');
+  // moon to clock out, sun to clock in / 퇴근은 달, 출근은 해
+  $('#shift-ico').setAttribute('d', off ? 'M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z'
+    : 'M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z');
+  b.title = off ? tr('출근하기: 모두 같은 대화로 다시 시작', 'Clock in: everyone back in the same conversations') : tr('퇴근하기: Claude 를 모두 끄고 벌들은 집으로', 'Clock out: stop every Claude, the bees go home');
+}
+function askShift() {
+  const off = SHIFT.state === 'off', mine = [...bees.values()].filter(b => b.oi === 0 && b.state !== 'home');
+  const busy = mine.filter(b => b.state === 'run' || b.state === 'wait').length;
+  $('#ask-q').textContent = off ? tr(`벌 ${(SHIFT.home || []).length}마리가 출근할까요?`, `Bring ${(SHIFT.home || []).length} bees back to work?`)
+    : tr(`Claude ${mine.length}개를 끄고 퇴근할까요?`, `Stop ${mine.length} Claude(s) and clock out?`);
+  $('#ask-n').textContent = off ? tr('모두 같은 대화로 다시 시작해요.', 'Each comes back in the same conversation.')
+    : busy ? tr(`일하거나 기다리는 ${busy}마리는 끝난 뒤 퇴근해요 (야근).`, `${busy} working or waiting go once done (overtime).`) : tr('출근하면 같은 대화로 다시 시작해요.', 'Clocking in brings them back in the same conversations.');
+  $('#ask-go').textContent = off ? tr('출근하기', 'Clock in') : tr('퇴근하기', 'Clock out');
+  $('#ask').hidden = false;
+}
+$('#shiftbtn').addEventListener('click', askShift);
+$('#ask-no').addEventListener('click', () => { $('#ask').hidden = true; });
+$('#ask-go').addEventListener('click', async () => {
+  $('#ask').hidden = true;
+  try {
+    const r = await fetch('/shift', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: SHIFT.state === 'off' ? 'on' : 'off' }) });
+    const j = await r.json(); if (j.say) toast(j.say);
+  } catch (e) { toast(tr('hivemux 에 닿지 못했어요.', 'Could not reach hivemux.')); }
+});
+let TAB = 's';
+function setTab(k) {
+  TAB = k; $('#tab-s').setAttribute('aria-selected', String(k === 's')); $('#tab-r').setAttribute('aria-selected', String(k === 'r'));
+  $('#pane-s').hidden = k !== 's'; $('#pane-r').hidden = k !== 'r'; renderRanks();
+}
+$('#tab-s').addEventListener('click', () => setTab('s')); $('#tab-r').addEventListener('click', () => setTab('r'));
+$('#periods').addEventListener('change', renderRanks);
+function renderRanks() {
+  if (TAB !== 'r') return;
+  const period = ($('#periods input:checked') || {}).value || 'day', list = (RANKS && RANKS[period]) || [], ol = $('#ranks');
+  ol.replaceChildren(...list.map((e, i) => {
+    const r = ROSTER[e.id], li = document.createElement('li');
+    li.className = r && r.left ? 'gone' : '';
+    const m = document.createElement('span'); m.className = 'm'; m.textContent = ['🥇', '🥈', '🥉'][i] || `${i + 1}`;
+    const who = document.createElement('span'); who.className = 'who';
+    const n = document.createElement('b'); n.textContent = r ? (r.name === 'claude' ? r.project : r.name) : e.id.split('/').pop();
+    const pj = document.createElement('span'); pj.textContent = (r ? r.project : e.id.split('/')[0]) + (r && r.left ? tr(' · 퇴사', ' · left') : r && r.rehires ? tr(` · 재입사 ${r.rehires}`, ` · rehired ×${r.rehires}`) : '');
+    who.append(n, pj);
+    const h = document.createElement('span'); h.className = 'h'; h.textContent = tr(`꿀 ${e.honey}칸`, `${e.honey} honey`);
+    li.append(m, who, h);
+    li.addEventListener('mouseenter', () => { const b = [...bees.values()].find(x => x.bee === e.id); hoverKey = b ? b.key : null; });
+    li.addEventListener('mouseleave', () => { hoverKey = null; });
+    return li;
+  }));
+  const empty = $('#ranks-empty'); empty.hidden = list.length > 0;
+  empty.textContent = tr('아직 모은 꿀이 없어요. 작업이 끝날 때마다 그 벌의 꿀이 한 칸씩 쌓여요.', 'No honey yet. Each finished task adds a cell for its bee.');
+}
 const app = $('.app');
 function setDrawer(open) {
   DRAWER.open = open; app.classList.toggle('open', open);
@@ -1886,7 +2112,7 @@ addEventListener('keydown', e => {
   if (e.key.toLowerCase() === 'l') { setDrawer(!DRAWER.open); e.preventDefault(); }
   else if (e.key === 'Escape' && DRAWER.open && !pop) setDrawer(false);
 }, true);   // before the pop-out's Esc, so one Esc closes only that / 튀어나오기의 Esc 보다 먼저: Esc 한 번에 그것만 닫히게
-applySide(); setDrawer(DRAWER.open); setPlan(PLAN.on);
+applySide(); setDrawer(DRAWER.open); setPlan(PLAN.on); updateShiftBtn();
 
 applyLang(); readTokens();
 addEventListener('resize', resize);

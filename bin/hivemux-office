@@ -134,7 +134,8 @@ def roster(ids):
                 r.seen(i, int(time.time()))
             _working.clear(); _working.update(ids)
         cut = time.time() - 30 * 86400   # who left over a month ago is out of sight / 한 달 넘게 전에 떠난 벌은 안 보인다
-        return {i: {k: b.get(k) for k in ("name", "project", "hired", "left", "rehires", "house")}
+        return {i: dict({k: b.get(k) for k in ("name", "project", "hired", "left", "rehires", "house")},
+                        since=(b.get("history") or [[b.get("hired")]])[-1][0])   # when it last came in / 마지막으로 들어온 때
                 for i, b in r.bees.items() if not b.get("left") or b["left"] > cut}
 
 
