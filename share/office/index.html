@@ -7,7 +7,8 @@
 <link rel="icon" href="/logo.svg" type="image/svg+xml">
 <style>
 /* Layout: an office floor seen at an angle (canvas): desks in the back corner, the meeting room and the
-   boss room behind glass, the lounge in front. The roster below. */
+   boss room behind glass, the lounge in front. It fills the window; the buttons float on top, and the
+   session list is a drawer over one side (right or left, in the settings). */
 :root {
   --bg: #e9edf3; --panel: #ffffff; --line: #d3d9e3; --fg: #1b1f27; --muted: #677083;
   --run: #2f7fd6; --wait: #c77d00; --done: #1d9a64; --sleep: #8b94a5; --alert: #d9473a; --honey: #f2b632; --bee-dark: #23201a;
@@ -47,28 +48,37 @@
 
 html, body { height: 100%; }
 [hidden] { display: none !important; }
-body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); overflow-x: hidden; }
-.app { position: relative; min-height: 100%; display: flex; flex-direction: column; gap: 12px; padding-inline: 16px; padding-block: 14px 12px; max-width: 1000px; margin: 0 auto; box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); overflow-x: hidden; }
+.app { position: relative; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 button { font: inherit; color: inherit; cursor: pointer; }
 button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
 .seg input:focus-visible + span { outline: 2px solid var(--run); outline-offset: 2px; }
 
-.top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* the buttons float over the office on frosted bars / 버튼은 사무실 위에 반투명 막대로 뜬다 */
+.glass { background: color-mix(in srgb, var(--panel) 78%, transparent); -webkit-backdrop-filter: blur(12px) saturate(1.2); backdrop-filter: blur(12px) saturate(1.2);
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent); box-shadow: 0 4px 16px rgba(0, 0, 0, .10); border-radius: 12px; }
+.top { position: absolute; left: 12px; top: 12px; z-index: 6; display: flex; align-items: center; gap: 12px; padding: 6px 10px 6px 8px; transition: left .25s; }
 .brand { display: flex; align-items: center; gap: 8px; font: 600 16px var(--f-mono); }
 .brand svg { width: 26px; height: 26px; }
-.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
-.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; background: var(--panel); font-variant-numeric: tabular-nums; }
+.chips { display: flex; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
 .chip b { font: 600 12px var(--f-mono); }
 .chip.hot { border-color: var(--wait); animation: chip 1.2s ease-in-out infinite; }
 @keyframes chip { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--wait) 25%, transparent); } }
-.gear { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); display: grid; place-items: center; }
+.gear { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); display: grid; place-items: center; }
 .gear svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; }
 
-.floor { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: var(--panel); }
+.floor { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--panel); }
 #map { display: block; width: 100%; cursor: default; }
 #map.hand { cursor: pointer; }
-.view { position: absolute; right: 8px; top: 8px; z-index: 4; display: flex; gap: 4px; }
+.view { position: absolute; right: 12px; top: 12px; z-index: 6; display: flex; gap: 4px; align-items: center; padding: 5px; transition: right .25s; }
+.view .sep { width: 1px; height: 20px; background: var(--line); margin: 0 3px; }
+.listbtn { display: inline-flex; align-items: center; gap: 6px; font: 600 12px var(--f-mono) !important; }
+.listbtn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+.listbtn i { width: 8px; height: 8px; border-radius: 50%; background: var(--wait); }
+.listbtn.hot { border-color: var(--wait); animation: chip 1.2s ease-in-out infinite; }
+.open .listbtn { background: color-mix(in srgb, var(--run) 14%, var(--panel)); border-color: var(--run); }
 .view button { min-width: 28px; height: 28px; padding: 0 7px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); font-size: 14px; line-height: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
 .view .v-mode { font: 600 11px var(--f-mono); margin-right: 4px; }
 #map { touch-action: none; }
@@ -77,8 +87,31 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
 .tip b { display: block; }
 .tip span { color: var(--muted); }
 
-.roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; }
-.r { display: grid; grid-template-columns: auto 1fr auto; gap: 1px 8px; align-items: baseline; text-align: left; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); min-width: 0; }
+/* the session list: a drawer over the right (or left) side / 세션 목록: 오른쪽(또는 왼쪽) 위에 겹치는 서랍 */
+.drawer { position: absolute; top: 0; bottom: 0; right: 0; width: var(--drawer); z-index: 8; display: flex; flex-direction: column; box-sizing: border-box;
+  background: color-mix(in srgb, var(--panel) 84%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2);
+  border-left: 1px solid var(--line); box-shadow: -10px 0 30px rgba(0, 0, 0, .12); transform: translateX(105%); transition: transform .25s ease, visibility .25s; visibility: hidden; }
+.left .drawer { right: auto; left: 0; border-left: 0; border-right: 1px solid var(--line); box-shadow: 10px 0 30px rgba(0, 0, 0, .12); transform: translateX(-105%); }
+.open .drawer { transform: none; visibility: visible; }
+.app { --drawer: min(340px, 100vw - 48px); }
+.open:not(.left) .view, .open:not(.left) .settings { right: calc(var(--drawer) + 12px); }
+.open.left .top { left: calc(var(--drawer) + 12px); }
+.d-head { display: flex; align-items: center; gap: 8px; padding: 14px 14px 10px; border-bottom: 1px solid var(--line); }
+.d-head b { font-size: 14px; }
+.d-head span { font-size: 12px; color: var(--muted); }
+.d-head em { font-style: normal; color: var(--wait); font-weight: 600; }
+.d-head button { margin-left: auto; width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); line-height: 1; }
+.d-body { flex: 1; overflow-y: auto; padding: 4px 10px 14px; }
+.roster { display: grid; grid-template-columns: 1fr; gap: 5px; }
+.grp { font: 600 10.5px var(--f-mono); letter-spacing: .06em; color: var(--muted); padding: 10px 4px 3px; display: flex; gap: 6px; align-items: center; }
+.grp i { width: 9px; height: 9px; border-radius: 3px; background: var(--c); }
+/* little room: the chips keep the dot and the number / 자리가 좁으면 칩은 점과 숫자만 */
+@media (max-width: 1450px) { .open .top .chip { font-size: 0; gap: 5px; padding: 3px 8px; } .open .top .chip b { font-size: 12px; } .open .brand { font-size: 0; gap: 0; } }
+@media (max-width: 1100px) { .top .chip { font-size: 0; gap: 5px; padding: 3px 8px; } .top .chip b { font-size: 12px; } }
+/* a small window: the list just covers the office / 작은 창: 목록이 사무실을 그냥 덮는다 */
+@media (max-width: 760px) { .open .top { display: none; } .open:not(.left) .view, .open:not(.left) .settings { right: 12px; } .top .chips .chip:nth-child(n+4) { display: none; } }
+.r { display: grid; grid-template-columns: auto 1fr auto; gap: 1px 8px; align-items: baseline; text-align: left; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--panel) 92%, transparent); min-width: 0; }
+.r:hover { outline: 2px solid var(--honey); outline-offset: -1px; }
 .r .k { font: 400 10.5px var(--f-mono); color: var(--muted); }
 .r .n { font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .r .e { font: 600 11px var(--f-mono); color: var(--st); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -89,7 +122,7 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
 .note { font-size: 12.5px; color: var(--muted); padding: 10px 12px; border: 1px dashed var(--line); border-radius: 8px; }
 .lost { position: fixed; left: 50%; top: 12px; translate: -50% 0; z-index: 35; background: var(--alert); color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 12.5px; max-width: calc(100vw - 32px); box-sizing: border-box; }
 .check { display: flex; gap: 8px; align-items: center; font-size: 12.5px; cursor: pointer; }
-.settings { position: absolute; right: 16px; top: 56px; z-index: 20; width: min(300px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; box-shadow: 0 12px 32px rgba(0, 0, 0, .22); display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; }
+.settings { position: absolute; right: 12px; top: 60px; transition: right .25s; z-index: 20; width: min(300px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; box-shadow: 0 12px 32px rgba(0, 0, 0, .22); display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; }
 .settings fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .settings legend { font-size: 11px; font-weight: 600; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; padding: 0; }
 .seg { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -135,12 +168,9 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
 </head>
 <body>
 <div class="app">
-  <header class="top">
+  <header class="top glass">
     <div class="brand"><img src="/logo.svg" alt="" width="26" height="26">hivemux</div>
     <div class="chips" id="chips"></div>
-    <button class="gear" id="gear" type="button" aria-expanded="false" aria-controls="settings">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>
-    </button>
   </header>
 
   <form class="settings" id="settings" hidden>
@@ -175,6 +205,13 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
         <label><input type="radio" name="sky" id="sky-night" value="night"><span data-t="늘 밤|Always night"></span></label>
       </div>
     </fieldset>
+    <fieldset>
+      <legend data-t="세션 목록|Session list"></legend>
+      <div class="seg">
+        <label><input type="radio" name="side" id="side-right" value="right"><span data-t="오른쪽|Right"></span></label>
+        <label><input type="radio" name="side" id="side-left" value="left"><span data-t="왼쪽|Left"></span></label>
+      </div>
+    </fieldset>
     <fieldset id="top-set" hidden>
       <legend data-t="창|Window"></legend>
       <label class="check"><input type="checkbox" id="top"><span data-t="다른 창 위에 띄우기 (⌘T)|Keep on top of other windows (⌘T)"></span></label>
@@ -183,7 +220,7 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
 
   <div class="floor" id="floor">
     <canvas id="map" role="img"></canvas>
-    <div class="view" id="view">
+    <div class="view glass" id="view">
       <button type="button" id="v-2d" class="v-mode">2D</button>
       <button type="button" id="v-left" data-k="rotL">⟲</button>
       <button type="button" id="v-right" data-k="rotR">⟳</button>
@@ -192,12 +229,17 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
       <button type="button" id="v-out" data-k="out">−</button>
       <button type="button" id="v-in" data-k="in">+</button>
       <button type="button" id="v-home" data-k="home">⌂</button>
+      <span class="sep"></span>
+      <button type="button" class="listbtn" id="listbtn" aria-expanded="false" aria-controls="drawer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span id="list-n">0</span><i id="list-dot" hidden></i></button>
+      <button class="gear" id="gear" type="button" aria-expanded="false" aria-controls="settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>
+    </button>
     </div>
     <div class="tip" id="tip" hidden></div>
+    <aside class="drawer" id="drawer"><div class="d-head"><b data-t="세션|Sessions"></b><span id="d-sum"></span><button type="button" id="d-close">×</button></div>
+      <div class="d-body"><div class="roster" id="roster"></div><p class="note" id="empty" hidden></p></div></aside>
   </div>
 
-  <div class="roster" id="roster"></div>
-  <p class="note" id="empty" hidden></p>
 </div>
 
 <div class="pop" id="pop" hidden>
@@ -241,12 +283,12 @@ function applyLang() {
   $('#pop-later').textContent = tr('나중에', 'Later');
   for (const [id, ko, en] of [['v-2d', '위에서 본 평면도로 바꾸기', 'Switch to the flat plan'], ['v-left', '왼쪽으로 돌리기 (Q, 오른쪽 버튼으로 끌기)', 'Turn left (Q, or right-drag)'], ['v-right', '오른쪽으로 돌리기 (E, 오른쪽 버튼으로 끌기)', 'Turn right (E, or right-drag)'],
     ['v-up', '더 높이서 보기 (W, 오른쪽 버튼으로 위로 끌기)', 'Look from higher (W, or right-drag up)'], ['v-down', '더 낮게 보기 (S, 오른쪽 버튼으로 아래로 끌기)', 'Look from lower (S, or right-drag down)'],
-    ['v-out', '축소 (-, 휠)', 'Zoom out (-, wheel)'], ['v-in', '확대 (+, 휠)', 'Zoom in (+, wheel)'], ['v-home', '전체 보기 (0)', 'Whole floor (0)']]) { const el = $('#' + id); el.title = tr(ko, en); el.setAttribute('aria-label', tr(ko, en)); }
+    ['v-out', '축소 (-, 휠)', 'Zoom out (-, wheel)'], ['v-in', '확대 (+, 휠)', 'Zoom in (+, wheel)'], ['v-home', '전체 보기 (0)', 'Whole floor (0)'], ['listbtn', '세션 목록 (L)', 'Session list (L)'], ['d-close', '닫기 (Esc)', 'Close (Esc)']]) { const el = $('#' + id); el.title = tr(ko, en); el.setAttribute('aria-label', tr(ko, en)); }
   $('#map').setAttribute('aria-label', tr('벌 사무실. Claude 세션마다 벌 한 마리가 자리, 회의실, 라운지, 사장실 질문 창구를 오가요.',
     'Bee office. One bee per Claude session moves between its desk, the meeting room, the lounge and the question window in the boss room.'));
 }
 
-const settings = { pop: 'front', privacy: 'all', sound: 'off', sky: 'auto' };
+const settings = { pop: 'front', privacy: 'all', sound: 'off', sky: 'auto', side: 'right' };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('office-settings') || '{}')); } catch (e) {}
 const saveSettings = () => { try { localStorage.setItem('office-settings', JSON.stringify(settings)); } catch (e) {} };
 
@@ -542,20 +584,29 @@ function resize() {
   CX = GX / 2; CY = LAY.GY / 2;
   const w = cv.parentElement.clientWidth, dpr = devicePixelRatio || 1;
   const saved = ROT, savedT = TH / TW; setRot(0); setTilt(.5); const b = bounds(); setRot(saved); setTilt(savedT);
-  VIEW.w = w; VIEW.h = Math.round(w * (b.y1 - b.y0) / (b.x1 - b.x0));
+  VIEW.w = w; VIEW.h = cv.parentElement.clientHeight;
   cv.width = Math.round(w * dpr); cv.height = Math.round(VIEW.h * dpr);
   cv.style.height = VIEW.h + 'px';
   place();
 }
+// the session list drawer: open or not (kept), and how far the office has moved aside for it
+// 세션 목록 서랍: 열렸는지 (기억), 사무실이 얼마나 비켜났는지
+const DRAWER = { open: false, cur: 0 };
+try { DRAWER.open = localStorage.getItem('office-list') === '1'; } catch (e) {}
+const drawerWant = () => DRAWER.open && innerWidth > 760 ? $('#drawer').offsetWidth + 16 : 0;
 function setRot(a) { ROT = a; COS = Math.cos(a); SIN = Math.sin(a); }
 // fit the turned floor in the canvas, then zoom and pan / 돌린 바닥을 캔버스에 맞추고 줌, 이동
 function place() {
   const b = bounds(), dpr = devicePixelRatio || 1;
-  VIEW.s = Math.min(VIEW.w / (b.x1 - b.x0), VIEW.h / (b.y1 - b.y0)) * cam.zoom;
+  // an open list covers one side: fit the office in the rest (DRAWER.cur slides with it)
+  // 목록이 열리면 한쪽을 덮으니 나머지 자리에 맞춘다 (DRAWER.cur 가 함께 미끄러진다)
+  const off = DRAWER.cur;
+  VIEW.s = Math.min(Math.max(80, VIEW.w - off) / (b.x1 - b.x0), VIEW.h / (b.y1 - b.y0)) * cam.zoom;
   // on the planet, look at its middle rather than the building / 행성 단계에선 건물 대신 행성 가운데를 본다
   const lift = globeFor(cam.zoom) * GLOBE_R * Math.cos(Math.asin(TH / TW)) * .85;
   VIEW.cx = (b.x0 + b.x1) / 2 - cam.px; VIEW.cy = (b.y0 + b.y1) / 2 - cam.py + lift;
   scale = VIEW.s;
+  VIEW.cx -= (settings.side === 'left' ? off : -off) / 2 / scale;
   mapCtx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * (VIEW.w / 2 - VIEW.cx * scale), dpr * (VIEW.h / 2 - VIEW.cy * scale));
 }
 const T = {};
@@ -1167,6 +1218,9 @@ function drawBee(b, t) {
   const s = b.screen ? b : P(b.x, b.y);
   c.translate(s.x, s.y + sit * k);
   if (!sit) { c.fillStyle = T['m-shadow']; c.beginPath(); c.ellipse(0, 0, 9 * sc, 3 * sc, 0, 0, 7); c.fill(); }
+  if (b.key === hoverKey && !mini) {   // pointed at in the list / 목록에서 가리킨 벌
+    c.strokeStyle = T.honey; c.lineWidth = 2.5 / Math.max(.5, scale); c.beginPath(); c.ellipse(0, 0, 15 * sc, 5.5 * sc, 0, 0, 7); c.stroke();
+  }
   c.translate(0, bob); c.scale(sc * grow, sc * grow); c.rotate(tilt);
   c.lineCap = 'round'; c.lineJoin = 'round';
   c.strokeStyle = dark; c.lineWidth = 2.6;
@@ -1304,6 +1358,8 @@ function frame(now) {
     const gz = globeFor(cam.zoom), want = cam.tilt + (Math.max(cam.tilt, GLOBE_TILT) - cam.tilt) * gz;   // look down on the planet / 행성은 내려다본다
     const dk = want - TH / TW;
     if (Math.abs(dk) > .0005) setTilt(reduced ? want : TH / TW + dk * Math.min(1, dt * 9));
+    const dw = drawerWant() - DRAWER.cur;
+    DRAWER.cur = reduced || Math.abs(dw) < .5 ? DRAWER.cur + dw : DRAWER.cur + dw * Math.min(1, dt * 9);
     place();
     for (const b of [...bees.values(), ...crew.values()]) step(b, dt);
     const roof = roofFor(cam.zoom), globe = globeFor(cam.zoom);
@@ -1567,31 +1623,54 @@ cv.addEventListener('gestureend', e => { e.preventDefault(); gest = null; saveVi
 
 /* ---------- roster and chips / 명단과 칩 ---------- */
 const roster = $('#roster');
+// grouped by Mac (this one first), waiting first in each; a row shows ⌥ number, name, time and what the bee does
+// Mac 별로 묶고 (이 Mac 먼저) 묶음마다 기다리는 세션 먼저. 행: ⌥ 번호, 이름, 시간, 벌이 하는 일
+const ORDER = { wait: 0, run: 1, done: 2, idle: 3 };
 function render() {
   const list = [...bees.values()];
-  const rows = new Map([...roster.children].map(el => [el.dataset.key, el]));
-  list.forEach((b, i) => {
-    let r = rows.get(b.key);
-    if (!r) {
-      r = document.createElement('button'); r.type = 'button'; r.className = 'r'; r.dataset.key = b.key;
-      r.innerHTML = '<span class="k"></span><span class="n"></span><span class="e"></span><span class="w"><i></i><span></span></span>';
-      r.addEventListener('click', () => { const x = bees.get(r.dataset.key); if (x) visit(x); });
+  const rows = new Map([...roster.querySelectorAll('.r')].map(el => [el.dataset.key, el]));
+  const want = [];
+  offices.forEach((o, oi) => {
+    const mine = list.filter(b => b.office === o).sort((a, b) => ORDER[a.state] - ORDER[b.state] || a.idx - b.idx);
+    if (!mine.length) return;
+    if (offices.length > 1) {
+      let g = roster.querySelector(`.grp[data-o="${oi}"]`);
+      if (!g) { g = document.createElement('div'); g.className = 'grp'; g.dataset.o = oi; g.innerHTML = '<i></i><span></span>'; }
+      g.style.setProperty('--c', oi ? 'var(--m-zone-remote)' : 'var(--honey)');
+      g.querySelector('span').textContent = `${o.host} · ${mine.length}`;
+      want.push(g);
     }
-    if (roster.children[i] !== r) roster.insertBefore(r, roster.children[i] || null);
-    rows.delete(b.key);
-    const age = ageOf(b), remote = b.office !== offices[0];
-    r.className = 'r s-' + b.state;
-    r.querySelector('.k').textContent = `⌥${b.idx}`;
-    r.querySelector('.n').textContent = nameOf(b) + (remote ? ` · ${b.office.host}` : '');
-    r.querySelector('.e').textContent = b.state === 'done' ? tr(`${fmt(age)} 전 끝남`, `done ${fmt(age)} ago`) : b.state === 'idle' ? label('idle') : `${label(b.state)} ${fmt(age)}`;
-    r.querySelector('.w i').textContent = whereOf(b);
-    r.querySelector('.w span').textContent = taskOf(b) ? ` · ${taskOf(b)}` : '';
+    for (const b of mine) {
+      let r = rows.get(b.key);
+      if (!r) {
+        r = document.createElement('button'); r.type = 'button'; r.className = 'r'; r.dataset.key = b.key;
+        r.innerHTML = '<span class="k"></span><span class="n"></span><span class="e"></span><span class="w"><i></i><span></span></span>';
+        r.addEventListener('click', () => { const x = bees.get(r.dataset.key); if (x) visit(x); });
+        r.addEventListener('mouseenter', () => { hoverKey = r.dataset.key; });
+        r.addEventListener('mouseleave', () => { if (hoverKey === r.dataset.key) hoverKey = null; });
+      }
+      rows.delete(b.key);
+      const age = ageOf(b);
+      r.className = 'r s-' + b.state;
+      r.querySelector('.k').textContent = `⌥${b.idx}`;
+      r.querySelector('.n').textContent = nameOf(b);
+      r.querySelector('.e').textContent = b.state === 'done' ? tr(`${fmt(age)} 전 끝남`, `done ${fmt(age)} ago`) : b.state === 'idle' ? label('idle') : `${label(b.state)} ${fmt(age)}`;
+      r.querySelector('.w i').textContent = whereOf(b);
+      r.querySelector('.w span').textContent = taskOf(b) ? ` · ${taskOf(b)}` : '';
+      want.push(r);
+    }
   });
-  for (const r of rows.values()) r.remove();
+  if (want.length !== roster.children.length || want.some((el, i) => roster.children[i] !== el)) roster.replaceChildren(...want);
+  for (const k of rows.keys()) if (hoverKey === k) hoverKey = null;
   const empty = $('#empty');
   empty.hidden = list.length > 0;
   empty.textContent = tr('지금은 Claude 세션이 없어요. 터미널에서 hm 으로 프로젝트를 열고 Claude 를 시작하면 벌이 출근해요.',
     'No Claude sessions yet. Open a project with hm in a terminal and start Claude; a bee will come to work.');
+  const waiting = list.filter(b => b.state === 'wait').length;
+  $('#list-n').textContent = list.length; $('#list-dot').hidden = !waiting;
+  $('#listbtn').classList.toggle('hot', waiting > 0 && !DRAWER.open);
+  const sum = $('#d-sum'); sum.textContent = `${list.length}`;
+  if (waiting) { const em = document.createElement('em'); em.textContent = `${tr('기다림', 'waiting')} ${waiting}`; sum.append(' · ', em); }
   const n = st => list.filter(b => b.state === st).length;
   const chips = $('#chips');
   chips.replaceChildren(...[['run'], ['wait'], ['done'], ['idle']].map(([k]) => chip(k === 'idle' ? 'sleep' : k, label(k), n(k), k === 'wait' && n('wait') > 0)),
@@ -1615,19 +1694,37 @@ function toast(msg) {
 const panel = $('#settings'), gear = $('#gear');
 gear.addEventListener('click', () => { panel.hidden = !panel.hidden; gear.setAttribute('aria-expanded', String(!panel.hidden)); });
 document.addEventListener('click', e => { if (!panel.hidden && !panel.contains(e.target) && !gear.contains(e.target)) { panel.hidden = true; gear.setAttribute('aria-expanded', 'false'); } });
-for (const k of ['pop', 'privacy', 'sound', 'sky']) { const r = panel.querySelector(`input[name="${k}"][value="${settings[k]}"]`); if (r) r.checked = true; }
+for (const k of ['pop', 'privacy', 'sound', 'sky', 'side']) { const r = panel.querySelector(`input[name="${k}"][value="${settings[k]}"]`); if (r) r.checked = true; }
 panel.addEventListener('submit', e => e.preventDefault());
 panel.addEventListener('change', e => {
   if (e.target.id === 'top') return tell({ top: e.target.checked });
-  settings[e.target.name] = e.target.value; saveSettings();
+  settings[e.target.name] = e.target.value; saveSettings(); applySide();
   if (e.target.name === 'sound' && e.target.value === 'on') buzz();
   render(); maybePop();
 });
 if (native) $('#top-set').hidden = false;
 window.officeTop = on => { $('#top').checked = !!on; };
 
+const app = $('.app');
+function setDrawer(open) {
+  DRAWER.open = open; app.classList.toggle('open', open);
+  $('#listbtn').setAttribute('aria-expanded', String(open));
+  try { localStorage.setItem('office-list', open ? '1' : '0'); } catch (e) {}
+  render();
+}
+const applySide = () => app.classList.toggle('left', settings.side === 'left');
+$('#listbtn').addEventListener('click', () => setDrawer(!DRAWER.open));
+$('#d-close').addEventListener('click', () => setDrawer(false));
+addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('input, textarea, select') || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key.toLowerCase() === 'l') { setDrawer(!DRAWER.open); e.preventDefault(); }
+  else if (e.key === 'Escape' && DRAWER.open && !pop) setDrawer(false);
+}, true);   // before the pop-out's Esc, so one Esc closes only that / 튀어나오기의 Esc 보다 먼저: Esc 한 번에 그것만 닫히게
+applySide(); setDrawer(DRAWER.open);
+
 applyLang(); readTokens();
 addEventListener('resize', resize);
+new ResizeObserver(resize).observe($('#floor'));
 poll();
 requestAnimationFrame(frame);
 </script>

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Bee office: the office fills the window (no more 1000px column), with the
+  buttons floating on top. The session list is a drawer (☰ button or `L`,
+  `Esc` closes) grouped by Mac with waiting sessions first; hovering a row rings
+  that bee, and the office moves aside while it is open. Right or left side in
+  the settings
+
 ## 0.1.34 — 2026-10-21
 
 - After a reboot each Claude resumes in the folder it was started in again: a
