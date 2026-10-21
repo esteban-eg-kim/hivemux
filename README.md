@@ -49,6 +49,10 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
 - **Survives everything.** tmux keeps sessions alive when the terminal closes;
   tmux-resurrect restores layouts after a reboot and hivemux runs
   `claude --resume <id>` in the right pane.
+- **Claude Code updates.** Right-click → Update Claude (or `hivemux update-claude`)
+  updates Claude Code (with brew if it came from Homebrew), then restarts each
+  pane's Claude on the new version in the same conversation. One that is working,
+  waiting for you, or on a screen restarts later, once it is done and off screen.
 - **Projects.** `hm ~/code/api` opens one tmux session per folder with a named
   Claude window and a shell window.
 - **Open paths Claude mentions.** `Option+O` lists file paths from the pane's
@@ -108,7 +112,8 @@ curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install
 `hivemux setup` again is safe: it replaces its own blocks and hooks (a new version
 may add hooks), reloads the running tmux and restarts the sidebars, so you keep
 working in the same sessions. Claude sessions started before the update pick up
-new hooks once restarted. `hivemux version` shows the installed version; see
+new hooks once restarted. Claude Code itself: right-click → Update Claude
+(`hivemux update-claude`). `hivemux version` shows the installed version; see
 [CHANGELOG.md](CHANGELOG.md) for what changed.
 
 ## Quick start
@@ -127,7 +132,7 @@ new hooks once restarted. `hivemux version` shows the installed version; see
 | `Option+1` … `9` | jump to that Claude (any session) |
 | `Option+0` / `prefix Space` | oldest waiting Claude, else oldest unseen finished one |
 | click card / project name | jump · double click a card: rename. A project whose Claude windows are all closed stays listed ("no Claude") until you close it |
-| right click | menu. On a task: go to, rename, move up/down, new Claude, new project. On a project name: rename, close project, new Claude, new project. On empty space: new project. Every menu ends with Open path…, Ports…, Connect to… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes |
+| right click | menu. On a task: go to, rename, move up/down, new Claude, new project. On a project name: rename, close project, new Claude, new project. On empty space: new project. Every menu ends with Open path…, Ports…, Bee office, Update Claude…, Connect to… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes |
 | menu → New project | folder browser in the middle: `Enter` starts the selected folder (like `hm`), `→` / `←` in and out, type to filter, `Ctrl+N` new folder |
 | menu → Settings | language (한국어 / English), animation, notifications, sidebar width, editor for Open path, this Mac's name (shown in the bee office and on remote screens); applied at once and saved |
 | drag card / project header | reorder tasks / projects |

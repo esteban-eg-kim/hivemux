@@ -1,0 +1,150 @@
+#!/bin/bash
+# Update Claude Code, then restart the Claude in each pane on the new version, back in the same conversation.
+# Claude Code 를 업데이트하고, 칸마다 Claude 를 새 버전으로 다시 시작한다 (같은 대화로).
+#   hivemux-claude-update              update and restart (hivemux update-claude)
+#   hivemux-claude-update --popup <client>   the same in a popup (sidebar menu → Update Claude)
+#   hivemux-claude-update watch        (in the background) restart the marked panes as they become free
+# A running Claude keeps its old version until it starts again, so after the update every pane whose Claude
+# still runs an older binary is marked (@claude_restart_pending) and restarted when it is free: idle or done,
+# and its window on no screen (you might be typing there). It is stopped (SIGTERM) and the pane's shell gets
+# `claude --resume <id>`, as after a reboot (bin/hivemux-panes). A finished task stays finished and unseen
+# (@claude_restore, read by the SessionStart hook in bin/hivemux-hook). A Claude working or waiting for you
+# is left alone until it is done. Homebrew installs update with brew, the others with `claude update`.
+# 실행 중인 Claude 는 다시 시작하기 전까지 예전 버전이다. 그래서 업데이트한 뒤 예전 실행 파일로 도는 칸을
+# 표시하고(@claude_restart_pending) 한가해지면 다시 시작한다: 쉬거나 끝났고, 그 창이 어느 화면에도 없을 때
+# (거기서 입력 중일 수 있다). 멈추고(SIGTERM) 칸의 셸에 `claude --resume <id>` 를 보낸다. 재부팅 뒤와 같다
+# (bin/hivemux-panes). 끝난 작업은 끝났고 안 본 채로 남는다 (@claude_restore, bin/hivemux-hook 의
+# SessionStart 가 읽는다). 일하거나 나를 기다리는 Claude 는 끝날 때까지 둔다.
+# Homebrew 로 설치했으면 brew 로, 아니면 `claude update` 로 업데이트한다.
+export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin"
+TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
+t() { "$TMUX_BIN" "$@" 2>/dev/null; }
+STATE_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux"
+LOG="$STATE_DIR/claude-update.log"
+mkdir -p "$STATE_DIR"
+log() { printf '%s %s\n' "$(date '+%F %T')" "$*" >> "$LOG"; }
+SHELLS='^-?(zsh|bash|fish|sh|dash|tcsh|ksh|login)$'
+
+claude_cmd="${HIVEMUX_CLAUDE:-$(t show-environment -g HIVEMUX_CLAUDE | sed -n 's/^HIVEMUX_CLAUDE=//p')}"
+claude_cmd="${claude_cmd:-claude}"
+real() { local p; p="$(command -v "$1")" && { readlink -f "$p" 2>/dev/null || echo "$p"; }; }
+version() { "$1" --version 2>/dev/null | awk '{print $1; exit}'; }
+
+# The Claude process in a pane: a child of the pane's shell / 칸의 Claude 프로세스: 칸 셸의 자식
+claude_pid() {
+  ps -ax -o pid=,ppid=,comm= | awk -v p="$1" '$2 == p && $3 ~ /(^|\/)(claude|node)$/ { print $1; exit }'
+}
+# The binary a process runs / 프로세스가 실행 중인 파일
+exe() { lsof -a -p "$1" -d txt -Fn 2>/dev/null | sed -n 's/^n//p' | head -1; }
+
+# Still on an old version: its binary is not the one `claude` is now (a node install can't tell: only after an update)
+# 아직 예전 버전: 실행 파일이 지금의 `claude` 가 아니다 (node 설치는 알 수 없어 업데이트했을 때만)
+outdated() { # outdated <pid> <current binary> <updated 0|1>
+  local e; e="$(exe "$1")"
+  case "${e##*/}" in
+    node) [ "$3" = 1 ] ;;
+    "") return 1 ;;
+    *) [ "$(readlink -f "$e" 2>/dev/null || echo "$e")" != "$2" ] ;;
+  esac
+}
+
+# Restart one marked pane if it is free now; 0 = done with it (restarted or nothing to do), 1 = later
+# 표시한 칸 하나를 지금 한가하면 다시 시작한다. 0 = 끝 (다시 시작했거나 할 일 없음), 1 = 나중에
+restart() {
+  local pane="$1" pp pid st at sid cwd cmd i
+  pp="$(t display -p -t "$pane" '#{pane_pid}')" || return 0
+  [ -n "$pp" ] || return 0
+  pid="$(claude_pid "$pp")"
+  sid="$(t show -pqv -t "$pane" @claude_session)"; cwd="$(t show -pqv -t "$pane" @claude_cwd)"
+  if [ -z "$pid" ] || [ -z "$sid" ]; then t set -pu -t "$pane" @claude_restart_pending; return 0; fi
+  st="$(t show -pqv -t "$pane" @claude_state)"; at="$(t show -pqv -t "$pane" @claude_state_at)"
+  case "$st" in run|wait) return 1 ;; esac
+  t list-clients -F '#{window_id}' | grep -qxF "$(t display -p -t "$pane" '#{window_id}')" && return 1
+  [ "$st" = done ] && t set -p -t "$pane" @claude_restore "$st $at"
+  kill -TERM "$pid" 2>/dev/null
+  for i in $(seq 50); do
+    cmd="$(t display -p -t "$pane" '#{pane_current_command}')"
+    [[ "$cmd" =~ $SHELLS ]] && break
+    sleep 0.2
+  done
+  if ! [[ "$cmd" =~ $SHELLS ]]; then
+    log "skip $pane: Claude did not stop ($cmd)"; t set -pu -t "$pane" @claude_restore; return 1
+  fi
+  t set -pu -t "$pane" @claude_restart_pending
+  [ -d "$cwd" ] || cwd=""
+  if [ -n "$cwd" ]; then t send-keys -t "$pane" "cd $(printf '%q' "$cwd") && $claude_cmd --resume $sid" Enter
+  else t send-keys -t "$pane" "$claude_cmd --resume $sid" Enter; fi
+  log "restart $pane -> $sid ($st)"
+  return 0
+}
+
+pending() { t list-panes -a -F '#{pane_id} #{@claude_restart_pending}' | awk '$2 != "" { print $1 }'; }
+
+# Go over the marked panes; prints how many are left / 표시한 칸을 한 번 훑고 남은 수를 출력
+pass() {
+  local p left=0
+  for p in $(pending); do restart "$p" || left=$((left + 1)); done
+  echo "$left"
+}
+
+watch() {
+  local lock="/tmp/hivemux-claude-update-$(id -u)-$(t display -p '#{pid}')" i
+  mkdir "$lock" 2>/dev/null || { kill -0 "$(cat "$lock/pid" 2>/dev/null)" 2>/dev/null && exit 0; }
+  echo $$ > "$lock/pid"; trap 'rm -rf "$lock"' EXIT
+  for i in $(seq 14400); do          # 12 hours at most / 최대 12시간
+    [ "$(pass)" = 0 ] && exit 0
+    sleep 3
+  done
+}
+
+main() {
+  local before after bin cur updated=0 p pp pid marked=0 left
+  bin="$(real claude)"
+  if [ -z "$bin" ]; then echo "$(say "claude 를 찾지 못했습니다" "claude not found")"; return 1; fi
+  before="$(version "$bin")"
+  echo "$(say "Claude Code $before — 업데이트 확인 중…" "Claude Code $before — checking for updates…")"
+  case "$bin" in
+    */Caskroom/*/*)
+      local cask="${bin#*/Caskroom/}"; cask="${cask%%/*}"
+      brew upgrade --cask "$cask" 2>&1 | grep -v '^$' ;;
+    */Cellar/*) brew upgrade "$(echo "$bin" | sed 's#.*/Cellar/\([^/]*\)/.*#\1#')" 2>&1 | grep -v '^$' ;;
+    *) claude update 2>&1 | grep -v '^$' ;;
+  esac
+  cur="$(real claude)"; after="$(version "$cur")"
+  [ -n "$after" ] && [ "$after" != "$before" ] && updated=1
+  echo
+  if [ "$updated" = 1 ]; then echo "$(say "✓ $before → $after" "✓ $before → $after")"
+  else echo "$(say "✓ 최신 버전입니다 ($after)" "✓ Up to date ($after)")"; fi
+
+  # mark every Claude still on an old binary / 예전 실행 파일로 도는 Claude 를 모두 표시
+  while read -r p pp; do
+    [ -n "$(t show -pqv -t "$p" @claude_session)" ] || continue
+    pid="$(claude_pid "$pp")"; [ -n "$pid" ] || continue
+    outdated "$pid" "$cur" "$updated" || continue
+    t set -p -t "$p" @claude_restart_pending 1; marked=$((marked + 1))
+  done < <(t list-panes -a -F '#{pane_id} #{pane_pid}')
+  if [ "$marked" = 0 ]; then
+    echo "$(say "다시 시작할 Claude 가 없습니다." "No Claude needs a restart.")"; return 0
+  fi
+  left="$(pass)"
+  echo "$(say "Claude ${marked}개 중 $((marked - left))개를 새 버전으로 다시 시작했습니다 (대화 그대로)." \
+              "Restarted $((marked - left)) of ${marked} Claude(s) on the new version (same conversation).")"
+  if [ "$left" != 0 ]; then
+    echo "$(say "나머지 ${left}개는 일이 끝나고 화면에서 벗어나면 다시 시작합니다." \
+                "The other ${left} restart once done and off screen.")"
+    nohup "$0" watch </dev/null >/dev/null 2>&1 &
+  fi
+}
+
+case "${1:-}" in
+  watch) watch ;;
+  --popup)                          # from the sidebar menu: in a popup on that screen / 사이드바 메뉴: 그 화면의 팝업에서
+    HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
+    "$HM_BIN/hivemux-modal" "${2:-}" -E -w 76 -h 20 -b rounded \
+      -T "#[fg=#e6e9ef,bold] $(say "Claude 업데이트" "Update Claude") " -S "fg=#5aa9ff" -s "bg=#1e2128" \
+      "$(printf '%q ' "$HM_BIN/hivemux-claude-update" --ui)" ;;
+  --ui) main; echo; printf '%s' "$(say "아무 키나 누르면 닫힙니다" "Press any key to close")"; read -rsn1 ;;
+  -h|--help) sed -n '4,6p' "$0" ;;
+  *) main ;;
+esac

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Update Claude: right-click → Update Claude (or `hivemux update-claude`)
+  updates Claude Code (brew for a Homebrew install, else `claude update`) and
+  restarts each pane's Claude still on an old version, resuming the same
+  conversation; a finished, unseen task stays so. One working, waiting for you
+  or on a screen restarts later, once done and off screen
+
 ## 0.1.33 — 2026-10-21
 
 - Remote: a forwarded dev server port no longer shows a notification (they

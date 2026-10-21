@@ -89,7 +89,18 @@ case "$event" in
     [ -n "$sid" ] && t set -p -t "$TMUX_PANE" @claude_session "$sid"
     [ -n "$cwd" ] && t set -p -t "$TMUX_PANE" @claude_cwd "$cwd" && t set -p -t "$TMUX_PANE" @claude_pwd "$cwd"
     title="$(field session_title)"; [ -n "$title" ] && t set -p -t "$TMUX_PANE" @claude_title "$title"
-    state idle
+    # Restarted on a new version (bin/hivemux-claude-update): a finished task stays finished, at the same time (still unseen)
+    # 새 버전으로 다시 시작 (bin/hivemux-claude-update): 끝난 작업은 같은 시각으로 끝난 채 (아직 안 본 채)
+    keep="$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_restore 2>/dev/null)"
+    if [ -n "$keep" ]; then
+      t set -pu -t "$TMUX_PANE" @claude_restore
+      t set -p -t "$TMUX_PANE" @claude_state "${keep%% *}"
+      t set -p -t "$TMUX_PANE" @claude_state_at "${keep#* }"
+      t set -w -t "$TMUX_PANE" @claude_state "${keep%% *}"
+      wake
+    else
+      state idle
+    fi
     ;;
   UserPromptSubmit|PermissionDenied)
     mode_

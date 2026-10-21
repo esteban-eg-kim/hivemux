@@ -530,7 +530,7 @@ claude -c
       <div class="key"><span class="combo">사이드바 카드 클릭</span><span class="d">그 Claude로 이동</span></div>
       <div class="key"><span class="combo">프로젝트 이름 클릭</span><span class="d">그 프로젝트로 이동. Claude 창을 모두 닫은 프로젝트도 "Claude 없음"으로 남고, 오른쪽 클릭 → 프로젝트 닫기로 정리합니다</span></div>
       <div class="key"><span class="combo">카드 더블클릭</span><span class="d">작업 이름 바꾸기</span></div>
-      <div class="key"><span class="combo">오른쪽 클릭</span><span class="d">메뉴. 작업 카드: 이동, 이름 바꾸기, 위로 / 아래로 옮기기, 이 프로젝트에 새 Claude, 새 프로젝트. 프로젝트 이름 줄: 이름 바꾸기, 프로젝트 닫기, 새 Claude, 새 프로젝트. 빈 곳: 새 프로젝트. 모든 메뉴 맨 아래에 경로 열기, 포트 목록, 원격 연결, 설정. 마우스를 올리면 강조되고 클릭하면 실행. <kbd>↑</kbd> <kbd>↓</kbd>와 <kbd>Enter</kbd>, 괄호 안 글자로도 고름. <kbd>Esc</kbd>나 바깥 클릭으로 닫힘</span></div>
+      <div class="key"><span class="combo">오른쪽 클릭</span><span class="d">메뉴. 작업 카드: 이동, 이름 바꾸기, 위로 / 아래로 옮기기, 이 프로젝트에 새 Claude, 새 프로젝트. 프로젝트 이름 줄: 이름 바꾸기, 프로젝트 닫기, 새 Claude, 새 프로젝트. 빈 곳: 새 프로젝트. 모든 메뉴 맨 아래에 경로 열기, 포트 목록, 벌 사무실, Claude 업데이트, 원격 연결, 설정. 마우스를 올리면 강조되고 클릭하면 실행. <kbd>↑</kbd> <kbd>↓</kbd>와 <kbd>Enter</kbd>, 괄호 안 글자로도 고름. <kbd>Esc</kbd>나 바깥 클릭으로 닫힘</span></div>
       <div class="key"><span class="combo">메뉴 → 새 프로젝트</span><span class="d">가운데 폴더 탐색 창이 열림. <kbd>Enter</kbd>는 고른 폴더에서 <code>hm</code>처럼 시작, <kbd>→</kbd> / <kbd>←</kbd>는 폴더 안 / 상위로, 글자를 치면 걸러 보기 (<code>.</code>으로 시작하면 숨김 폴더도), <kbd>Ctrl</kbd>+<kbd>N</kbd>은 새 폴더</span></div>
       <div class="key"><span class="combo">메뉴 → 설정</span><span class="d">언어 (한국어 / English), 애니메이션 켜기 / 끄기, 알림 켜기 / 끄기, 사이드바 폭, 경로 열기에 쓸 편집기, 이 Mac 이름(Enter로 고침. 벌 사무실과 <code>hivemux connect</code>로 붙은 상대 Mac에 이 이름이 보이고, 비우면 Mac 원래 이름). 바꾸면 바로 적용되고 <code>~/.local/share/hivemux</code>에 저장되어 재시작 뒤에도 유지됨. 언어를 바꾸면 사이드바를 다시 띄움</span></div>
       <div class="key"><span class="combo">카드 / 프로젝트 이름 줄 끌기</span><span class="d">작업 순서 / 프로젝트 순서 바꾸기. 놓을 자리가 파랗게 표시되고, <kbd>⌥</kbd>+숫자 번호와 맨 위 창 목록도 같은 순서를 따름. 작업은 같은 프로젝트 안에서만 옮겨짐</span></div>
@@ -813,12 +813,15 @@ curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install
 brew install esteban-eg-kim/tap/hivemux &amp;&amp; hivemux setup
 <span class="cmt"># 업데이트 (git 설치는 위 설치 명령을 다시 실행)</span>
 brew update &amp;&amp; brew upgrade hivemux &amp;&amp; hivemux setup
+<span class="cmt"># Claude Code 업데이트 (칸마다 Claude 를 새 버전으로 다시 시작)</span>
+hivemux update-claude
 <span class="cmt"># 버전 / 점검 / 제거</span>
 hivemux version
 hivemux doctor
 hivemux uninstall</pre></div>
   <p><code>hivemux setup</code>은 기존 설정 파일을 바꾸지 않고, <code># &gt;&gt;&gt; hivemux &gt;&gt;&gt;</code> 표시 사이에 블록만 추가합니다. <code>hivemux uninstall</code>은 그 블록과 hivemux 훅만 지웁니다. 다시 실행해도 안전합니다.</p>
   <p>업데이트할 때 <code>hivemux setup</code>을 다시 실행하면, 새 버전에서 늘어난 훅을 등록하고 실행 중인 tmux 설정을 다시 읽은 뒤 사이드바를 다시 띄웁니다. 쓰던 세션은 그대로입니다. 업데이트 전에 시작한 Claude는 다시 시작해야 새 훅을 씁니다.</p>
+  <p><b>Claude Code 업데이트</b>: 실행 중인 Claude는 다시 시작하기 전까지 예전 버전으로 돕니다. 오른쪽 클릭 메뉴 → <b>Claude 업데이트</b>(또는 <code>hivemux update-claude</code>)는 Claude Code를 업데이트하고(Homebrew로 설치했으면 brew로, 아니면 <code>claude update</code>), 예전 버전으로 도는 칸의 Claude를 새 버전으로 다시 시작합니다. 재부팅 뒤처럼 <code>claude --resume</code>으로 열어 대화는 그대로이고, 끝났는데 아직 안 본 작업은 그 상태로 남습니다. 일하는 중이거나 나를 기다리는 Claude, 지금 화면에 보이는 창의 Claude(입력 중일 수 있음)는 건드리지 않고, 일이 끝나고 화면에서 벗어나면 다시 시작합니다. 이미 최신이어도 예전 버전으로 도는 Claude가 있으면 다시 시작합니다.</p>
   <div class="files">
     <div><code>~/.tmux.conf</code><span>hivemux 블록이 <code>share/hivemux.tmux</code>와 선택한 권장 키 <code>share/keys.tmux</code>를 불러옵니다</span></div>
     <div><code>~/.config/ghostty/config</code><span>hivemux 블록이 모든 Ghostty 창을 <code>hivemux-attach</code>로 tmux에 붙입니다</span></div>
@@ -832,6 +835,7 @@ hivemux uninstall</pre></div>
     <div><code>hivemux-ports</code>, <code>hivemux-ports-ui</code><span>원격 연결 중 상대 Mac의 개발 서버 포트를 이 Mac으로 잇기와 포트 목록 팝업</span></div>
     <div><code>hivemux-office</code><span>벌 사무실 창과 그 창이 읽는 로컬 웹 서버 (share/office)</span></div>
     <div><code>hivemux-paste</code><span>원격 화면의 Claude 칸에서 Ctrl+V: 접속한 Mac 클립보드의 이미지 붙이기</span></div>
+    <div><code>hivemux-claude-update</code><span><code>hivemux update-claude</code>: Claude Code 업데이트 후 칸마다 새 버전으로 다시 시작 (기록: <code>claude-update.log</code>)</span></div>
     <div><code>hivemux-show</code><span><code>hivemux open</code>: 보고 있는 Mac의 기본 앱으로 파일 열기 (원격 화면이면 접속한 Mac으로 복사해서)</span></div>
     <div><code>hivemux-close-project</code>, <code>hivemux-close-project-ui</code><span>프로젝트 닫기 (화면 가운데 팝업으로 묻고 그 세션의 창을 모두 닫음)</span></div>
     <div><code>hivemux-hook</code><span>Claude 훅. 세션 ID, 폴더, 상태를 tmux 칸에 기록합니다</span></div>

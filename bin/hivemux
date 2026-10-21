@@ -34,6 +34,8 @@ Usage:
   hivemux office       open the bee office: every Claude session as a bee in a window of its own
   hivemux open <file>  open files with the default app of the Mac you look from (on a hivemux connect
                        screen: copied to that Mac and opened there)
+  hivemux update-claude  update Claude Code, then restart each pane's Claude on it (same conversation;
+                       busy ones once they are done)
   hivemux version
   hm [dir] [name]      open (or jump to) a project: one tmux session per folder
 
@@ -215,6 +217,7 @@ case "${1:-help}" in
   connect) shift; exec "$HM_BIN/hivemux-connect" "$@" ;;
   open) shift; exec "$HM_BIN/hivemux-show" "$@" ;;
   office) shift; exec "$HM_BIN/hivemux-office" "$@" ;;
+  update-claude) shift; exec "$HM_BIN/hivemux-claude-update" "$@" ;;
   version|-v|--version) echo "hivemux $VERSION" ;;
   help|-h|--help) usage ;;
   *) usage; exit 2 ;;
