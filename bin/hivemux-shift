@@ -4,15 +4,16 @@
 # 퇴근과 출근: 밤에는 모든 Claude 를 끄고 아침에 같은 대화로 모두 다시 띄운다. 벌 사무실에서는 벌들이
 # 집에 가고 출근하는 모습이 보인다.
 #   hivemux-shift off | on            clock out / in
-#   hivemux-shift status              "on" or "off <since>"
+#   hivemux-shift status              "on <since>" or "off <since>"
 #   hivemux-shift --popup <off|on> <client>   ask first, in a popup (sidebar menu) / 먼저 묻는다, 팝업에서 (사이드바 메뉴)
 #   hivemux-shift watch               (in the background) stop the marked Claudes as they become free
-# Off: every running Claude is written to offwork.tsv ("<pane> <target> <session id> <cwd> <bee>") and marked
+# Off: every running Claude is written to offwork.tsv ("<pane> <target> <session id> <cwd> <tmux pid> <bee>",
+# "-" for an empty field) and marked
 # (@claude_offwork); one resting or done is stopped (SIGTERM) right away, one working or waiting for you stays
 # for overtime and is stopped once it is done. Its pane keeps the shell and the session id. On: each pane
 # still at a shell gets `claude --resume <id>` (as after a reboot, bin/hivemux-panes); one still on overtime is
 # just let off. While off, a reboot does not resume them (bin/hivemux-panes reads the shift file).
-# 퇴근: 실행 중인 Claude 를 모두 offwork.tsv 에 적고 표시한다 (@claude_offwork). 쉬거나 끝난 Claude 는 바로
+# 퇴근: 실행 중인 Claude 를 모두 offwork.tsv 에 적고 (빈 칸은 "-") 표시한다 (@claude_offwork). 쉬거나 끝난 Claude 는 바로
 # 끄고 (SIGTERM), 일하거나 기다리는 Claude 는 야근하다 끝나면 끈다. 칸에는 셸과 세션 id 가 남는다. 출근: 셸만
 # 남은 칸마다 `claude --resume <id>` (재부팅 뒤와 같다, bin/hivemux-panes). 아직 야근 중이면 표시만 푼다.
 # 퇴근 중에는 재부팅해도 다시 띄우지 않는다 (bin/hivemux-panes 가 shift 파일을 본다).
@@ -42,6 +43,8 @@ wake() { t list-clients -F '#{client_name}' | while read -r c; do t refresh-clie
 # Stop one marked Claude if it is free; 0 = done with it / 표시한 Claude 하나를 한가하면 끈다. 0 = 끝
 stop() {
   local pane="$1" pp pid st cmd i
+  # clocked in meanwhile: leave it be / 그사이 출근했으면 그대로 둔다
+  [ "$(state)" = off ] && [ -n "$(t show -pqv -t "$pane" @claude_offwork)" ] || return 0
   pp="$(t display -p -t "$pane" '#{pane_pid}')" || return 0
   pid="$(claude_pid "$pp")"
   [ -n "$pid" ] || { t set -pu -t "$pane" @claude_offwork; return 0; }
@@ -62,7 +65,8 @@ stop() {
 watch() {
   trap '' INT HUP
   local lock="/tmp/hivemux-shift-$(id -u)-$(t display -p '#{pid}')" i p left
-  mkdir "$lock" 2>/dev/null || { kill -0 "$(cat "$lock/pid" 2>/dev/null)" 2>/dev/null && exit 0; }
+  # held by a live watcher, or one just starting (no pid yet) / 살아 있는 watch, 또는 막 시작한 watch (pid 아직 없음)
+  mkdir "$lock" 2>/dev/null || { i="$(cat "$lock/pid" 2>/dev/null)"; [ -z "$i" ] || kill -0 "$i" 2>/dev/null && exit 0; }
   echo $$ > "$lock/pid"; trap 'rm -rf "$lock"' EXIT
   for i in $(seq 43200); do          # 36 hours at most / 최대 36시간
     [ "$(state)" = on ] && exit 0
@@ -76,12 +80,14 @@ watch() {
 }
 
 off() {
-  local p pp n=0 busy=0 now; now="$(date +%s)"
+  local p pp n=0 busy=0 now server; now="$(date +%s)"; server="$(t display -p '#{pid}')"
   [ "$(state)" = on ] || { echo "$(say "이미 퇴근했습니다." "Already clocked out.")"; return 0; }
   : > "$LIST.tmp"
   while read -r p pp; do
-    printf '%s\t%s\t%s\t%s\t%s\n' "$p" "$(t display -p -t "$p" '#{session_name}:#{window_index}.#{pane_index}')" \
-      "$(t show -pqv -t "$p" @claude_session)" "$(t show -pqv -t "$p" @claude_cwd)" "$("$HM_BIN/hivemux-bees" id "$p")" >> "$LIST.tmp"
+    # read splits on runs of tabs, so an empty field is "-" / read 는 이어진 탭을 하나로 보므로 빈 칸은 "-"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$p" "$(t display -p -t "$p" '#{session_name}:#{window_index}.#{pane_index}')" \
+      "$(t show -pqv -t "$p" @claude_session)" "$(t show -pqv -t "$p" @claude_cwd)" "$server" "$("$HM_BIN/hivemux-bees" id "$p")" \
+      | awk 'BEGIN { FS = OFS = "\t" } { for (i = 1; i <= NF; i++) if ($i == "") $i = "-"; print }' >> "$LIST.tmp"
     t set -p -t "$p" @claude_offwork 1; n=$((n + 1))
     case "$(t show -pqv -t "$p" @claude_state)" in run|wait) busy=$((busy + 1)) ;; esac
   done < <(running)
@@ -95,18 +101,26 @@ off() {
 }
 
 on() {
-  local pane target sid cwd bee cmd n=0 now; now="$(date +%s)"
+  local pane target sid cwd server bee cmd used=" " i n=0 now; now="$(date +%s)"
   [ "$(state)" = on ] && { echo "$(say "이미 출근해 있습니다." "Already at work.")"; return 0; }
   echo "on $now" > "$SHIFT"; t set -g @hivemux-shift on
   if [ -f "$LIST" ]; then
-    while IFS=$'\t' read -r pane target sid cwd bee; do
-      [ -n "$sid" ] || continue
-      # the pane by its id, else (after a reboot) by its place / 칸 id 로, 없으면 (재부팅 뒤) 자리로
-      t display -p -t "$pane" '#{pane_id}' >/dev/null || pane="$target"
-      cmd="$(t display -p -t "$pane" '#{pane_current_command}')" || { log "skip $target: pane gone"; continue; }
+    while IFS=$'\t' read -r pane target sid cwd server bee; do
+      [ -n "$sid" ] && [ "$sid" != - ] || continue
+      # the pane by its id while the same tmux runs; after a reboot ids start over, so by its place
+      # 같은 tmux 가 도는 동안은 칸 id 로. 재부팅 뒤에는 id 가 처음부터 다시 매겨지므로 자리로
+      [ "$server" = "$(t display -p '#{pid}')" ] && t display -p -t "$pane" '#{pane_id}' >/dev/null || pane="$target"
+      pane="$(t display -p -t "$pane" '#{pane_id}')" || { log "skip $target: pane gone"; continue; }
+      [[ "$used" == *" $pane "* ]] && { log "skip $target: $pane taken"; continue; }
+      used="$used$pane "
       t set -pu -t "$pane" @claude_offwork
+      # one stopped a moment ago may still be on its way out / 방금 끈 Claude 는 아직 나가는 중일 수 있다
+      case "$(t show -pqv -t "$pane" @claude_state)" in run|wait) i=0 ;; *) i=15 ;; esac
+      while cmd="$(t display -p -t "$pane" '#{pane_current_command}')"; ! [[ "$cmd" =~ $SHELLS ]] && [ "$i" -gt 0 ]; do
+        sleep 0.2; i=$((i - 1))
+      done
       [[ "$cmd" =~ $SHELLS ]] || continue           # still on overtime / 아직 야근 중
-      [ -d "$cwd" ] || cwd=""
+      [ "$cwd" != - ] && [ -d "$cwd" ] || cwd=""
       if [ -n "$cwd" ]; then t send-keys -t "$pane" "cd $(printf '%q' "$cwd") && $claude_cmd --resume $sid" Enter
       else t send-keys -t "$pane" "$claude_cmd --resume $sid" Enter; fi
       n=$((n + 1)); log "back $pane -> $sid ($bee)"
