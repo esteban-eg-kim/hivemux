@@ -655,7 +655,7 @@ hivemux connect me@work-mac.local</pre></div>
   <h3>Open dev servers started there</h3>
   <p>While connected, dev servers started inside the other Mac's tmux (<code>npm run dev</code>, <code>rails s</code> and the like, by Claude or a shell) are forwarded to the same port on this Mac's <code>localhost</code>. A server on 5173 there opens here at <code>http://localhost:5173</code>. The address stays <code>localhost</code>, so sign-in callbacks and cookies need no changes.</p>
   <ul>
-    <li>A notification shows each new port. A port already taken here goes to the next free one, named in the notification.</li>
+    <li>A port already taken here goes to the next free one; the Ports list shows where each went (no notification).</li>
     <li>A stopped server is let go, and closing the remote window lets all go. Works over mosh too (ports go over a separate ssh).</li>
     <li><b>Ports</b>: <kbd>Option</kbd>+<kbd>W</kbd> or right-click menu → <b>Ports</b>, on the remote screen or in front of that Mac. <kbd>Enter</kbd> opens one in the browser of the Mac you connect from (takes a few seconds); <kbd>Ctrl</kbd>+<kbd>Y</kbd> copies the address to the clipboard of the Mac this screen is on.</li>
     <li>From a terminal: <code>hivemux connect --ports</code>. Turn it off: <code>HIVEMUX_PORTS=0 hivemux connect &lt;host&gt;</code>.</li>

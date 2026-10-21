@@ -11,11 +11,11 @@ Every few seconds it asks the other Mac which TCP ports are listened on by proce
 inside its tmux (a dev server Claude or a shell started: npm run dev, rails s ...), and forwards
 each to the same port on this Mac's localhost over its own ssh connection, so
 http://localhost:5173 here opens the server there. A port taken here goes to the next free one.
-Each new port shows a notification (OSC 777 on <tty>, the connection's terminal).
+No notification: Option+W lists them (<tty> is accepted and unused).
 몇 초마다 상대 Mac 의 tmux 안에서 시작된 프로세스(Claude 나 셸이 띄운 개발 서버: npm run dev,
 rails s ...)가 듣는 TCP 포트를 묻고, 따로 연 ssh 연결로 이 Mac 의 localhost 같은 포트에 잇는다.
 그래서 여기서 http://localhost:5173 을 열면 거기 서버가 열린다. 여기서 이미 쓰는 포트면 다음 빈
-포트로 잇는다. 새 포트마다 알림을 띄운다 (<tty>, 연결 터미널에 OSC 777).
+포트로 잇는다. 알림은 없다: Option+W 로 목록을 본다 (<tty> 는 받기만 하고 안 쓴다).
 State: $XDG_DATA_HOME/hivemux/ports/<host> ("<local> <remote> <command>" per line).
 상태: $XDG_DATA_HOME/hivemux/ports/<host> (한 줄에 "<여기 포트> <거기 포트> <명령>").
 The other Mac's tmux gets the same list as @hivemux-ports-<this Mac>, so its port list popup
@@ -354,13 +354,6 @@ class Ports:
         if r and r.returncode == 0:
             self.shared = val
 
-    def notify(self, title, body):
-        try:
-            with open(self.tty, "w") as t:
-                t.write("\x1b]777;notify;%s;%s\x07" % (title.replace(";", ","), body.replace(";", ",")))
-        except OSError:
-            pass
-
     def save(self):
         os.makedirs(DATA, exist_ok=True)
         if self.fw:
@@ -391,9 +384,6 @@ class Ports:
             if not r or r.returncode != 0:
                 continue
             self.fw[rp] = (lp, cmd)
-            where = f"localhost:{lp}" + ("" if lp == rp else tr(f" (거기 {rp})", f" (there {rp})"))
-            self.notify(tr(f"{self.host} 포트 연결", f"Port from {self.host}"),
-                        f"{cmd} · {where}")
         self.save()
         self.share()
         for rp in asked:                 # Enter in the other Mac's popup / 상대 Mac 팝업에서 Enter

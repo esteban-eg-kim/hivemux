@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Remote: a forwarded dev server port no longer shows a notification (they
+  came often, e.g. on every dev server restart); `Option+W` lists the ports
+
 ## 0.1.32 — 2026-10-21
 
 - Bee office: the name plaques keep their day colors at night (so they match

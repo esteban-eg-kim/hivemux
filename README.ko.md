@@ -128,7 +128,7 @@ hivemux connect me@work-mac.local          # 또는 오른쪽 클릭 → 원격 
 - 원격 창은 상태줄 오른쪽 시계 앞에 `⇄ Mac 이름`이 표시됩니다.
 - 연결이 끊기면 화면 가운데 상자에 다음 연결까지 남은 시간이 나오고 저절로 다시 연결합니다(`Enter` 지금 연결, `Ctrl+C` 그만). `prefix d`로 떼면 창이 닫힙니다.
 - 원격 작업의 알림도 이 Mac에 뜹니다.
-- 연결해 있는 동안 상대 Mac에서 띄운 개발 서버(원격 칸의 `npm run dev` 등)는 이 Mac의 `localhost` 같은 포트로 이어지고, 새 포트마다 알림이 뜹니다. 이 Mac에서 이미 쓰는 포트면 다음 빈 포트로 잇습니다. `Option+W`(또는 메뉴 → 포트 목록)로 어느 Mac 에서든 목록을 보고, Enter를 누르면 접속한 Mac의 브라우저로 열립니다. `HIVEMUX_PORTS=0`이면 끕니다.
+- 연결해 있는 동안 상대 Mac에서 띄운 개발 서버(원격 칸의 `npm run dev` 등)는 이 Mac의 `localhost` 같은 포트로 이어집니다. 이 Mac에서 이미 쓰는 포트면 다음 빈 포트로 잇습니다. `Option+W`(또는 메뉴 → 포트 목록)로 어느 Mac 에서든 목록을 보고, Enter를 누르면 접속한 Mac의 브라우저로 열립니다. `HIVEMUX_PORTS=0`이면 끕니다.
 - 원격 Claude 칸에서 `Ctrl+V`를 누르면 이 Mac 클립보드의 이미지(여기서 찍은 스크린샷 등)가 건너가 `[Image #1]`로 붙습니다. 두 Mac 모두 hivemux 0.1.26 이상이어야 합니다.
 - 원격 칸에서 `hivemux open <파일>`(또는 `Option+O` 팝업의 Tab)을 실행하면 파일을 이 Mac으로 복사해 기본 앱으로 엽니다. 그래서 Claude가 거기서 만든 스크린샷이 여기 뜹니다. 거기서 🐝를 누르면 벌 사무실도 여기서 열립니다. 두 Mac 모두 hivemux 0.1.29 이상이어야 합니다.
 - `--mosh`로 등록하거나 메뉴 → 원격 연결… 목록에서 `m`을 누르면 잠자기와 네트워크 변경을 스스로 견딥니다. 대신 알림이 mosh를 지나가지 못하며, 목록에는 "mosh · 알림 없음"으로 표시됩니다. 두 Mac 모두 `brew install mosh`가 필요합니다. "Nothing received from server on UDP port"에서 멈추면 상대 Mac의 방화벽에서 `mosh-server`의 수신 연결을 허용하세요.

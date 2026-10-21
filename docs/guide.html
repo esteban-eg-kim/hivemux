@@ -664,7 +664,7 @@ hivemux connect me@work-mac.local</pre></div>
   <h3>원격에서 띄운 개발 서버 열기</h3>
   <p>원격으로 붙어 있는 동안, 상대 Mac의 tmux 안에서 시작된 개발 서버(Claude나 셸이 띄운 <code>npm run dev</code>, <code>rails s</code> 등)는 저절로 이 Mac의 <code>localhost</code> 같은 포트로 이어집니다. 상대 Mac에서 5173으로 뜬 서버는 이 Mac 브라우저에서 <code>http://localhost:5173</code>으로 열립니다. 주소가 <code>localhost</code> 그대로라 로그인 콜백이나 쿠키 설정을 바꿀 필요가 없습니다.</p>
   <ul>
-    <li>새 포트가 이어지면 알림이 뜹니다. 이 Mac에서 이미 쓰는 포트면 다음 빈 포트로 잇고 알림에 적습니다.</li>
+    <li>이 Mac에서 이미 쓰는 포트면 다음 빈 포트로 잇습니다. 어느 포트로 이어졌는지는 포트 목록에서 봅니다(알림은 띄우지 않습니다).</li>
     <li>서버가 꺼지면 연결도 풀리고, 원격 창을 닫으면 모두 풀립니다. mosh로 붙어도 됩니다 (포트는 ssh로 따로 잇습니다).</li>
     <li><b>포트 목록</b>: <kbd>Option</kbd>+<kbd>W</kbd>나 오른쪽 클릭 메뉴 → <b>포트 목록</b>. 원격 화면에서도, 그 Mac 앞에서도 이어진 포트가 보입니다. <kbd>Enter</kbd>를 누르면 접속한 Mac의 브라우저로 열리고(몇 초 걸림), <kbd>Ctrl</kbd>+<kbd>Y</kbd>는 주소를 지금 화면이 있는 Mac의 클립보드로 복사합니다.</li>
     <li>터미널에서 보기: <code>hivemux connect --ports</code>. 끄려면 <code>HIVEMUX_PORTS=0 hivemux connect &lt;host&gt;</code>.</li>
