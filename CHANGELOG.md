@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Clock out and in: the office's 🌙 button or right-click → Clock out stops
+  every Claude for the night (busy ones work overtime and go once done); the
+  bees clap and walk home to their own houses in a new village past the yard.
+  Clock in brings every one back in the same conversation as the bees walk to
+  work. A reboot while clocked out leaves them home
+- Bees are hired, leave (closing the project) and come back (rehired) by
+  project and name, with a house each; a honey ledger ranks them today, this
+  week and this month (list drawer → Honey, and a bee of the month on the
+  wall); a full comb goes into a jar on a shelf
 - Bee office: the office fills the window (no more 1000px column), with the
   buttons floating on top. The session list is a drawer (☰ button or `L`,
   `Esc` closes) grouped by Mac with waiting sessions first; hovering a row rings

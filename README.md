@@ -42,6 +42,14 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
   `hivemux connect` get desks of their own: each Mac's desks sit on a carpet of its
   color, with its name on a plaque on the wall. On a remote screen the 🐝 button
   opens the window on the Mac you connect from.
+- **Clock out, clock in.** The 🌙 button in the office (or right-click → Clock
+  out) stops every Claude for the night: the bees clap, then walk home to their
+  own houses in a village past the yard. Busy ones work overtime and go once done.
+  Clock in and every Claude comes back in the same conversation as the bees walk
+  to work; a reboot while clocked out leaves them home. Closing a project is its
+  bees leaving the company; opening it again rehires them. The list drawer's
+  Honey tab ranks bees by honey today, this week and this month, a bee of the
+  month hangs on the wall, and a full comb (48 cells) goes into a jar on a shelf.
 - **Task names.** Shows Claude's own conversation title. Double-click a card
   (or right-click → Rename) to rename it; hivemux sends `/rename` to that Claude (waits if it is busy).
 - **Your order.** Drag a card to reorder tasks, or a project header to reorder
