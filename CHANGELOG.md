@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.35 — 2026-10-21
 
 - Bee office: turning the view (right-drag, shift-drag or a two-finger turn)
   pivots on the floor point under the pointer instead of the floor's middle
