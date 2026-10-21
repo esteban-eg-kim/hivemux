@@ -35,7 +35,8 @@ running() {   # "<pane> <pane pid>" of every pane running a Claude / Claude 가 
     [ -n "$sid" ] && [ -n "$(claude_pid "$pp")" ] && echo "$p $pp"
   done
 }
-state() { [ -f "$SHIFT" ] && cat "$SHIFT" || echo on; }
+# "on" or "off" (the file also keeps since when) / "on" 또는 "off" (파일에는 언제부터인지도 있다)
+state() { local s; s="$(cut -d' ' -f1 "$SHIFT" 2>/dev/null)"; echo "${s:-on}"; }
 wake() { t list-clients -F '#{client_name}' | while read -r c; do t refresh-client -t "$c" -S; done; }
 
 # Stop one marked Claude if it is free; 0 = done with it / 표시한 Claude 하나를 한가하면 끈다. 0 = 끝
@@ -142,7 +143,7 @@ ask() { # ask <off|on>
 
 case "${1:-}" in
   off|on) "$1" ;;
-  status) state ;;
+  status) [ -f "$SHIFT" ] && cat "$SHIFT" || echo on ;;
   watch) watch ;;
   --popup) popup "${2:-off}" "${3:-}" ;;
   --ask) ask "${2:-off}" ;;
