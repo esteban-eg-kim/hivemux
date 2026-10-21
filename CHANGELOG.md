@@ -15,6 +15,12 @@
   rises; walls become lines, the Mac plaques lie over the left wall) instead of
   a separate older plan, so it has the same rooms, carpets, list drawer and
   buttons. It turns a quarter at a time; 3D returns to the angle you had
+- Bee office: the meeting and boss rooms have real doorways (a frame and a
+  door standing open), and bees walk round the rooms' corner instead of
+  through the glass. Things keep their order from every angle (bees on the
+  sofa, chairs and laptops at desks), the honeycomb is regular from any side,
+  and the page draws 60 frames a second only while you handle it (30 while
+  bees walk, 20 when still), about 40% less CPU
 
 ## 0.1.34 — 2026-10-21
 

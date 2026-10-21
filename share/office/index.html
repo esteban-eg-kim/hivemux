@@ -388,13 +388,30 @@ function layout(offices) {
     sig: `${rows}|${pods.map(p => p.oi).join()}`, names: offices.map(o => o.host) };
 }
 function roomOf(x, y) { return y < ROOM_Y && x >= 16 ? (x < 22 ? ROOMS.meet : ROOMS.boss) : null; }
+// each room's door is the gap in its glass front from door + .1 to door + 1; bees walk through its middle
+// 방마다 문은 유리 앞면의 door + .1 ~ door + 1 틈. 벌은 그 가운데로 지나간다
+const doorX = r => r.door + .55;
+// the rooms' block (meeting and boss room) and the corner bees go round to stay off its glass
+// 두 방이 차지하는 구역과, 유리벽에 부딪히지 않게 벌이 돌아가는 모서리
+const BLOCK = { x0: 15.85, y1: ROOM_Y + .15 }, CORNER = { x: 15.6, y: ROOM_Y + .45 };
+const crossesBlock = (p, q) => {
+  for (let i = 1; i < 20; i++) { const x = p.x + (q.x - p.x) * i / 20, y = p.y + (q.y - p.y) * i / 20; if (x > BLOCK.x0 && y < BLOCK.y1) return true; }
+  return false;
+};
 function route(from, to) {
   const a = roomOf(from.x, from.y), b = roomOf(to.x, to.y), pts = [];
   if (a === b) return [to];
-  if (a) pts.push({ x: a.door, y: ROOM_Y - .7 }, { x: a.door, y: ROOM_Y + .7 });
-  if (b) pts.push({ x: b.door, y: ROOM_Y + .7 }, { x: b.door, y: ROOM_Y - .7 });
+  if (a) pts.push({ x: doorX(a), y: ROOM_Y - .7 }, { x: doorX(a), y: ROOM_Y + .7 });
+  if (b) pts.push({ x: doorX(b), y: ROOM_Y + .7 }, { x: doorX(b), y: ROOM_Y - .7 });
   pts.push(to);
-  return pts;
+  // outside the rooms, go round their corner rather than through the glass / 방 밖에서는 유리를 뚫지 않고 모서리를 돈다
+  const out = [];
+  let prev = from;
+  for (const q of pts) {
+    if (!roomOf(prev.x, prev.y) && !roomOf(q.x, q.y) && crossesBlock(prev, q)) out.push({ ...CORNER });
+    out.push(q); prev = q;
+  }
+  return out;
 }
 
 /* ---------- live data ---------- */
@@ -1190,8 +1207,13 @@ function buildScene(t) {
   for (let y = 0; y < ROOM_Y; y++) put(16, y, 16, y + 1, 0, 44, () => glass(16, y, 16, y + 1));
   for (let y = 0; y < ROOM_Y; y++) put(22, y, 22, y + 1, 0, 44, () => glass(22, y, 22, y + 1));
   for (let x = 16; x < 26; x++) {
-    const door = Object.values(ROOMS).find(r => x + .5 > r.door - .5 && x + .5 < r.door + .5);
+    const door = Object.values(ROOMS).find(r => r.door === x);
     put(x, ROOM_Y, door ? x + .1 : x + 1, ROOM_Y, 0, 44, () => glass(x, ROOM_Y, door ? x + .1 : x + 1, ROOM_Y));
+    if (!door) continue;
+    // the doorway: a frame, and a wooden door standing open into the room / 문간: 문틀, 그리고 방 안쪽으로 열린 나무 문
+    put(x + .04, ROOM_Y - .86, x + .1, ROOM_Y, 0, 40, () => box(x + .04, ROOM_Y - .86, .06, .86, 40, T['m-desk-edge']));
+    put(x + .96, ROOM_Y - .04, x + 1.04, ROOM_Y + .04, 0, 44, () => box(x + .96, ROOM_Y - .04, .08, .08, 44, T['m-wall']));
+    put(x + .1, ROOM_Y - .02, x + 1, ROOM_Y + .02, 40, 44, () => box(x + .1, ROOM_Y - .02, .9, .04, 4, T['m-wall'], 40));
   }
   // meeting room / 회의실
   MEET_CHAIRS.forEach(p => add(p.x, p.y, () => cyl(p.x, p.y, .24, 8, T['m-chair']), -.05, .24, 8));
