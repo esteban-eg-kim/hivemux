@@ -870,8 +870,17 @@ function drawComb() {
   honeyLast = honey;
   const cap = COMB.cols * COMB.rows, filled = Math.min(honey, cap), fresh = Math.min(1, (performance.now() - honeyPop) / 900);
   for (let i = 0; i < cap; i++) {
-    const { u, v } = cellAt(i), f = flat(), p = f > .5 ? P(u, .3 + (v - COMB.v0) / COMB.dv * .2) : P(u, 0, v), r = 4.6;
-    c.beginPath(); for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + k * Math.PI / 3; c.lineTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r * .9 + Math.cos(a) * r * .5); } c.closePath();
+    // on the wall the cells lean with it; in the plan they lie flat, a regular comb in the boss room's corner
+    // 벽에서는 벽 따라 기울고, 평면도에서는 사장실 구석 바닥에 반듯한 벌집으로 눕는다
+    const { u, v } = cellAt(i), plan = flat() > .5, r = 4.6;
+    let p;
+    if (plan) {
+      const row = Math.floor(i / COMB.cols), col = i % COMB.cols, o = P(COMB.u0, .45);
+      p = { x: o.x + (col + (row % 2) / 2) * r * Math.sqrt(3), y: o.y + row * r * 1.5 };
+    } else p = P(u, 0, v);
+    c.beginPath();
+    for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + k * Math.PI / 3; c.lineTo(p.x + Math.cos(a) * r, p.y + (plan ? Math.sin(a) * r : Math.sin(a) * r * .9 + Math.cos(a) * r * .5)); }
+    c.closePath();
     c.fillStyle = i < filled ? T.honey : T['m-wax']; c.fill(); c.strokeStyle = T['m-wax-edge']; c.lineWidth = 1; c.stroke();
     if (i === filled - 1 && fresh < 1) { c.globalAlpha = 1 - fresh; c.beginPath(); c.arc(p.x, p.y, r + 6 * fresh, 0, 7); c.strokeStyle = T.honey; c.lineWidth = 2; c.stroke(); c.globalAlpha = 1; }
   }
