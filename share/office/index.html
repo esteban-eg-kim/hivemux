@@ -87,6 +87,7 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
 .view .vg button + button { margin-left: -1px; }
 .view .vg button:first-child { border-radius: 8px 0 0 8px; }
 .view .vg button:last-child { border-radius: 0 8px 8px 0; }
+.plan .view .vg-tilt { display: none; }
 .view .v-mode { font: 700 11px var(--f-mono); letter-spacing: .02em; }
 #map { touch-action: none; }
 #map.grab { cursor: grabbing; }
@@ -230,7 +231,7 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
     <div class="view glass" id="view">
       <button type="button" id="v-2d" class="v-mode">2D</button>
       <span class="vg"><button type="button" id="v-left" data-k="rotL"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 3v5h5"/></svg></button><button type="button" id="v-right" data-k="rotR"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/></svg></button></span>
-      <span class="vg"><button type="button" id="v-up" data-k="up"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m17 11-5-5-5 5"/><path d="m17 18-5-5-5 5"/></svg></button><button type="button" id="v-down" data-k="down"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 6 5 5 5-5"/><path d="m7 13 5 5 5-5"/></svg></button></span>
+      <span class="vg vg-tilt"><button type="button" id="v-up" data-k="up"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m17 11-5-5-5 5"/><path d="m17 18-5-5-5 5"/></svg></button><button type="button" id="v-down" data-k="down"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 6 5 5 5-5"/><path d="m7 13 5 5 5-5"/></svg></button></span>
       <span class="vg"><button type="button" id="v-out" data-k="out"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M8 11h6"/></svg></button><button type="button" id="v-in" data-k="in"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M8 11h6M11 8v6"/></svg></button></span>
       <button type="button" id="v-home" data-k="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M8 13.5 12 11l4 2.5-4 2.5z"/></svg></button>
       <span class="sep"></span>
@@ -275,15 +276,15 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 const native = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.office;
 const tell = msg => { try { native && native.postMessage(msg); } catch (e) {} };
 
-try { if (localStorage.getItem('office-mode') === '2d') location.replace('/2d'); } catch (e) {}
 let lang = (navigator.language || 'en').startsWith('ko') ? 'ko' : 'en';
 const tr = (ko, en) => lang === 'ko' ? ko : en;
 function applyLang() {
   document.documentElement.lang = lang;
   document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
   $('#gear').setAttribute('aria-label', tr('설정', 'Settings'));
+  if (typeof PLAN !== 'undefined') planTitle();
   $('#pop-later').textContent = tr('나중에', 'Later');
-  for (const [id, ko, en] of [['v-2d', '위에서 본 평면도로 바꾸기', 'Switch to the flat plan'], ['v-left', '왼쪽으로 돌리기 (Q, 오른쪽 버튼으로 끌기)', 'Turn left (Q, or right-drag)'], ['v-right', '오른쪽으로 돌리기 (E, 오른쪽 버튼으로 끌기)', 'Turn right (E, or right-drag)'],
+  for (const [id, ko, en] of [['v-left', '왼쪽으로 돌리기 (Q, 오른쪽 버튼으로 끌기)', 'Turn left (Q, or right-drag)'], ['v-right', '오른쪽으로 돌리기 (E, 오른쪽 버튼으로 끌기)', 'Turn right (E, or right-drag)'],
     ['v-up', '더 높이서 보기 (W, 오른쪽 버튼으로 위로 끌기)', 'Look from higher (W, or right-drag up)'], ['v-down', '더 낮게 보기 (S, 오른쪽 버튼으로 아래로 끌기)', 'Look from lower (S, or right-drag down)'],
     ['v-out', '축소 (-, 휠)', 'Zoom out (-, wheel)'], ['v-in', '확대 (+, 휠)', 'Zoom in (+, wheel)'], ['v-home', '전체 보기 (0)', 'Whole floor (0)'], ['listbtn', '세션 목록 (L)', 'Session list (L)'], ['d-close', '닫기 (Esc)', 'Close (Esc)']]) { const el = $('#' + id); el.title = tr(ko, en); el.setAttribute('aria-label', tr(ko, en)); }
   $('#map').setAttribute('aria-label', tr('벌 사무실. Claude 세션마다 벌 한 마리가 자리, 회의실, 라운지, 사장실 질문 창구를 오가요.',
@@ -318,6 +319,8 @@ const TW = 32, WALL = 74, BEE = 1.05;   // half a tile on screen, back wall heig
 // 보는 높이: TH 는 타일 반쪽이 보이는 높이 (16 = 기본 각도, 32 = 바로 위). 높이 올라갈수록 세로 높이는 줄어든다 (기본 각도에서 ZF = 1)
 let TH = 16, ZF = 1;
 function setTilt(k) { TH = TW * k; ZF = Math.sqrt(Math.max(0, 1 - k * k)) / Math.sqrt(.75); }
+// how flat the view is: 0 at the highest 3D angle, 1 seen from straight above / 얼마나 납작한지: 3D 의 가장 높은 각도 0, 바로 위 1
+const flat = () => Math.max(0, Math.min(1, (TH / TW - .85) / .15));
 // the view turns the floor around its middle before the angled projection (ROT in radians)
 // 보기 회전: 비스듬히 그리기 전에 바닥을 가운데를 중심으로 돌린다 (ROT, 라디안)
 let ROT = 0, COS = 1, SIN = 0, CX = 13, CY = 8;
@@ -567,8 +570,18 @@ let c = mapCtx, scale = 1;
 // camera: the floor fits the canvas at zoom 1; the canvas height is set once from the unturned view
 // 카메라: 줌 1 이면 바닥이 캔버스에 맞는다. 캔버스 높이는 돌리지 않은 보기로 한 번 정한다
 const VIEW = { w: 0, h: 0, s: 1, cx: 0, cy: 0 };
-const cam = { zoom: 1, px: 0, py: 0, rot: 0, tilt: .5 };   // tilt: TH / TW, .3 low .. .85 high / 낮음 .3 ~ 높음 .85   // pan in screen px of the scene / 장면 화면 px 단위 이동
+const cam = { zoom: 1, px: 0, py: 0, rot: 0, tilt: .5 };
+// the plan (2D): the same office seen from straight above, its floor square to the screen (tilt 1 flattens
+// every height, bin/hivemux-office serves /2d here); the 3D angle is kept to go back to
+// 평면도 (2D): 같은 사무실을 바로 위에서, 바닥을 화면과 나란히 본다 (기울기 1 이면 높이가 모두 납작해진다.
+// bin/hivemux-office 가 /2d 도 여기로 보낸다). 돌아갈 3D 각도는 따로 기억한다
+const PLAN = { on: false, back: { rot: 0, tilt: .5 } };
+try { PLAN.on = localStorage.getItem('office-mode') === '2d' || location.pathname === '/2d'; PLAN.back = Object.assign(PLAN.back, JSON.parse(localStorage.getItem('office-view3d') || '{}')); } catch (e) {}
+// the nearest square angle; from the usual view (0) the long side lies across the screen
+// 가장 가까운 나란한 각도. 기본 보기(0)에서는 긴 변이 화면 가로로 눕는다
+const planRot = r => Math.round((r + Math.PI / 4) / (Math.PI / 2) - .01) * (Math.PI / 2) - Math.PI / 4;   // tilt: TH / TW, .3 low .. .85 high / 낮음 .3 ~ 높음 .85   // pan in screen px of the scene / 장면 화면 px 단위 이동
 try { Object.assign(cam, JSON.parse(localStorage.getItem('office-view') || '{}')); } catch (e) {}
+if (PLAN.on) { cam.rot = planRot(cam.rot); cam.tilt = 1; } else cam.tilt = Math.min(.85, cam.tilt);
 setRot(cam.rot); setTilt(cam.tilt);
 const saveView = () => { try { localStorage.setItem('office-view', JSON.stringify({ zoom: cam.zoom, px: cam.px, py: cam.py, rot: cam.rot, tilt: cam.tilt })); } catch (e) {} };
 // the part of the building the view fits: all of it up to one extra row of pods; past that the office
@@ -579,7 +592,8 @@ function bounds() {
   const pts = [], gy = Math.min(LAY.GY, FIT_GY);
   for (const [x, y] of [[0, 0], [GX, 0], [GX, gy], [0, gy]]) pts.push(P(x, y), P(x, y, WALL));
   const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
-  return { x0: Math.min(...xs) - 24, x1: Math.max(...xs) + 24, y0: Math.min(...ys) - 30, y1: Math.max(...ys) + 18 };
+  const m = 24 + 60 * flat();   // the plan's name plaques stick out over the wall / 평면도의 명패는 벽 밖으로 걸친다
+  return { x0: Math.min(...xs) - m, x1: Math.max(...xs) + m, y0: Math.min(...ys) - 30, y1: Math.max(...ys) + 18 };
 }
 function resize() {
   if (!LAY) return;
@@ -603,12 +617,14 @@ function place() {
   // an open list covers one side: fit the office in the rest (DRAWER.cur slides with it)
   // 목록이 열리면 한쪽을 덮으니 나머지 자리에 맞춘다 (DRAWER.cur 가 함께 미끄러진다)
   const off = DRAWER.cur;
-  VIEW.s = Math.min(Math.max(80, VIEW.w - off) / (b.x1 - b.x0), VIEW.h / (b.y1 - b.y0)) * cam.zoom;
+  const top = 56;   // the floating bars / 떠 있는 버튼 막대
+  VIEW.s = Math.min(Math.max(80, VIEW.w - off) / (b.x1 - b.x0), Math.max(80, VIEW.h - top) / (b.y1 - b.y0)) * cam.zoom;
   // on the planet, look at its middle rather than the building / 행성 단계에선 건물 대신 행성 가운데를 본다
   const lift = globeFor(cam.zoom) * GLOBE_R * Math.cos(Math.asin(TH / TW)) * .85;
   VIEW.cx = (b.x0 + b.x1) / 2 - cam.px; VIEW.cy = (b.y0 + b.y1) / 2 - cam.py + lift;
   scale = VIEW.s;
   VIEW.cx -= (settings.side === 'left' ? off : -off) / 2 / scale;
+  VIEW.cy -= top / 2 / scale * Math.min(1, cam.zoom);
   mapCtx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * (VIEW.w / 2 - VIEW.cx * scale), dpr * (VIEW.h / 2 - VIEW.cy * scale));
 }
 const T = {};
@@ -716,6 +732,7 @@ function drawFloor() {
 // 벌집은 x = 0, y = 0 벽에 걸려 있다
 function drawBackWalls(t) {
   const { GY, LOFF } = LAY;
+  if (flat() > .5) return planWalls(t);
   const walls = [
     { a: [0, 0], b: [GX, 0], n: [0, 1], deco: decoBack },
     { a: [0, GY], b: [0, 0], n: [1, 0], deco: decoLeft },
@@ -732,6 +749,38 @@ function drawBackWalls(t) {
     else onFace(...w.a, (w.b[0] - w.a[0]) / Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]), (w.b[1] - w.a[1]) / Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]), () => {
       c.fillStyle = T.win; const len = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]); for (let u = 1.2; u < len - 2; u += 3) c.fillRect(u, 24, 1.8, 36);
     });
+  }
+}
+// the plan: seen from above the walls are their tops, a thick line round the floor, with the windows in it
+// (sky blue), the elevator doors, the whiteboard and the name plaques laid flat over the left wall
+// 평면도: 위에서 보면 벽은 윗면이다. 바닥을 두르는 굵은 선에 창문(하늘색), 엘리베이터 문, 화이트보드,
+// 그리고 왼쪽 벽 위에 눕힌 명패
+function planWalls(t) {
+  const { GY, LOFF } = LAY, e = 8.5 + LOFF;
+  const seg = (x1, y1, x2, y2, col, w) => { const a = P(x1, y1), b = P(x2, y2); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.strokeStyle = col; c.lineWidth = w; c.stroke(); };
+  c.lineCap = 'square';
+  seg(0, 0, GX, 0, T['m-wall'], 7); seg(GX, 0, GX, GY, T['m-wall'], 7); seg(GX, GY, 0, GY, T['m-wall'], 7);
+  seg(0, 0, 0, e - .1, T['m-wall'], 7); seg(0, e + 1.3, 0, GY, T['m-wall'], 7);
+  c.lineCap = 'butt';
+  const pl = plaques();
+  for (let x = 1.2; x < 14; x += 3) seg(x, 0, x + 1.8, 0, T.win, 3);
+  for (let y = 1.2; y < 7.5 + LOFF; y += 3) if (!pl.some(q => Math.abs(y + .9 - q.y) < q.W / 2 + 1.1)) seg(0, y, 0, y + 1.8, T.win, 3);
+  for (let u = 1.2; u < GX - 2; u += 3) seg(u, GY, u + 1.8, GY, T.win, 3);
+  for (let u = 1.2; u < GY - 2; u += 3) seg(GX, u, GX, u + 1.8, T.win, 3);
+  seg(17, 0, 20, 0, T['m-board'], 4);                                   // the whiteboard / 화이트보드
+  seg(0, e, 0, e + .58, T['m-board'], 4); seg(0, e + .62, 0, e + 1.2, T['m-board'], 4);   // the elevator / 엘리베이터
+  drawComb();
+  // the plaques, upright on screen over the wall line / 명패: 벽 선 위에, 화면에서 똑바로
+  for (const q of pl) {
+    const o = P(0, q.y); font(12, 700); const nw = Math.min(c.measureText(q.name).width, 150); font(9, 600); const sw = c.measureText(q.sub).width;
+    const w = Math.max(nw, sw) + 16, h = 32, x = o.x - w / 2, y = o.y - h / 2;
+    c.fillStyle = 'rgba(0, 0, 0, .14)'; rr(x + 1, y + 2, w, h, 5); c.fill();
+    fillRR(x, y, w, h, 5, T['m-desk-edge']); fillRR(x + 1.5, y + 1.5, w - 3, h - 3, 4, mixc(T['m-desk'], '#ffffff', .22));
+    c.save(); rr(x + 1.5, y + 1.5, w - 3, h - 3, 4); c.clip(); c.fillStyle = q.oi === 0 ? T.honey : '#a78bfa'; c.fillRect(x, y, w, 11); c.restore();
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    font(9, 600); c.fillStyle = q.oi === 0 ? '#3a2612' : '#ffffff'; c.fillText(q.sub, o.x, y + 7);
+    font(12, 700); c.fillStyle = '#3a2612'; c.fillText(clipText(q.name, 150), o.x, y + 21.5);
+    c.textAlign = 'left'; c.textBaseline = 'top';
   }
 }
 function decoBack(t) {
@@ -821,7 +870,7 @@ function drawComb() {
   honeyLast = honey;
   const cap = COMB.cols * COMB.rows, filled = Math.min(honey, cap), fresh = Math.min(1, (performance.now() - honeyPop) / 900);
   for (let i = 0; i < cap; i++) {
-    const { u, v } = cellAt(i), p = P(u, 0, v), r = 4.6;
+    const { u, v } = cellAt(i), f = flat(), p = f > .5 ? P(u, .3 + (v - COMB.v0) / COMB.dv * .2) : P(u, 0, v), r = 4.6;
     c.beginPath(); for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + k * Math.PI / 3; c.lineTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r * .9 + Math.cos(a) * r * .5); } c.closePath();
     c.fillStyle = i < filled ? T.honey : T['m-wax']; c.fill(); c.strokeStyle = T['m-wax-edge']; c.lineWidth = 1; c.stroke();
     if (i === filled - 1 && fresh < 1) { c.globalAlpha = 1 - fresh; c.beginPath(); c.arc(p.x, p.y, r + 6 * fresh, 0, 7); c.strokeStyle = T.honey; c.lineWidth = 2; c.stroke(); c.globalAlpha = 1; }
@@ -1413,7 +1462,7 @@ function drawRoof(t) {
   box(3, GY / 2 - .7, 1.2, 1.2, 14, T['o-hive'], top); box(2.9, GY / 2 - .8, 1.4, 1.4, 3, T['m-counter'], top + 14);
   // the name painted on the roof / 지붕에 칠한 이름
   const o = at(GX / 2, GY / 2), ex = at(GX / 2 + 1, GY / 2), ey = at(GX / 2, GY / 2 + 1);
-  c.save(); c.translate(o.x, o.y); c.transform((ex.x - o.x) / 32, (ex.y - o.y) / 32, (ey.x - o.x) / 32, (ey.y - o.y) / 32, 0, 0); c.rotate(-Math.PI / 4);
+  c.save(); c.translate(o.x, o.y); c.transform((ex.x - o.x) / 32, (ex.y - o.y) / 32, (ey.x - o.x) / 32, (ey.y - o.y) / 32, 0, 0); c.rotate(-Math.PI / 4 - ROT);   // reads across the screen however it is turned / 어떻게 돌려도 화면 가로로 읽힌다
   font(64, 800); c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = 'rgba(255, 255, 255, .85)';
   c.fillText(clipText(offices[0] ? offices[0].host : 'hivemux', 900), 0, 0);
   const n = [...bees.values()].filter(b => b.state === 'run').length, w = [...bees.values()].filter(b => b.state === 'wait').length;
@@ -1571,17 +1620,33 @@ function zoomAt(f, mx, my) {
   cam.zoom = z; saveView();
 }
 function viewDo(k) {
-  if (k === 'rotL') cam.rot = Math.round((cam.rot - Q) / Q) * Q;
-  if (k === 'rotR') cam.rot = Math.round((cam.rot + Q) / Q) * Q;
+  const q = PLAN.on ? 2 * Q : Q, base = PLAN.on ? -Q : 0;   // the plan turns a quarter at a time / 평면도는 4분의 1 바퀴씩
+  if (k === 'rotL') cam.rot = Math.round((cam.rot - base - q) / q) * q + base;
+  if (k === 'rotR') cam.rot = Math.round((cam.rot - base + q) / q) * q + base;
+  if (PLAN.on && (k === 'up' || k === 'down')) return;
   if (k === 'in') zoomAt(1.25);
   if (k === 'out') zoomAt(.8);
   if (k === 'up') cam.tilt = Math.min(.85, cam.tilt + .1);
   if (k === 'down') cam.tilt = Math.max(.3, cam.tilt - .1);
-  if (k === 'home') { cam.zoom = 1; cam.px = cam.py = 0; cam.rot = 0; cam.tilt = .5; }
+  if (k === 'home') { cam.zoom = 1; cam.px = cam.py = 0; cam.rot = PLAN.on ? -Q : 0; cam.tilt = PLAN.on ? 1 : .5; }
   saveView();
 }
 $('#view').addEventListener('click', e => { const b = e.target.closest('button[data-k]'); if (b) viewDo(b.dataset.k); });
-$('#v-2d').addEventListener('click', () => { try { localStorage.setItem('office-mode', '2d'); } catch (e) {} location.href = '/2d'; });
+function planTitle() {
+  const b = $('#v-2d'); b.textContent = PLAN.on ? '3D' : '2D';
+  b.title = PLAN.on ? tr('비스듬히 본 사무실로 (3D)', 'Back to the office at an angle (3D)') : tr('위에서 본 평면도로 (2D)', 'Seen from above (2D)');
+  b.setAttribute('aria-label', b.title);
+}
+function setPlan(on) {
+  if (on && !PLAN.on) { PLAN.back = { rot: cam.rot, tilt: cam.tilt }; cam.rot = planRot(cam.rot); cam.tilt = 1; }
+  if (!on && PLAN.on) { cam.rot = PLAN.back.rot; cam.tilt = Math.min(.85, PLAN.back.tilt); }
+  PLAN.on = on; app.classList.toggle('plan', on);
+  planTitle();
+  try { localStorage.setItem('office-mode', on ? '2d' : '3d'); localStorage.setItem('office-view3d', JSON.stringify(PLAN.back)); } catch (e) {}
+  if (location.pathname === '/2d') history.replaceState(null, '', '/');
+  saveView();
+}
+$('#v-2d').addEventListener('click', () => setPlan(!PLAN.on));
 addEventListener('keydown', e => {
   if (e.target.closest && e.target.closest('input, textarea, select') || e.metaKey || e.ctrlKey || e.altKey) return;
   const k = { q: 'rotL', e: 'rotR', w: 'up', s: 'down', '+': 'in', '=': 'in', '-': 'out', '0': 'home' }[e.key.toLowerCase()];
@@ -1590,7 +1655,7 @@ addEventListener('keydown', e => {
 let drag = null, dragged = false;
 cv.addEventListener('pointerdown', e => {
   if (e.button !== 0 && e.button !== 2) return;
-  drag = { x: e.clientX, y: e.clientY, px: cam.px, py: cam.py, rot: cam.rot, tilt: cam.tilt, turn: e.button === 2 || e.shiftKey }; dragged = false;
+  drag = { x: e.clientX, y: e.clientY, px: cam.px, py: cam.py, rot: cam.rot, tilt: cam.tilt, turn: !PLAN.on && (e.button === 2 || e.shiftKey) }; dragged = false;
   cv.setPointerCapture(e.pointerId);
 });
 cv.addEventListener('pointermove', e => {
@@ -1619,7 +1684,7 @@ cv.addEventListener('gesturestart', e => { e.preventDefault(); gest = { zoom: ca
 cv.addEventListener('gesturechange', e => {
   e.preventDefault(); if (!gest) return;
   cam.zoom = Math.max(.2, Math.min(5, gest.zoom * e.scale));
-  cam.rot = gest.rot + e.rotation * Math.PI / 180; setRot(cam.rot);
+  if (!PLAN.on) { cam.rot = gest.rot + e.rotation * Math.PI / 180; setRot(cam.rot); }
 });
 cv.addEventListener('gestureend', e => { e.preventDefault(); gest = null; saveView(); });
 
@@ -1722,7 +1787,7 @@ addEventListener('keydown', e => {
   if (e.key.toLowerCase() === 'l') { setDrawer(!DRAWER.open); e.preventDefault(); }
   else if (e.key === 'Escape' && DRAWER.open && !pop) setDrawer(false);
 }, true);   // before the pop-out's Esc, so one Esc closes only that / 튀어나오기의 Esc 보다 먼저: Esc 한 번에 그것만 닫히게
-applySide(); setDrawer(DRAWER.open);
+applySide(); setDrawer(DRAWER.open); setPlan(PLAN.on);
 
 applyLang(); readTokens();
 addEventListener('resize', resize);

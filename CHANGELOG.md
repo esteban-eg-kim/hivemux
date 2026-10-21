@@ -11,6 +11,10 @@
   newer one it asks before updating (how many Claudes will restart). `--yes`
   skips the question. Ctrl+C or closing the popup no longer leaves a Claude
   stopped halfway: restarts run in the background
+- Bee office 2D is now the same office seen from straight above (the camera
+  rises; walls become lines, the Mac plaques lie over the left wall) instead of
+  a separate older plan, so it has the same rooms, carpets, list drawer and
+  buttons. It turns a quarter at a time; 3D returns to the angle you had
 
 ## 0.1.34 — 2026-10-21
 
