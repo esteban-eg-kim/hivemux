@@ -93,7 +93,8 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
 #map.grab { cursor: grabbing; }
 .tip { position: absolute; z-index: 5; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; font-size: 12px; box-shadow: 0 6px 18px rgba(0, 0, 0, .18); max-width: 240px; }
 .tip b { display: block; }
-.tip span { color: var(--muted); }
+.tip span { color: var(--muted); display: block; }
+.tip span.task { color: var(--fg); font-weight: 600; }
 
 /* the session list: a drawer over the right (or left) side / 세션 목록: 오른쪽(또는 왼쪽) 위에 겹치는 서랍 */
 .drawer { position: absolute; top: 0; bottom: 0; right: 0; width: var(--drawer); z-index: 8; display: flex; flex-direction: column; box-sizing: border-box;
@@ -553,7 +554,9 @@ const CREW = [{ key: 'crew|glasses', look: 'glasses' }, { key: 'crew|notes', loo
 const snooze = new Map();    // bee key -> time until which it does not pop out
 
 const nowOf = o => o.now + (Date.now() - fetchedAt) / 1000;
-const nameOf = b => settings.privacy === 'name' ? `#${b.idx}` : b.project;
+// two Claudes in one project read "api #1", "api #2" (by their ⌥ order); hover shows each one's session name
+// 한 프로젝트에 Claude 가 둘 이상이면 "api #1", "api #2" (⌥ 순서). 마우스를 올리면 세션 이름이 보인다
+const nameOf = b => settings.privacy === 'name' ? `#${b.idx}` : b.project + (b.dup ? ` #${b.dup}` : '');
 const taskOf = b => settings.privacy === 'all' ? (b.name || tr('새 대화', 'new chat')) : '';
 function fmt(sec) {
   sec = Math.max(0, Math.floor(sec));
@@ -611,6 +614,11 @@ function ingest(list) {
     Object.assign(b, s, { office: o, oi, ssh: o.ssh || null, overtime: overtime.has(`${o.ssh || ''}|${s.bee}`), inside: false, commuteUntil: 0 });
     if (was && was !== b.state) changed(b, was);
   }));
+  for (const o of list) {   // number the bees sharing a project / 프로젝트를 함께 쓰는 벌에 번호
+    const by = {};
+    for (const b of bees.values()) if (b.office === o && b.state !== 'home') (by[b.project] ||= []).push(b);
+    for (const g of Object.values(by)) { g.sort((a, c) => a.idx - c.idx); g.forEach((b, i) => { b.dup = g.length > 1 ? i + 1 : 0; }); }
+  }
   for (const [k, b] of bees) {
     if (seen.has(k)) continue;
     const hk = `${b.ssh || ''}|${b.bee}`;
@@ -2318,9 +2326,10 @@ cv.addEventListener('mousemove', e => {
   if (!b) { tip.hidden = true; return; }
   tip.replaceChildren();
   const head = document.createElement('b'); head.textContent = `⌥${b.idx} ${nameOf(b)}`;
-  const where = document.createElement('span'); where.textContent = whereOf(b);
-  tip.append(head, where);
-  if (taskOf(b)) { const t = document.createElement('span'); t.textContent = taskOf(b); tip.append(document.createElement('br'), t); }
+  tip.append(head);
+  // the session's own name right under it, then what the bee is doing / 바로 아래 세션 이름, 그다음 벌이 하는 일
+  if (taskOf(b)) { const t = document.createElement('span'); t.className = 'task'; t.textContent = taskOf(b); tip.append(t); }
+  const where = document.createElement('span'); where.textContent = whereOf(b); tip.append(where);
   tip.hidden = false;
   tip.style.left = Math.max(8, Math.min(e.clientX - fr.left + 14, fr.width - tip.offsetWidth - 8)) + 'px';
   tip.style.top = (e.clientY - fr.top + 14) + 'px';

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Bee office: Claudes sharing a project read "api #1", "api #2" (in ⌥ order)
+  on their tags and in the list, and hovering a bee shows its session name
+  right under it
+
 ## 0.1.35 — 2026-10-21
 
 - Bee office: turning the view (right-drag, shift-drag or a two-finger turn)
