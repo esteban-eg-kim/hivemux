@@ -1,6 +1,6 @@
 # <img src="docs/logo/hivemux-logo.svg" alt="" width="40"> hivemux
 
-[English](README.md) · **한국어**
+[English](README.md) · **한국어** · [hivemux.dev](https://hivemux.dev/ko/) · [문서](https://hivemux.dev/ko/docs/)
 
 **Claude Code 세션 다섯 개를 동시에 돌려도, 지금 나를 기다리는 작업이 무엇인지 한눈에 봅니다.**
 
@@ -74,7 +74,7 @@ hivemux는 모든 tmux 창 왼쪽에 사이드바를 붙입니다. 사이드바�
 ## 설치
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install.sh | bash
+curl -fsSL https://hivemux.dev/install.sh | bash
 ```
 
 hivemux를 `~/.local/share/hivemux/src`에 받고 `hivemux setup`을 실행합니다.
@@ -100,7 +100,7 @@ tmux-resurrect와 tmux-continuum도 받아 옵니다. 이미 `~/.tmux/plugins`�
 
 ```sh
 brew update && brew upgrade hivemux && hivemux setup    # Homebrew
-curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install.sh | bash   # git 설치: 같은 명령
+curl -fsSL https://hivemux.dev/install.sh | bash   # git 설치: 같은 명령
 ```
 
 `hivemux setup`은 다시 실행해도 안전합니다. 자기가 넣은 블록과 훅만 바꾸고(새 버전에서 훅이 늘 수 있음), 실행 중인 tmux 설정을 다시 읽고 사이드바를 다시 띄웁니다. 쓰던 세션은 그대로입니다. 업데이트 전에 시작한 Claude는 다시 시작해야 새 훅을 씁니다. Claude Code 자체는 오른쪽 클릭 메뉴 → "Claude 업데이트"(`hivemux update-claude`)로 업데이트합니다. 설치된 버전은 `hivemux version`으로, 바뀐 내용은 [CHANGELOG.md](CHANGELOG.md)에서 확인합니다.

@@ -1,6 +1,6 @@
 # <img src="docs/logo/hivemux-logo.svg" alt="" width="40"> hivemux
 
-**English** · [한국어](README.ko.md)
+**English** · [한국어](README.ko.md) · [hivemux.dev](https://hivemux.dev) · [Docs](https://hivemux.dev/docs/)
 
 **Run five Claude Code sessions at once and always know which one needs you.**
 
@@ -127,7 +127,7 @@ leaving; the same name coming back is rehired, into the same house.
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install.sh | bash
+curl -fsSL https://hivemux.dev/install.sh | bash
 ```
 
 This clones hivemux into `~/.local/share/hivemux/src` and runs `hivemux setup`.
@@ -157,7 +157,7 @@ check everything. Use `--yes` to accept defaults, `--no-keys`, `--no-ghostty`,
 
 ```sh
 brew update && brew upgrade hivemux && hivemux setup    # Homebrew
-curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install.sh | bash   # git install: same command
+curl -fsSL https://hivemux.dev/install.sh | bash   # git install: same command
 ```
 
 `hivemux setup` again is safe: it replaces its own blocks and hooks (a new version
