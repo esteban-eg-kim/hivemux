@@ -57,7 +57,16 @@ restart() {
   [ -n "$pp" ] || return 0
   pid="$(claude_pid "$pp")"
   sid="$(t show -pqv -t "$pane" @claude_session)"; cwd="$(t show -pqv -t "$pane" @claude_cwd)"
-  if [ -z "$pid" ] || [ -z "$sid" ]; then t set -pu -t "$pane" @claude_restart_pending; return 0; fi
+  [ -n "$sid" ] || { t set -pu -t "$pane" @claude_restart_pending; return 0; }
+  if [ -z "$pid" ]; then
+    # stopped but not started again (the restart was cut short): start it now; a shell in front and the
+    # session id still there (a deliberate exit forgets it, bin/hivemux-hook)
+    # 멈췄는데 다시 시작하지 못함 (다시 시작이 중간에 끊김): 지금 시작. 앞에 셸이 있고 세션 id 가 남아 있을 때
+    # (직접 종료하면 id 를 지운다, bin/hivemux-hook)
+    cmd="$(t display -p -t "$pane" '#{pane_current_command}')"
+    [[ "$cmd" =~ $SHELLS ]] || { t set -pu -t "$pane" @claude_restart_pending; return 0; }
+    resume "$pane" "$sid" "$cwd"; log "resume $pane -> $sid (was stopped)"; return 0
+  fi
   st="$(t show -pqv -t "$pane" @claude_state)"; at="$(t show -pqv -t "$pane" @claude_state_at)"
   case "$st" in run|wait) return 1 ;; esac
   t list-clients -F '#{window_id}' | grep -qxF "$(t display -p -t "$pane" '#{window_id}')" && return 1
@@ -71,12 +80,17 @@ restart() {
   if ! [[ "$cmd" =~ $SHELLS ]]; then
     log "skip $pane: Claude did not stop ($cmd)"; t set -pu -t "$pane" @claude_restore; return 1
   fi
-  t set -pu -t "$pane" @claude_restart_pending
-  [ -d "$cwd" ] || cwd=""
-  if [ -n "$cwd" ]; then t send-keys -t "$pane" "cd $(printf '%q' "$cwd") && $claude_cmd --resume $sid" Enter
-  else t send-keys -t "$pane" "$claude_cmd --resume $sid" Enter; fi
+  resume "$pane" "$sid" "$cwd"
   log "restart $pane -> $sid ($st)"
   return 0
+}
+
+resume() { # resume <pane> <session id> <cwd>
+  local cwd="$3"
+  t set -pu -t "$1" @claude_restart_pending
+  [ -d "$cwd" ] || cwd=""
+  if [ -n "$cwd" ]; then t send-keys -t "$1" "cd $(printf '%q' "$cwd") && $claude_cmd --resume $2" Enter
+  else t send-keys -t "$1" "$claude_cmd --resume $2" Enter; fi
 }
 
 pending() { t list-panes -a -F '#{pane_id} #{@claude_restart_pending}' | awk '$2 != "" { print $1 }'; }
@@ -88,7 +102,12 @@ pass() {
   echo "$left"
 }
 
+# Only this restarts panes, in the background on its own: Ctrl+C or closing the popup can't stop it halfway
+# (a Claude stopped and not started again)
+# 칸을 다시 시작하는 것은 이것뿐이고, 뒤에서 혼자 돈다: Ctrl+C 나 팝업을 닫아도 중간에 멈추지 않는다
+# (멈췄는데 다시 시작 못 한 Claude 가 남지 않게)
 watch() {
+  trap '' INT HUP
   local lock="/tmp/hivemux-claude-update-$(id -u)-$(t display -p '#{pid}')" i
   mkdir "$lock" 2>/dev/null || { kill -0 "$(cat "$lock/pid" 2>/dev/null)" 2>/dev/null && exit 0; }
   echo $$ > "$lock/pid"; trap 'rm -rf "$lock"' EXIT
@@ -127,14 +146,20 @@ main() {
   if [ "$marked" = 0 ]; then
     echo "$(say "다시 시작할 Claude 가 없습니다." "No Claude needs a restart.")"; return 0
   fi
-  left="$(pass)"
-  echo "$(say "Claude ${marked}개 중 $((marked - left))개를 새 버전으로 다시 시작했습니다 (대화 그대로)." \
-              "Restarted $((marked - left)) of ${marked} Claude(s) on the new version (same conversation).")"
-  if [ "$left" != 0 ]; then
-    echo "$(say "나머지 ${left}개는 일이 끝나고 화면에서 벗어나면 다시 시작합니다." \
-                "The other ${left} restart once done and off screen.")"
-    nohup "$0" watch </dev/null >/dev/null 2>&1 &
-  fi
+  nohup "$0" watch </dev/null >/dev/null 2>&1 &
+  echo "$(say "Claude ${marked}개를 새 버전으로 다시 시작합니다 (대화 그대로). 창을 닫아도 계속됩니다." \
+              "Restarting ${marked} Claude(s) on the new version (same conversation). Closing this keeps it going.")"
+  # show progress for a while; the restarts go on in the background / 잠깐 진행을 보여 준다. 다시 시작은 뒤에서 계속
+  local i n=-1 left
+  for i in $(seq 40); do
+    left="$(pending | wc -l | tr -d ' ')"
+    [ "$left" != "$n" ] && { n="$left"; printf '\r  %s ' "$(say "남은 칸 $left" "$left left")"; }
+    [ "$left" = 0 ] && break
+    sleep 0.5
+  done
+  echo
+  if [ "$left" = 0 ]; then echo "$(say "✓ 모두 다시 시작했습니다." "✓ All restarted.")"
+  else echo "$(say "나머지 ${left}개는 일이 끝나고 화면에서 벗어나면 다시 시작합니다." "The other ${left} restart once done and off screen.")"; fi
 }
 
 case "${1:-}" in
