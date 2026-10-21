@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- After a reboot each Claude resumes in the folder it was started in again: a
+  compact or `/clear` no longer moves it to wherever a Bash `cd` had gone (a
+  worktree deep inside the project)
 - Update Claude: right-click → Update Claude (or `hivemux update-claude`)
   updates Claude Code (brew for a Homebrew install, else `claude update`) and
   restarts each pane's Claude still on an old version, resuming the same
