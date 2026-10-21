@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.36 — 2026-10-21
 
 - Clock out: it said "already clocked out" after any clock in
 - Clock in after a reboot: each Claude resumes in its own pane (tmux numbers
