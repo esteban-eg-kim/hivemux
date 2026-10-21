@@ -328,7 +328,7 @@ try { Object.assign(settings, JSON.parse(localStorage.getItem('office-settings')
 const saveSettings = () => { try { localStorage.setItem('office-settings', JSON.stringify(settings)); } catch (e) {} };
 
 const LABEL = { run: ['일하는 중', 'working'], wait: ['기다림', 'waiting'], done: ['끝남', 'done'], idle: ['쉬는 중', 'resting'], home: ['퇴근', 'home'] };
-const label = st => tr(...LABEL[st]);
+const label = st => tr(...(LABEL[st] || LABEL.idle));
 const PLAN_TALK = [['순서부터 정하고', 'Order first'], ['1단계, 2단계…', 'Step 1, step 2…'], ['여기가 핵심', 'This is the key'], ['위험한 곳 체크', 'Mark the risks'], ['음…', 'Hmm…'], ['파일 세 개만 고치면 돼요', 'Just three files']];
 const CREW_TALK = [['이건 어때요?', 'How about this?'], ['엣지 케이스는요?', 'Edge cases?'], ['좋은데요', 'Nice'], ['테스트도 넣죠', 'Add tests too'], ['포스트잇 붙일게요', 'Sticky note!'], ['일정은요?', 'Timeline?']];
 const HELP_TALK = [['찾았어요!', 'Found it!'], ['이 파일이에요', 'This file'], ['보고서 드릴게요', 'Report coming'], ['다 읽었어요', 'Read it all'], ['…', '…']];
@@ -454,7 +454,8 @@ const EVE_LABEL = { cheers: ['펍 "꿀단지" 테라스에서 건배하는 중',
 const late = () => { const h = window.EVE_HOUR ?? new Date().getHours(); return h >= 23 || h < 6; };
 let EVE = [];
 function eveFor(b) {   // what this bee does this evening, for a while / 이 벌이 저녁에 할 일 (한동안)
-  if (!EVE.length || EVE.py !== pathY()) { EVE = eveSpots(); EVE.py = pathY(); }
+  // new spots: every bee picks again / 자리가 새로 생기면 벌마다 다시 고른다
+  if (!EVE.length || EVE.py !== pathY()) { EVE = eveSpots(); EVE.py = pathY(); for (const x of bees.values()) x.eve = null; }
   if (late()) { if (b.eve && b.eve.spot) b.eve.spot.occ = null; b.eve = { kind: 'home' }; return b.eve; }
   if (b.eve && Date.now() < b.eve.until) return b.eve;
   if (b.eve && b.eve.spot) b.eve.spot.occ = null;
@@ -550,7 +551,7 @@ let offices = [], fetchedAt = 0, honeyTotal = 0, pop = null, failures = 0, hover
 const bees = new Map();      // "<host>|<pane>" -> bee
 const helpers = new Map();   // "<bee key>|<n>" -> subagent bee
 const crew = new Map();      // office colleagues (not Claude sessions) who join plan meetings / 계획 회의에 오는 사무실 동료 (Claude 세션 아님)
-const CREW = [{ key: 'crew|glasses', look: 'glasses' }, { key: 'crew|notes', look: 'notes' }];
+const CREW = [{ key: 'crew|glasses', acc: 'glasses' }, { key: 'crew|notes', acc: 'notes' }];
 const snooze = new Map();    // bee key -> time until which it does not pop out
 
 const nowOf = o => o.now + (Date.now() - fetchedAt) / 1000;
@@ -567,15 +568,19 @@ const fmtLong = sec => { sec = Math.max(0, Math.floor(sec)); return sec < 60 ? t
 const ageOf = b => nowOf(b.office) - b.at;
 
 async function poll() {
+  let s = null;
   try {
     const r = await fetch('/state', { cache: 'no-store' });
-    const s = await r.json();
+    s = await r.json();
     failures = 0; $('#lost').hidden = true;
-    if (s.lang && s.lang !== lang) { lang = s.lang; applyLang(); }
-    ingest(s.offices);
   } catch (e) {
     if (++failures >= 3) { $('#lost').textContent = tr('hivemux 와 연결이 끊겼어요. 터미널에서 hivemux office 를 다시 실행하세요.', 'Lost hivemux. Run hivemux office again in a terminal.'); $('#lost').hidden = false; }
   }
+  // a bug drawing the state is not a lost connection / 그리다 난 버그는 끊긴 연결이 아니다
+  try {
+    if (s && s.lang && s.lang !== lang) { lang = s.lang; applyLang(); }
+    if (s && Array.isArray(s.offices)) ingest(s.offices);
+  } catch (e) { console.error(e); }
   setTimeout(poll, 1000);
 }
 
@@ -604,7 +609,7 @@ function ingest(list) {
       b = { key, path: [], face: -1, moving: false, sprint: false, arrived: true, goal: null, phase: Math.random() * 9, spot: null, fresh: true };
       // back from home (the page opened while clocked out): walk in from the house / 집에서 출근 (퇴근 중에 연 페이지): 집에서 걸어온다
       const h = s.bee && bees.get(`home|${o.ssh || ''}|${s.bee}`);
-      if (h) { Object.assign(b, { x: h.x, y: h.y, fresh: false }); bees.delete(h.key); }
+      if (h) { Object.assign(b, { x: h.x, y: h.y, fresh: false }); if (h.eve && h.eve.spot) h.eve.spot.occ = null; bees.delete(h.key); }
       bees.set(key, b);
       // a newcomer (or one rehired) walks in from the elevator / 신입 (또는 재입사) 은 엘리베이터에서 걸어 들어온다
       const r = s.bee && o.bees && o.bees[s.bee];
@@ -630,19 +635,24 @@ function ingest(list) {
     // clocked in: it walks to work while its Claude starts again (it takes a few seconds), then carries on
     // as that session; given up after two minutes / 출근: Claude 가 다시 뜨는 동안 (몇 초) 걸어서 출근하고, 뜨면 그 세션으로
     // 이어진다. 2분이 지나면 포기
-    if (b.state === 'home' && !offOf(list.find(o => (o.ssh || null) === (b.ssh || null)))) {
+    // a Mac missing from this poll: its bees stay as they are / 이번에 안 온 Mac: 그 벌들은 그대로
+    const bo = list.find(o => (o.ssh || null) === (b.ssh || null));
+    if (b.state === 'home' && !bo) continue;
+    if (b.state === 'home' && bo.shift && bo.shift.state === 'on') {
       if (!b.commuteUntil) b.commuteUntil = performance.now() + 120000;
       if (performance.now() < b.commuteUntil) continue;
     }
-    if (b.spot) b.spot.occ = null; if (pop === b) closePop(); bees.delete(k);
+    if (b.spot) b.spot.occ = null; if (b.eve && b.eve.spot) b.eve.spot.occ = null; if (pop === b) closePop(); bees.delete(k);
   }
   // the page opened while clocked out: the bees are already home / 퇴근 중에 연 페이지: 벌들은 이미 집에 있다
   for (const hk of home) {
     const e = VILL.byKey.get(hk); if (!e || bees.has(`home|${hk}`)) continue;
     const d = e.h.door;
     bees.set(`home|${hk}`, { key: `home|${hk}`, bee: e.id, project: e.r.project, name: e.r.name, idx: 0, state: 'home', office: e.o, oi: e.oi, ssh: e.o.ssh || null,
-      path: [], face: -1, x: d.x, y: d.y, arrived: true, inside: true, key2: 'home', goal: d, phase: Math.random() * 9, spot: null, at: 0 });
+      path: [], face: -1, x: d.x, y: d.y, arrived: true, inside: true, key2: 'home', goal: d, phase: Math.random() * 9, spot: null, at: e.o.shift.since || 0 });
   }
+  // bees not in this poll (home, commuting) point at their Mac's new office / 이번에 안 온 벌 (집, 출근 중) 도 자기 Mac 의 새 사무실을 가리킨다
+  for (const b of bees.values()) if (!seen.has(b.key)) { const oi = list.findIndex(o => (o.ssh || null) === b.ssh); if (oi >= 0) Object.assign(b, { office: list[oi], oi }); }
   for (const b of bees.values()) if (b.popped && pop !== b) b.popped = false;
   plan();
   for (const b of bees.values()) if (b.fresh) { b.fresh = false; const g = b.goal; b.x = g.x; b.y = g.y; b.path = []; b.arrived = true; settle(b); }
@@ -893,14 +903,21 @@ function wallText(u, v, text, size, weight, col, family = FONT_NAME, flip = 1) {
 }
 // fit a whole name into width px: one line if it can, else two (broken at - _ / # . or a space, else
 // anywhere), shrinking from max to min px / 이름 전부를 폭에 맞춘다: 되면 한 줄, 아니면 두 줄 (- _ / # . 이나 빈칸에서, 없으면 아무 데서나), max 에서 min px 까지 줄이며
-function wrapFit(text, width, max, min, family, weight) {
+const fitMemo = new Map();
+function wrapFit(text, width, max, min, family, weight) {   // the same answer every frame, so kept / 프레임마다 같은 답이라 기억해 둔다
+  const key = [text, width, max, min, family, weight, document.fonts && document.fonts.status].join('\n');
+  if (!fitMemo.has(key)) { if (fitMemo.size > 50) fitMemo.clear(); fitMemo.set(key, wrapFitNow(text, width, max, min, family, weight)); }
+  return fitMemo.get(key);
+}
+function wrapFitNow(text, width, max, min, family, weight) {
   const fits = (t, px) => { c.font = `${weight} ${px * 4 * hangulScale(t)}px ${family}`; return c.measureText(t).width / 4 <= width; };
   for (let px = max; px >= min; px -= .5) {
     if (fits(text, px)) return { lines: [text], size: px };
     if (px > max - 1.5) continue;   // try a little smaller on one line before splitting / 나누기 전에 한 줄로 조금 줄여 본다
-    const cuts = [...text.matchAll(/[-_/#. ]/g)].map(m => m.index + 1).filter(i => i > 0 && i < text.length);
-    const all = cuts.length ? cuts : [...text].map((_, i) => i).slice(1);
-    const best = all.map(i => [text.slice(0, i).trim(), text.slice(i).trim()]).filter(([a, b]) => fits(a, px) && fits(b, px))
+    const ch = Array.from(text);   // by character, so an emoji is never split / 글자 단위로 (이모지가 쪼개지지 않게)
+    const cuts = ch.map((x, i) => /[-_/#. ]/.test(x) ? i + 1 : 0).filter(i => i > 0 && i < ch.length);
+    const all = cuts.length ? cuts : ch.map((_, i) => i).slice(1);
+    const best = all.map(i => [ch.slice(0, i).join('').trim(), ch.slice(i).join('').trim()]).filter(([a, b]) => fits(a, px) && fits(b, px))
       .sort((a, b) => Math.abs(a[0].length - a[1].length) - Math.abs(b[0].length - b[1].length))[0];
     if (best) return { lines: best, size: px };
   }
@@ -908,8 +925,9 @@ function wrapFit(text, width, max, min, family, weight) {
 }
 function clipText(text, max) {
   if (c.measureText(text).width <= max) return text;
-  while (text.length > 1 && c.measureText(text + '…').width > max) text = text.slice(0, -1);
-  return text + '…';
+  const ch = Array.from(text);   // by character, so an emoji is never split / 글자 단위로 (이모지가 쪼개지지 않게)
+  while (ch.length > 1 && c.measureText(ch.join('') + '…').width > max) ch.pop();
+  return ch.join('') + '…';
 }
 // a darker shade of a #rrggbb token for the sides of boxes / 상자 옆면용으로 #rrggbb 토큰을 어둡게
 const shades = new Map();
@@ -1407,8 +1425,11 @@ function drawGlobe(t) {
 // trees along the rim, and grass patches, bushes and flowers between the building and the rim; the same
 // ones every time (from a hash)
 // 가장자리를 따라 선 나무, 건물과 가장자리 사이의 풀 얼룩, 덤불, 꽃. 해시로 정해 늘 같은 자리
-function wildItems() {
-  const out = [], patches = [], { GY } = LAY;
+let wildMemo = null;
+function wildItems() {   // depends only on the floor size / 바닥 크기에만 달려 있다
+  const { GY } = LAY;
+  if (wildMemo && wildMemo.GY === GY) return wildMemo;
+  const out = [], patches = [];
   for (let i = -8; i < GX + 8; i++) for (let j = -8; j < GY + 8; j++) {
     const x = i + hash(i, j, 1), y = j + hash(i, j, 2);
     if ((x > -1.5 && x < GX + 1.5 && y > -1.5 && y < GY + 1.5)) continue;
@@ -1418,7 +1439,7 @@ function wildItems() {
     else if (h > .84) out.push([x, y, 'flowers', 1]);
     else if (h > .8) out.push([x, y, 'bush', .7]);
   }
-  return { out, patches };
+  return (wildMemo = { out, patches, GY });
 }
 
 const YARD = 7;
@@ -2034,8 +2055,8 @@ function drawBee(b, t) {
   if (carry) { fillRR(-6, -57, 12, 12, 2.5, T.honey); c.strokeStyle = dark; c.lineWidth = 1; rr(-6, -57, 12, 12, 2.5); c.stroke(); fillRR(-7, -59, 14, 3.5, 1, dark); }
   if (pose === 'pong') circle(f * 13, -28 + Math.sin(t * 5.5) * 4, 3.4, T.alert);
   if (pose === 'plant') fillRR(f * 10 - 4, -22, 8, 7, 1.5, T.run);
-  if (b.look === 'glasses' && !back) { const ex = (b.face || -1) * 2.4; c.strokeStyle = dark; c.lineWidth = 1; for (const s of [-1, 1]) { c.beginPath(); c.arc(ex + s * 3.2, -35, 3.1, 0, 7); c.stroke(); } c.beginPath(); c.moveTo(ex - .3, -35); c.lineTo(ex + .3, -35); c.stroke(); }
-  if (b.look === 'notes') { const f2 = b.face || -1; fillRR(f2 * 10 - 4, -27, 8, 8, 1, T.wait); fillRR(f2 * 10 - 4, -27, 8, 2, .5, T.alert); }
+  if (b.acc === 'glasses' && !back) { const ex = (b.face || -1) * 2.4; c.strokeStyle = dark; c.lineWidth = 1; for (const s of [-1, 1]) { c.beginPath(); c.arc(ex + s * 3.2, -35, 3.1, 0, 7); c.stroke(); } c.beginPath(); c.moveTo(ex - .3, -35); c.lineTo(ex + .3, -35); c.stroke(); }
+  if (b.acc === 'notes') { const f2 = b.face || -1; fillRR(f2 * 10 - 4, -27, 8, 8, 1, T.wait); fillRR(f2 * 10 - 4, -27, 8, 2, .5, T.alert); }
   if (pose === 'board') { c.save(); c.translate(9 + Math.sin(t * 3) * 1.5, -48 + Math.sin(t * 7) * 3); c.rotate(.5); fillRR(-1.5, -5, 3, 8, 1, T.run); c.restore(); }
   if (pose === 'help') {   // a tiny laptop, its screen busy / 작은 노트북, 화면이 바쁘다
     fillRR(-8, -24, 16, 10, 1.5, T['m-mon']);
@@ -2125,7 +2146,11 @@ function frameGap(now) {
 }
 for (const ev of ['pointermove', 'pointerdown', 'wheel', 'keydown']) addEventListener(ev, () => { touched = performance.now(); }, { passive: true });
 function frame(now) {
-  if (LAY && now - last < frameGap(now) - 4) { requestAnimationFrame(frame); return; }
+  // the next frame comes even if this one throws / 이번 프레임이 실패해도 다음 프레임은 온다
+  try { drawFrame(now); } catch (e) { console.error(e); } finally { requestAnimationFrame(frame); }
+}
+function drawFrame(now) {
+  if (LAY && now - last < frameGap(now) - 4) return;
   const dt = Math.min(.1, (now - last) / 1000); last = now;
   const t = now / 1000;
   if (LAY) {
@@ -2169,7 +2194,6 @@ function frame(now) {
     }
     if (pop) drawPopBee(t);
   }
-  requestAnimationFrame(frame);
 }
 // the building from outside: walls all round, a flat roof with an eave, skylights, a vent, a hive and
 // the Mac's name painted on it; windows glow at night
@@ -2308,6 +2332,7 @@ function buzz() {
 
 /* ---------- going to a session / 세션으로 가기 ---------- */
 async function visit(b) {
+  if (!b.pane) return;   // a bee at home with no session / 세션 없이 집에 있는 벌
   try {
     const r = await fetch('/goto', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pane: b.pane, ssh: b.ssh }) });
     const j = await r.json();
@@ -2319,7 +2344,7 @@ function worldAt(e) { const r = cv.getBoundingClientRect(); return { x: (e.clien
 function hit(p) {
   if (roofFor(cam.zoom) >= .5) return null;
   let best = null, bd = 20;
-  for (const b of bees.values()) { if (b.popped || b.inside) continue; const s = P(b.x, b.y), d = Math.hypot(s.x - p.x, s.y - 22 * BEE - p.y); if (d < bd) { bd = d; best = b; } }
+  for (const b of bees.values()) { if (b.popped || b.inside || !b.pane) continue; const s = P(b.x, b.y), d = Math.hypot(s.x - p.x, s.y - 22 * BEE - p.y); if (d < bd) { bd = d; best = b; } }
   return best || [...bees.values()].find(b => { if (!b.desk) return false; const s = P(b.desk.x, b.desk.y, 12); return Math.abs(p.x - s.x) < 42 && Math.abs(p.y - s.y) < 18; }) || null;
 }
 const tip = $('#tip');
@@ -2493,7 +2518,7 @@ function render() {
       r.className = 'r s-' + b.state;
       r.querySelector('.k').textContent = b.state === 'home' ? '🏠' : `⌥${b.idx}`;
       r.querySelector('.n').textContent = nameOf(b);
-      r.querySelector('.e').textContent = b.state === 'done' ? tr(`${fmt(age)} 전 끝남`, `done ${fmt(age)} ago`) : b.state === 'idle' ? label('idle') : `${label(b.state)} ${fmt(age)}`;
+      r.querySelector('.e').textContent = b.state === 'done' ? tr(`${fmt(age)} 전 끝남`, `done ${fmt(age)} ago`) : b.state === 'idle' || (b.state === 'home' && !b.at) ? label(b.state) : `${label(b.state)} ${fmt(age)}`;
       r.querySelector('.w i').textContent = whereOf(b);
       r.querySelector('.w span').textContent = taskOf(b) ? ` · ${taskOf(b)}` : '';
       want.push(r);
