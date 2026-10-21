@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.34 — 2026-10-21
 
 - After a reboot each Claude resumes in the folder it was started in again: a
   compact or `/clear` no longer moves it to wherever a Bash `cd` had gone (a
