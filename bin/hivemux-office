@@ -335,11 +335,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
             req = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
         except ValueError:
             return self.send(400, "{}")
-        if self.path == "/shift":   # clock out or in (bin/hivemux-shift) / 퇴근 또는 출근 (bin/hivemux-shift)
-            what = req.get("to")
+        if self.path == "/shift":   # clock out or in (bin/hivemux-shift), here or on a connected Mac / 퇴근 또는 출근, 여기 또는 붙어 있는 Mac
+            what, ssh = req.get("to"), req.get("ssh")
             if what not in ("on", "off"):
                 return self.send(400, "{}")
-            r = subprocess.run([os.path.join(HERE, "hivemux-shift"), what], capture_output=True, text=True, stdin=subprocess.DEVNULL)
+            if ssh:
+                sock = next((s for h, s in connections() if h == ssh), None)
+                r = remote_run(sock, ssh, ["--shift", what], timeout=20) if sock else None
+                if not r or r.returncode != 0:
+                    return self.send(200, json.dumps({"ok": False, "say": ""}))
+            else:
+                r = subprocess.run([os.path.join(HERE, "hivemux-shift"), what], capture_output=True, text=True, stdin=subprocess.DEVNULL)
             return self.send(200, json.dumps({"ok": r.returncode == 0, "say": r.stdout.strip()}))
         pane, ssh = str(req.get("pane", "")), req.get("ssh")
         if not pane.startswith("%"):
@@ -620,6 +626,9 @@ def main(argv):
     elif argv[:1] == ["--goto"] and len(argv) >= 2:
         frm = argv[3] if argv[2:3] == ["--from"] and len(argv) >= 4 else None
         sys.exit(0 if goto(argv[1], frm) else 1)
+    elif argv[:1] == ["--shift"] and argv[1:2] in (["on"], ["off"]):   # the other Mac's office asks / 상대 Mac 의 사무실이 묻는다
+        r = subprocess.run([os.path.join(HERE, "hivemux-shift"), argv[1]], capture_output=True, text=True, stdin=subprocess.DEVNULL)
+        print(r.stdout.strip()); sys.exit(r.returncode)
     elif argv[:1] == ["serve"]:
         serve()
     elif argv[:1] == ["--client"]:

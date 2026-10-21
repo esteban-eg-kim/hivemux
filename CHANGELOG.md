@@ -6,7 +6,10 @@
   every Claude for the night (busy ones work overtime and go once done); the
   bees clap and walk home to their own houses in a new village past the yard.
   Clock in brings every one back in the same conversation as the bees walk to
-  work. A reboot while clocked out leaves them home
+  work. A reboot while clocked out leaves them home. The office's button asks
+  Mac by Mac (this Mac, each connected Mac, or all; a connected Mac is clocked
+  out over its ssh connection), and every Mac's bees live mixed in one village
+  of lanes; hover a house to see who lives there
 - Bees are hired, leave (closing the project) and come back (rehired) by
   project and name, with a house each; a honey ledger ranks them today, this
   week and this month (list drawer → Honey, and a bee of the month on the
