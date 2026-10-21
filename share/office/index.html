@@ -1087,7 +1087,7 @@ function decoBack(t) {
     // on a slanted wall each letter leans, so the lines stand well apart / 기운 벽에선 글자도 기울어 줄을 넉넉히 띄운다
     const lh = fit.size + 4.5, two = fit.lines.length > 1, top = two ? 40.5 : 37;
     wallText(u + w / 2, 58, '🏆', 7.5, 400, '#000');
-    wallText(u + w / 2, 49.5, tr('이달의 꿀벌', 'Bee of the Month'), 6, 'italic 400', T['m-label'], FONT_FANCY);
+    wallText(u + w / 2, 50.5, tr('이달의 꿀벌', 'Bee of the Month'), 4.4, 'italic 400', T['m-label'], FONT_FANCY);   // a small caption over the name / 이름 위 작은 캡션
     fit.lines.forEach((l, i) => wallText(u + w / 2, top - i * lh, l, fit.size, 600, '#3a2612', FONT_NAME));
     wallText(u + w / 2, top - (fit.lines.length - 1) * lh - 11.5, tr(`꿀 ${best.honey}칸`, `${best.honey} honey`), 6, 600, T.wait, FONT_NAME);
   });
