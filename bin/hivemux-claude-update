@@ -1,7 +1,7 @@
 #!/bin/bash
 # Update Claude Code, then restart the Claude in each pane on the new version, back in the same conversation.
 # Claude Code 를 업데이트하고, 칸마다 Claude 를 새 버전으로 다시 시작한다 (같은 대화로).
-#   hivemux-claude-update              update and restart (hivemux update-claude)
+#   hivemux-claude-update [--yes]      check, ask, update and restart (hivemux update-claude)
 #   hivemux-claude-update --popup <client>   the same in a popup (sidebar menu → Update Claude)
 #   hivemux-claude-update watch        (in the background) restart the marked panes as they become free
 # A running Claude keeps its old version until it starts again, so after the update every pane whose Claude
@@ -16,6 +16,10 @@
 # (bin/hivemux-panes). 끝난 작업은 끝났고 안 본 채로 남는다 (@claude_restore, bin/hivemux-hook 의
 # SessionStart 가 읽는다). 일하거나 나를 기다리는 Claude 는 끝날 때까지 둔다.
 # Homebrew 로 설치했으면 brew 로, 아니면 `claude update` 로 업데이트한다.
+# It first checks the newest version (the cask's for Homebrew, else npm's) and asks before updating; up to date,
+# it only offers to restart Claudes still on an older version.
+# 먼저 최신 버전(Homebrew 면 cask, 아니면 npm)을 보고, 업데이트 전에 묻는다. 이미 최신이면 예전 버전으로 도는
+# Claude 를 다시 시작할지만 묻는다.
 export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin"
 TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
 say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
@@ -117,40 +121,54 @@ watch() {
   done
 }
 
-main() {
-  local before after bin cur updated=0 p pp pid marked=0 left
-  bin="$(real claude)"
-  if [ -z "$bin" ]; then echo "$(say "claude 를 찾지 못했습니다" "claude not found")"; return 1; fi
-  before="$(version "$bin")"
-  echo "$(say "Claude Code $before — 업데이트 확인 중…" "Claude Code $before — checking for updates…")"
-  case "$bin" in
-    */Caskroom/*/*)
-      local cask="${bin#*/Caskroom/}"; cask="${cask%%/*}"
-      brew upgrade --cask "$cask" 2>&1 | grep -v '^$' ;;
-    */Cellar/*) brew upgrade "$(echo "$bin" | sed 's#.*/Cellar/\([^/]*\)/.*#\1#')" 2>&1 | grep -v '^$' ;;
-    *) claude update 2>&1 | grep -v '^$' ;;
+# The newest version this install can get: the Homebrew cask's, else the npm package's (empty when offline)
+# 이 설치가 받을 수 있는 최신 버전: Homebrew cask 의 것, 아니면 npm 패키지의 것 (인터넷이 없으면 빈 값)
+latest() { # latest <binary>
+  local cask
+  case "$1" in
+    */Caskroom/*/*) cask="${1#*/Caskroom/}"; cask="${cask%%/*}"
+      curl -fsS -m 8 "https://formulae.brew.sh/api/cask/$cask.json" 2>/dev/null | sed -n 's/.*"version":"\([^"]*\)".*/\1/p' | head -1 ;;
+    *) curl -fsS -m 8 https://registry.npmjs.org/@anthropic-ai/claude-code/latest 2>/dev/null | sed -n 's/.*"version":"\([^"]*\)".*/\1/p' | head -1 ;;
   esac
-  cur="$(real claude)"; after="$(version "$cur")"
-  [ -n "$after" ] && [ "$after" != "$before" ] && updated=1
-  echo
-  if [ "$updated" = 1 ]; then echo "$(say "✓ $before → $after" "✓ $before → $after")"
-  else echo "$(say "✓ 최신 버전입니다 ($after)" "✓ Up to date ($after)")"; fi
+}
+newer() { [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -1)" = "$1" ]; }   # newer <a> <b>: a > b
 
-  # mark every Claude still on an old binary / 예전 실행 파일로 도는 Claude 를 모두 표시
+# y/n on the terminal; --yes answers yes, and without a terminal the answer is no
+# 터미널에서 y/n. --yes 면 예, 터미널이 없으면 아니요
+ask() {
+  [ "$YES" = 1 ] && return 0
+  [ -t 0 ] || return 1
+  local a; printf '%s ' "$1 [y/N]"; read -rsn1 a; echo "$a"
+  [[ "$a" == [yY] ]]
+}
+
+# Claude panes: all that run one, and those still on an older binary than <current binary>
+# Claude 칸: 실행 중인 전부, 그리고 <지금 실행 파일> 보다 예전 것으로 도는 칸
+claudes() { # claudes <current binary> <updated 0|1> -> "<pane> <old 0|1>" per line
+  local p pp pid
   while read -r p pp; do
     [ -n "$(t show -pqv -t "$p" @claude_session)" ] || continue
     pid="$(claude_pid "$pp")"; [ -n "$pid" ] || continue
-    outdated "$pid" "$cur" "$updated" || continue
-    t set -p -t "$p" @claude_restart_pending 1; marked=$((marked + 1))
+    if outdated "$pid" "$1" "$2"; then echo "$p 1"; else echo "$p 0"; fi
   done < <(t list-panes -a -F '#{pane_id} #{pane_pid}')
-  if [ "$marked" = 0 ]; then
-    echo "$(say "다시 시작할 Claude 가 없습니다." "No Claude needs a restart.")"; return 0
-  fi
+}
+
+update() { # update <binary>
+  case "$1" in
+    */Caskroom/*/*) local cask="${1#*/Caskroom/}"; cask="${cask%%/*}"; brew upgrade --cask "$cask" 2>&1 | grep -v '^$' ;;
+    */Cellar/*) brew upgrade "$(echo "$1" | sed 's#.*/Cellar/\([^/]*\)/.*#\1#')" 2>&1 | grep -v '^$' ;;
+    *) claude update 2>&1 | grep -v '^$' ;;
+  esac
+}
+
+# Mark the panes and let the background watcher restart them; show progress for a while
+# 칸을 표시하고 뒤에서 도는 watch 가 다시 시작한다. 잠깐 진행을 보여 준다
+restart_all() { # restart_all <panes...>
+  local p i n=-1 left
+  for p in "$@"; do t set -p -t "$p" @claude_restart_pending 1; done
   nohup "$0" watch </dev/null >/dev/null 2>&1 &
-  echo "$(say "Claude ${marked}개를 새 버전으로 다시 시작합니다 (대화 그대로). 창을 닫아도 계속됩니다." \
-              "Restarting ${marked} Claude(s) on the new version (same conversation). Closing this keeps it going.")"
-  # show progress for a while; the restarts go on in the background / 잠깐 진행을 보여 준다. 다시 시작은 뒤에서 계속
-  local i n=-1 left
+  echo "$(say "Claude $#개를 다시 시작합니다 (대화 그대로). 창을 닫아도 계속됩니다." \
+              "Restarting $# Claude(s) (same conversation). Closing this keeps it going.")"
   for i in $(seq 40); do
     left="$(pending | wc -l | tr -d ' ')"
     [ "$left" != "$n" ] && { n="$left"; printf '\r  %s ' "$(say "남은 칸 $left" "$left left")"; }
@@ -162,6 +180,41 @@ main() {
   else echo "$(say "나머지 ${left}개는 일이 끝나고 화면에서 벗어나면 다시 시작합니다." "The other ${left} restart once done and off screen.")"; fi
 }
 
+main() {
+  local bin cur new all old
+  bin="$(real claude)"
+  if [ -z "$bin" ]; then echo "$(say "claude 를 찾지 못했습니다" "claude not found")"; return 1; fi
+  cur="$(version "$bin")"
+  echo "$(say "최신 버전 확인 중…" "Checking for a new version…")"
+  new="$(latest "$bin")"
+  all=($(claudes "$bin" 0 | awk '{print $1}')); old=($(claudes "$bin" 0 | awk '$2 == 1 {print $1}'))
+  echo "$(say "설치된 버전 $cur · 최신 ${new:-?}" "Installed $cur · latest ${new:-?}")"
+  if [ -z "$new" ]; then
+    echo "$(say "최신 버전을 확인하지 못했습니다 (인터넷 연결을 확인하세요)." "Could not check the latest version (check the network).")"
+    ask "$(say "그래도 업데이트를 시도할까요?" "Try updating anyway?")" || return 0
+  elif ! newer "$new" "$cur"; then
+    echo "$(say "✓ 최신 버전입니다." "✓ Up to date.")"
+    [ "${#old[@]}" = 0 ] && return 0
+    echo
+    ask "$(say "예전 버전으로 도는 Claude ${#old[@]}개를 $cur 로 다시 시작할까요? (대화 그대로, 일하는 중이면 끝난 뒤)" \
+               "Restart the ${#old[@]} Claude(s) still on an older version on $cur? (same conversation; busy ones once done)")" || return 0
+    restart_all "${old[@]}"; return 0
+  else
+    echo
+    ask "$(say "$cur → $new 로 업데이트할까요? 업데이트하면 Claude ${#all[@]}개가 새 버전으로 다시 시작됩니다 (대화 그대로, 일하는 중이면 끝난 뒤)." \
+               "Update $cur → $new? Then ${#all[@]} Claude(s) restart on it (same conversation; busy ones once done).")" || return 0
+  fi
+  echo
+  update "$bin"
+  bin="$(real claude)"; new="$(version "$bin")"
+  echo
+  if [ "$new" = "$cur" ]; then echo "$(say "버전이 그대로입니다 ($cur). 위 메시지를 확인하세요." "Still $cur; see the messages above.")"; return 1; fi
+  echo "$(say "✓ $cur → $new" "✓ $cur → $new")"
+  old=($(claudes "$bin" 1 | awk '$2 == 1 {print $1}'))
+  [ "${#old[@]}" = 0 ] && { echo "$(say "다시 시작할 Claude 가 없습니다." "No Claude needs a restart.")"; return 0; }
+  restart_all "${old[@]}"
+}
+
 case "${1:-}" in
   watch) watch ;;
   --popup)                          # from the sidebar menu: in a popup on that screen / 사이드바 메뉴: 그 화면의 팝업에서
@@ -171,5 +224,6 @@ case "${1:-}" in
       "$(printf '%q ' "$HM_BIN/hivemux-claude-update" --ui)" ;;
   --ui) main; echo; printf '%s' "$(say "아무 키나 누르면 닫힙니다" "Press any key to close")"; read -rsn1 ;;
   -h|--help) sed -n '4,6p' "$0" ;;
+  --yes|-y) YES=1 main ;;
   *) main ;;
 esac

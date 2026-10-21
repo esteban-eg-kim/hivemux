@@ -50,7 +50,8 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
   tmux-resurrect restores layouts after a reboot and hivemux runs
   `claude --resume <id>` in the right pane.
 - **Claude Code updates.** Right-click → Update Claude (or `hivemux update-claude`)
-  updates Claude Code (with brew if it came from Homebrew), then restarts each
+  checks for a newer version and, once you confirm, updates Claude Code (with
+  brew if it came from Homebrew; up to date, it just says so), then restarts each
   pane's Claude on the new version in the same conversation. One that is working,
   waiting for you, or on a screen restarts later, once it is done and off screen.
 - **Projects.** `hm ~/code/api` opens one tmux session per folder with a named

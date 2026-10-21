@@ -7,6 +7,10 @@
   `Esc` closes) grouped by Mac with waiting sessions first; hovering a row rings
   that bee, and the office moves aside while it is open. Right or left side in
   the settings
+- Update Claude checks the latest version first: up to date, it says so; with a
+  newer one it asks before updating (how many Claudes will restart). `--yes`
+  skips the question. Ctrl+C or closing the popup no longer leaves a Claude
+  stopped halfway: restarts run in the background
 
 ## 0.1.34 — 2026-10-21
 
