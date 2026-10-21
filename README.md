@@ -29,27 +29,11 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
   yet (green). A waiting one blinks until you answer, a finished one for its
   first 10 seconds. Click a badge to go there; a finished one leaves once you
   look at it.
-- **Bee office.** The 🐝 button at the top of the sidebar (or `prefix B`, the
-  right-click menu, `hivemux office`) opens a window where every Claude session is
-  a bee in a small office seen at an angle (turn, tilt and zoom it with the mouse,
-  or switch to the flat plan with 2D): it types at its desk while working, runs to the
-  question window in the boss room when it needs you (and pops out in front of
-  the window), holds up a jar of honey when done, stores it in the honeycomb
-  once you have looked, then rests in the lounge. In plan mode it plans at the
-  whiteboard in the meeting room with two office colleagues; subagents stand by its desk as small helper
-  bees. Desks are shared: only bees that are not resting have one. Click a bee to
-  go to its session. Sessions of a Mac you are connected to with
-  `hivemux connect` get desks of their own: each Mac's desks sit on a carpet of its
-  color, with its name on a plaque on the wall. On a remote screen the 🐝 button
-  opens the window on the Mac you connect from.
-- **Clock out, clock in.** The 🌙 button in the office (or right-click → Clock
-  out) stops every Claude for the night: the bees clap, then walk home to their
-  own houses in a village past the yard. Busy ones work overtime and go once done.
-  Clock in and every Claude comes back in the same conversation as the bees walk
-  to work; a reboot while clocked out leaves them home. Closing a project is its
-  bees leaving the company; opening it again rehires them. The list drawer's
-  Honey tab ranks bees by honey today, this week and this month, a bee of the
-  month hangs on the wall, and a full comb (48 cells) goes into a jar on a shelf.
+- **Bee office.** Every Claude session as a bee in a little office: watch who
+  works, who waits for you, and who is done at a glance. See [The bee office](#the-bee-office).
+- **Clock out, clock in.** Stop every Claude for the night and bring them all
+  back in the morning, in the same conversations, while the bees go home to a
+  village and walk back to work.
 - **Task names.** Shows Claude's own conversation title. Double-click a card
   (or right-click → Rename) to rename it; hivemux sends `/rename` to that Claude (waits if it is busy).
 - **Your order.** Drag a card to reorder tasks, or a project header to reorder
@@ -74,6 +58,64 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
   the Claude app shows and drives the same sessions.
 - **Polite installer.** Adds marked blocks to your configs and removes exactly
   those on `hivemux uninstall`.
+
+## The bee office
+
+<p align="center">
+  <img src="docs/office/office-en.gif" alt="The bee office: bees typing at desks, one running to the question window" width="880">
+</p>
+
+The 🐝 button at the top of the sidebar (or `prefix B`, the right-click menu,
+`hivemux office`) opens a window where every Claude session is a bee:
+
+- **Working** bees type at their desks, with tiny helper bees beside them for
+  subagents. A Claude in plan mode plans at the meeting room whiteboard.
+- **Waiting** bees run to the question window in the boss room, line up, and pop
+  out in front of the window when one has waited a while.
+- **Done** bees hold up a jar of honey; once you have looked, they fill a cell of
+  the honeycomb and rest in the lounge. A full comb goes into a jar on a shelf.
+- Click a bee to jump to its session. The ☰ button (or `L`) opens the session
+  list as a drawer, right or left (Settings); its **Honey** tab ranks bees by the
+  honey they made today, this week and this month, and the month's best hangs
+  on the wall in a frame.
+- Turn, tilt and zoom with the mouse (a turn pivots on the point you pressed),
+  or switch to **2D** for the same office seen from straight above. Zoom far out
+  and the office sits on a tiny planet.
+- Macs connected with `hivemux connect` get desks of their own, on a carpet of
+  their color with a name plaque on the wall.
+
+<p align="center">
+  <img src="docs/office/list-en.jpg" alt="The session list drawer" width="430">
+  <img src="docs/office/plan-en.jpg" alt="The 2D view, from above" width="430">
+</p>
+
+### Clock out, clock in
+
+<p align="center">
+  <img src="docs/office/shift-en.gif" alt="Clocking out: the bees clap and walk home to the village" width="880">
+</p>
+
+The 🌙 **Clock out** button (or right-click → Clock out…) stops your Claudes for
+the night, Mac by Mac or all at once. The bees clap and walk past the yard to
+their own houses. A Claude still working or waiting for you works overtime and
+goes once done. Clock in and every one comes back in the same conversation
+(`claude --resume`) while the bees walk to work. A reboot while clocked out
+leaves them home.
+
+Off work the bees go out before bed: beer on the terrace of the Honey Pot pub
+(or darts inside), a ball game or a bench in the park, or home. From 11 pm
+everyone sleeps. Every house is different outside and in; hover one to look in
+and see who lives there, click to keep it open.
+
+<p align="center">
+  <img src="docs/office/village-en.jpg" alt="The village, the pub and the park" width="430">
+  <img src="docs/office/inside-en.jpg" alt="Looking inside the houses and the pub" width="430">
+</p>
+
+A bee is a project and the Claude's name in it, so it stays the same bee across
+`/clear` and new conversations. A new name is hired and walks in as new;
+closing that Claude (`/exit`, or its window for ten minutes) or its project is
+leaving; the same name coming back is rehired, into the same house.
 
 ## Requirements
 
@@ -226,9 +268,11 @@ a VPN such as [Tailscale](https://tailscale.com) on both Macs is the simple way
 | tmux-resurrect + continuum | saves layouts every 5 minutes, restores on first launch |
 | Claude Code hooks | write session id and state onto the tmux pane (`hivemux-hook`) |
 | sidebar | reads that state every second and draws the board (`hivemux-sidebar-view`) |
+| bee office | a small local server (`hivemux-office`) serves the office page to its window; `hivemux-bees` keeps the roster and the honey ledger, `hivemux-shift` clocks out and in |
 
 On restore, `hivemux-panes` maps saved panes to Claude session ids and types
-`claude --resume <id>` in each. Sessions you ended with `/exit` are not resumed.
+`claude --resume <id>` in each. Sessions you ended with `/exit` are not resumed,
+and none are while you are clocked out.
 
 ## Troubleshooting
 
