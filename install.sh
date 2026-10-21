@@ -1,6 +1,6 @@
 #!/bin/bash
 # hivemux installer (git based). Homebrew users: brew install esteban-eg-kim/tap/hivemux && hivemux setup
-#   curl -fsSL https://raw.githubusercontent.com/esteban-eg-kim/hivemux/main/install.sh | bash
+#   curl -fsSL https://hivemux.dev/install.sh | bash
 # Options are passed to "hivemux setup" (e.g. bash -s -- --no-keys).
 set -euo pipefail
 REPO="${HIVEMUX_REPO:-https://github.com/esteban-eg-kim/hivemux.git}"
