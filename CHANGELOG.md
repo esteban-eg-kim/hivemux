@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.33 — 2026-10-21
 
 - Remote: a forwarded dev server port no longer shows a notification (they
   came often, e.g. on every dev server restart); `Option+W` lists the ports
