@@ -861,7 +861,10 @@ function decoLeft(t, LOFF) {
 }
 // the honeycomb on the boss room wall: every task finished today fills one cell, bottom row first
 // 사장실 벽의 벌집: 오늘 끝난 작업마다 한 칸, 아래 줄부터
-const COMB = { cols: 6, rows: 8, u0: 22.25, du: .29, v0: 12, dv: 6.4 };
+// cells are regular hexagons of R px laid out on the wall (u in tiles, a tile is 32√2 px) or on the floor in the plan
+// 칸은 반지름 R px 의 정육각형. 벽 위에 (u 는 타일 단위, 한 타일은 32√2 px) 또는 평면도에선 바닥에 놓는다
+const COMB = { cols: 8, rows: 6, R: 4.6, u0: 22.3, v0: 12, TILE: 32 * Math.SQRT2 };
+COMB.du = COMB.R * Math.sqrt(3) / COMB.TILE; COMB.dv = COMB.R * 1.5;
 function cellAt(i) { const row = Math.floor(i / COMB.cols), col = i % COMB.cols; return { u: COMB.u0 + col * COMB.du + (row % 2) * COMB.du / 2, v: COMB.v0 + row * COMB.dv }; }
 let honeyLast = null, honeyPop = 0;
 function drawComb() {
@@ -872,19 +875,18 @@ function drawComb() {
   for (let i = 0; i < cap; i++) {
     // on the wall the cells lean with it; in the plan they lie flat, a regular comb in the boss room's corner
     // 벽에서는 벽 따라 기울고, 평면도에서는 사장실 구석 바닥에 반듯한 벌집으로 눕는다
-    const { u, v } = cellAt(i), plan = flat() > .5, r = 4.6;
-    let p;
-    if (plan) {
-      const row = Math.floor(i / COMB.cols), col = i % COMB.cols, o = P(COMB.u0, .45);
-      p = { x: o.x + (col + (row % 2) / 2) * r * Math.sqrt(3), y: o.y + row * r * 1.5 };
-    } else p = P(u, 0, v);
+    // the corners go through the same projection, so the cells look right from any side
+    // 꼭짓점도 같은 투영을 거쳐서, 어느 쪽에서 봐도 반듯한 칸이다
+    const { u, v } = cellAt(i), plan = flat() > .5, r = COMB.R, fy = .45 + (v - COMB.v0) / COMB.TILE;
+    const at = (du, dv) => plan ? P(u + du / COMB.TILE, fy + dv / COMB.TILE) : P(u + du / COMB.TILE, 0, v - dv);
+    const p = at(0, 0);
     c.beginPath();
-    for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + k * Math.PI / 3; c.lineTo(p.x + Math.cos(a) * r, p.y + (plan ? Math.sin(a) * r : Math.sin(a) * r * .9 + Math.cos(a) * r * .5)); }
+    for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + k * Math.PI / 3, q = at(Math.cos(a) * r, Math.sin(a) * r); c.lineTo(q.x, q.y); }
     c.closePath();
     c.fillStyle = i < filled ? T.honey : T['m-wax']; c.fill(); c.strokeStyle = T['m-wax-edge']; c.lineWidth = 1; c.stroke();
-    if (i === filled - 1 && fresh < 1) { c.globalAlpha = 1 - fresh; c.beginPath(); c.arc(p.x, p.y, r + 6 * fresh, 0, 7); c.strokeStyle = T.honey; c.lineWidth = 2; c.stroke(); c.globalAlpha = 1; }
+    if (i === filled - 1 && fresh < 1) { c.globalAlpha = 1 - fresh; c.beginPath(); c.arc(p.x, p.y, (r + 6 * fresh) * Math.max(.6, ZF), 0, 7); c.strokeStyle = T.honey; c.lineWidth = 2; c.stroke(); c.globalAlpha = 1; }
   }
-  if (honey > cap) { const p = P(COMB.u0 + .9, 0, COMB.v0 + COMB.rows * COMB.dv + 4); font(9, 700, 'f-mono'); c.fillStyle = T['m-label']; c.textAlign = 'center'; c.fillText(`+${honey - cap}`, p.x, p.y); c.textAlign = 'left'; }
+  if (honey > cap) { const p = P(COMB.u0 + COMB.cols * COMB.du / 2, 0, COMB.v0 + COMB.rows * COMB.dv + 6); font(9, 700, 'f-mono'); c.fillStyle = T['m-label']; c.textAlign = 'center'; c.fillText(`+${honey - cap}`, p.x, p.y); c.textAlign = 'left'; }
 }
 // glass walls of the meeting and boss rooms, one tile at a time so bees sort around them
 // 회의실과 사장실의 유리벽. 벌과 앞뒤가 맞게 한 타일씩
