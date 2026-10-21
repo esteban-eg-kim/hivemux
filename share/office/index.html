@@ -692,26 +692,52 @@ function plant(x, y, s = 1) {
   for (const [dx, dy, r] of [[-4, -6, 6], [4, -7, 5.5], [0, -12, 6], [0, -4, 6]]) circle(p.x + dx * s, p.y + dy * s, r * s, T['m-plant']);
 }
 
-/* the scene: things on the floor, sorted back to front by x + y / 장면: 바닥 위의 것들을 x + y 로 뒤에서부터 */
+/* the scene: things on the floor, each with the box it fills (x, y in tiles, z in px), drawn back to front.
+   Sorting by one depth per thing (its middle) gets things of different sizes wrong: a bee on a long sofa,
+   a chair by a desk, a laptop on it. So two things whose pictures overlap are compared by their boxes:
+   apart on the floor, the one on the far side goes first; one above the other (a laptop on a desk), the
+   lower first; standing in the same spot, the taller (a bee on a chair or a seat) after; else by middle.
+   장면: 바닥 위의 것들. 각자 차지하는 상자(x, y 는 타일, z 는 px)와 함께, 뒤에서부터 그린다.
+   가운데 깊이 하나로만 정렬하면 크기가 다른 것끼리 틀린다 (긴 소파 위의 벌, 책상 옆 의자, 그 위 노트북).
+   그래서 그림이 겹치는 둘은 상자로 비교한다: 바닥에서 떨어져 있으면 먼 쪽 먼저, 위아래로 놓였으면
+   (책상 위 노트북) 아래 것 먼저, 같은 자리에 섰으면 키 큰 것 (의자나 소파 위 벌) 나중, 아니면 가운데로. */
 const scene = [];
-// a box split into pieces so bees standing next to a long box sort correctly. The pieces are near squares
-// of about `cell` tiles: long thin pieces sort wrong against their neighbours once the view is turned
-// (a desk's far half drawn over its near half). Returns the depth of its nearest piece
-// 긴 상자 옆에 선 벌의 앞뒤가 맞도록 상자를 조각낸다. 조각은 `cell` 타일쯤의 정사각형에 가깝게: 길쭉한 조각은
-// 보기를 돌리면 이웃과 앞뒤가 틀린다 (책상의 먼 쪽 반이 가까운 쪽 위에 그려짐). 가장 가까운 조각의 깊이를 돌려준다
-function addBox(x, y, w, d, h, col, z = 0, cell = 1) {
-  const nx = Math.max(1, Math.round(w / cell)), ny = Math.max(1, Math.round(d / cell));
-  let near = -Infinity;
-  for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) {
-    const bx = x + w * i / nx, by = y + d * j / ny, k = D(bx + w / nx / 2, by + d / ny / 2);
-    near = Math.max(near, k);
-    // a hair wider than the piece, so no seam shows between neighbours / 이웃 사이에 이음매가 안 보이게 조각보다 아주 조금 넓게
-    const e = i < nx - 1 || j < ny - 1 ? .02 : 0;
-    scene.push({ k, draw: () => box(bx, by, w / nx + (i < nx - 1 ? e : 0), d / ny + (j < ny - 1 ? e : 0), h, col, z) });
-  }
-  return near;
+function put(x0, y0, x1, y1, z0, z1, draw, bias = 0) {
+  scene.push({ x0, y0, x1, y1, z0, z1, k: D((x0 + x1) / 2, (y0 + y1) / 2) + bias, draw });
 }
-const add = (x, y, draw, bias = 0) => scene.push({ k: D(x, y) + bias, draw });
+const addBox = (x, y, w, d, h, col, z = 0) => put(x, y, x + w, y + d, z, z + h, () => box(x, y, w, d, h, col, z));
+// a thing standing at (x, y): r tiles round, h px tall / (x, y) 에 선 것: 반지름 r 타일, 높이 h px
+const add = (x, y, draw, bias = 0, r = .25, h = 40, z = 0) => put(x - r, y - r, x + r, y + r, z, z + h, draw, bias);
+function before(a, b) {   // a is drawn before b / a 를 b 보다 먼저
+  const e = 1e-3, gx = COS + SIN, gy = COS - SIN;   // how depth grows along x and y / x, y 로 갈 때 깊이가 느는 정도
+  const sx = a.x1 <= b.x0 + e ? 1 : b.x1 <= a.x0 + e ? -1 : 0, sy = a.y1 <= b.y0 + e ? 1 : b.y1 <= a.y0 + e ? -1 : 0;
+  if (sx || sy) { const v = sx * gx + sy * gy; if (Math.abs(v) > 1e-6) return v > 0; }
+  else {
+    if (a.z0 >= b.z1 - e) return false;
+    if (b.z0 >= a.z1 - e) return true;
+    if (Math.abs(a.z1 - b.z1) > e) return a.z1 < b.z1;
+  }
+  return a.k < b.k;
+}
+function drawScene() {
+  const n = scene.length, pad = 16;
+  for (const o of scene) {   // where its picture falls on screen / 그림이 화면에 놓이는 범위
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const [x, y] of [[o.x0, o.y0], [o.x1, o.y0], [o.x1, o.y1], [o.x0, o.y1]]) for (const z of [o.z0, o.z1]) {
+      const p = P(x, y, z); if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x; if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y;
+    }
+    o.sx0 = x0 - pad; o.sx1 = x1 + pad; o.sy0 = y0 - pad * 2; o.sy1 = y1 + pad;
+    o.before = []; o.mark = 0;
+  }
+  scene.sort((a, b) => a.k - b.k);   // a good start, and the order among things that don't overlap / 출발점이자 겹치지 않는 것끼리의 순서
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+    const a = scene[i], b = scene[j];
+    if (a.sx1 < b.sx0 || b.sx1 < a.sx0 || a.sy1 < b.sy0 || b.sy1 < a.sy0) continue;
+    if (before(a, b)) b.before.push(a); else a.before.push(b);
+  }
+  const visit = o => { if (o.mark) return; o.mark = 1; for (const q of o.before) visit(q); o.draw(); };
+  for (const o of scene) visit(o);
+}
 
 function drawFloor() {
   const { GY, LOFF, WORK_D } = LAY;
@@ -1161,18 +1187,18 @@ function buildScene(t) {
   const { LOFF } = LAY;
   // glass: the meeting room's left side, the front of both rooms (with doors) and the wall between them
   // 유리: 회의실 왼쪽, 두 방의 앞면 (문 포함), 두 방 사이
-  for (let y = 0; y < ROOM_Y; y++) add(16, y + .5, () => glass(16, y, 16, y + 1));
-  for (let y = 0; y < ROOM_Y; y++) add(22, y + .5, () => glass(22, y, 22, y + 1), -.01);
+  for (let y = 0; y < ROOM_Y; y++) put(16, y, 16, y + 1, 0, 44, () => glass(16, y, 16, y + 1));
+  for (let y = 0; y < ROOM_Y; y++) put(22, y, 22, y + 1, 0, 44, () => glass(22, y, 22, y + 1));
   for (let x = 16; x < 26; x++) {
     const door = Object.values(ROOMS).find(r => x + .5 > r.door - .5 && x + .5 < r.door + .5);
-    add(x + .5, ROOM_Y, () => glass(x, ROOM_Y, door ? x + .1 : x + 1, ROOM_Y));
+    put(x, ROOM_Y, door ? x + .1 : x + 1, ROOM_Y, 0, 44, () => glass(x, ROOM_Y, door ? x + .1 : x + 1, ROOM_Y));
   }
   // meeting room / 회의실
-  MEET_CHAIRS.forEach(p => add(p.x, p.y, () => cyl(p.x, p.y, .24, 8, T['m-chair']), -.05));
-  add(MEET_C.x, MEET_C.y, () => cyl(MEET_C.x, MEET_C.y, 1.05, 14, T['m-desk']));
+  MEET_CHAIRS.forEach(p => add(p.x, p.y, () => cyl(p.x, p.y, .24, 8, T['m-chair']), -.05, .24, 8));
+  add(MEET_C.x, MEET_C.y, () => cyl(MEET_C.x, MEET_C.y, 1.05, 14, T['m-desk']), 0, 1.05, 14);
   add(21.4, 5.4, () => plant(21.4, 5.4, .9));
   // boss room: the desk with the question window, the boss chair / 사장실: 질문 창구가 있는 책상, 사장 의자
-  add(24.8, 1.5, () => cyl(24.8, 1.5, .32, 12, T['m-chair']));
+  add(24.8, 1.5, () => cyl(24.8, 1.5, .32, 12, T['m-chair']), 0, .32, 12);
   addBox(24, 2.3, 1.7, .7, 17, T['m-counter']);
   // a sign hanging over the counter / 카운터 위에 매단 팻말
   add(24.85, 2.65, () => {
@@ -1180,17 +1206,15 @@ function buildScene(t) {
     c.strokeStyle = T['m-wall']; c.lineWidth = 1; c.beginPath(); c.moveTo(p.x - 14, p.y - 6); c.lineTo(p.x - 14, p.y - 16); c.moveTo(p.x + 14, p.y - 6); c.lineTo(p.x + 14, p.y - 16); c.stroke();
     fillRR(p.x - 28, p.y - 7, 56, 14, 7, T.wait); c.fillStyle = '#1b1300'; c.fillText(tr('질문 창구', 'Questions'), p.x, p.y);
     c.textAlign = 'left'; c.textBaseline = 'top';
-  }, 4);
+  }, 4, .3, 20, 40);
   add(25.5, 5.5, () => plant(25.5, 5.5, 1.1));
   // work area: pods, and a shelf with plants where a pod could go / 작업 공간: 섬, 빈 섬 자리엔 책장과 화분
   const owners = new Map([...bees.values()].filter(b => b.desk).map(b => [b.desk.id, b]));
   for (const d of LAY.desks) {
     const o = owners.get(d.id), cy = d.seat.y + (o ? 0 : d.far ? .25 : -.25);
-    add(d.seat.x, cy, () => cyl(d.seat.x, cy, .26, 10, T['m-chair']), -.05);
-    // the laptop sits on the desk: drawn after every piece of it, whichever way the view is turned
-    // 노트북은 책상 위: 보기를 어떻게 돌려도 책상 조각을 모두 그린 뒤에
-    const near = addBox(d.x - DESK_W / 2, d.y - DESK_D / 2, DESK_W, DESK_D, 16, T['m-desk'], 0, .45);
-    scene.push({ k: near + .001, draw: () => laptop(d, o, t) });
+    add(d.seat.x, cy, () => cyl(d.seat.x, cy, .26, 10, T['m-chair']), -.05, .26, 10);
+    addBox(d.x - DESK_W / 2, d.y - DESK_D / 2, DESK_W, DESK_D, 16, T['m-desk']);
+    put(d.x - .45, d.y - .45, d.x + .45, d.y + .45, 16, 34, () => laptop(d, o, t));   // on the desk / 책상 위
   }
   for (let i = LAY.pods.length; i < LAY.rows * POD_ROW; i++) {
     const { x, y } = podAt(i);
@@ -1199,9 +1223,9 @@ function buildScene(t) {
   }
   // cafe / 카페
   addBox(.3, 9.8 + LOFF, .9, 4, 18, T['m-counter']);
-  add(.8, 10.3 + LOFF, () => box(.55, 10.05 + LOFF, .5, .5, 14, T['m-mon'], 18), .2);
-  for (const s of SPOTS.filter(s => s.kind === 'coffee')) add(s.x, s.y, () => cyl(s.x, s.y, .18, 10, T['m-chair']), -.05);
-  for (const y of [11, 13.5]) add(4, y + LOFF, () => cyl(4, y + LOFF, .45, 14, T['m-desk']));
+  put(.55, 10.05 + LOFF, 1.05, 10.55 + LOFF, 18, 32, () => box(.55, 10.05 + LOFF, .5, .5, 14, T['m-mon'], 18));
+  for (const s of SPOTS.filter(s => s.kind === 'coffee')) add(s.x, s.y, () => cyl(s.x, s.y, .18, 10, T['m-chair']), -.05, .18, 10);
+  for (const y of [11, 13.5]) add(4, y + LOFF, () => cyl(4, y + LOFF, .45, 14, T['m-desk']), 0, .45, 14);
   // sofa corner / 소파 코너
   addBox(7.9, 11 + LOFF, 4.8, .35, 24, T['m-sofa']);
   addBox(7.9, 11.35 + LOFF, 4.8, .85, 10, T['m-sofa']);
@@ -1211,14 +1235,14 @@ function buildScene(t) {
   add(6.6, 15 + LOFF, () => plant(6.6, 15 + LOFF, 1));
   // ping-pong / 탁구대
   addBox(16.3, 9.7, 2.6, 1.4, 13, T['m-pong']);
-  add(17.6, 10.4, () => { const a = P(17.6, 9.7, 13), b = P(17.6, 11.1, 13); c.strokeStyle = T['m-board']; c.lineWidth = 2; c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(a.x, a.y - 5); c.lineTo(b.x, b.y - 5); c.lineTo(b.x, b.y); c.stroke(); }, .3);
+  add(17.6, 10.4, () => { const a = P(17.6, 9.7, 13), b = P(17.6, 11.1, 13); c.strokeStyle = T['m-board']; c.lineWidth = 2; c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(a.x, a.y - 5); c.lineTo(b.x, b.y - 5); c.lineTo(b.x, b.y); c.stroke(); }, .3, .05, 6, 13);
   // garden / 정원
   for (const [x, y, sz] of [[21.6, 8.2, 1.3], [25.3, 7.8, 1.5], [25.3, 11.3, 1.2], [21, 10.6, 1], [25.5, 15, 1.3], [20.9, 14.9, 1.1]]) add(x, y, () => plant(x, y, sz));
   addBox(22.4, 12.1, 1.8, .45, 9, T['m-desk']);
   // bees, helpers and colleagues / 벌, 부사수, 동료
-  for (const b of bees.values()) if (!b.popped) add(b.x, b.y, () => drawBee(b, t), .02);
-  for (const h of helpers.values()) add(h.x, h.y, () => drawBee(h, t), .02);
-  for (const n of crew.values()) add(n.x, n.y, () => drawBee(n, t), .02);
+  for (const b of bees.values()) if (!b.popped) add(b.x, b.y, () => drawBee(b, t), .02, .2, 46);
+  for (const h of helpers.values()) add(h.x, h.y, () => drawBee(h, t), .02, .15, 36);
+  for (const n of crew.values()) add(n.x, n.y, () => drawBee(n, t), .02, .2, 46);
 }
 // the laptop on a desk: its screen faces its bee; from behind the bee we see the state, from the
 // other side the lid
@@ -1442,7 +1466,7 @@ function frame(now) {
       if (roof < 1) {   // the office inside / 사무실 안
         drawFloor(); drawBackWalls(t);
         buildScene(t);
-        scene.sort((a, b) => a.k - b.k).forEach(o => o.draw());
+        drawScene();
       }
       if (roof > 0) { c.globalAlpha = roof; drawRoof(t); c.globalAlpha = 1; }
       yardFront.sort((a, b) => D(a[0], a[1]) - D(b[0], b[1])).forEach(i => i[2]());
