@@ -1434,10 +1434,10 @@ function yardItems() {
 const HOUSE_COLS = ['#f4dfba', '#efe6d2', '#f2d2c4', '#e3e9d4', '#f6e7c8'], ROOF_COLS = ['#b8653f', '#9a5b3a', '#c07a48', '#8f6a4f', '#a94f3a'];
 // Every house is its own: a style for the outside and a kind of room inside, both picked from its slot so they
 // stay. Styles: a cottage with a porch roof, a two-storey house, a flat-roofed modern one with a planter on top,
-// a hipped roof, a steep A-frame cabin, and one with a chimney (smoking in the evening).
+// a hipped roof, a barn-style gambrel roof, and one with a chimney (smoking in the evening).
 // 집마다 다르다: 바깥 모양과 안의 방 종류를 자리에서 정해서 바뀌지 않는다. 모양: 현관 차양이 있는 오두막, 2층집,
-// 옥상 화분이 있는 평지붕 집, 모임지붕 집, 뾰족한 A자 오두막, 굴뚝 집 (저녁이면 연기).
-const STYLES = { cottage: [26, 17], twostory: [46, 16], flat: [30, 0], hip: [26, 19], aframe: [9, 36], chimney: [26, 17] };
+// 옥상 화분이 있는 평지붕 집, 모임지붕 집, 두 번 꺾인 헛간 지붕 집, 굴뚝 집 (저녁이면 연기).
+const STYLES = { cottage: [26, 17], twostory: [46, 16], flat: [30, 0], hip: [26, 19], barn: [26, 22], chimney: [26, 17] };
 const styleOf = h => Object.keys(STYLES)[(h.seed * 5 + 1) % 6];   // neighbours differ: every six houses have all six / 이웃끼리 다르게: 여섯 집마다 여섯 모양이 다 나온다
 const ROOMS_OF = ['sleepy', 'gamer', 'books', 'plants', 'music', 'kitchen'];
 const roomOf_ = h => ROOMS_OF[(h.seed + 3 + Math.floor(h.seed / 6)) % 6];   // likewise, in another order / 마찬가지로, 다른 순서로
@@ -1455,6 +1455,21 @@ function gableRoof(x, y, w, d, H, R, ridge, wall, roof, o = .15) {
     const slopes = [[P(x - o, y - o, H), P(x - o, y + d + o, H), ...top, shade(roof, .08)], [P(x + w + o, y - o, H), P(x + w + o, y + d + o, H), ...top, roof]];
     (toward(1, 0) ? slopes : slopes.reverse()).forEach(([p1, p2, p3, p4, col]) => poly([p1, p2, p3, p4], col));
   }
+}
+// a gambrel (barn) roof: steep low slopes, then shallow ones to the ridge; the ends are five-sided
+// 헛간 지붕: 아래는 가파르고 위는 완만하게 용마루까지. 양 끝은 오각형
+function gambrelRoof(x, y, w, d, H, R, ridge, wall, roof, o = .15) {
+  // across the ridge: [offset 0..1, height] / 용마루를 가로질러: [0~1 위치, 높이]
+  const prof = [[0, H], [.2, H + R * .6], [.5, H + R], [.8, H + R * .6], [1, H]];
+  const at = (t, along, z) => ridge === 'x' ? P(along, y - o + (d + 2 * o) * t, z) : P(x - o + (w + 2 * o) * t, along, z);
+  const a0 = ridge === 'x' ? x - o : y - o, a1 = ridge === 'x' ? x + w + o : y + d + o;
+  const ends = ridge === 'x' ? [[x, -1, 0], [x + w, 1, 0]] : [[y, 0, -1], [y + d, 0, 1]];
+  for (const [e, nx, ny] of ends) if (toward(nx, ny)) poly(prof.map(([t, z]) => ridge === 'x' ? P(e, y + d * t, z) : P(x + w * t, e, z)), wall);
+  const near = ridge === 'x' ? toward(0, 1) : toward(1, 0);
+  const slopes = [0, 1, 2, 3].map(i => [i, [at(prof[i][0], a0, prof[i][1]), at(prof[i][0], a1, prof[i][1]), at(prof[i + 1][0], a1, prof[i + 1][1]), at(prof[i + 1][0], a0, prof[i + 1][1])]]);
+  // the far side first / 먼 쪽 먼저
+  // the slopes facing us are lighter, the steep low ones a little darker than the shallow ones / 이쪽 비탈은 밝게, 가파른 아래 비탈은 조금 어둡게
+  (near ? slopes : slopes.reverse()).forEach(([i, pts]) => poly(pts, shade(roof, ((i < 2) === near ? .1 : 0) + (i === 0 || i === 3 ? .05 : 0))));
 }
 function hipRoof(x, y, w, d, H, R, roof, o = .15) {
   const ap = P(x + w / 2, y + d / 2, H + R), k = [[x - o, y - o], [x + w + o, y - o], [x + w + o, y + d + o], [x - o, y + d + o]], n = [[0, -1], [1, 0], [0, 1], [-1, 0]];
@@ -1474,7 +1489,7 @@ function house(e) {
       c.fillStyle = night('#6b4a2e'); c.fillRect(len / 2 - .28, 0, Math.min(.56, len * .2), Math.min(17, H - 1));
       c.fillStyle = glass;
       if (style === 'flat') c.fillRect(.3, 6, len / 2 - .7, 18);                                     // a big window / 큰 창
-      else if (style !== 'aframe') { c.fillRect(.35, 9, .6, 9); c.fillRect(len - .95, 9, .6, 9); }
+      else { c.fillRect(.35, 9, .6, 9); c.fillRect(len - .95, 9, .6, 9); }
       if (style === 'twostory') { c.fillRect(.35, 30, .6, 9); c.fillRect(len / 2 - .3, 30, .6, 9); c.fillRect(len - .95, 30, .6, 9); }
     };
     if (face[1] === 1) onFaceY(x, y + d, draw); else if (face[1] === -1) onFaceY(x, y, draw);
@@ -1486,7 +1501,8 @@ function house(e) {
     poly([P(x + .12, y + .12, H + 4), P(x + w - .12, y + .12, H + 4), P(x + w - .12, y + d - .12, H + 4), P(x + .12, y + d - .12, H + 4)], night('#9a9a92'));
     plant(x + w * .75, y + d * .3, .8); box(x + w * .15, y + d * .5, .6, .4, 3, night('#4d6c8f'), H + 4);   // a planter and a skylight / 화분과 천창
   } else if (style === 'hip') hipRoof(x, y, w, d, H, R, roof);
-  else gableRoof(x, y, w, d, H, R, style === 'aframe' ? (w > d ? 'x' : 'y') : ridge, wall, roof, style === 'aframe' ? .3 : .15);
+  else if (style === 'barn') gambrelRoof(x, y, w, d, H, R, ridge, wall, roof);
+  else gableRoof(x, y, w, d, H, R, ridge, wall, roof);
   if (style === 'cottage') {   // a little roof over the door / 문 위 작은 차양
     const cx = face[0] ? (face[0] > 0 ? x + w : x) : x + w / 2, cy = face[1] ? (face[1] > 0 ? y + d : y) : y + d / 2;
     const ax = face[0] ? .5 : 1.1, ay = face[1] ? .5 : 1.1;

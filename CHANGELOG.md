@@ -20,7 +20,7 @@
   roof comes off: a bed and its bee, or the bar, the taps, a shelf of bottles
   and the guests), click to keep it open; houses and the pub are bigger. Every house differs: six
   styles (a cottage with a porch roof, two storeys, a flat roof with a planter,
-  a hipped roof, an A-frame, a smoking chimney) and six kinds of room (cosy
+  a hipped roof, a barn-style gambrel roof, a smoking chimney) and six kinds of room (cosy
   bedroom, gaming den, books, plants and a hammock, a piano, a big kitchen);
   two-storey houses have stairs to a loft bed
 - Bees are hired, leave (closing the project, or closing that Claude: `/exit`
