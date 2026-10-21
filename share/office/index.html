@@ -414,7 +414,7 @@ const offOf = o => !!(o && o.shift && o.shift.state === 'off');
 // own roster (ties: this Mac first), so the same bee keeps the same house.
 // 마을: 길에서 6.5 타일마다 골목이 나고, 집은 골목을 보고 늘어서고 몇 채는 골목 사이 큰길을 본다. 모든 Mac 의
 // 벌이 섞여 산다: 자리는 각자 명부의 집 번호 순 (같으면 이 Mac 먼저) 이라 같은 벌은 같은 집에 산다.
-const LANE = k => -YARD - 4.5 - k * 6.5;
+const LANE = k => -YARD - 9 - k * 6.5;   // past the pub and the park at the village's gate / 마을 어귀의 펍과 공원 너머
 const SLOT_PLAN = [['w', -2.6], ['e', -3.1], ['w', 2.5], ['e', 2.9], ['n', 0], ['s', 0], ['w', -5.4], ['e', -6.1], ['w', 5.3], ['e', 5.8]];
 function slotAt(i) {
   const block = Math.floor(i / SLOT_PLAN.length), [side, dy] = SLOT_PLAN[i % SLOT_PLAN.length], L = LANE(block), py = pathY();
@@ -430,6 +430,40 @@ function slotAt(i) {
   const y = side === 'n' ? py - gap - dep : py + gap;
   return { x: cx - len / 2, y, w: len, d: dep, ridge: 'x', face: side === 'n' ? [0, 1] : [0, -1], lane: null,
     door: { x: cx, y: side === 'n' ? py - .65 : py + .65 }, seed: i };
+}
+/* the evening: off work, bees go out before bed. A pub at the village gate (a beer garden outside, and
+   room inside), a park across the path (a ball game for two, benches, chatting by the fountain), or home.
+   Each bee picks something for a minute or two, then something else; from 11 pm to 6 am they all sleep at home.
+   저녁: 퇴근한 벌은 자기 전에 논다. 마을 어귀의 펍 (밖엔 테라스, 안에도 자리), 길 건너 공원 (둘이 하는 공놀이,
+   벤치, 분수 옆 수다), 또는 집. 벌마다 1~2분씩 하나를 하다 바꾸고, 밤 11시부터 아침 6시까지는 모두 집에서 잔다. */
+const PUB = () => ({ x: -12.6, y: pathY() - 3.6, w: 2.9, d: 2.3, door: { x: -11.15, y: pathY() - .9 } });
+const PARK = () => ({ x: -15, y: pathY() + 1.1, w: 7.3, d: 4.8 });
+function eveSpots() {
+  const py = pathY();
+  return [
+    { kind: 'cheers', x: -9.25, y: py - 3, look: [1, 0] }, { kind: 'cheers', x: -8.15, y: py - 3, look: [-1, 0] },
+    { kind: 'cheers', x: -9.25, y: py - 1.85, look: [1, 0] }, { kind: 'cheers', x: -8.15, y: py - 1.85, look: [-1, 0] },
+    { kind: 'kick', x: -13, y: py + 3.6, look: [1, 0], pair: 1 }, { kind: 'kick', x: -10.1, y: py + 3.6, look: [-1, 0], pair: 1 },
+    { kind: 'bench', x: -14.3, y: py + 1.75, look: [0, 1] }, { kind: 'bench', x: -13.6, y: py + 1.75, look: [0, 1] },
+    { kind: 'chat', x: -9.3, y: py + 5.2, look: [1, -1] }, { kind: 'chat', x: -8.5, y: py + 4.5, look: [-1, 1] },
+  ];
+}
+const EVE_LABEL = { cheers: ['펍 테라스에서 건배하는 중', 'cheers on the pub terrace'], pub: ['펍에서 한잔하는 중', 'having a drink in the pub'],
+  kick: ['공원에서 공놀이 중', 'playing ball in the park'], bench: ['공원 벤치에서 쉬는 중', 'on a park bench'], chat: ['분수 옆에서 수다 떠는 중', 'chatting by the fountain'] };
+const late = () => { const h = window.EVE_HOUR ?? new Date().getHours(); return h >= 23 || h < 6; };
+let EVE = [];
+function eveFor(b) {   // what this bee does this evening, for a while / 이 벌이 저녁에 할 일 (한동안)
+  if (!EVE.length || EVE.py !== pathY()) { EVE = eveSpots(); EVE.py = pathY(); }
+  if (late()) { if (b.eve && b.eve.spot) b.eve.spot.occ = null; b.eve = { kind: 'home' }; return b.eve; }
+  if (b.eve && Date.now() < b.eve.until) return b.eve;
+  if (b.eve && b.eve.spot) b.eve.spot.occ = null;
+  const free = EVE.filter(p => !p.occ), r = hash(b.phase * 100, Date.now() / 60000 | 0);
+  // the ball game wants a partner already there (or waits for one), the rest anywhere free
+  // 공놀이는 짝이 이미 있으면 (아니면 기다린다), 나머지는 빈 데로
+  const pick = free.find(p => p.kind === 'kick' && EVE.some(q => q.kind === 'kick' && q.occ)) || (r < .3 ? free.find(p => p.kind === 'cheers') : r < .45 ? null : r < .75 ? free[Math.floor(r * 97) % Math.max(1, free.length)] : null);
+  if (pick) { pick.occ = b; b.eve = { kind: pick.kind, spot: pick, until: Date.now() + (60 + r * 60) * 1000 }; }
+  else b.eve = { kind: r < .6 ? 'pub' : 'home', until: Date.now() + (60 + r * 90) * 1000 };
+  return b.eve;
 }
 const VILL = { list: [], byKey: new Map(), blocks: 0 };
 function placeVillage() {   // after every poll / 읽을 때마다
@@ -656,12 +690,20 @@ function plan() {
     const e = houseOf(b), door = e ? e.h.door : { x: villageEnd(), y: pathY() };
     b.desk = null; b.deskId = null;
     if (b.commuteUntil) {   // clocked in: out of the house and to work / 출근: 집에서 나와 일하러
-      b.inside = false;
+      b.inside = false; b.atPub = false;
       setTarget(b, 'commute', { x: 8 + Math.floor(b.phase * 10) % 7 + .3, y: 13.6 + LAY.LOFF + (Math.floor(b.phase * 7) % 2) * .7 });
     }
     else if (performance.now() < (b.clapUntil || 0)) setTarget(b, 'clap', { x: b.x, y: b.y });
-    else setTarget(b, 'home', door);
+    else {
+      const ev = eveFor(b), prev = b.key2;
+      if (ev.spot) setTarget(b, 'eve', { x: ev.spot.x, y: ev.spot.y });
+      else if (ev.kind === 'pub') setTarget(b, 'pub', PUB().door);
+      else setTarget(b, 'home', door);
+      if (b.key2 !== prev && b.inside) { b.inside = false; b.atPub = false; }   // out of the door it was behind / 있던 문으로 나온다
+    }
   }
+  // back at work (or clocking in): the evening spot is free again / 다시 일하러 (또는 출근): 저녁 자리를 비운다
+  for (const b of everyone) if (b.eve && (b.state !== 'home' || b.commuteUntil)) { if (b.eve.spot) b.eve.spot.occ = null; b.eve = null; b.atPub = false; }
   assignDesks(all);
   const waits = all.filter(b => b.state === 'wait').sort((a, b) => a.at - b.at);
   // plan mode: the first planner draws on the whiteboard, the others think at the table
@@ -709,6 +751,8 @@ function plan() {
 const honeyShown = () => Math.max(0, honeyTotal - [...bees.values()].filter(b => b.state === 'done' || b.deliver).length);
 function whereOf(b) {
   if (b.state === 'home' && b.commuteUntil) return tr('출근하는 중', 'on the way to work');
+  if (b.state === 'home' && b.key2 === 'pub') return b.inside ? tr(...EVE_LABEL.pub) : tr('펍에 가는 중', 'off to the pub');
+  if (b.state === 'home' && b.key2 === 'eve' && b.eve && b.eve.spot) return b.arrived ? tr(...EVE_LABEL[b.eve.kind]) : tr('놀러 가는 중', 'going out');
   if (b.state === 'home') return b.inside ? (LIGHT < .35 ? tr('집에서 자는 중', 'asleep at home') : tr('집에서 쉬는 중', 'resting at home'))
     : b.key2 === 'clap' ? tr('퇴근! 박수 치는 중', 'clocking out! clapping') : tr('집에 가는 중', 'walking home');
   const aides = b.agents > 0 ? tr(` · 부사수 ${b.agents}명`, ` · ${b.agents} helper${b.agents > 1 ? 's' : ''}`) : '';
@@ -724,6 +768,12 @@ function whereOf(b) {
 
 /* ---------- speech ---------- */
 function say(b, text, ms = 2200) { b.say = { text, until: performance.now() + ms }; }
+const EVE_TALK = { cheers: [['건배!', 'Cheers!'], ['오늘 고생했어', 'Good work today'], ['한 잔 더?', 'One more?'], ['내일도 화이팅', 'Same again tomorrow']],
+  kick: [['패스!', 'Pass!'], ['나이스!', 'Nice!'], ['오~', 'Ooh~']], chat: [['오늘 버그 봤어?', 'See that bug today?'], ['별 예쁘다', 'Nice stars'], ['내일 뭐 해?', 'Plans tomorrow?']], bench: [['아 좋다', 'Ahh'], ['…', '…']] };
+setInterval(() => {
+  const out = [...bees.values()].filter(b => b.state === 'home' && b.key2 === 'eve' && b.arrived && b.eve && b.eve.spot);
+  if (out.length && Math.random() < .6) { const b = pick(out); say(b, tr(...pick(EVE_TALK[b.eve.kind]))); }
+}, 2600);
 setInterval(() => {
   const members = [...bees.values()].filter(b => b.key2 === 'meet' && b.arrived);
   const mates = [...crew.values()].filter(n => n.key2 === 'meet' && n.arrived);
@@ -1360,6 +1410,15 @@ function yardItems() {
   for (const [x, y] of [[-3, 2], [GX + 3, 5.5], [9, -2.6], [3, GY + 3], [GX + 4.5, GY + 1.5]]) bed(x, y);
   items.push([-3.6, 12.6 + LOFF, () => { box(-4.4, 12.4 + LOFF, 1.6, .45, 8, night(T['m-desk'])); }]);
   for (const e of houses()) items.push([e.h.x + e.h.w / 2, e.h.y + e.h.d / 2, () => house(e)]);
+  if (houses().length) {
+    const pb = PUB(); items.push([pb.x + pb.w / 2, pb.y + pb.d / 2, () => pub(pb)]);
+    const pk = PARK();
+    for (const [bx, by] of [[-14.65, pathY() + 1.45]]) items.push([bx + .7, by + .2, () => box(bx, by, 1.4, .4, 7, night(T['m-desk']))]);
+    items.push([-9.9, pathY() + 4.9, () => fountain(-9.9, pathY() + 4.9)]);
+    items.push([-8.7, pathY() - 2.4, () => { for (const [tx, ty] of [[-8.7, pathY() - 3], [-8.7, pathY() - 1.85]]) cyl(tx, ty, .28, 11, night('#8a6a4a')); }]);
+    items.push([-11.5, pathY() + 3.6, () => ball()]);
+    lamp(-7.6, pathY() - 1); lamp(-15.4, pathY() + 1);
+  }
   for (let k = 0; k < VILL.blocks; k++) {   // trees between the houses / 집들 사이 나무
     const L = LANE(k), py = pathY();
     for (const [dx, dy, sz] of [[-3.3, -5.2, 1], [-3, 4.6, .9], [2.6, -7.4, 1.1], [-5, -2.6, .8], [-1.4, 7.6, 1]]) tree(L + dx + (hash(k, dy, 3) - .5) * .8, py + dy, sz);
@@ -1374,7 +1433,7 @@ function yardItems() {
 const HOUSE_COLS = ['#f4dfba', '#efe6d2', '#f2d2c4', '#e3e9d4', '#f6e7c8'], ROOF_COLS = ['#b8653f', '#9a5b3a', '#c07a48', '#8f6a4f', '#a94f3a'];
 function house(e) {
   const { x, y, w, d, ridge, face, seed } = e.h, H = 20, R = 13, gone = !!e.r.left;
-  const bee = [...bees.values()].find(b => b.bee === e.id && (b.ssh || '') === (e.o.ssh || '')), home = bee && bee.inside;
+  const bee = [...bees.values()].find(b => b.bee === e.id && (b.ssh || '') === (e.o.ssh || '')), home = bee && bee.inside && !bee.atPub;
   const hot = HOVER_HOUSE === e.key;
   const wall = night(gone ? '#d8d3cb' : HOUSE_COLS[seed % HOUSE_COLS.length]), roof = night(gone ? '#9a948c' : ROOF_COLS[(seed * 3 + 1) % ROOF_COLS.length]);
   box(x, y, w, d, H, hot ? mixc(wall, '#fff3c4', .5) : wall);
@@ -1405,6 +1464,42 @@ function house(e) {
     c.fillText(LIGHT < .35 ? 'z' : '♪', top.x + 6 + k * 8, top.y - 6 - k * 14); c.globalAlpha = 1;
   }
 }
+// the pub: dark wood, warm windows, a lit sign over the door, string lights over the terrace at dusk
+// 펍: 짙은 나무, 따뜻한 창, 문 위 불 켜진 간판, 해 질 무렵 테라스 위 줄 전구
+function pub(q) {
+  const { x, y, w, d } = q, H = 30, crowd = [...bees.values()].filter(b => b.atPub && b.inside).length, glow = LIGHT < .7 || crowd ? 1 : 0;
+  box(x, y, w, d, H, night('#7a5236'));
+  box(x - .1, y - .1, w + .2, d + .2, 5, night('#4f3424'), H);
+  if (toward(0, 1)) onFaceY(x, y + d, () => {
+    c.fillStyle = night('#3b2516'); c.fillRect(w / 2 - .3, 0, .6, 18);
+    c.fillStyle = glow ? '#ffd27a' : night(T.win); c.fillRect(.25, 8, .6, 10); c.fillRect(w - .85, 8, .6, 10);
+    c.fillStyle = '#2b1c12'; c.fillRect(.5, 21, w - 1, 7);
+  });
+  const sp = P(x + w / 2, y + d, 25); font(9, 800); c.fillStyle = glow ? '#ffcf5a' : '#e8d9b8'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText('🍺 PUB', sp.x, sp.y); c.textAlign = 'left'; c.textBaseline = 'top';
+  if (crowd && !reduced) {   // noise from inside / 안에서 나는 소리
+    const k = (t0() * .6) % 1, top = P(x + w / 2, y + d / 2, H + 12); font(10 + k * 4, 700); c.globalAlpha = 1 - k; c.fillStyle = T.honey;
+    c.fillText(k < .5 ? '♪' : '🍻', top.x - 8 + k * 10, top.y - k * 16); c.globalAlpha = 1;
+  }
+  if (LIGHT < .75) {   // string lights over the terrace / 테라스 위 줄 전구
+    const a = P(-9.8, y + .2, 26), b2 = P(-7.4, y + 2.6, 26);
+    for (let i = 0; i <= 8; i++) { const u = i / 8, px = a.x + (b2.x - a.x) * u, py = a.y + (b2.y - a.y) * u + Math.sin(u * Math.PI) * 6; circle(px, py, 2, i % 2 ? '#ffd27a' : '#ff9e7a'); }
+  }
+}
+function fountain(x, y) {
+  cyl(x, y, .55, 6, night('#c9c2b6')); const p = P(x, y, 6); c.fillStyle = night('#7fc3ec'); c.beginPath(); c.ellipse(p.x, p.y, .45 * TW * 1.41, .45 * TH * 1.41, 0, 0, 7); c.fill();
+  cyl(x, y, .08, 14, night('#c9c2b6'));
+  if (!reduced) for (let i = 0; i < 6; i++) { const a = i / 6 * 7 + t0() * .5, k = (t0() * 1.3 + i * .17) % 1, q = P(x + Math.cos(a) * .3 * k, y + Math.sin(a) * .3 * k, 20 - k * k * 14); circle(q.x, q.y, 1.4, '#cfe9ff'); }
+}
+// the ball between two players, bouncing / 두 선수 사이를 오가며 튀는 공
+function ball() {
+  const ks = EVE.filter(p => p.kind === 'kick' && p.occ && p.occ.arrived && p.occ.key2 === 'eve');
+  if (ks.length < 2) return;
+  const u = (Math.sin(t0() * 1.6) + 1) / 2, x = ks[0].x + (ks[1].x - ks[0].x) * u, y = ks[0].y + (ks[1].y - ks[0].y) * u;
+  const s = P(x, y), h = Math.abs(Math.sin(t0() * 3.2)) * 16, q = P(x, y, h);
+  c.fillStyle = 'rgba(0, 0, 0, .15)'; c.beginPath(); c.ellipse(s.x, s.y, 4, 1.6, 0, 0, 7); c.fill();
+  circle(q.x, q.y - 3, 3.6, '#ffffff'); c.strokeStyle = '#333'; c.lineWidth = 1; c.beginPath(); c.arc(q.x, q.y - 3, 3.6, 0, 7); c.stroke();
+}
 let HOVER_HOUSE = null;
 // the house under the pointer (its roof) / 마우스 아래의 집 (지붕)
 function houseAtPoint(p) {
@@ -1417,7 +1512,8 @@ function houseTip(e) {
   const days = Math.max(0, Math.floor((Date.now() / 1000 - (r.hired || 0)) / 86400));
   const month = ((e.o.ranks && e.o.ranks.month) || []).find(x => x.id === e.id);
   const where = r.left ? tr('퇴사함 · 빈집', 'left the company · empty')
-    : !b ? tr('출근 안 함', 'not at work') : b.state !== 'home' ? tr('출근해서 일하는 중', 'at work') : b.inside ? (LIGHT < .35 ? tr('집에서 자는 중', 'asleep at home') : tr('집에서 쉬는 중', 'resting at home')) : tr('오가는 중', 'on the way');
+    : !b ? tr('출근 안 함', 'not at work') : b.state !== 'home' ? tr('출근해서 일하는 중', 'at work') : b.key2 !== 'home' ? whereOf(b)
+    : b.inside ? (late() || LIGHT < .35 ? tr('집에서 자는 중', 'asleep at home') : tr('집에서 쉬는 중', 'resting at home')) : tr('집에 가는 중', 'walking home');
   return {
     head: r.name === 'claude' ? r.project : `${r.name}`,
     lines: [`${r.project} · ${e.o.host}`, where,
@@ -1444,6 +1540,8 @@ function drawYard(t) {
   if (houses().length) {   // the village path and its lanes / 마을 큰길과 골목
     const vx = villageEnd(), py = pathY(); floorRect(vx, py - .6, -E - vx, 1.2, night(T['o-path']));
     for (let k = 0; k < VILL.blocks; k++) floorRect(LANE(k) - .4, py - 6.8, .8, 13.6, night(T['o-path']));
+    const pk = PARK(); floorOval(pk.x + pk.w / 2, pk.y + pk.d / 2, 3.3, 1.9, night(mixc(T['o-grass'], '#ffffff', .18)));   // the park / 공원
+    floorRect(-9.8, py - 3.5, 2.6, 2.5, night(T['o-path']));   // the terrace / 테라스
   }
   floorRect(12.3, GY, 1.2, E, night(T['o-path']));
   c.restore();
@@ -1555,7 +1653,7 @@ function labels() {
 
 /* an upright bee person; origin is between the feet. Seen from behind at a desk or walking away.
    서 있는 벌. 원점은 두 발 사이. 책상에 앉았거나 멀어질 때는 뒷모습 */
-const SIT = { type: 12, meet: 8, sofa: 6 };
+const SIT = { type: 12, meet: 8, sofa: 6 };   // (a park bench sits like the sofa / 공원 벤치는 소파처럼 앉는다)
 // a pill over the head: on overtime after clocking out (with a desk lamp's glow), or new / back for a while
 // 머리 위 알약: 퇴근 뒤 야근 중 (책상 스탠드 불빛과 함께), 또는 한동안 신입 / 재입사
 function badge(b) {
@@ -1573,7 +1671,7 @@ function badge(b) {
 }
 function poseOf(b) {
   if (b.npc) return b.key2 === 'meet' ? 'meet' : 'idle';
-  if (b.state === 'home') return b.key2 === 'clap' ? 'clap' : 'idle';
+  if (b.state === 'home') return b.key2 === 'clap' ? 'clap' : b.key2 === 'eve' && b.arrived && b.eve && b.eve.spot ? ({ cheers: 'cheers', kick: 'kick', bench: 'sofa', chat: 'chat' })[b.eve.kind] : 'idle';
   if (b.state === 'run') return b.key2 === 'meet' ? (b.atBoard ? 'board' : 'meet') : 'type';
   if (b.state === 'wait') return 'wait';
   if (b.state === 'done') return 'done';
@@ -1626,7 +1724,9 @@ function drawBee(b, t) {
   if (!back) wings();
   const hand = (s, hx, hy) => { c.strokeStyle = dark; c.lineWidth = 2.2; c.beginPath(); c.moveTo(s * 6, -22); c.quadraticCurveTo(s * 8.5, (hy - 22) / 2 - 2, hx, hy); c.stroke(); circle(hx, hy, 1.8, dark); };
   const arms = [];
-  if (pose === 'clap') { const k = 1.5 + Math.abs(Math.sin(t * 13 + (b.phase || 0))) * 5; arms.push([-1, -k, -36], [1, k, -36]); }
+  if (pose === 'cheers') { const up = b.say && now < b.say.until ? -6 : 0; arms.push([-f, -f * 8, -14], [f, f * 10, -30 + up]); }
+  else if (pose === 'kick') arms.push([-1, -9, -20 + Math.sin(t * 3.2 + (b.phase || 0)) * 3], [1, 9, -20 - Math.sin(t * 3.2 + (b.phase || 0)) * 3]);
+  else if (pose === 'clap') { const k = 1.5 + Math.abs(Math.sin(t * 13 + (b.phase || 0))) * 5; arms.push([-1, -k, -36], [1, k, -36]); }
   else if (pose === 'wait') arms.push([-f, -f * 8, -14], [f, f * (8 + Math.sin(t * (12 + urg * 10)) * 3), -40]);
   else if (carry) arms.push([-1, -5, -44], [1, 5, -44]);
   else if (typeFront) { const tap = Math.sin(t * 28 + (b.phase || 0)) * 1.5; arms.push([-1, -7, -23 + tap], [1, 7, -23 - tap]); }
@@ -1642,6 +1742,9 @@ function drawBee(b, t) {
   c.fillStyle = T.honey; c.beginPath(); c.ellipse(0, -18, 7.5, 9.5, 0, 0, 7); c.fill();
   c.save(); c.clip(); c.fillStyle = dark; c.fillRect(-9, -20, 18, 3); c.fillRect(-9, -14, 18, 3); c.restore();
   if (!back) arms.forEach(a => hand(...a));
+  if (pose === 'cheers') {   // a mug of beer in the raised hand / 든 손에 맥주잔
+    const [, mx, my] = arms[1]; fillRR(mx - 3, my - 7, 6, 8, 1.5, '#f2b632'); c.fillStyle = '#fffaf0'; c.fillRect(mx - 3, my - 8, 6, 2.5);
+  }
   const hy = -34, hx = back ? 0 : f * .8;
   c.strokeStyle = dark; c.lineWidth = 1.4;
   c.beginPath(); c.moveTo(hx - 3, hy - 7); c.quadraticCurveTo(hx - 5, hy - 13, hx - 8, hy - 14); c.moveTo(hx + 3, hy - 7); c.quadraticCurveTo(hx + 5, hy - 13, hx + 8, hy - 14); c.stroke();
@@ -1843,7 +1946,9 @@ function step(b, dt) {
 function settle(b) {
   const at = q => [q.x - b.x, q.y - b.y];
   b.look = null;
-  if (b.key2 === 'home') { b.inside = true; return; }
+  if (b.key2 === 'home') { b.inside = true; b.atPub = false; return; }
+  if (b.key2 === 'pub') { b.inside = true; b.atPub = true; return; }
+  if (b.key2 === 'eve' && b.eve && b.eve.spot) { b.look = b.eve.spot.look; return; }
   if (b.key2 === 'desk' && b.desk) b.look = [0, b.desk.far ? 1 : -1];
   if (b.key2 === 'meet') b.look = b.atBoard ? [0, -1] : at(MEET_C);
   if (b.npc && b.key2 === 'out') crew.delete(b.key);

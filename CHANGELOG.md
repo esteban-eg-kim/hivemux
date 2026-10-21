@@ -9,7 +9,10 @@
   work. A reboot while clocked out leaves them home. The office's button asks
   Mac by Mac (this Mac, each connected Mac, or all; a connected Mac is clocked
   out over its ssh connection), and every Mac's bees live mixed in one village
-  of lanes; hover a house to see who lives there
+  of lanes; hover a house to see who lives there. Off work the bees go out
+  before bed: a pub at the village gate (beer on the terrace, or inside), a
+  park (a ball game for two, benches, chatting by the fountain), or home; from
+  11 pm they all sleep at home
 - Bees are hired, leave (closing the project) and come back (rehired) by
   project and name, with a house each; a honey ledger ranks them today, this
   week and this month (list drawer → Honey, and a bee of the month on the
