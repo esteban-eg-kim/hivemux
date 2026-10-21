@@ -1025,7 +1025,7 @@ function planWalls(t) {
   seg(0, 0, 0, e - .1, T['m-wall'], 7); seg(0, e + 1.3, 0, GY, T['m-wall'], 7);
   c.lineCap = 'butt';
   const pl = plaques();
-  for (let x = 1.2; x < 14; x += 3) seg(x, 0, x + 1.8, 0, T.win, 3);
+  for (let x = 1.2; x < (RANKS && RANKS.month && RANKS.month[0] ? 12 : 14); x += 3) seg(x, 0, x + 1.8, 0, T.win, 3);
   for (let y = 1.2; y < 7.5 + LOFF; y += 3) if (!pl.some(q => Math.abs(y + .9 - q.y) < q.W / 2 + 1.1)) seg(0, y, 0, y + 1.8, T.win, 3);
   for (let u = 1.2; u < GX - 2; u += 3) seg(u, GY, u + 1.8, GY, T.win, 3);
   for (let u = 1.2; u < GY - 2; u += 3) seg(GX, u, GX, u + 1.8, T.win, 3);
@@ -1046,17 +1046,25 @@ function planWalls(t) {
   }
 }
 function decoBack(t) {
-  onFaceY(0, 0, () => { c.fillStyle = T.win; for (let x = 1.2; x < 14; x += 3) c.fillRect(x, 24, 1.8, 36); });
-  // "bee of the month": a frame with this month's top honey maker / "이달의 꿀벌": 이번 달 꿀을 가장 많이 모은 벌의 액자
+  // "bee of the month": a frame with this month's top honey maker, where the last window would be (so it
+  // never sits on glass), big enough for its lines not to touch / "이달의 꿀벌": 이번 달 꿀을 가장 많이 모은 벌의
+  // 액자. 마지막 창 자리에 (유리 위에 걸리지 않게), 줄끼리 닿지 않을 만큼 크게
   const best = RANKS && RANKS.month && RANKS.month[0];
+  onFaceY(0, 0, () => { c.fillStyle = T.win; for (let x = 1.2; x < (best ? 12 : 14); x += 3) c.fillRect(x, 24, 1.8, 36); });
   if (best) onFaceY(0, 0, () => {
-    const u = 14.25, w = 1.5, r = ROSTER[best.id], name = r ? (r.name === 'claude' ? r.project : r.name) : best.id.split('/').pop();
-    c.fillStyle = T['m-desk-edge']; c.fillRect(u, 22, w, 34); c.fillStyle = '#fffaf0'; c.fillRect(u + .06, 24, w - .12, 30);
-    const text = (t, v, size, weight, col) => { c.save(); c.translate(u + w / 2, v); c.scale(1 / PLAQUE_PX, -1); font(size, weight); c.fillStyle = col; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(t, 0, 0); c.restore(); };
-    text('🏆', 47, 13, 400, '#000');
-    text(tr('이달의 꿀벌', 'Bee of the month'), 38.5, 6.5, 700, T['m-label']);
-    font(10, 800); text(clipText(name, 44), 31, 10, 800, '#3a2612');
-    text(tr(`꿀 ${best.honey}칸`, `${best.honey} honey`), 26, 6.5, 700, T.wait);
+    const u = 12.95, w = 2.7, r = ROSTER[best.id], name = r ? (r.name === 'claude' ? r.project : r.name) : best.id.split('/').pop();
+    const room = w * PLAQUE_PX - 14;   // text pixels across the mat / 판 안 글자 폭
+    c.fillStyle = 'rgba(0, 0, 0, .12)'; c.fillRect(u + .05, 13, w, 47);
+    c.fillStyle = '#b8873e'; c.fillRect(u, 14, w, 47); c.fillStyle = '#fffaf0'; c.fillRect(u + .1, 16.5, w - .2, 42);
+    const text = (t, v, size, weight, col) => {
+      c.save(); c.translate(u + w / 2, v); c.scale(1 / PLAQUE_PX, -1); font(size, weight);
+      c.fillStyle = col; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(clipText(t, room), 0, 0); c.restore();
+    };
+    // lines run along the slanted wall, so they get more room than they would upright / 줄이 기운 벽을 따라가니 똑바로일 때보다 넉넉히 띄운다
+    text('🏆', 52, 8, 400, '#000');
+    text(tr('이달의 꿀벌', 'Bee of the month'), 43, 5.5, 700, T['m-label']);
+    text(name, 32, 8, 800, '#3a2612');
+    text(tr(`꿀 ${best.honey}칸`, `${best.honey} honey`), 21.5, 5.5, 700, T.wait);
     c.textAlign = 'left'; c.textBaseline = 'top';
   });
   // the whiteboard; the plan grows while a bee draws at it / 화이트보드. 벌이 그리는 동안 계획이 늘어난다
