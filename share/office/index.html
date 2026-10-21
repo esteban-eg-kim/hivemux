@@ -448,7 +448,7 @@ function eveSpots() {
     { kind: 'chat', x: -9.3, y: py + 5.2, look: [1, -1] }, { kind: 'chat', x: -8.5, y: py + 4.5, look: [-1, 1] },
   ];
 }
-const EVE_LABEL = { cheers: ['펍 테라스에서 건배하는 중', 'cheers on the pub terrace'], pub: ['펍에서 한잔하는 중', 'having a drink in the pub'],
+const EVE_LABEL = { cheers: ['펍 "꿀단지" 테라스에서 건배하는 중', 'cheers on the Honey Pot terrace'], pub: ['펍 "꿀단지"에서 한잔하는 중', 'having a drink at the Honey Pot'],
   kick: ['공원에서 공놀이 중', 'playing ball in the park'], bench: ['공원 벤치에서 쉬는 중', 'on a park bench'], chat: ['분수 옆에서 수다 떠는 중', 'chatting by the fountain'] };
 const late = () => { const h = window.EVE_HOUR ?? new Date().getHours(); return h >= 23 || h < 6; };
 let EVE = [];
@@ -751,7 +751,7 @@ function plan() {
 const honeyShown = () => Math.max(0, honeyTotal - [...bees.values()].filter(b => b.state === 'done' || b.deliver).length);
 function whereOf(b) {
   if (b.state === 'home' && b.commuteUntil) return tr('출근하는 중', 'on the way to work');
-  if (b.state === 'home' && b.key2 === 'pub') return b.inside ? tr(...EVE_LABEL.pub) : tr('펍에 가는 중', 'off to the pub');
+  if (b.state === 'home' && b.key2 === 'pub') return b.inside ? tr(...EVE_LABEL.pub) : tr('펍 "꿀단지"에 가는 중', 'off to the Honey Pot');
   if (b.state === 'home' && b.key2 === 'eve' && b.eve && b.eve.spot) return b.arrived ? tr(...EVE_LABEL[b.eve.kind]) : tr('놀러 가는 중', 'going out');
   if (b.state === 'home') return b.inside ? (LIGHT < .35 ? tr('집에서 자는 중', 'asleep at home') : tr('집에서 쉬는 중', 'resting at home'))
     : b.key2 === 'clap' ? tr('퇴근! 박수 치는 중', 'clocking out! clapping') : tr('집에 가는 중', 'walking home');
@@ -1464,19 +1464,25 @@ function house(e) {
     c.fillText(LIGHT < .35 ? 'z' : '♪', top.x + 6 + k * 8, top.y - 6 - k * 14); c.globalAlpha = 1;
   }
 }
-// the pub: dark wood, warm windows, a lit sign over the door, string lights over the terrace at dusk
-// 펍: 짙은 나무, 따뜻한 창, 문 위 불 켜진 간판, 해 질 무렵 테라스 위 줄 전구
+// the pub "Honey Pot": dark wood, warm windows, its signboard on the wall over the door (lit at dusk),
+// string lights over the terrace
+// 펍 "꿀단지": 짙은 나무, 따뜻한 창, 문 위 벽에 붙은 간판 (해 질 무렵 불이 켜진다), 테라스 위 줄 전구
+const PUB_NAME = () => tr('꿀단지', 'Honey Pot');
 function pub(q) {
   const { x, y, w, d } = q, H = 30, crowd = [...bees.values()].filter(b => b.atPub && b.inside).length, glow = LIGHT < .7 || crowd ? 1 : 0;
   box(x, y, w, d, H, night('#7a5236'));
   box(x - .1, y - .1, w + .2, d + .2, 5, night('#4f3424'), H);
   if (toward(0, 1)) onFaceY(x, y + d, () => {
-    c.fillStyle = night('#3b2516'); c.fillRect(w / 2 - .3, 0, .6, 18);
-    c.fillStyle = glow ? '#ffd27a' : night(T.win); c.fillRect(.25, 8, .6, 10); c.fillRect(w - .85, 8, .6, 10);
-    c.fillStyle = '#2b1c12'; c.fillRect(.5, 21, w - 1, 7);
+    c.fillStyle = night('#3b2516'); c.fillRect(w / 2 - .3, 0, .6, 17);
+    c.fillStyle = glow ? '#ffd27a' : night(T.win); c.fillRect(.25, 7, .6, 10); c.fillRect(w - .85, 7, .6, 10);
+    // the signboard on the wall: a frame, the board, the name / 벽의 간판: 테두리, 판, 이름
+    if (glow) { c.fillStyle = 'rgba(255, 200, 90, .35)'; c.fillRect(.18, 18.2, w - .36, 11.6); }
+    c.fillStyle = '#c99a3e'; c.fillRect(.3, 19, w - .6, 10); c.fillStyle = '#2b1c12'; c.fillRect(.36, 19.6, w - .72, 8.8);
+    c.save(); c.translate(w / 2, 24); c.scale(1 / PLAQUE_PX, -1);
+    font(8, 800); c.fillStyle = glow ? '#ffd56a' : '#e8d9b8'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(`🍯 ${PUB_NAME()}`, 0, .5); c.restore();
+    c.textAlign = 'left'; c.textBaseline = 'top';
   });
-  const sp = P(x + w / 2, y + d, 25); font(9, 800); c.fillStyle = glow ? '#ffcf5a' : '#e8d9b8'; c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.fillText('🍺 PUB', sp.x, sp.y); c.textAlign = 'left'; c.textBaseline = 'top';
   if (crowd && !reduced) {   // noise from inside / 안에서 나는 소리
     const k = (t0() * .6) % 1, top = P(x + w / 2, y + d / 2, H + 12); font(10 + k * 4, 700); c.globalAlpha = 1 - k; c.fillStyle = T.honey;
     c.fillText(k < .5 ? '♪' : '🍻', top.x - 8 + k * 10, top.y - k * 16); c.globalAlpha = 1;
