@@ -1642,11 +1642,37 @@ function pubInside(q, wall) {
     for (let i = 0; i < 9; i++) cyl(x + .3 + i * (w - .6) / 8, y + .28, .05, 6, night(['#4f8a5b', '#8a4f3b', '#d9b45a'][i % 3]), 26);
     box(x + .2, y + .7, w - .4, .35, 13, night('#8a5a36'));                                          // the bar / 바
     for (let i = 0; i < 3; i++) cyl(x + .6 + i * .5, y + .85, .04, 6, night('#d8d3cb'), 13);         // taps / 탭
+    const by = y + d * .62;   // the dartboard's height along the side wall / 옆벽 다트판 자리
+    if (!toward(-1, 0)) dartboard(x, by);
     const seats = [];
     for (let i = 0; i < 4; i++) { const sx = x + .45 + i * (w - .9) / 3; cyl(sx, y + 1.35, .14, 8, night('#2b1c12')); seats.push([sx, y + 1.45]); }
-    cyl(x + w / 2, y + d - .45, .3, 11, night('#8a6a4a')); seats.push([x + w / 2 - .45, y + d - .45], [x + w / 2 + .45, y + d - .45]);
-    guests.slice(0, seats.length).forEach((b, i) => beeAt(b, seats[i][0], seats[i][1], 'cheers', i < 4 ? [0, -1] : [i === 4 ? 1 : -1, 0]));
+    cyl(x + w / 2 + .5, y + d - .45, .3, 11, night('#8a6a4a')); seats.push([x + w / 2 + .05, y + d - .45], [x + w / 2 + .95, y + d - .45]);
+    // the first guest plays darts (a line on the floor to throw from), the rest drink / 첫 손님은 다트 (던지는 선), 나머지는 한잔
+    const [thrower, ...rest] = guests, tx = x + 1.55;
+    floorRect(tx + .2, by - .45, .05, .9, night('#e8d9b8'));
+    if (thrower && !toward(-1, 0)) { beeAt(thrower, tx + .45, by, 'dart', [-1, 0]); dartFlight(tx + .3, by, x, by); }
+    else if (thrower) rest.unshift(thrower);
+    rest.slice(0, seats.length).forEach((b, i) => beeAt(b, seats[i][0], seats[i][1], 'cheers', i < 4 ? [0, -1] : [i === 4 ? 1 : -1, 0]));
   });
+}
+// darts: a board on the pub's side wall, three darts thrown one by one, a pause, then pulled out
+// 다트: 펍 옆벽의 판, 다트 셋을 하나씩 던지고, 잠깐 쉬었다가 뽑는다
+const DART_ROUND = 7, DART_SPOTS = [[.03, 1.5], [-.05, -.8], [.07, .6]];   // where they land: [u tiles, v px] off the bull / 꽂히는 자리
+function dartboard(x, by) {
+  onFaceX(x, by - .25, () => {
+    const uc = .25, vc = 24, k = 1 / PLAQUE_PX;
+    c.fillStyle = '#2b1c12'; c.beginPath(); c.ellipse(uc, vc, 9.5 * k, 9.5, 0, 0, 7); c.fill();
+    for (const [r, col] of [[8.3, '#1b1b1b'], [6.9, '#f2e6c8'], [5.4, '#c0392b'], [4, '#f2e6c8'], [2.6, '#2e8b57'], [1.2, '#c0392b']]) { c.fillStyle = col; c.beginPath(); c.ellipse(uc, vc, r * k, r, 0, 0, 7); c.fill(); }
+    // the darts in the board this round / 이번 판에 꽂힌 다트
+    const n = Math.min(3, Math.floor((t0() % DART_ROUND) / 1.6));
+    for (let i = 0; i < n; i++) { const [du, dv] = DART_SPOTS[i]; c.fillStyle = '#f2b632'; c.fillRect(uc + du - .02, vc + dv - .6, .04, 1.2); }
+  });
+}
+function dartFlight(fx, fy, bx, by) {   // the dart on its way / 날아가는 다트
+  const r = t0() % DART_ROUND, k = (r % 1.6) / 1.6;
+  if (r >= 3 * 1.6 || k > .35) return;
+  const u = k / .35, a = P(fx, fy, 30), b = P(bx + .05, by, 24), px = a.x + (b.x - a.x) * u, py = a.y + (b.y - a.y) * u - Math.sin(u * Math.PI) * 6;
+  c.strokeStyle = '#f2b632'; c.lineWidth = 2; c.beginPath(); c.moveTo(px, py); c.lineTo(px + (a.x - b.x) * .06, py + (a.y - b.y) * .06); c.stroke();
 }
 // the pub "Honey Pot": dark wood, warm windows, its signboard on the wall over the door (lit at dusk),
 // string lights over the terrace
@@ -1888,7 +1914,7 @@ function badge(b) {
 }
 function poseOf(b) {
   if (b.npc) return b.key2 === 'meet' ? 'meet' : 'idle';
-  if (b.state === 'home') return b.key2 === 'clap' ? 'clap' : b.key2 === 'eve' && b.arrived && b.eve && b.eve.spot ? ({ cheers: 'cheers', kick: 'kick', bench: 'sofa', chat: 'chat', type: 'type', read: 'coffee' })[b.eve.kind] : 'idle';
+  if (b.state === 'home') return b.key2 === 'clap' ? 'clap' : b.key2 === 'eve' && b.arrived && b.eve && b.eve.spot ? ({ cheers: 'cheers', kick: 'kick', bench: 'sofa', chat: 'chat', type: 'type', read: 'coffee', dart: 'pong' })[b.eve.kind] : 'idle';
   if (b.state === 'run') return b.key2 === 'meet' ? (b.atBoard ? 'board' : 'meet') : 'type';
   if (b.state === 'wait') return 'wait';
   if (b.state === 'done') return 'done';

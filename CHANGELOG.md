@@ -20,7 +20,7 @@
   11 pm they all sleep at home. The pub has a hanging sign (an iron arm, a
   board with a mug of beer and PUB); hover a house or the pub to look in (its
   roof comes off: a bed and its bee, or the bar, the taps, a shelf of bottles
-  and the guests), click to keep it open; houses and the pub are bigger. Every house differs: six
+  and the guests, one of them playing darts), click to keep it open; houses and the pub are bigger. Every house differs: six
   styles (a cottage with a porch roof, two storeys, a flat roof with a planter,
   a hipped roof, a barn-style gambrel roof, a smoking chimney) and six kinds of room (cosy
   bedroom, gaming den, books, plants and a hammock, a piano, a big kitchen);
