@@ -1436,6 +1436,7 @@ function house(e) {
   const bee = [...bees.values()].find(b => b.bee === e.id && (b.ssh || '') === (e.o.ssh || '')), home = bee && bee.inside && !bee.atPub;
   const hot = HOVER_HOUSE === e.key;
   const wall = night(gone ? '#d8d3cb' : HOUSE_COLS[seed % HOUSE_COLS.length]), roof = night(gone ? '#9a948c' : ROOF_COLS[(seed * 3 + 1) % ROOF_COLS.length]);
+  if (peeking(e.key)) return houseInside(e, wall);
   box(x, y, w, d, H, hot ? mixc(wall, '#fff3c4', .5) : wall);
   const lit = home && LIGHT > .2 ? 1 : home ? .6 : 0, len = ridge === 'y' ? d : w;
   if (toward(...face)) {
@@ -1464,12 +1465,57 @@ function house(e) {
     c.fillText(LIGHT < .35 ? 'z' : '♪', top.x + 6 + k * 8, top.y - 6 - k * 14); c.globalAlpha = 1;
   }
 }
+/* looking in: hover a house or the pub (or click to keep it open) and its roof comes off, the near walls drop
+   to a sill and the room shows, like the office itself / 들여다보기: 집이나 펍에 마우스를 올리면 (누르면 열린 채로)
+   지붕이 벗겨지고 가까운 벽은 턱만 남아 방이 보인다. 사무실처럼 */
+const PEEK = new Set();
+const peeking = key => PEEK.has(key) || HOVER_HOUSE === key;
+function cutaway(x, y, w, d, H, wall, floor, inside) {
+  floorRect(x, y, w, d, floor);
+  const walls = [[[x, y], [x + w, y], [0, -1]], [[x + w, y], [x + w, y + d], [1, 0]], [[x + w, y + d], [x, y + d], [0, 1]], [[x, y + d], [x, y], [-1, 0]]];
+  for (const [a, b, n] of walls) if (!toward(...n)) poly([P(...a), P(...b), P(...b, H), P(...a, H)], shade(mixc(wall, '#ffffff', .25), sideOf(...n) < 0 ? .04 : .12));
+  inside();
+  for (const [a, b, n] of walls) if (toward(...n)) {   // the near walls, a low sill / 가까운 벽은 낮은 턱
+    const ux = b[0] - a[0], uy = b[1] - a[1];
+    box(Math.min(a[0], b[0]) - (ux ? 0 : .04), Math.min(a[1], b[1]) - (uy ? 0 : .04), Math.abs(ux) || .08, Math.abs(uy) || .08, 5, wall);
+  }
+}
+// a bee drawn somewhere inside (a stand-in, so the real one stays where it is) / 안에 그리는 벌 (대역: 진짜 벌은 그대로)
+function beeAt(b, x, y, kind, look) {
+  drawBee({ ...b, x, y, inside: false, moving: false, path: [], arrived: true, key2: 'eve', eve: { kind, spot: { look } }, look, popped: false, say: null }, t0());
+}
+function houseInside(e, wall) {
+  const { x, y, w, d } = e.h, bee = [...bees.values()].find(b => b.bee === e.id && (b.ssh || '') === (e.o.ssh || '') && b.inside && !b.atPub);
+  cutaway(x, y, w, d, 20, wall, night('#d9b98c'), () => {
+    floorOval(x + w / 2, y + d / 2, .45, .35, night('#c97a6a'));                                   // rug / 러그
+    const bx = x + .15, by = y + .15, bw = Math.min(w, d) * .55;
+    box(bx, by, bw, bw * .8, 6, night('#f4f1ea')); box(bx, by, bw * .3, bw * .8, 8, night('#ffffff'));   // bed and pillow / 침대와 베개
+    box(bx + bw * .3, by, bw * .7, bw * .8, 7, night('#7fa6d6'));                                     // blanket / 이불
+    cyl(x + w - .4, y + d - .4, .2, 9, night('#a57a4f'));                                              // a little table / 작은 탁자
+    if (LIGHT < .4) { const p = P(x + w - .4, y + d - .4, 14); const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, 26); g.addColorStop(0, 'rgba(255, 214, 140, .55)'); g.addColorStop(1, 'rgba(255, 214, 140, 0)'); c.fillStyle = g; c.beginPath(); c.arc(p.x, p.y, 26, 0, 7); c.fill(); }
+    if (bee) beeAt(bee, bx + bw * .6, by + bw * .4, 'bench', [0, 1]);                                 // in bed / 침대에
+  });
+}
+function pubInside(q, wall) {
+  const { x, y, w, d } = q, guests = [...bees.values()].filter(b => b.atPub && b.inside);
+  cutaway(x, y, w, d, 30, wall, night('#6b4a33'), () => {
+    box(x + .15, y + .12, w - .3, .35, 4, night('#3b2516'), 22);                                      // a shelf of bottles / 술병 선반
+    for (let i = 0; i < 9; i++) cyl(x + .3 + i * (w - .6) / 8, y + .28, .05, 6, night(['#4f8a5b', '#8a4f3b', '#d9b45a'][i % 3]), 26);
+    box(x + .2, y + .7, w - .4, .35, 13, night('#8a5a36'));                                          // the bar / 바
+    for (let i = 0; i < 3; i++) cyl(x + .6 + i * .5, y + .85, .04, 6, night('#d8d3cb'), 13);         // taps / 탭
+    const seats = [];
+    for (let i = 0; i < 4; i++) { const sx = x + .45 + i * (w - .9) / 3; cyl(sx, y + 1.35, .14, 8, night('#2b1c12')); seats.push([sx, y + 1.45]); }
+    cyl(x + w / 2, y + d - .45, .3, 11, night('#8a6a4a')); seats.push([x + w / 2 - .45, y + d - .45], [x + w / 2 + .45, y + d - .45]);
+    guests.slice(0, seats.length).forEach((b, i) => beeAt(b, seats[i][0], seats[i][1], 'cheers', i < 4 ? [0, -1] : [i === 4 ? 1 : -1, 0]));
+  });
+}
 // the pub "Honey Pot": dark wood, warm windows, its signboard on the wall over the door (lit at dusk),
 // string lights over the terrace
 // 펍 "꿀단지": 짙은 나무, 따뜻한 창, 문 위 벽에 붙은 간판 (해 질 무렵 불이 켜진다), 테라스 위 줄 전구
 const PUB_NAME = () => tr('꿀단지', 'Honey Pot');
 function pub(q) {
   const { x, y, w, d } = q, H = 30, crowd = [...bees.values()].filter(b => b.atPub && b.inside).length, glow = LIGHT < .7 || crowd ? 1 : 0;
+  if (peeking('pub')) { pubInside(q, night('#7a5236')); hangingSign(q, glow); return; }
   box(x, y, w, d, H, night('#7a5236'));
   box(x - .1, y - .1, w + .2, d + .2, 5, night('#4f3424'), H);
   if (toward(0, 1)) onFaceY(x, y + d, () => {
@@ -1483,6 +1529,7 @@ function pub(q) {
     c.fillText(`🍯 ${PUB_NAME()}`, 0, .5); c.restore();
     c.textAlign = 'left'; c.textBaseline = 'top';
   });
+  hangingSign(q, glow);
   if (crowd && !reduced) {   // noise from inside / 안에서 나는 소리
     const k = (t0() * .6) % 1, top = P(x + w / 2, y + d / 2, H + 12); font(10 + k * 4, 700); c.globalAlpha = 1 - k; c.fillStyle = T.honey;
     c.fillText(k < .5 ? '♪' : '🍻', top.x - 8 + k * 10, top.y - k * 16); c.globalAlpha = 1;
@@ -1491,6 +1538,27 @@ function pub(q) {
     const a = P(-9.8, y + .2, 26), b2 = P(-7.4, y + 2.6, 26);
     for (let i = 0; i <= 8; i++) { const u = i / 8, px = a.x + (b2.x - a.x) * u, py = a.y + (b2.y - a.y) * u + Math.sin(u * Math.PI) * 6; circle(px, py, 2, i % 2 ? '#ffd27a' : '#ff9e7a'); }
   }
+}
+// the pub's hanging sign: an iron arm out of the wall by the door, a board on two chains with a mug of
+// beer and PUB on it, swaying a little / 펍의 돌출 간판: 문 옆 벽에서 나온 쇠 팔, 두 사슬에 달린 판에 맥주잔과 PUB, 살짝 흔들린다
+function hangingSign(q, glow) {
+  const xs = q.x + q.w - .35, y0 = q.y + q.d, arm = 28, sway = reduced ? 0 : Math.sin(t0() * 1.3) * .03;
+  const a = P(xs, y0, arm + 2), b = P(xs, y0 + .8, arm + 2);
+  c.strokeStyle = '#2b2b2b'; c.lineWidth = 2; c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();          // the arm / 팔
+  const m = P(xs, y0 + .1, arm - 4); c.beginPath(); c.moveTo(m.x, m.y); c.lineTo(P(xs, y0 + .5, arm + 2).x, P(xs, y0 + .5, arm + 2).y); c.stroke();   // its brace / 받침
+  const u0 = .22 + sway, u1 = .78 + sway, top = 23, bot = 10;
+  c.lineWidth = 1; for (const u of [u0 + .04, u1 - .04]) { const p1 = P(xs, y0 + u, arm + 2), p2 = P(xs, y0 + u, top); c.beginPath(); c.moveTo(p1.x, p1.y); c.lineTo(p2.x, p2.y); c.stroke(); }
+  poly([P(xs, y0 + u0, bot), P(xs, y0 + u1, bot), P(xs, y0 + u1, top), P(xs, y0 + u0, top)], '#c99a3e');
+  poly([P(xs, y0 + u0 + .03, bot + 1), P(xs, y0 + u1 - .03, bot + 1), P(xs, y0 + u1 - .03, top - 1), P(xs, y0 + u0 + .03, top - 1)], glow ? '#3a2614' : night('#3a2614'));
+  // a mug of beer and PUB, reading the right way round from either side / 맥주잔과 PUB, 어느 쪽에서 봐도 바로 읽히게
+  onFaceX(xs, y0 + u0, () => {
+    const flip = toward(1, 0) ? -1 : 1, mid = (u1 - u0) / 2;
+    c.save(); c.translate(mid, (top + bot) / 2); c.scale(flip / PLAQUE_PX, -1);
+    fillRR(-5, -9, 8, 9, 1.5, '#f2b632'); c.fillStyle = '#fffaf0'; c.fillRect(-5.5, -10.5, 9, 3);              // the mug / 잔
+    c.strokeStyle = '#f2b632'; c.lineWidth = 1.5; c.beginPath(); c.arc(3.5, -4.5, 2.4, -1.4, 1.4); c.stroke();      // its handle / 손잡이
+    font(5.5, 900); c.fillStyle = glow ? '#ffd56a' : '#e8d9b8'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('PUB', 0, 4);
+    c.restore(); c.textAlign = 'left'; c.textBaseline = 'top';
+  });
 }
 function fountain(x, y) {
   cyl(x, y, .55, 6, night('#c9c2b6')); const p = P(x, y, 6); c.fillStyle = night('#7fc3ec'); c.beginPath(); c.ellipse(p.x, p.y, .45 * TW * 1.41, .45 * TH * 1.41, 0, 0, 7); c.fill();
@@ -1510,10 +1578,17 @@ let HOVER_HOUSE = null;
 // the house under the pointer (its roof) / 마우스 아래의 집 (지붕)
 function houseAtPoint(p) {
   let best = null, bd = 34;
+  const pb = PUB(), pq = P(pb.x + pb.w / 2, pb.y + pb.d / 2, 30), pd = Math.hypot(pq.x - p.x, pq.y - p.y);
+  if (pd < 44) { best = { key: 'pub', pub: true }; bd = pd; }
   for (const e of houses()) { const q = P(e.h.x + e.h.w / 2, e.h.y + e.h.d / 2, 24), dd = Math.hypot(q.x - p.x, q.y - p.y); if (dd < bd) { bd = dd; best = e; } }
   return best;
 }
 function houseTip(e) {
+  if (e.pub) {   // who is at the pub / 펍에 누가 있는지
+    const g = [...bees.values()].filter(b => b.state === 'home' && (b.atPub || (b.key2 === 'eve' && b.eve && b.eve.kind === 'cheers' && b.arrived)));
+    return { head: `🍯 ${PUB_NAME()}`, lines: [g.length ? tr(`손님 ${g.length}마리`, `${g.length} in`) : tr('조용해요', 'quiet now'),
+      ...g.slice(0, 6).map(b => `🍺 ${b.name && b.name !== 'claude' ? b.name : b.project}`)] };
+  }
   const r = e.r, b = [...bees.values()].find(x => x.bee === e.id && (x.ssh || '') === (e.o.ssh || ''));
   const days = Math.max(0, Math.floor((Date.now() / 1000 - (r.hired || 0)) / 86400));
   const month = ((e.o.ranks && e.o.ranks.month) || []).find(x => x.id === e.id);
@@ -2063,7 +2138,7 @@ cv.addEventListener('mousemove', e => {
   const fr = $('#floor').getBoundingClientRect();
   if (hh) {   // who lives here / 누가 사는 집인지
     const info = houseTip(hh); tip.replaceChildren();
-    const head = document.createElement('b'); head.textContent = `🏠 ${info.head}`; tip.append(head);
+    const head = document.createElement('b'); head.textContent = hh.pub ? info.head : `🏠 ${info.head}`; tip.append(head);
     info.lines.forEach((l, i) => { if (i) tip.append(document.createElement('br')); const sp = document.createElement('span'); sp.textContent = l; tip.append(sp); });
     tip.hidden = false;
     tip.style.left = Math.max(8, Math.min(e.clientX - fr.left + 14, fr.width - tip.offsetWidth - 8)) + 'px';
@@ -2081,7 +2156,13 @@ cv.addEventListener('mousemove', e => {
   tip.style.top = (e.clientY - fr.top + 14) + 'px';
 });
 cv.addEventListener('mouseleave', () => { tip.hidden = true; hoverKey = null; HOVER_HOUSE = null; });
-cv.addEventListener('click', e => { if (dragged) { dragged = false; return; } const b = LAY && hit(worldAt(e)); if (b) visit(b); });
+cv.addEventListener('click', e => {
+  if (dragged) { dragged = false; return; }
+  const b = LAY && hit(worldAt(e)); if (b) return visit(b);
+  // a click on a house or the pub keeps it open (again to close) / 집이나 펍을 누르면 열린 채로 (다시 누르면 닫힘)
+  const hh = LAY && houses().length ? houseAtPoint(worldAt(e)) : null;
+  if (hh) PEEK.has(hh.key) ? PEEK.delete(hh.key) : PEEK.add(hh.key);
+});
 
 /* ---------- turning, zooming and moving the view / 보기 돌리기, 확대, 옮기기 ----------
    Mouse: wheel to zoom at the pointer, drag to move, right-drag (or shift-drag) sideways to turn and
