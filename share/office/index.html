@@ -1443,8 +1443,23 @@ function drawEffects(t, dt) {
   }
 }
 
-let last = performance.now();
+let last = performance.now(), touched = 0;
+// Full speed (60 a second) only while you handle it: the view turning or sliding, a hand on it, a pop-out.
+// Bees walking about get 30, and a still office (typing, napping, waiting in line) 20: they look the same
+// and cost a half or a third, and the window is often left open all day. Puffs don't count: there is
+// nearly always one.
+// 최고 속도 (초당 60) 는 만질 때만: 돌거나 미끄러지는 보기, 마우스·키 입력, 튀어나오기. 걸어 다니는 벌은
+// 30, 멈춘 사무실 (타자, 낮잠, 줄 서기) 은 20: 똑같이 보이면서 반이나 3분의 1만 들고, 창은 하루 종일 열려 있곤
+// 하다. 연기는 세지 않는다: 거의 늘 하나쯤 있다
+function frameGap(now) {
+  if (now - touched < 1500 || drag || gest || pop) return 0;
+  if (Math.abs(cam.rot - ROT) > .0005 || Math.abs(drawerWant() - DRAWER.cur) > .5) return 0;
+  for (const m of [bees, crew, helpers]) for (const b of m.values()) if (b.moving) return 1000 / 30;
+  return 1000 / 20;
+}
+for (const ev of ['pointermove', 'pointerdown', 'wheel', 'keydown']) addEventListener(ev, () => { touched = performance.now(); }, { passive: true });
 function frame(now) {
+  if (LAY && now - last < frameGap(now) - 4) { requestAnimationFrame(frame); return; }
   const dt = Math.min(.1, (now - last) / 1000); last = now;
   const t = now / 1000;
   if (LAY) {
