@@ -694,14 +694,22 @@ function plant(x, y, s = 1) {
 
 /* the scene: things on the floor, sorted back to front by x + y / 장면: 바닥 위의 것들을 x + y 로 뒤에서부터 */
 const scene = [];
-// a box split into tiles so bees standing next to a long box sort correctly
-// 긴 상자 옆에 선 벌의 앞뒤가 맞도록 상자를 타일 단위로 나눈다
-function addBox(x, y, w, d, h, col, z = 0) {
-  const nx = Math.max(1, Math.round(w)), ny = Math.max(1, Math.round(d));
+// a box split into pieces so bees standing next to a long box sort correctly. The pieces are near squares
+// of about `cell` tiles: long thin pieces sort wrong against their neighbours once the view is turned
+// (a desk's far half drawn over its near half). Returns the depth of its nearest piece
+// 긴 상자 옆에 선 벌의 앞뒤가 맞도록 상자를 조각낸다. 조각은 `cell` 타일쯤의 정사각형에 가깝게: 길쭉한 조각은
+// 보기를 돌리면 이웃과 앞뒤가 틀린다 (책상의 먼 쪽 반이 가까운 쪽 위에 그려짐). 가장 가까운 조각의 깊이를 돌려준다
+function addBox(x, y, w, d, h, col, z = 0, cell = 1) {
+  const nx = Math.max(1, Math.round(w / cell)), ny = Math.max(1, Math.round(d / cell));
+  let near = -Infinity;
   for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) {
-    const bx = x + w * i / nx, by = y + d * j / ny;
-    scene.push({ k: D(bx + w / nx / 2, by + d / ny / 2), draw: () => box(bx, by, w / nx, d / ny, h, col, z) });
+    const bx = x + w * i / nx, by = y + d * j / ny, k = D(bx + w / nx / 2, by + d / ny / 2);
+    near = Math.max(near, k);
+    // a hair wider than the piece, so no seam shows between neighbours / 이웃 사이에 이음매가 안 보이게 조각보다 아주 조금 넓게
+    const e = i < nx - 1 || j < ny - 1 ? .02 : 0;
+    scene.push({ k, draw: () => box(bx, by, w / nx + (i < nx - 1 ? e : 0), d / ny + (j < ny - 1 ? e : 0), h, col, z) });
   }
+  return near;
 }
 const add = (x, y, draw, bias = 0) => scene.push({ k: D(x, y) + bias, draw });
 
@@ -1179,8 +1187,10 @@ function buildScene(t) {
   for (const d of LAY.desks) {
     const o = owners.get(d.id), cy = d.seat.y + (o ? 0 : d.far ? .25 : -.25);
     add(d.seat.x, cy, () => cyl(d.seat.x, cy, .26, 10, T['m-chair']), -.05);
-    addBox(d.x - DESK_W / 2, d.y - DESK_D / 2, DESK_W, DESK_D, 16, T['m-desk']);
-    add(d.x, d.y, () => laptop(d, o, t), .3);
+    // the laptop sits on the desk: drawn after every piece of it, whichever way the view is turned
+    // 노트북은 책상 위: 보기를 어떻게 돌려도 책상 조각을 모두 그린 뒤에
+    const near = addBox(d.x - DESK_W / 2, d.y - DESK_D / 2, DESK_W, DESK_D, 16, T['m-desk'], 0, .45);
+    scene.push({ k: near + .001, draw: () => laptop(d, o, t) });
   }
   for (let i = LAY.pods.length; i < LAY.rows * POD_ROW; i++) {
     const { x, y } = podAt(i);
