@@ -51,7 +51,8 @@ PORT = int(os.environ.get("HIVEMUX_OFFICE_PORT") or 47380)   # fixed, so the pag
 IDLE_EXIT = 90               # seconds without a page asking before the server quits / 페이지가 묻지 않은 채 이만큼 지나면 서버 종료
 US = "\x1f"
 FIELDS = ["pane_id", "session_name", "window_index", "window_name", "pane_title", "@claude_state", "@claude_state_at",
-          "@claude_session", "@claude_title", "@claude_name", "@claude_agents", "@claude_plan", "pane_current_command"]
+          "@claude_session", "@claude_title", "@claude_name", "@claude_agents", "@claude_plan", "pane_current_command",
+          "pane_index"]
 SHELLS = {"zsh", "bash", "fish", "sh", "dash", "tcsh", "ksh", "login"}
 SSH = shlex.split(os.environ.get("HIVEMUX_SSH") or "ssh")
 PATH = "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH"
@@ -103,6 +104,40 @@ def task_name(p):
     return w if w not in ("claude", p["session_name"]) else ""
 
 
+# the roster and the honey ledger (bin/hivemux-bees) / 명부와 꿀 장부 (bin/hivemux-bees)
+import importlib.machinery, importlib.util
+_spec = importlib.util.spec_from_loader("hivemux_bees", importlib.machinery.SourceFileLoader("hivemux_bees", os.path.join(HERE, "hivemux-bees")))
+bees = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(bees)
+_ranks = {"size": -1, "day": "", "value": None}
+_working = set()
+
+
+def ranks():
+    """The honey ranking, counted again only when the ledger grew or the day changed / 꿀 순위. 장부가 늘거나 날이 바뀔 때만 다시 센다"""
+    try:
+        size = os.path.getsize(bees.LEDGER)
+    except OSError:
+        size = 0
+    day = time.strftime("%Y-%m-%d")
+    if size != _ranks["size"] or day != _ranks["day"]:
+        _ranks.update(size=size, day=day, value=bees.ranks())
+    return _ranks["value"]
+
+
+def roster(ids):
+    """Hire the bees seen at work for the first time (or back after leaving); the roster for the page
+    처음 일하는 (또는 퇴사 뒤 돌아온) 벌을 입사시킨다. 페이지에 줄 명부"""
+    with bees.Roster() as r:
+        if not ids <= _working:
+            for i in ids:
+                r.seen(i, int(time.time()))
+            _working.clear(); _working.update(ids)
+        cut = time.time() - 30 * 86400   # who left over a month ago is out of sight / 한 달 넘게 전에 떠난 벌은 안 보인다
+        return {i: {k: b.get(k) for k in ("name", "project", "hired", "left", "rehires", "house")}
+                for i, b in r.bees.items() if not b.get("left") or b["left"] > cut}
+
+
 def snapshot():
     """This Mac's Claude sessions in sidebar order (its ⌥ numbers) / 이 Mac 의 Claude 세션, 사이드바 순서 (⌥ 번호)"""
     fmt = US.join("#{%s}" % f for f in FIELDS)
@@ -117,6 +152,10 @@ def snapshot():
     except OSError:
         pass
     items = [p for _, p in sorted(enumerate(items), key=lambda e: (rank.get(e[1]["session_name"], len(rank)), e[0]))]
+    ids = bees.bee_ids([(p["pane_id"], p["session_name"], p["window_index"], p["pane_index"], p["window_name"], p["@claude_name"])
+                        for p in panes if len(p) == len(FIELDS) and p["@claude_session"]])
+    for p in items:
+        p["bee"] = ids.get(p["pane_id"], p["session_name"] + "/claude")
     honey = tmux("show", "-gqv", "@hivemux-honey").split()
     today = time.strftime("%Y-%m-%d")
     return {
@@ -126,8 +165,9 @@ def snapshot():
             "pane": p["pane_id"], "idx": i, "project": p["session_name"], "name": task_name(p),
             "state": p["@claude_state"], "at": int(p["@claude_state_at"]) if p["@claude_state_at"].isdigit() else 0,
             "agents": int(p["@claude_agents"]) if p["@claude_agents"].isdigit() else 0,
-            "plan": bool(p["@claude_plan"]),
+            "plan": bool(p["@claude_plan"]), "bee": p["bee"],
         } for i, p in enumerate(items, 1)],
+        "bees": roster({p["bee"] for p in items}), "ranks": ranks(),
     }
 
 

@@ -1,0 +1,164 @@
+#!/usr/bin/env python3
+"""The bees on the payroll and the honey they made (the bee office's roster and ledger).
+벌 명부와 벌들이 모은 꿀 (벌 사무실의 명부와 장부).
+
+  hivemux-bees id <pane>          the bee working in that pane: "<project>/<name>"
+                                  그 칸에서 일하는 벌: "<프로젝트>/<이름>"
+  hivemux-bees honey <pane>       add one cell of honey for it to the ledger (bin/hivemux-hook, when a task ends)
+                                  그 벌의 꿀 한 칸을 장부에 적는다 (bin/hivemux-hook, 작업이 끝날 때)
+  hivemux-bees leave <project>    every bee of that project leaves (bin/hivemux-close-project)
+                                  그 프로젝트의 벌이 모두 퇴사한다 (bin/hivemux-close-project)
+  hivemux-bees list               the roster as JSON / 명부를 JSON 으로
+  hivemux-bees ranks              who made the most honey today, this week, this month (JSON)
+                                  오늘, 이번 주, 이번 달 꿀을 가장 많이 모은 벌 (JSON)
+
+A bee is a project and a Claude's name in it (@claude_name, else its window's name; a second Claude in the
+same window gets "#<pane index>"), so it stays the same bee across /clear, a new conversation, a restart
+or a reboot. Closing the project is leaving; the same name opening again is coming back (rehired).
+벌은 프로젝트와 그 안의 Claude 이름이다 (@claude_name, 없으면 창 이름. 같은 창의 두 번째 Claude 는
+"#<칸 번호>"). 그래서 /clear, 새 대화, 다시 시작, 재부팅을 거쳐도 같은 벌이다. 프로젝트를 닫으면 퇴사,
+같은 이름이 다시 열리면 재입사.
+
+  $XDG_DATA_HOME/hivemux/bees.json   {"<id>": {name, project, hired, left, rehires, house, history: [[in, out], ...]}}
+  $XDG_DATA_HOME/hivemux/honey.log   "<epoch> <id> <session id>" per finished task / 끝난 작업마다 한 줄
+"""
+import datetime, fcntl, json, os, shutil, subprocess, sys, time
+
+TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
+DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux")
+ROSTER = os.path.join(DATA, "bees.json")
+LEDGER = os.path.join(DATA, "honey.log")
+
+
+def tmux(*a):
+    return subprocess.run([TMUX, *a], capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout
+
+
+def bee_ids(claudes):
+    """claudes: (key, project, window index, pane index, window name, @claude_name) of every Claude pane.
+    The first Claude of a name in a project is "<project>/<name>", later ones get "#<window>.<pane>"
+    claudes: 모든 Claude 칸의 (키, 프로젝트, 창 번호, 칸 번호, 창 이름, @claude_name). 한 프로젝트에서 그 이름의
+    첫 Claude 는 "<프로젝트>/<이름>", 다음부터는 "#<창>.<칸>" 이 붙는다"""
+    out, taken = {}, set()
+    for key, project, w, p, window, name in sorted(claudes, key=lambda c: (c[1], int(c[2] or 0), int(c[3] or 0))):
+        bid = f"{project}/{name or window or 'claude'}"
+        if bid in taken:
+            bid += f"#{w}.{p}"
+        taken.add(bid); out[key] = bid
+    return out
+
+
+def id_of(pane):
+    project = tmux("display", "-p", "-t", pane, "#{session_name}").strip()
+    if not project:
+        return ""
+    rows = [l.split("\x1f") for l in tmux("list-panes", "-s", "-t", "=" + project, "-F",
+            "#{pane_id}\x1f#{window_index}\x1f#{pane_index}\x1f#{window_name}\x1f#{@claude_name}\x1f#{@claude_session}").splitlines()]
+    claudes = [(r[0], project, r[1], r[2], r[3], r[4]) for r in rows if len(r) == 6 and (r[5] or r[0] == pane)]
+    return bee_ids(claudes).get(pane, "")
+
+
+class Roster:
+    """bees.json, read and written under a lock / 잠금 아래에서 읽고 쓰는 bees.json"""
+    def __enter__(self):
+        os.makedirs(DATA, exist_ok=True)
+        self.f = open(ROSTER + ".lock", "w")
+        fcntl.flock(self.f, fcntl.LOCK_EX)
+        try:
+            with open(ROSTER) as r:
+                self.bees = json.load(r)
+        except (OSError, ValueError):
+            self.bees = {}
+        self.dirty = False
+        return self
+
+    def __exit__(self, *a):
+        if self.dirty:
+            with open(ROSTER + ".tmp", "w") as w:
+                json.dump(self.bees, w, ensure_ascii=False, indent=1)
+            os.replace(ROSTER + ".tmp", ROSTER)
+        self.f.close()
+
+    def house(self):
+        """the lowest house no working bee lives in; a bee that left loses it to a newcomer
+        일하는 벌이 살지 않는 가장 낮은 번호의 집. 퇴사한 벌의 집은 신입에게 넘어간다"""
+        held = {b["house"] for b in self.bees.values() if b.get("house") is not None and not b.get("left")}
+        n = next(i for i in range(len(self.bees) + 1) if i not in held)
+        for b in self.bees.values():
+            if b.get("left") and b.get("house") == n:
+                b["house"] = None
+        return n
+
+    def seen(self, bid, now):
+        """a bee at work: hired, or back after leaving / 일하는 벌: 입사, 또는 퇴사 뒤 재입사"""
+        b = self.bees.get(bid)
+        if b and not b.get("left"):
+            return
+        project, _, name = bid.partition("/")
+        if not b:
+            b = self.bees[bid] = {"name": name, "project": project, "hired": now, "left": None, "rehires": 0, "house": None, "history": []}
+        else:
+            b["rehires"] = b.get("rehires", 0) + 1
+            b["left"] = None
+        if b.get("house") is None:
+            b["house"] = self.house()
+        b.setdefault("history", []).append([now, None])
+        self.dirty = True
+
+    def leave(self, project, now):
+        for b in self.bees.values():
+            if b["project"] == project and not b.get("left"):
+                b["left"] = now
+                if b.get("history") and b["history"][-1][1] is None:
+                    b["history"][-1][1] = now
+                self.dirty = True
+
+
+def ranks(now=None):
+    """Top ten of today, this week (from Monday) and this month / 오늘, 이번 주 (월요일부터), 이번 달의 상위 열"""
+    now = now or time.time()
+    d = datetime.datetime.fromtimestamp(now)
+    day = datetime.datetime(d.year, d.month, d.day)
+    starts = {"day": day.timestamp(), "week": (day - datetime.timedelta(days=d.weekday())).timestamp(),
+              "month": datetime.datetime(d.year, d.month, 1).timestamp()}
+    first = min(starts.values())
+    counts = {k: {} for k in starts}
+    try:
+        with open(LEDGER) as f:
+            for line in f:
+                p = line.split()
+                if len(p) < 2 or not p[0].isdigit() or int(p[0]) < first:
+                    continue
+                for k, s in starts.items():
+                    if int(p[0]) >= s:
+                        counts[k][p[1]] = counts[k].get(p[1], 0) + 1
+    except OSError:
+        pass
+    return {k: [{"id": i, "honey": n} for i, n in sorted(c.items(), key=lambda e: (-e[1], e[0]))[:10]] for k, c in counts.items()}
+
+
+def main(a):
+    now = int(time.time())
+    if len(a) == 2 and a[0] == "id":
+        print(id_of(a[1]))
+    elif len(a) == 2 and a[0] == "honey":
+        bid = id_of(a[1])
+        if bid:
+            sid = tmux("show", "-pqv", "-t", a[1], "@claude_session").strip() or "-"
+            os.makedirs(DATA, exist_ok=True)
+            with open(LEDGER, "a") as f:
+                f.write(f"{now} {bid} {sid}\n")
+    elif len(a) == 2 and a[0] == "leave":
+        with Roster() as r:
+            r.leave(a[1], now)
+    elif a == ["list"]:
+        with Roster() as r:
+            print(json.dumps(r.bees, ensure_ascii=False))
+    elif a == ["ranks"]:
+        print(json.dumps(ranks(), ensure_ascii=False))
+    else:
+        sys.exit(__doc__.split("\n\n")[1])
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

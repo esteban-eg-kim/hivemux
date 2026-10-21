@@ -8,9 +8,11 @@
 #   -> status-line window icons and the sidebar board
 #   -> 상태줄 창 목록 아이콘, 사이드바 상태판
 # - counts subagents Claude is running on the pane (@claude_agents) and tasks finished today on the
-#   server (@hivemux-honey "<date> <count>") for the bee office (bin/hivemux-office)
+#   server (@hivemux-honey "<date> <count>") for the bee office (bin/hivemux-office), and writes it to the
+#   ledger under the bee that made it (bin/hivemux-bees, for the honey ranking)
 # - 칸에서 Claude 가 돌리는 서브에이전트 수(@claude_agents)와 오늘 이 서버에서 끝난 작업 수
-#   (@hivemux-honey "<날짜> <개수>")를 센다 -> 벌 사무실 (bin/hivemux-office)
+#   (@hivemux-honey "<날짜> <개수>")를 센다 -> 벌 사무실 (bin/hivemux-office). 그 꿀은 모은 벌 이름으로
+#   장부에도 적는다 (bin/hivemux-bees, 꿀 순위)
 # - marks a pane whose Claude is in plan mode (@claude_plan) -> it plans in the bee office's meeting room
 # - 계획 모드인 Claude 의 칸을 표시 (@claude_plan) -> 벌 사무실 회의실에서 계획을 세운다
 # - records the folder Claude is working in now (@claude_pwd; a Bash cd moves it off @claude_cwd)
@@ -33,7 +35,7 @@ state() { # state <run|wait|done|idle>
   t set -p -t "$TMUX_PANE" @claude_state "$1"
   t set -p -t "$TMUX_PANE" @claude_state_at "$(date +%s)"
   t set -w -t "$TMUX_PANE" @claude_state "$1"
-  [ "$1" = done ] && honey
+  [ "$1" = done ] && { honey; ( "$(dirname "$0")/hivemux-bees" honey "$TMUX_PANE" >/dev/null 2>&1 & ); }
   "$TMUX_BIN" list-clients -F '#{client_name}' 2>/dev/null | while read -r c; do t refresh-client -t "$c" -S; done
   wake
 }
