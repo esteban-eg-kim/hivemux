@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Bee office: turning the view (right-drag, shift-drag or a two-finger turn)
+  pivots on the floor point under the pointer instead of the floor's middle
 - Bee office: a bee that popped out could stay hidden for good (only its
   laptop on) when the pop-out's fly-back animation never finished, as in a
   hidden window; it now comes back at once

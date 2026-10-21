@@ -1079,17 +1079,17 @@ function decoBack(t) {
   const best = RANKS && RANKS.month && RANKS.month[0];
   onFaceY(0, 0, () => { c.fillStyle = T.win; for (let x = 1.2; x < (best ? 12 : 14); x += 3) c.fillRect(x, 24, 1.8, 36); });
   if (best) onFaceY(0, 0, () => {
-    const u = 12.95, w = 2.7, r = ROSTER[best.id], name = r ? (r.name === 'claude' ? r.project : r.name) : best.id.split('/').pop();
-    const room = w * PLAQUE_PX - 12;   // text pixels across the mat / 판 안 글자 폭
-    c.fillStyle = 'rgba(0, 0, 0, .12)'; c.fillRect(u + .05, 9, w, 56);
-    c.fillStyle = '#b8873e'; c.fillRect(u, 10, w, 56); c.fillStyle = '#fffaf0'; c.fillRect(u + .1, 12.5, w - .2, 51);
-    const fit = wrapFit(name, room, 8.5, 4.5, FONT_NAME, 600);   // the whole name: smaller, on two lines if need be / 이름 전부: 작게, 필요하면 두 줄로
+    const u = 13.3, w = 2.05, r = ROSTER[best.id], name = r ? (r.name === 'claude' ? r.project : r.name) : best.id.split('/').pop();
+    const room = w * PLAQUE_PX - 10;   // text pixels across the mat / 판 안 글자 폭
+    c.fillStyle = 'rgba(0, 0, 0, .12)'; c.fillRect(u + .05, 17, w, 42);
+    c.fillStyle = '#b8873e'; c.fillRect(u, 18, w, 42); c.fillStyle = '#fffaf0'; c.fillRect(u + .08, 20, w - .16, 38);
+    const fit = wrapFit(name, room, 6.5, 4, FONT_NAME, 600);   // the whole name: smaller, on two lines if need be / 이름 전부: 작게, 필요하면 두 줄로
     // on a slanted wall each letter leans, so the lines stand well apart / 기운 벽에선 글자도 기울어 줄을 넉넉히 띄운다
-    const lh = fit.size + 4.5, two = fit.lines.length > 1, top = two ? 40.5 : 37;
-    wallText(u + w / 2, 58, '🏆', 7.5, 400, '#000');
-    wallText(u + w / 2, 50.5, tr('이달의 꿀벌', 'Bee of the Month'), 4.4, 'italic 400', T['m-label'], FONT_FANCY);   // a small caption over the name / 이름 위 작은 캡션
+    const lh = fit.size + 3.8, two = fit.lines.length > 1, top = two ? 40 : 37.5;
+    wallText(u + w / 2, 53.5, '🏆', 6, 400, '#000');
+    wallText(u + w / 2, 47.5, tr('이달의 꿀벌', 'Bee of the Month'), 3.8, 'italic 400', T['m-label'], FONT_FANCY);   // a small caption over the name / 이름 위 작은 캡션
     fit.lines.forEach((l, i) => wallText(u + w / 2, top - i * lh, l, fit.size, 600, '#3a2612', FONT_NAME));
-    wallText(u + w / 2, top - (fit.lines.length - 1) * lh - 11.5, tr(`꿀 ${best.honey}칸`, `${best.honey} honey`), 6, 600, T.wait, FONT_NAME);
+    wallText(u + w / 2, top - (fit.lines.length - 1) * lh - 9.5, tr(`꿀 ${best.honey}칸`, `${best.honey} honey`), 4.6, 600, T.wait, FONT_NAME);
   });
   // the whiteboard; the plan grows while a bee draws at it / 화이트보드. 벌이 그리는 동안 계획이 늘어난다
   onFaceY(0, 0, () => {
@@ -2357,9 +2357,25 @@ addEventListener('keydown', e => {
   if (k) { viewDo(k); e.preventDefault(); }
 });
 let drag = null, dragged = false;
+// Turning pivots on the floor point under the pointer: find it when the turn starts, and after each step
+// shift the view so it stays under the pointer. floorAt undoes P at z = 0 (and the turn)
+// 돌리기는 마우스 아래 바닥 점을 중심으로: 돌리기 시작할 때 그 점을 찾고, 한 걸음마다 그 점이 마우스 아래에
+// 남도록 보기를 옮긴다. floorAt 은 z = 0 에서의 P (와 회전) 를 되돌린다
+function floorAt(e) {
+  const w = worldAt(e), rx = (w.x / TW + w.y / TH) / 2, ry = (w.y / TH - w.x / TW) / 2, dx = rx - CX, dy = ry - CY;
+  return { x: CX + dx * COS + dy * SIN, y: CY - dx * SIN + dy * COS };
+}
+const onScreen = a => { place(); const q = P(a.x, a.y); return { x: (q.x - VIEW.cx) * scale, y: (q.y - VIEW.cy) * scale }; };
+function turnAbout(a, change) {   // change the turn or tilt, keeping floor point a where it is on screen / 회전·기울기를 바꾸되 바닥 점 a 를 화면 제자리에
+  const before = onScreen(a); change(); const after = onScreen(a);
+  // the fit (and so the scale) may change with the angle: move by screen pixels over the new scale
+  // 각도에 따라 화면 맞춤 (그래서 배율) 이 바뀔 수 있다: 화면 픽셀 차이를 새 배율로 나눠 옮긴다
+  cam.px += (before.x - after.x) / scale; cam.py += (before.y - after.y) / scale; place();
+}
 cv.addEventListener('pointerdown', e => {
   if (e.button !== 0 && e.button !== 2) return;
-  drag = { x: e.clientX, y: e.clientY, px: cam.px, py: cam.py, rot: cam.rot, tilt: cam.tilt, turn: !PLAN.on && (e.button === 2 || e.shiftKey) }; dragged = false;
+  const turn = !PLAN.on && (e.button === 2 || e.shiftKey);
+  drag = { x: e.clientX, y: e.clientY, px: cam.px, py: cam.py, rot: cam.rot, tilt: cam.tilt, turn, at: turn && LAY ? floorAt(e) : null }; dragged = false;
   cv.setPointerCapture(e.pointerId);
 });
 cv.addEventListener('pointermove', e => {
@@ -2368,8 +2384,8 @@ cv.addEventListener('pointermove', e => {
   if (!dragged && Math.hypot(dx, dy) < 4) return;
   dragged = true; cv.classList.add('grab'); tip.hidden = true;
   if (drag.turn) {   // a full turn across ~800px; up looks from higher / 약 800px 끌면 한 바퀴, 위로 끌면 더 높이서
-    cam.rot = drag.rot + dx * .008; setRot(cam.rot);
-    cam.tilt = Math.max(.3, Math.min(.85, drag.tilt - dy * .003)); setTilt(cam.tilt);
+    const go = () => { cam.rot = drag.rot + dx * .008; setRot(cam.rot); cam.tilt = Math.max(.3, Math.min(.85, drag.tilt - dy * .003)); setTilt(cam.tilt); };
+    drag.at ? turnAbout(drag.at, go) : go();
   }
   else { cam.px = drag.px + dx / scale; cam.py = drag.py + dy / scale; }
 });
@@ -2384,11 +2400,11 @@ cv.addEventListener('wheel', e => {
 }, { passive: false });
 // Safari and the window app: pinch and turn gestures / Safari 와 창 앱: 벌리기, 돌리기 제스처
 let gest = null;
-cv.addEventListener('gesturestart', e => { e.preventDefault(); gest = { zoom: cam.zoom, rot: cam.rot }; });
+cv.addEventListener('gesturestart', e => { e.preventDefault(); gest = { zoom: cam.zoom, rot: cam.rot, at: LAY && !PLAN.on ? floorAt(e) : null }; });
 cv.addEventListener('gesturechange', e => {
   e.preventDefault(); if (!gest) return;
   cam.zoom = Math.max(.2, Math.min(5, gest.zoom * e.scale));
-  if (!PLAN.on) { cam.rot = gest.rot + e.rotation * Math.PI / 180; setRot(cam.rot); }
+  if (!PLAN.on) { const go = () => { cam.rot = gest.rot + e.rotation * Math.PI / 180; setRot(cam.rot); }; gest.at ? turnAbout(gest.at, go) : go(); }
 });
 cv.addEventListener('gestureend', e => { e.preventDefault(); gest = null; saveView(); });
 
