@@ -353,7 +353,10 @@ def render(items, current, w, h, cur_sess="", sessions=()):
     SHIFT_BTN = None
     if clocked_out() and not items:
         # everyone went home: say so, and a click clocks in / 모두 퇴근: 그렇다고 보이고, 누르면 출근
+        # (the paused note, if any, stays on the right, short) / (멈춤 표시가 있으면 오른쪽에 짧게 남긴다)
         summary = L().put("  ").put(tr("🌙 퇴근 중 · 눌러서 출근", "🌙 clocked out · click to clock in"), C["wait"], bold=True)
+        if REMOTE_HERE is not None:
+            summary.right("⇄", C["remote"], margin=1)
         SHIFT_BTN = len(lines)
     lines += [summary, L().put(" " + "─" * (w - 2), C["rule"])]
 

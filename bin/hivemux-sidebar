@@ -59,7 +59,7 @@ ensure_one() {
     n="$(t list-panes -t "$win" 2>/dev/null | wc -l | tr -d ' ')"
     if [ "${n:-0}" -ge 1 ]; then
       local first pid; first="$(t list-panes -t "$win" -F '#{pane_id}' | head -1)"
-      pid="$(t split-window -hbdf -l "$W" -t "$first" -P -F '#{pane_id}' "exec $HM_BIN/hivemux-sidebar-view")"
+      pid="$(t split-window -hbdf -l "$W" -t "$first" -P -F '#{pane_id}' "exec $(printf '%q' "$HM_BIN/hivemux-sidebar-view")")"
       if [ -n "$pid" ]; then
         t select-pane -t "$pid" -T "$TITLE"
         t set -p -t "$pid" allow-set-title off 2>/dev/null
@@ -179,7 +179,7 @@ case "$1" in
   respawn)
     # restart every sidebar (after a language change) / 모든 사이드바를 다시 띄운다 (언어를 바꾼 뒤)
     t list-panes -a -F '#{pane_id} #{pane_title}' | awk -v T="$TITLE" '$2==T{print $1}' | while read -r p; do
-      t respawn-pane -k -t "$p" "exec $HM_BIN/hivemux-sidebar-view"
+      t respawn-pane -k -t "$p" "exec $(printf '%q' "$HM_BIN/hivemux-sidebar-view")"
     done ;;
   toggle)
     if [ "$ON" = on ]; then

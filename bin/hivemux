@@ -112,7 +112,7 @@ source-file \"$SHARE/keys.tmux\""
     | if $remote then .remoteControlAtStartup = true else . end
   ' "$CLAUDE_SETTINGS" > "$tmp" && jq empty "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS" || { bad "could not update settings"; exit 1; }
   ok "hooks for ${HOOK_EVENTS//\"/}"
-  [ "$remote" = true ] && ok "Remote Control for all sessions" && echo "remote" >> "$DATA/setup-flags"
+  [ "$remote" = true ] && ok "Remote Control for all sessions" && { grep -qx remote "$DATA/setup-flags" 2>/dev/null || echo "remote" >> "$DATA/setup-flags"; }
 
   step "5/5 Ghostty ($GHOSTTY_CONF)"
   if [ -d /Applications/Ghostty.app ] || need ghostty; then
