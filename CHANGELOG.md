@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Bee office: a bee that popped out could stay hidden for good (only its
+  laptop on) when the pop-out's fly-back animation never finished, as in a
+  hidden window; it now comes back at once
 - Clock out and in: the office's 🌙 button or right-click → Clock out stops
   every Claude for the night (busy ones work overtime and go once done); the
   bees clap and walk home to their own houses in a new village past the yard.
@@ -15,8 +18,7 @@
   11 pm they all sleep at home. The pub has a hanging sign (an iron arm, a
   board with a mug of beer and PUB); hover a house or the pub to look in (its
   roof comes off: a bed and its bee, or the bar, the taps, a shelf of bottles
-  and the guests), click to keep it open. Zoomed in, every roof comes off, as
-  in the office; houses and the pub are bigger. Every house differs: six
+  and the guests), click to keep it open; houses and the pub are bigger. Every house differs: six
   styles (a cottage with a porch roof, two storeys, a flat roof with a planter,
   a hipped roof, an A-frame, a smoking chimney) and six kinds of room (cosy
   bedroom, gaming den, books, plants and a hammock, a piano, a big kitchen);

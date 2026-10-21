@@ -635,6 +635,7 @@ function ingest(list) {
     bees.set(`home|${hk}`, { key: `home|${hk}`, bee: e.id, project: e.r.project, name: e.r.name, idx: 0, state: 'home', office: e.o, oi: e.oi, ssh: e.o.ssh || null,
       path: [], face: -1, x: d.x, y: d.y, arrived: true, inside: true, key2: 'home', goal: d, phase: Math.random() * 9, spot: null, at: 0 });
   }
+  for (const b of bees.values()) if (b.popped && pop !== b) b.popped = false;
   plan();
   for (const b of bees.values()) if (b.fresh) { b.fresh = false; const g = b.goal; b.x = g.x; b.y = g.y; b.path = []; b.arrived = true; settle(b); }
   render();
@@ -1509,9 +1510,8 @@ function house(e) {
    to a sill and the room shows, like the office itself / 들여다보기: 집이나 펍에 마우스를 올리면 (누르면 열린 채로)
    지붕이 벗겨지고 가까운 벽은 턱만 남아 방이 보인다. 사무실처럼 */
 const PEEK = new Set();
-// like the office: zoomed in, the roofs come off and you see inside; zoomed out they are on (hover or a
-// click opens one anyway) / 사무실처럼: 확대하면 지붕이 벗겨져 안이 보이고, 줄이면 덮인다 (마우스를 올리거나 누르면 하나씩 열린다)
-const peeking = key => scale >= .95 || PEEK.has(key) || HOVER_HOUSE === key;
+// roofs stay on; hover opens one, a click keeps it open / 지붕은 덮여 있고, 마우스를 올리면 열리고 누르면 열린 채로
+const peeking = key => PEEK.has(key) || HOVER_HOUSE === key;
 function cutaway(x, y, w, d, H, wall, floor, inside) {
   floorRect(x, y, w, d, floor);
   const walls = [[[x, y], [x + w, y], [0, -1]], [[x + w, y], [x + w, y + d], [1, 0]], [[x + w, y + d], [x, y + d], [0, 1]], [[x, y + d], [x, y], [-1, 0]]];
@@ -2169,10 +2169,17 @@ function openPop(b) {
 function closePop() {
   const b = pop; if (!b) return;
   pop = null;
-  const done = () => { popEl.hidden = true; b.popped = false; };
+  // the bee is back in the office at once; the card hides once it has flown back, unless another bee popped
+  // out meanwhile (its card must stay). A finish that never comes (a hidden window drops animations) used to
+  // leave the bee hidden for good, with only its laptop on
+  // 벌은 바로 사무실로 돌아온다. 카드는 날아간 뒤 숨는다 (그 사이 다른 벌이 튀어나왔으면 그대로). 끝 알림이 안
+  // 오면 (가려진 창은 애니메이션을 버린다) 벌이 영영 숨고 노트북만 켜져 있었다
+  b.popped = false;
+  const done = () => { if (!pop) popEl.hidden = true; };
   if (reduced || !bees.has(b.key)) return done();
   popEl.classList.add('leaving');
   popBee.animate([{ transform: 'none' }, { transform: flyFrom(b) }], { duration: 320, easing: 'ease-in' }).onfinish = done;
+  setTimeout(done, 450);
 }
 function renderPop() {
   if (!pop) return;
