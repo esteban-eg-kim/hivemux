@@ -16,4 +16,4 @@ default="$sess-$((n + 1))"
 # new-window -t "=sess:" opens it in that project; switch-client shows it when it is another project
 # new-window -t "=세션:" 은 그 프로젝트에 연다. 다른 프로젝트면 switch-client 로 그쪽을 보여 준다
 "$TMUX_BIN" command-prompt ${client:+-t "$client"} -I "$default" -p "$(say "Claude 이름:" "Claude name:")" \
-  "new-window -t \"=$sess:\" -c \"$dir\" -n \"%1\" ; send-keys \"claude -n '%1'\" Enter ; switch-client ${client:+-c \"$client\"} -t \"=$sess\""
+  "new-window -t \"=$sess:\" -c \"$dir\" -n \"%1\" ; send-keys \" claude -n '%1'\" Enter ; switch-client ${client:+-c \"$client\"} -t \"=$sess\""

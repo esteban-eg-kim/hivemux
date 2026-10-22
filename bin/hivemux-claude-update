@@ -96,8 +96,8 @@ resume() { # resume <pane> <session id> <cwd>
   local cwd="$3"
   t set -pu -t "$1" @claude_restart_pending
   [ -d "$cwd" ] || cwd=""
-  if [ -n "$cwd" ]; then t send-keys -t "$1" "cd $(printf '%q' "$cwd") && $claude_cmd --resume $2" Enter
-  else t send-keys -t "$1" "$claude_cmd --resume $2" Enter; fi
+  if [ -n "$cwd" ]; then t send-keys -t "$1" " cd $(printf '%q' "$cwd") && $claude_cmd --resume $2" Enter
+  else t send-keys -t "$1" " $claude_cmd --resume $2" Enter; fi
 }
 
 pending() { t list-panes -a -F '#{pane_id} #{@claude_restart_pending}' | awk '$2 != "" { print $1 }'; }

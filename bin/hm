@@ -53,7 +53,7 @@ if [ -z "$2" ] && ! t has-session -t "=$name" 2>/dev/null; then
 fi
 if ! t has-session -t "=$name" 2>/dev/null; then
   t new-session -d -s "$name" -c "$dir" -n claude
-  t send-keys -t "=$name:claude" "claude -n $(printf '%q' "$name")" Enter
+  t send-keys -t "=$name:claude" " claude -n $(printf '%q' "$name")" Enter
   t new-window -d -t "=$name:" -c "$dir" -n shell
   echo "hm: $(say "새 세션" "new session") '$name' ($dir)"
 fi

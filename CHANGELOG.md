@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- The commands hivemux types into a shell (resuming each Claude on clock in,
+  after a reboot or an update, starting a new one) stay out of the shell
+  history: with a shared history, ↑ in any shell brought back the last
+  Claude resumed instead of your own last command
 - A Claude waiting on a question or an approval while its background agents
   work no longer looks busy: their tool calls flipped the sidebar card and
   the bee back to work although the question was still open

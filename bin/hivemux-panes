@@ -46,10 +46,13 @@ restore() {
       *) log "skip $target: busy ($cmd)"; continue ;;
     esac
     [ -d "$cwd" ] || cwd=""
+    # a leading space keeps it out of the shell history (zsh hist_ignore_space, bash ignorespace): with a shared
+    # history, ↑ in any shell brought back the last Claude resumed / 앞의 공백은 셸 기록에서 뺀다 (zsh
+    # hist_ignore_space, bash ignorespace). 기록을 공유하면 어느 셸에서든 ↑ 가 마지막에 재개한 Claude 를 꺼냈다
     if [ -n "$cwd" ]; then
-      "$TMUX_BIN" send-keys -t "$target" "cd $(printf '%q' "$cwd") && $claude_cmd --resume $sid" Enter
+      "$TMUX_BIN" send-keys -t "$target" " cd $(printf '%q' "$cwd") && $claude_cmd --resume $sid" Enter
     else
-      "$TMUX_BIN" send-keys -t "$target" "$claude_cmd --resume $sid" Enter
+      "$TMUX_BIN" send-keys -t "$target" " $claude_cmd --resume $sid" Enter
     fi
     log "resume $target -> $sid ($cwd)"
   done < "$MAP"

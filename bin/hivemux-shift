@@ -121,8 +121,8 @@ on() {
       done
       [[ "$cmd" =~ $SHELLS ]] || continue           # still on overtime / 아직 야근 중
       [ "$cwd" != - ] && [ -d "$cwd" ] || cwd=""
-      if [ -n "$cwd" ]; then t send-keys -t "$pane" "cd $(printf '%q' "$cwd") && $claude_cmd --resume $sid" Enter
-      else t send-keys -t "$pane" "$claude_cmd --resume $sid" Enter; fi
+      if [ -n "$cwd" ]; then t send-keys -t "$pane" " cd $(printf '%q' "$cwd") && $claude_cmd --resume $sid" Enter
+      else t send-keys -t "$pane" " $claude_cmd --resume $sid" Enter; fi
       n=$((n + 1)); log "back $pane -> $sid ($bee)"
     done < "$LIST"
     rm -f "$LIST"
