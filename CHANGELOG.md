@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.37 — 2026-10-22
 
 - Why a Claude waits: the sidebar card and the bee office say what it waits
   for: an approval (with Claude's own description of the command, or the
