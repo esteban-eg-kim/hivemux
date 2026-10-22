@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Clicking a bee of the other Mac's office goes to that session again: it
+  picked a screen from a long-gone connection (a missed detach) and nothing
+  happened; it now takes the screen attached from this Mac right now
 - Opening the bee office again when it runs as a browser app window (no window
   app on that Mac) no longer piles up windows: the new one stays and the older
   ones close

@@ -322,12 +322,18 @@ def goto(pane, frm=None):
     if not sess:
         return False
     remote = set(tmux("show", "-gqv", "@hivemux-remote-clients").split())
+    # screens attached now, most recently used first: @hivemux-remote-from keeps screens long gone (a detach
+    # it missed), and switching one of those does nothing
+    # 지금 붙어 있는 화면, 최근에 쓴 것부터: @hivemux-remote-from 에는 오래전에 떨어진 화면도 남는다 (분리를
+    # 놓침). 그런 화면을 바꾸면 아무 일도 안 일어난다
+    rows = [l.split(" ") for l in tmux("list-clients", "-F", "#{client_activity} #{client_name}").splitlines()]
+    live = [c for _, c in sorted((r for r in rows if len(r) == 2), reverse=True)]
     if frm:
-        clients = [l.split(" ", 1)[0] for l in tmux("show", "-gqv", "@hivemux-remote-from").splitlines()
-                   if l.split(" ", 1)[1:] == [frm]]
+        mine = {l.split(" ", 1)[0] for l in tmux("show", "-gqv", "@hivemux-remote-from").splitlines()
+                if l.split(" ", 1)[1:] == [frm]}
+        clients = [c for c in live if c in mine]
     else:
-        rows = [l.split(" ") for l in tmux("list-clients", "-F", "#{client_activity} #{client_name}").splitlines()]
-        clients = [c for _, c in sorted((r for r in rows if len(r) == 2 and r[1] not in remote), reverse=True)]
+        clients = [c for c in live if c not in remote]
     if not clients:
         return False
     tmux("switch-client", "-c", clients[0], "-t", f"={sess}")
