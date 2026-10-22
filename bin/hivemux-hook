@@ -9,10 +9,12 @@
 #   -> 상태줄 창 목록 아이콘, 사이드바 상태판
 # - counts subagents Claude is running on the pane (@claude_agents) and tasks finished today on the
 #   server (@hivemux-honey "<date> <count>") for the bee office (bin/hivemux-office), and writes it to the
-#   ledger under the bee that made it (bin/hivemux-bees, for the honey ranking)
+#   ledger under the bee that made it (bin/hivemux-bees, for the honey ranking); a turn that ends with
+#   subagents still running in the background stays running (@claude_bg: how many)
 # - 칸에서 Claude 가 돌리는 서브에이전트 수(@claude_agents)와 오늘 이 서버에서 끝난 작업 수
 #   (@hivemux-honey "<날짜> <개수>")를 센다 -> 벌 사무실 (bin/hivemux-office). 그 꿀은 모은 벌 이름으로
-#   장부에도 적는다 (bin/hivemux-bees, 꿀 순위)
+#   장부에도 적는다 (bin/hivemux-bees, 꿀 순위). 배경 서브에이전트가 아직 도는 채로 끝난 턴은 작업 중으로
+#   둔다 (@claude_bg: 그 수)
 # - marks a pane whose Claude is in plan mode (@claude_plan) -> it plans in the bee office's meeting room
 # - 계획 모드인 Claude 의 칸을 표시 (@claude_plan) -> 벌 사무실 회의실에서 계획을 세운다
 # - records the folder Claude is working in now (@claude_pwd; a Bash cd moves it off @claude_cwd)
@@ -204,6 +206,7 @@ case "$event" in
     # 배경 셸은 계속 돌 수 있어 세지 않는다)
     bg="$(printf '%s' "$input" | "$JQ" -r '[.background_tasks[]? | select(.type == "subagent" and .status == "running")] | length' 2>/dev/null)"
     agents "${bg:-0}"
+    if [ "${bg:-0}" -gt 0 ] 2>/dev/null; then t set -p -t "$TMUX_PANE" @claude_bg "$bg"; else t set -pu -t "$TMUX_PANE" @claude_bg; fi
     if [ "${bg:-0}" -gt 0 ] 2>/dev/null; then state run; else state done; fi
     # If a sidebar rename is pending, send it now that the turn has ended
     # 사이드바에서 바꾼 이름이 보류 중이면 응답이 끝난 지금 보낸다
@@ -221,6 +224,7 @@ case "$event" in
     t set -pu -t "$TMUX_PANE" @claude_state_at
     t set -wu -t "$TMUX_PANE" @claude_state
     t set -pu -t "$TMUX_PANE" @claude_agents
+    t set -pu -t "$TMUX_PANE" @claude_bg
     t set -pu -t "$TMUX_PANE" @claude_pwd
     t set -pu -t "$TMUX_PANE" @claude_plan
     t set -pu -t "$TMUX_PANE" @claude_wait; t set -pu -t "$TMUX_PANE" @claude_wait_by

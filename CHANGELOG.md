@@ -8,7 +8,8 @@
 - A turn that ends while Claude's background agents still work is no longer
   done: the bee stays at work (no honey yet) until Claude takes up their
   results and really finishes, so it brings honey once instead of once per
-  agent
+  agent. Meanwhile the sidebar card says "2 agents running" instead of
+  flickering between idle and running
 
 ## 0.1.37 — 2026-10-22
 

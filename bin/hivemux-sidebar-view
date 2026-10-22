@@ -46,7 +46,7 @@ US = "\x1f"
 FIELDS = ["pane_id", "session_name", "window_index", "window_name", "@claude_state",
           "@claude_state_at", "@claude_session", "window_id", "pane_active", "pane_last",
           "window_active", "session_attached", "pane_title", "@claude_title", "@claude_name", "pane_current_command",
-          "@hivemux-closing", "@claude_wait", "@claude_touched"]
+          "@hivemux-closing", "@claude_wait", "@claude_touched", "@claude_bg"]
 # a shell in front means Claude has quit there (its SessionEnd hook comes a second or two later, or never)
 # 칸 앞에 셸이 있으면 그 Claude 는 끝났다 (SessionEnd 훅은 1~2초 늦게 오거나 안 온다)
 SHELLS = {"zsh", "bash", "fish", "sh", "dash", "tcsh", "ksh", "login"}
@@ -132,6 +132,9 @@ def state_line(p, st):
             if tool in ("Edit", "Write", "MultiEdit", "NotebookEdit"):
                 text = os.path.basename(text)
             return f"{WHY_TEXT[kind]} · {text}" if text else WHY_TEXT[kind]
+    if st == "run" and p.get("@claude_bg", "").isdigit():
+        n = int(p["@claude_bg"])   # the turn ended, its background agents work on / 턴은 끝났고 배경 에이전트가 일한다
+        return tr(f"에이전트 {n}개 실행 중", f"{n} agent" + ("s" if n > 1 else "") + " running")
     if st == "done":
         n = len([f for f in p.get("@claude_touched", "").split("\t") if f])
         if n:
@@ -862,8 +865,8 @@ def clear_interrupted(items, runs, now):
     for pid in [k for k in runs if not any(p["pane_id"] == k and p["@claude_state"] == "run" for p in items)]:
         del runs[pid]
     for p in items:
-        if p["@claude_state"] != "run":
-            continue
+        if p["@claude_state"] != "run" or p.get("@claude_bg"):
+            continue                    # background agents at work while Claude itself waits / Claude 는 쉬어도 배경 에이전트가 일한다
         pid, at = p["pane_id"], p["@claude_state_at"]
         if tmux("display", "-p", "-t", pid, "#{pane_in_mode}").strip() == "1":
             continue                    # scrolled back: the screen is not Claude's now / 스크롤 중: 지금 화면이 아니다
