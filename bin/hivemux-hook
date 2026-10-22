@@ -202,15 +202,17 @@ case "$event" in
     pwd_
     mode_
     # Subagents still running in the background: Claude takes up their results by itself, so the work goes
-    # on. So does a background shell Claude says it waits for (a build, a data run); one it does not, such as
-    # a server, may run for good and does not count
-    # 배경에서 아직 도는 서브에이전트: Claude 가 그 결과를 받아 스스로 이어 가니 일은 계속된다. Claude 가 기다린다고
-    # 말한 배경 셸 (빌드, 데이터 수집) 도 그렇다. 그런 말이 없는 셸 (서버 등) 은 계속 돌 수 있어 세지 않는다
-    read -r bga bgs < <(printf '%s' "$input" | "$JQ" -r '[.background_tasks[]? | select(.status == "running")] |
-      "\([.[] | select(.type == "subagent")] | length) \([.[] | select(.type == "shell")] | length)"' 2>/dev/null)
-    bga="${bga:-0}"; bgs="${bgs:-0}"
-    [ "$bgs" -gt 0 ] 2>/dev/null && field last_assistant_message | tail -c 600 |
-      grep -Eiq '기다리|기다릴|끝나면|끝나는 대로|끝날 때까지|완료되면|돌아가는 동안|wait(ing)? (for|until|on)|once (it|they|that|this|the [a-z ]+) (finish|complete|is done|are done)|when (it|they) (finish|complete)|still running' || bgs=0
+    # on. So does a background shell (a build, a data run, a retry loop): Claude picks up its end too. One that
+    # runs for good, such as a dev server or a watcher, does not count, unless Claude says it waits for it
+    # 배경에서 아직 도는 서브에이전트: Claude 가 그 결과를 받아 스스로 이어 가니 일은 계속된다. 배경 셸 (빌드,
+    # 데이터 수집, 다시 시도하는 반복) 도 끝나면 Claude 가 이어 간다. 개발 서버나 감시처럼 계속 도는 셸은 세지
+    # 않는다. Claude 가 기다린다고 말했으면 센다
+    SERVER='(^|[[:space:];&|(/:])((npm|pnpm|yarn|bun)( run| workspace [^ ]+)?( [a-z0-9:_-]+)? (dev|start|serve|preview|watch|local)|vite|next (dev|start)|nuxt dev|astro dev|webpack|http[.]server|uvicorn|gunicorn|flask run|rails (s|server)|bootRun|docker[- ]compose up|tail -f|nodemon|live-server|serve|jupyter|ngrok|cloudflared|caddy run|php -S|hugo server|mkdocs serve|wrangler dev|redis-server|postgres|mongod)([[:space:];&|)]|$)|--watch'
+    read -r bga bgs bgall < <(printf '%s' "$input" | "$JQ" -r --arg srv "$SERVER" '[.background_tasks[]? | select(.status == "running")] |
+      "\([.[] | select(.type == "subagent")] | length) \([.[] | select(.type == "shell" and ((.command // "") | test($srv; "i") | not))] | length) \([.[] | select(.type == "shell")] | length)"' 2>/dev/null)
+    bga="${bga:-0}"; bgs="${bgs:-0}"; bgall="${bgall:-0}"
+    [ "$bgs" -lt "$bgall" ] 2>/dev/null && field last_assistant_message | tail -c 600 |
+      grep -Eiq '기다리|기다릴|끝나면|끝나는 대로|끝날 때까지|완료되면|돌아가는 동안|wait(ing)? (for|until|on)|once (it|they|that|this|the [a-z ]+) (finish|complete|is done|are done)|when (it|they) (finish|complete)' && bgs="$bgall"
     agents "$bga"
     if [ "$bga" -gt 0 ] || [ "$bgs" -gt 0 ] 2>/dev/null; then
       t set -p -t "$TMUX_PANE" @claude_bg "$bga $bgs"; state run

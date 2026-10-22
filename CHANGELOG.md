@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- A background shell keeps the turn running by what it runs, not by how
+  Claude words it: a build, a test run or a retry loop counts ("waiting on 1
+  shell") until Claude takes up its end; a dev server or a watcher (npm run
+  dev, vite, bootRun, docker compose up, tail -f, --watch…) does not
+
 ## 0.1.39 — 2026-10-22
 
 - A turn that ends while a background shell Claude says it waits for is still
