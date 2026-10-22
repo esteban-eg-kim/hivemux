@@ -431,7 +431,9 @@ const VILLAGE = { k: 0 };   // how far the view has moved out to take the villag
 const pathY = () => 9.2 + LAY.LOFF;
 // the view takes the village in while bees go home or are there, and while anyone is outside
 // 벌이 집에 가거나 집에 있는 동안, 그리고 누가 밖에 있는 동안 보기가 마을을 담는다
-const villageWant = () => LAY && houses().length && [...bees.values()].some(b => b.state === 'home' || (b.x !== undefined && !inBuilding(b))) ? 1 : 0;
+// (one bee clocked out by itself while the rest work: only while it is on its way, not once it is in)
+// (혼자 퇴근한 벌 하나: 나머지가 일하는 동안에는 가는 길에만, 집에 들어가면 아니다)
+const villageWant = () => LAY && houses().length && [...bees.values()].some(b => b.state === 'home' ? !b.inside || offOf(b.office) : b.x !== undefined && !inBuilding(b)) ? 1 : 0;
 const offOf = o => !!(o && o.shift && o.shift.state === 'off');
 // The village: lanes run off the path, every 6.5 tiles; houses sit along them facing the lane, and a few
 // face the path between lanes. Every Mac's bees live mixed: a bee's slot follows its house number in its
@@ -633,12 +635,14 @@ function ingest(list) {
   offices = list; fetchedAt = Date.now();
   const me = list[0] || {};
   SHIFT = me.shift || { state: 'on' }; ROSTER = me.bees || {}; RANKS = me.ranks || RANKS;
-  // who of every Mac is home or on overtime ("<ssh>|<bee>") / 모든 Mac 에서 집에 간 벌, 야근 중인 벌
+  // who of every Mac is home or on overtime ("<ssh>|<bee>"): everyone clocked out, or one by itself
+  // 모든 Mac 에서 집에 간 벌, 야근 중인 벌: 모두 퇴근, 또는 혼자 퇴근
   const home = new Set(), overtime = new Set();
-  for (const o of list) if (offOf(o)) {
+  for (const o of list) if (o.shift) {
     for (const id of o.shift.home || []) home.add(`${o.ssh || ''}|${id}`);
     for (const id of o.shift.overtime || []) overtime.add(`${o.ssh || ''}|${id}`);
   }
+  const athome = new Set(home);
   honeyTotal = list.reduce((a, o) => a + (o.honey || 0), 0);
   const prev = LAY && LAY.sig;
   LAY = layout(list);
@@ -684,7 +688,7 @@ function ingest(list) {
     // a Mac missing from this poll: its bees stay as they are / 이번에 안 온 Mac: 그 벌들은 그대로
     const bo = list.find(o => (o.ssh || null) === (b.ssh || null));
     if (b.state === 'home' && !bo) continue;
-    if (b.state === 'home' && bo.shift && bo.shift.state === 'on') {
+    if (b.state === 'home' && !athome.has(hk)) {
       if (!b.commuteUntil) b.commuteUntil = performance.now() + 120000;
       if (performance.now() < b.commuteUntil) continue;
     }
@@ -2739,7 +2743,7 @@ window.officeTop = on => { $('#top').checked = !!on; };
 const beeName = r => r ? (r.name === 'claude' ? r.project : `${r.project} · ${r.name}`) : '';
 // the Macs in the office with their bees, and whether each is clocked out / 사무실의 Mac 들, 벌 수, 퇴근했는지
 const macs = () => offices.map((o, oi) => ({ o, oi, off: offOf(o), working: [...bees.values()].filter(b => b.oi === oi && b.state !== 'home').length,
-  busy: [...bees.values()].filter(b => b.oi === oi && (b.state === 'run' || b.state === 'wait')).length, home: offOf(o) ? (o.shift.home || []).length : 0 }))
+  busy: [...bees.values()].filter(b => b.oi === oi && (b.state === 'run' || b.state === 'wait')).length, home: o.shift ? (o.shift.home || []).length : 0 }))
   .filter(m => m.working || m.off);
 function updateShiftBtn() {
   const ms = macs(), allOff = ms.length > 0 && ms.every(m => m.off), b = $('#shiftbtn');

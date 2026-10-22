@@ -39,6 +39,9 @@ restore() {
   local target sid cwd cmd
   while IFS=$'\t' read -r target sid cwd; do
     [ -n "$target" ] && [ -n "$sid" ] || continue
+    # clocked out by itself (bin/hivemux-shift --pane / --project): it comes back when it clocks in
+    # 혼자 퇴근함 (bin/hivemux-shift --pane / --project): 출근할 때 돌아온다
+    cut -f2 "$STATE_DIR/offwork.tsv" 2>/dev/null | grep -qFx "$target" && { log "skip $target: clocked out"; continue; }
     cmd="$("$TMUX_BIN" display-message -p -t "$target" '#{pane_current_command}' 2>/dev/null)" || {
       log "skip $target: pane missing"; continue; }
     case "$cmd" in

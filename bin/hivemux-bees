@@ -50,13 +50,32 @@ def bee_ids(claudes):
     return out
 
 
+def home_panes():
+    """Panes of Claudes clocked out and gone home (offwork.tsv, bin/hivemux-shift): they keep their names, so the
+    Claude next to them does not take it. By id while the same tmux runs, after a reboot by place
+    퇴근해서 집에 간 Claude 의 칸 (offwork.tsv, bin/hivemux-shift): 이름을 그대로 가져서 옆 Claude 가 가져가지 않는다.
+    같은 tmux 가 도는 동안은 칸 id 로, 재부팅 뒤에는 자리로"""
+    try:
+        with open(os.path.join(DATA, "offwork.tsv"), errors="replace") as f:
+            rows = [r for r in (l.rstrip("\n").split("\t") for l in f) if len(r) == 6]
+    except OSError:
+        return set()
+    server = tmux("display", "-p", "#{pid}").strip() if rows else ""
+    out = set()
+    for r in rows:
+        p = tmux("display", "-p", "-t", r[0], "#{pane_id}").strip() if r[4] == server else ""
+        out.add(p or tmux("display", "-p", "-t", r[1], "#{pane_id}").strip())
+    return out - {""}
+
+
 def id_of(pane):
     project = tmux("display", "-p", "-t", pane, "#{session_name}").strip()
     if not project:
         return ""
     rows = [l.split("\x1f") for l in tmux("list-panes", "-s", "-t", "=" + project, "-F",
             "#{pane_id}\x1f#{window_index}\x1f#{pane_index}\x1f#{window_name}\x1f#{@claude_name}\x1f#{@claude_session}").splitlines()]
-    claudes = [(r[0], project, r[1], r[2], r[3], r[4]) for r in rows if len(r) == 6 and (r[5] or r[0] == pane)]
+    home = home_panes()
+    claudes = [(r[0], project, r[1], r[2], r[3], r[4]) for r in rows if len(r) == 6 and (r[5] or r[0] == pane or r[0] in home)]
     return bee_ids(claudes).get(pane, "")
 
 

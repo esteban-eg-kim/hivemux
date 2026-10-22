@@ -168,8 +168,9 @@ def snapshot():
     except OSError:
         pass
     items = [p for _, p in sorted(enumerate(items), key=lambda e: (rank.get(e[1]["session_name"], len(rank)), e[0]))]
+    home = bees.home_panes()          # clocked out, they keep their names / 퇴근해도 이름은 그대로
     ids = bees.bee_ids([(p["pane_id"], p["session_name"], p["window_index"], p["pane_index"], p["window_name"], p["@claude_name"])
-                        for p in panes if len(p) == len(FIELDS) and p["@claude_session"]])
+                        for p in panes if len(p) == len(FIELDS) and (p["@claude_session"] or p["pane_id"] in home)])
     for p in items:
         p["bee"] = ids.get(p["pane_id"], p["session_name"] + "/claude")
     honey = tmux("show", "-gqv", "@hivemux-honey").split()
@@ -194,10 +195,11 @@ def snapshot():
     # while their Claude is being stopped (one by one, a few seconds each), so they leave the session list
     # 퇴근: 야근은 아직 일하거나 나를 기다리는 Claude 뿐. 나머지는 Claude 를 끄는 중이어도 (하나씩, 몇 초씩) 집에
     # 가는 중이라 세션 목록에서 뺀다
+    # (also one Claude or one project clocked out by itself, while the rest work on)
+    # (혼자 퇴근한 Claude 하나나 프로젝트 하나도. 나머지는 계속 일한다)
     out["shift"] = sh = shift({p["bee"] for p in items if p["@claude_state"] in ("run", "wait")})
-    if sh["state"] == "off":
-        home = set(sh["home"])
-        out["sessions"] = [x for x in out["sessions"] if x["bee"] not in home]
+    home = set(sh["home"])
+    out["sessions"] = [x for x in out["sessions"] if x["bee"] not in home]
     return out
 
 
@@ -210,9 +212,8 @@ def shift_file():
 
 
 def offwork():
-    """the bees sent home, while clocked out / 퇴근 중이면 집에 보낸 벌"""
-    if shift_file()[:1] != ["off"]:
-        return []
+    """the bees sent home: everyone while clocked out, or each one clocked out by itself
+    집에 보낸 벌: 퇴근 중이면 모두, 아니면 혼자 퇴근한 벌"""
     try:
         with open(os.path.join(DATA, "offwork.tsv"), errors="replace") as f:
             return [b for b in (line.rstrip("\n").split("\t")[-1] for line in f) if b and b != "-"]
@@ -221,15 +222,15 @@ def offwork():
 
 
 def shift(busy):
-    """Clocked in or out (bin/hivemux-shift): off, who is home and who is still on overtime
-    출근 또는 퇴근 (bin/hivemux-shift): 퇴근이면 집에 간 벌과 아직 야근 중인 벌"""
+    """Clocked in or out (bin/hivemux-shift), who is home and who is still on overtime (everyone clocked out,
+    or one clocked out by itself) / 출근 또는 퇴근 (bin/hivemux-shift), 집에 간 벌과 아직 야근 중인 벌 (모두 퇴근,
+    또는 혼자 퇴근)"""
     st = shift_file()
-    if not st or st[0] != "off":
-        return {"state": "on", "since": int(st[1]) if len(st) > 1 and st[1].isdigit() else 0}
     home, overtime = [], []
     for bee in offwork():
         (overtime if bee in busy else home).append(bee)
-    return {"state": "off", "since": int(st[1]) if len(st) > 1 and st[1].isdigit() else 0, "home": home, "overtime": overtime}
+    return {"state": "off" if st[:1] == ["off"] else "on", "since": int(st[1]) if len(st) > 1 and st[1].isdigit() else 0,
+            "home": home, "overtime": overtime}
 
 
 # ── answering from the office / 사무실에서 답하기 ──────────────────────────────

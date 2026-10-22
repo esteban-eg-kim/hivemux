@@ -46,7 +46,7 @@ US = "\x1f"
 FIELDS = ["pane_id", "session_name", "window_index", "window_name", "@claude_state",
           "@claude_state_at", "@claude_session", "window_id", "pane_active", "pane_last",
           "window_active", "session_attached", "pane_title", "@claude_title", "@claude_name", "pane_current_command",
-          "@hivemux-closing", "@claude_wait", "@claude_touched", "@claude_bg"]
+          "@hivemux-closing", "@claude_wait", "@claude_touched", "@claude_bg", "@claude_offwork", "pane_index"]
 # a shell in front means Claude has quit there (its SessionEnd hook comes a second or two later, or never)
 # 칸 앞에 셸이 있으면 그 Claude 는 끝났다 (SessionEnd 훅은 1~2초 늦게 오거나 안 온다)
 SHELLS = {"zsh", "bash", "fish", "sh", "dash", "tcsh", "ksh", "login"}
@@ -112,11 +112,13 @@ C = {
     "wait_bg_sel": (96, 70, 22),
     "done":    (62, 207, 142),
     "idle":    (92, 99, 112),
+    "home":    (132, 126, 206),  # clocked out, at home (bin/hivemux-shift) / 퇴근해서 집에 감
     "drop":    (36, 62, 100),
     "remote":  (167, 139, 250),  # "viewed from another Mac" note (the status line's ⇄ badge) / 원격 화면 안내 (상태줄 ⇄ 표시)    # drop target while dragging / 끄는 중 놓을 자리
 }
-STATE_TEXT = {"wait": tr("입력 필요", "needs input"), "run": tr("작업 중", "running"), "done": tr("완료", "done"), "idle": tr("대기", "idle")}
-STATE_ICON = {"wait": "●", "run": "◐", "done": "✓", "idle": "○"}
+STATE_TEXT = {"wait": tr("입력 필요", "needs input"), "run": tr("작업 중", "running"), "done": tr("완료", "done"), "idle": tr("대기", "idle"),
+              "home": tr("퇴근 · 눌러서 출근", "home · click to clock in")}
+STATE_ICON = {"wait": "●", "run": "◐", "done": "✓", "idle": "○", "home": "☾"}
 # why a pane waits (@claude_wait from bin/hivemux-hook: "<kind>\t<tool>\t<text>") / 칸이 기다리는 이유
 WHY_TEXT = {"approve": tr("승인", "approve"), "plan": tr("계획 승인", "plan"), "ask": tr("질문", "question"),
             "input": tr("입력", "input"), "error": tr("오류", "error")}
@@ -126,6 +128,8 @@ def state_line(p, st):
     """The card's second line: the state, with why it waits (and the line about it: a command's description,
     a file, the question) or how many files a finished turn changed
     카드 둘째 줄: 상태, 그리고 기다리는 이유 (와 그 한 줄: 명령 설명, 파일, 질문) 또는 끝난 턴이 고친 파일 수"""
+    if p.get("@claude_offwork") and st in ("run", "wait"):   # clocked out, works on until done / 퇴근했지만 끝날 때까지 일한다
+        return state_line(dict(p, **{"@claude_offwork": ""}), st) + tr(" · 야근 후 퇴근", " · overtime")
     if st == "wait" and p.get("@claude_wait"):
         kind, tool, text = (p["@claude_wait"].split("\t") + ["", "", ""])[:3]
         if kind in WHY_TEXT:
@@ -183,6 +187,53 @@ def clocked_out():
         except OSError:
             _shift[:] = [m, False]
     return _shift[1]
+OFFWORK_FILE = os.path.join(os.path.dirname(ORDER_FILE), "offwork.tsv")
+_offwork = [None, []]
+
+
+def offwork_rows():
+    """offwork.tsv (bin/hivemux-shift): "<pane> <target> <session id> <cwd> <tmux pid> <bee>" per Claude clocked
+    out, read again only when the file changes / 퇴근한 Claude 목록. 파일이 바뀔 때만 다시 읽는다"""
+    try:
+        m = os.stat(OFFWORK_FILE).st_mtime
+    except OSError:
+        return []
+    if m != _offwork[0]:
+        try:
+            with open(OFFWORK_FILE, errors="replace") as f:
+                _offwork[:] = [m, [r for r in (l.rstrip("\n").split("\t") for l in f) if len(r) == 6]]
+        except OSError:
+            _offwork[:] = [m, []]
+    return _offwork[1]
+
+
+_server = []
+
+
+def home_cards(panes):
+    """Claudes clocked out and home: their panes (a shell in front), as cards that clock in on a click.
+    The pane by its id while the same tmux runs; after a reboot by its place (as bin/hivemux-shift does)
+    퇴근해서 집에 간 Claude: 그 칸 (앞에 셸) 을 누르면 출근하는 카드로. 같은 tmux 가 도는 동안은 칸 id 로, 재부팅
+    뒤에는 자리로 (bin/hivemux-shift 와 같다)"""
+    rows = offwork_rows()
+    if not rows:
+        return []
+    if not _server:
+        _server.append(tmux("display", "-p", "#{pid}").strip())
+    by_id = {p["pane_id"]: p for p in panes}
+    by_place = {f'{p["session_name"]}:{p["window_index"]}.{p["pane_index"]}': p for p in panes}
+    out, seen = [], set()
+    for pane, target, _sid, _cwd, srv, bee in rows:
+        p = (by_id.get(pane) if srv == _server[0] else None) or by_place.get(target)
+        if not p or p["pane_id"] in seen or p["pane_current_command"].lstrip("-") not in SHELLS:
+            continue
+        seen.add(p["pane_id"])
+        name = bee.rsplit("/", 1)[-1] if bee != "-" else ""
+        out.append(dict(p, **{"@claude_state": "home", "@claude_state_at": "",
+                              "@claude_name": p["@claude_name"] or p["@claude_title"] or (name if name != "claude" else "")}))
+    return out
+
+
 PENDING = None      # menu action to run once the closed menu is off the screen / 닫힌 메뉴가 화면에서 지워진 뒤 실행할 동작
 
 
@@ -242,7 +293,7 @@ def snapshot():
     sessions = [(s, len({p["window_id"] for p in work if p["session_name"] == s}),
                  next((p["pane_id"] for p in work if p["session_name"] == s and p["pane_active"] == "1"), "")
                  or next((p["pane_id"] for p in work if p["session_name"] == s), "")) for s in names]
-    return items, current, visible, me["session_name"], sessions
+    return items, current, visible, me["session_name"], sessions, home_cards(panes)
 
 
 
@@ -331,7 +382,7 @@ def pick(spans, row, x):
     return next((v for x0, x1, v in spans.get(row, ()) if x0 <= x - 1 < x1), None)
 
 
-def render(items, current, w, h, cur_sess="", sessions=()):
+def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
     now = int(time.time())
     BG = C["bg"]
     L = lambda: Line(w, BG)
@@ -385,9 +436,11 @@ def render(items, current, w, h, cur_sess="", sessions=()):
 
     # groups in project order; a project with no Claude has no members (shown as "no Claude")
     # 프로젝트 순서의 묶음. Claude 가 없는 프로젝트는 멤버 없이 ("Claude 없음") 보인다
-    numbered = list(enumerate(items, 1))
+    # cards of Claudes clocked out by themselves come after the others, without a ⌥ number
+    # 혼자 퇴근한 Claude 의 카드는 나머지 뒤에, ⌥ 번호 없이
+    numbered = list(enumerate(items, 1)) + [(0, p) for p in homes]
     groups = [(s, [(i, p) for i, p in numbered if p["session_name"] == s]) for s, _, _ in sessions] or \
-        [(s, [(i, p) for i, p in numbered if p["session_name"] == s]) for s in dict.fromkeys(p["session_name"] for p in items)]
+        [(s, [(i, p) for i, p in numbered if p["session_name"] == s]) for s in dict.fromkeys(p["session_name"] for _, p in numbered)]
     info = {s: (n, pane) for s, n, pane in sessions}
 
     dragging = DRAG and DRAG.get("moved")
@@ -441,8 +494,9 @@ def render(items, current, w, h, cur_sess="", sessions=()):
             if st == "run" and ANIM:
                 icon = SPIN[int(t_ * 10) % len(SPIN)]
                 bar = mix(C["run"], C["run_hi"], 0.5 + 0.5 * math.sin(t_ * 3.1))
-            t = age(p["@claude_state_at"], now) if st != "idle" else ""
-            key = f"⌥{i}" if i <= 9 else ""
+            dim = st in ("idle", "home")
+            t = age(p["@claude_state_at"], now) if not dim else ""
+            key = f"⌥{i}" if 0 < i <= 9 else ""
             name = task_name(p)
             bar_ch = "▌" if sel else "▎"
             drag_src = drag_dst = False
@@ -456,7 +510,7 @@ def render(items, current, w, h, cur_sess="", sessions=()):
                 return S().put(" ", C["text"], tile).put(bar_ch, bar, card).put(" ", C["text"], card)
 
             r1 = card_line()
-            r1.put(name, C["text"] if st != "idle" or sel else C["text2"], card, bold=True,
+            r1.put(name, C["text"] if not dim or sel else C["text2"], card, bold=True,
                    limit=x1 - (width(key) + 2 if key else 1))
             r1.fill(x1 - 1 - width(key), card).put(key, C["text"] if sel else C["text3"], card).fill(x1, card).fill(cw)
             r2 = card_line()
@@ -525,7 +579,7 @@ def render(items, current, w, h, cur_sess="", sessions=()):
     # If it does not fit, the list scrolls (cards stay two lines, projects stay apart)
     # 넘치면 목록을 스크롤한다 (카드는 두 줄, 프로젝트 사이 빈 줄은 그대로)
     body, tg, hg = build()
-    if not items and not sessions:
+    if not items and not sessions and not homes:
         body = [L(), L().put(tr("  실행 중인 Claude가 없습니다", "  No Claude sessions yet"), C["text2"]), L(),
                 L().put("  ", C["text3"]).put("prefix ⇧C", C["text"]).put(tr("  새 Claude", "  new Claude"), C["text3"]),
                 L().put("  ", C["text3"]).put(tr("hm 폴더", "hm <dir>"), C["text"]).put(tr("    프로젝트 열기", "   open project"), C["text3"])]
@@ -682,7 +736,12 @@ def bg_run(*argv):
     tmux("run-shell", "-b", " ".join(shlex.quote(x) for x in argv))
 
 
-def menu(y, pid=None, sess=None, items=()):
+def clock_in(pid):
+    """Bring one Claude back from home in the same conversation (bin/hivemux-shift) / 집에 간 Claude 하나를 같은 대화로 출근시킨다"""
+    bg_run(os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-shift"), "on", "--pane", pid)
+
+
+def menu(y, pid=None, sess=None, items=(), homes=()):
     """Open the right-click menu under row y. pid: a card, sess: a project header.
     It is drawn by the sidebar itself, not tmux display-menu: tmux 3.7 draws a pane's Korean (wide)
     text through menus and popups over it, so a menu over a printing Claude got garbled.
@@ -695,38 +754,56 @@ def menu(y, pid=None, sess=None, items=()):
     my = tmux("display", "-p", "-t", ME, "#{session_name}").strip()
     client = active_client(my)
     if pid and not sess:
-        sess = next((p["session_name"] for p in items if p["pane_id"] == pid), "")
+        sess = next((p["session_name"] for p in list(items) + list(homes) if p["pane_id"] == pid), "")
     sess = sess or my
     # project folder: the Claude's folder of the card, else the first card of the project
     # 프로젝트 폴더: 그 카드 Claude 의 폴더, 없으면 그 프로젝트 첫 카드의 폴더
     src = pid or next((p["pane_id"] for p in items if p["session_name"] == sess), "") or ME
     d = tmux("display", "-p", "-t", src, "#{?@claude_cwd,#{@claude_cwd},#{pane_current_path}}").strip() or os.path.expanduser("~")
     rows = []
-    if pid:
+    shift = os.path.join(here, "hivemux-shift")
+    home = {p["pane_id"] for p in homes}
+    if pid in home:                     # a Claude at home: only back to work / 집에 간 Claude: 출근만
+        rows += [(tr("출근", "Clock in"), "i", lambda: clock_in(pid)),
+                 (tr("이동", "Go to"), "g", lambda: goto(pid)),
+                 None]
+    elif pid:
         rows += [(tr("이동", "Go to"), "g", lambda: goto(pid)),
                  (tr("이름 바꾸기…", "Rename…"), "r", lambda: rename(pid)),
                  None,
                  (tr("위로 옮기기", "Move up"), "k", lambda: bg_run(os.path.join(here, "hivemux-order"), "step", "up", pid)),
                  (tr("아래로 옮기기", "Move down"), "j", lambda: bg_run(os.path.join(here, "hivemux-order"), "step", "down", pid)),
                  None]
+        # this Claude alone: the rest work on / 이 Claude 만: 나머지는 계속 일한다
+        if not next((p for p in items if p["pane_id"] == pid and p["@claude_offwork"]), None):
+            rows[-1:-1] = [(tr("이 Claude 퇴근…", "Clock this Claude out…"), "h", lambda: bg_run(shift, "--popup", "off", client, "--pane", pid))]
     elif not empty:                     # project name row / 프로젝트 이름 줄
         rows += [(tr("이름 바꾸기…", "Rename…"), "r", lambda: bg_run(os.path.join(here, "hivemux-rename-project"), "prompt", sess, client)),
-                 (tr("프로젝트 닫기…", "Close project…"), "x", lambda: bg_run(os.path.join(here, "hivemux-close-project"), sess, client)),
-                 None]
+                 (tr("프로젝트 닫기…", "Close project…"), "x", lambda: bg_run(os.path.join(here, "hivemux-close-project"), sess, client))]
+        # this project's Claudes only; windows and shells stay / 이 프로젝트의 Claude 만. 창과 셸은 그대로
+        if any(p["session_name"] == sess and not p["@claude_offwork"] for p in items):
+            rows.append((tr("이 프로젝트 퇴근…", "Clock this project out…"), "h", lambda: bg_run(shift, "--popup", "off", client, "--project", sess)))
+        if any(p["session_name"] == sess for p in homes):
+            rows.append((tr("이 프로젝트 출근", "Clock this project in"), "i", lambda: bg_run(shift, "on", "--project", sess)))
+        rows.append(None)
     if not empty:
         rows.append((tr("새 Claude…", "New Claude…"), "n", lambda: bg_run(os.path.join(here, "hivemux-new-claude"), d, sess, client)))
     rows.append((tr("새 프로젝트…", "New project…"), "p", lambda: bg_run(os.path.join(here, "hm"), "--ask", client, d)))
     rows += [None, (tr("경로 열기…", "Open path…"), "o", lambda: bg_run(os.path.join(here, "hivemux-open"), pid or ME, client)),
              (tr("포트 목록…", "Ports…"), "t", lambda: bg_run(os.path.join(here, "hivemux-ports"), "--pick", client)),
-             (tr("벌 사무실", "Bee office"), "b", office),
-             (tr("출근하기…", "Clock in…"), "h", lambda: bg_run(os.path.join(here, "hivemux-shift"), "--popup", "on", client)) if clocked_out() else
-             (tr("퇴근하기…", "Clock out…"), "h", lambda: bg_run(os.path.join(here, "hivemux-shift"), "--popup", "off", client)),
-             (tr("Claude 업데이트…", "Update Claude…"), "u", lambda: bg_run(os.path.join(here, "hivemux-claude-update"), "--popup", client)),
+             (tr("벌 사무실", "Bee office"), "b", office)]
+    # everyone at once: only from empty space, so it never reads as this card's or this project's
+    # 모두 한꺼번에: 빈 곳에서만. 이 카드나 이 프로젝트만의 일로 읽히지 않게
+    if empty and (clocked_out() or homes):
+        rows.append((tr("모두 출근하기…", "Clock everyone in…"), "i", lambda: bg_run(shift, "--popup", "on", client)))
+    if empty and not clocked_out() and items:
+        rows.append((tr("모두 퇴근하기…", "Clock everyone out…"), "h", lambda: bg_run(shift, "--popup", "off", client)))
+    rows += [(tr("Claude 업데이트…", "Update Claude…"), "u", lambda: bg_run(os.path.join(here, "hivemux-claude-update"), "--popup", client)),
              None, (tr("원격 연결…", "Connect to…"), "c", lambda: bg_run(os.path.join(here, "hivemux-connect"), "--pick", client)),
              (tr("설정…", "Settings…"), "s", lambda: bg_run(os.path.join(here, "hivemux-settings"), client))]
     # card: the task name; project name row: the project; empty space: "New"
     # 카드: 작업 이름, 프로젝트 이름 줄: 프로젝트 이름, 빈 곳: "새로 만들기"
-    title = tr("새로 만들기", "New") if empty else (next((task_name(p) for p in items if p["pane_id"] == pid), "") if pid else "") or sess
+    title = tr("새로 만들기", "New") if empty else (next((task_name(p) for p in list(items) + list(homes) if p["pane_id"] == pid), "") if pid else "") or sess
     MENU = {"rows": rows, "y": y, "sel": None, "title": title, "at": {}, "press": None}
     sys.stdout.write("\x1b[?1003h")       # hover highlight: report plain moves too / 마우스만 움직여도 받아 강조
     sys.stdout.flush()
@@ -1031,7 +1108,7 @@ def main():
                 # focus moved elsewhere (clicked another pane): close the menu / 다른 칸을 눌러 초점이 떠났으면 메뉴를 닫는다
                 if MENU and tmux("display", "-p", "-t", ME, "#{pane_active}#{window_active}").strip() != "11":
                     menu_close()
-            items, current, visible, cur_sess, sessions = snap
+            items, current, visible, cur_sess, sessions, homes = snap
             # a popup is open: do not draw (but always draw the first frame)
             # 팝업이 열려 있음: 그리지 않는다 (첫 화면은 그린다)
             if os.path.exists(PAUSE) and prev is not None:
@@ -1097,7 +1174,7 @@ def main():
             if visible or prev is None or woke:
                 woke = False
                 w, h = os.get_terminal_size()
-                lines, (targets, heads) = render(items, current, w, h, cur_sess, sessions)
+                lines, (targets, heads) = render(items, current, w, h, cur_sess, sessions, homes)
                 # Draw only rows that changed since the last frame; a full redraw only on
                 # the first frame or a resize. Cuts what tmux has to parse by ~10x.
                 # 직전 프레임과 달라진 줄만 그린다. 첫 프레임과 크기 변경 때만 전체를 그린다.
@@ -1148,7 +1225,7 @@ def main():
                     dbg.write(f"{time.time():.3f} {ME} {chunk!r}\n")
             buf += chunk
             order = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-order")
-            sess_of = {p["pane_id"]: p["session_name"] for p in items}
+            sess_of = {p["pane_id"]: p["session_name"] for p in items + homes}
             released = False
             for m in re.finditer(r"\x1b\[<(\d+);(\d+);(\d+)([Mm])", buf):
                 b, x, y, kind = int(m.group(1)), int(m.group(2)), int(m.group(3)), m.group(4)
@@ -1172,7 +1249,7 @@ def main():
                             released = True
                     elif b == 2 and kind == "m":
                         if at is None and x < w_now:
-                            menu(row, pid=pick(targets, row, x), sess=pick(heads, row, x), items=items)
+                            menu(row, pid=pick(targets, row, x), sess=pick(heads, row, x), items=items, homes=homes)
                     continue
                 if b in (64, 65):               # wheel: scroll the list 3 rows / 휠: 목록을 3줄씩 스크롤
                     SCROLL = max(0, SCROLL + (3 if b == 65 else -3))
@@ -1196,7 +1273,7 @@ def main():
                     # 카드: 작업 메뉴, 프로젝트 이름 줄이나 빈 곳: 새 Claude / 새 프로젝트 (빈 곳은 이 창의 프로젝트).
                     # 메뉴 키를 받도록 초점을 둔다
                     if x < w_now:
-                        menu(row, pid=pick(targets, row, x), sess=pick(heads, row, x), items=items)
+                        menu(row, pid=pick(targets, row, x), sess=pick(heads, row, x), items=items, homes=homes)
                     else:
                         released = True
                     continue
@@ -1212,6 +1289,8 @@ def main():
                             last_poll = 0
                     elif d["kind"] == "group":       # click on a project name: go to it / 프로젝트 이름 클릭: 그 프로젝트로
                         tmux("switch-client", "-t", "=" + d["src"])
+                    elif d["kind"] == "card" and any(p["pane_id"] == d["src"] for p in homes):
+                        clock_in(d["src"])           # a Claude at home: back to work / 집에 간 Claude: 출근
                     elif d["kind"] == "card":
                         pid = d["src"]
                         # Double click: the first click may switch sessions, so remember it in a tmux global option

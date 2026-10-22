@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Clock out one Claude or one project while the rest work on: right-click a
+  card → Clock this Claude out…, or a project's name → Clock this project
+  out… (overtime as usual). Its card stays dimmed in the sidebar ("home ·
+  click to clock in") and a click brings it back in the same conversation;
+  in the bee office that bee alone claps and walks home. Clocking everyone
+  out and in now sits only on empty space (Clock everyone out… / in…), so the
+  menu of a card or a project never reads as just that one
 - The commands hivemux types into a shell (resuming each Claude on clock in,
   after a reboot or an update, starting a new one) stay out of the shell
   history: with a shared history, ↑ in any shell brought back the last

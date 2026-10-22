@@ -87,8 +87,11 @@ def main():
                     subprocess.run([os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-sidebar"), "wake"],
                                    stdin=subprocess.DEVNULL, capture_output=True)
                     time.sleep(0.25)
-                    # its bees leave the company (the bee office's roster) / 그 벌들은 퇴사한다 (벌 사무실 명부)
-                    subprocess.run([os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-bees"), "leave", sess],
+                    # its bees leave the company (the bee office's roster), also the ones at home
+                    # 그 벌들은 퇴사한다 (벌 사무실 명부). 집에 가 있던 벌도
+                    here = os.path.dirname(os.path.realpath(__file__))
+                    subprocess.run([os.path.join(here, "hivemux-bees"), "leave", sess], stdin=subprocess.DEVNULL, capture_output=True)
+                    subprocess.run([os.path.join(here, "hivemux-shift"), "forget", "--project", sess],
                                    stdin=subprocess.DEVNULL, capture_output=True)
                     tmux("kill-session", "-t", "=" + sess)
                     tmux("set", "-gu", "@hivemux-closing")
