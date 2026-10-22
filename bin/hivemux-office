@@ -569,7 +569,7 @@ def build_screen(popup):
     lines = [t("🐝 벌 사무실 창을 준비하고 있어요", "🐝 Getting the bee office window ready"), "",
              t("처음 한 번만 창을 만들어요. 30초쯤 걸려요.", "The window is built once, the first time. It takes about 30 seconds."),
              t("Mac 에 있는 Swift 컴파일러(Xcode Command Line Tools)로", "It is built with the Swift compiler of this Mac"),
-             t("빌드합니다. 컴파일러가 없으면 브라우저로 열어요.", "(Xcode Command Line Tools); without it, it opens in the browser."), ""]
+             t("빌드합니다. 컴파일러가 없으면 웹 앱으로 열어요.", "(Xcode Command Line Tools); without it, it opens as a web app."), ""]
     if popup:
         out.write("\x1b[?25l\x1b[2J\x1b[H")
     out.write("".join(f"  {l}\n" for l in lines))
@@ -614,11 +614,27 @@ def open_window(popup=False):
     if not ready:
         app = build_screen(popup) if (popup or swiftc()) else None
     if not app:
-        subprocess.run(["open", url])
+        app_browser(url) or subprocess.run(["open", url])
         return
     # the last two: how the window starts a server again if this one is gone / 마지막 둘: 서버가 없어졌을 때 창이 다시 띄우는 법
     subprocess.Popen([app, url, LOGO, WINDOW_PID, sys.executable, os.path.realpath(__file__)], start_new_session=True,
                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+# Chromium browsers that open a page as an app: its own window with no tabs or address bar
+# 페이지를 앱처럼 여는 Chromium 브라우저: 탭도 주소 창도 없는 단독 창
+APP_BROWSERS = ("Google Chrome", "Microsoft Edge", "Brave Browser", "Naver Whale", "Vivaldi", "Chromium")
+
+
+def app_browser(url):
+    """No window app (no swiftc to build it): open the page as a web app in a Chromium browser if there is one
+    창 앱이 없을 때 (빌드할 swiftc 가 없음): Chromium 브라우저가 있으면 페이지를 웹 앱으로 연다"""
+    for name in APP_BROWSERS:
+        if any(os.path.isdir(os.path.join(d, name + ".app")) for d in ("/Applications", os.path.expanduser("~/Applications"))):
+            r = subprocess.run(["open", "-na", name, "--args", f"--app={url}", "--window-size=1100,760"], capture_output=True)
+            if r.returncode == 0:
+                return True
+    return False
 
 
 def from_tmux(client):

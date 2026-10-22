@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Bee office: on a Mac without the Swift compiler (no window app), it opens
+  as a web app in Chrome, Edge, Brave, Whale, Vivaldi or Chromium (its own
+  window, no tabs or address bar) before falling back to the browser
 - Bee office: losing the server no longer leaves the page stuck on "Lost
   hivemux": it says it is reconnecting and keeps trying, the office window
   starts the server again by itself, and a note says when it is back. The
