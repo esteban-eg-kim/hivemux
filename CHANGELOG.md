@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Clocking a Claude in from its card no longer prints "Clocked in: …" over
+  whatever pane is in front (another project's window): the sidebar drops
+  the output of the helpers it runs
+
 ## 0.1.38 — 2026-10-22
 
 - Bee office: a bee whose Claude was closed (Close Claude, Close project,

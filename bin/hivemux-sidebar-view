@@ -732,8 +732,11 @@ def office():
 
 
 def bg_run(*argv):
-    """Run a helper in the background through tmux (it outlives this call) / tmux 로 도우미를 뒤에서 실행"""
-    tmux("run-shell", "-b", " ".join(shlex.quote(x) for x in argv))
+    """Run a helper in the background through tmux (it outlives this call). Its output is dropped: tmux shows what
+    run-shell prints over the pane in front, which may be another project's (a clock in said so there)
+    tmux 로 도우미를 뒤에서 실행. 출력은 버린다: tmux 는 run-shell 이 찍은 글을 앞에 있는 칸 위에 띄우는데, 그 칸이
+    다른 프로젝트의 칸일 수 있다 (출근 결과가 거기 떴다)"""
+    tmux("run-shell", "-b", " ".join(shlex.quote(x) for x in argv) + " >/dev/null 2>&1")
 
 
 def clock_in(pid):
