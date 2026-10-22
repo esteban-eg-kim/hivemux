@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.39 — 2026-10-22
 
 - A turn that ends while a background shell Claude says it waits for is still
   running (a build, a data run) stays running too, the card reading "waiting
