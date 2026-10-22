@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- New Claude (right-click → New Claude…, prefix C) asks for its name in a
+  popup in the middle of the screen, like renaming, instead of on the status
+  line at the top where it went unseen
 - Close one Claude: right-click its card → Close Claude… asks first, then
   closes its pane (its window too when nothing else is in it). The project's
   last window keeps its shell, so the project stays. Like /exit it is not

@@ -1,6 +1,6 @@
 #!/bin/bash
-# Called by prefix + C: ask for a name, then open a Claude window in the current folder.
-# prefix + C 에서 호출: 이름을 물어본 뒤 현재 폴더에 Claude 창을 연다.
+# Called by prefix + C: ask for a name (in a popup, bin/hivemux-new-claude-ui), then open a Claude window in the current folder.
+# prefix + C 에서 호출: 이름을 물어본 뒤 (팝업에서, bin/hivemux-new-claude-ui) 현재 폴더에 Claude 창을 연다.
 #   hivemux-new-claude <dir> [session] [client]   (the sidebar menu passes the project and the client)
 #   hivemux-new-claude <폴더> [세션] [클라이언트]   (사이드바 메뉴는 그 프로젝트와 화면을 넘긴다)
 # Default name is "<session>-<next window number>" and becomes the window name. A shell stays, so the window survives when Claude exits.
@@ -13,6 +13,27 @@ say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/nu
 sess="${target:-$("$TMUX_BIN" display -p '#{session_name}')}"
 n="$("$TMUX_BIN" list-windows -t "=$sess" | wc -l | tr -d ' ')"
 default="$sess-$((n + 1))"
+HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
+client="${client:-$("$TMUX_BIN" display -p '#{client_name}')}"   # prefix + C: the screen that pressed it / 누른 화면
+if "$TMUX_BIN" list-commands display-popup 2>/dev/null | grep -q -- '-b border-lines'; then
+  # In a popup in the middle of the screen, not the status line at the top, where it went unseen
+  # 화면 가운데 팝업에서 묻는다. 맨 위 상태줄에서 물으면 보이지 않았다
+  pause="/tmp/hivemux-pause-$(id -u)-$("$TMUX_BIN" display -p '#{pid}')"   # per tmux server / tmux 서버마다
+  answer="$(mktemp "${TMPDIR:-/tmp}/hivemux-new-claude.XXXXXX")"
+  : > "$pause"; trap 'rm -f "$pause" "$answer"' EXIT
+  "$HM_BIN/hivemux-modal" "$client" -E -w 64 -h 11 -b rounded \
+    -T "#[fg=#e6e9ef,bold] $(say "새 Claude" "New Claude") " -S "fg=#5aa9ff" -s "bg=#1e2128" \
+    "$(printf '%q ' "$HM_BIN/hivemux-new-claude-ui" "$sess" "$dir" "$default" "$answer")" 2>/dev/null || true   # cancel (Esc) is not an error / 취소(Esc)도 정상 종료
+  name="$(cat "$answer" 2>/dev/null)"
+  [ -n "$name" ] || exit 0
+  # opened in that project; switch-client shows it when it is another project
+  # 그 프로젝트에 연다. 다른 프로젝트면 switch-client 로 그쪽을 보여 준다
+  pane="$("$TMUX_BIN" new-window -t "=$sess:" -c "$dir" -n "$name" -P -F '#{pane_id}')" || exit 0
+  "$TMUX_BIN" send-keys -t "$pane" " claude -n $(printf '%q' "$name")" Enter
+  [ -n "$client" ] && "$TMUX_BIN" switch-client -c "$client" -t "=$sess"
+  exit 0
+fi
+# old tmux without popups: ask on the status line / 팝업이 없는 오래된 tmux: 상태줄에서 묻는다
 # new-window -t "=sess:" opens it in that project; switch-client shows it when it is another project
 # new-window -t "=세션:" 은 그 프로젝트에 연다. 다른 프로젝트면 switch-client 로 그쪽을 보여 준다
 "$TMUX_BIN" command-prompt ${client:+-t "$client"} -I "$default" -p "$(say "Claude 이름:" "Claude name:")" \

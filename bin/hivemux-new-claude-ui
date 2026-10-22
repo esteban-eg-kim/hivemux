@@ -1,0 +1,40 @@
+#!/bin/zsh
+# Popup for hivemux-new-claude; runs inside tmux display-popup.
+# hivemux-new-claude 팝업 화면. tmux display-popup 안에서 실행된다.
+#   hivemux-new-claude-ui <session> <folder> <default name> <answer file>
+#   hivemux-new-claude-ui <세션> <폴더> <기본 이름> <답 파일>
+# On Enter it writes the name to the answer file; hivemux-new-claude opens the window once the popup is gone
+# (the popup returns the screen to the window it came from, which would hide a window opened from here).
+# Enter 를 누르면 이름을 답 파일에 쓴다. 창은 팝업이 닫힌 뒤 hivemux-new-claude 가 연다 (팝업은 닫히면서 원래
+# 창으로 돌아가므로 여기서 연 창은 가려진다).
+sess="$1"; dir="$2"; name="$3"; answer="$4"
+TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+# UI language: HIVEMUX_LANG > tmux @hivemux-lang > LANG
+# 화면 언어: HIVEMUX_LANG > tmux @hivemux-lang > LANG
+say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then print -rn -- "$1"; else print -rn -- "$2"; fi; }
+
+c()  { printf '\e[38;2;%sm' "$1"; }
+b()  { printf '\e[1m'; }
+r()  { printf '\e[0m'; }
+TEXT='230;233;239'; T2='154;163;178'; T3='98;106;120'; ACC='90;169;255'
+
+[[ "$dir" == "$HOME" || "$dir" == "$HOME"/* ]] && dir="~${dir#$HOME}"
+max=$(( ${COLUMNS:-64} - 16 ))     # one line: keep the end of a long path / 한 줄에: 긴 경로는 끝부분만
+(( ${#dir} > max )) && dir="…${dir[-(max - 1),-1]}"
+KEYTIMEOUT=1
+bindkey -e
+bindkey '\e' send-break
+printf '\e[H\e[2J\e[?25h'
+print
+print "  $(c $T3)$(say "프로젝트" "Project ")$(r)  $(c $TEXT)$sess$(r)"
+print "  $(c $T3)$(say "폴더    " "Folder  ")$(r)  $(c $T2)$dir$(r)"
+print
+print "  $(c $T3)$(say "새 창에서 Claude 를 이 이름으로 시작합니다" "Starts Claude in a new window with this name")$(r)"
+print "  $(c $T2)$(b)Enter$(r)$(c $T3) $(say 시작 start)    $(c $T2)$(b)Esc$(r)$(c $T3) $(say 취소 cancel)$(r)"
+print
+# input line goes last (the line editor clears everything below the cursor)
+# 입력 줄은 맨 아래 (편집기가 커서 아래를 지우기 때문)
+vared -p "  $(c $ACC)$(b)›$(r) " name 2>/dev/null || exit 0
+name="${name## }"; name="${name%% }"
+[ -n "$name" ] && print -rn -- "$name" > "$answer"
+exit 0
