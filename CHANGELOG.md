@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- A Claude waiting on a question or an approval while its background agents
+  work no longer looks busy: their tool calls flipped the sidebar card and
+  the bee back to work although the question was still open
+
 ## 0.1.37 — 2026-10-22
 
 - Why a Claude waits: the sidebar card and the bee office say what it waits

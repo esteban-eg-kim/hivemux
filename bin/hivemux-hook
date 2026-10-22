@@ -38,13 +38,25 @@ field() { printf '%s' "$input" | "$JQ" -r --arg k "$1" '.[$k] // empty' 2>/dev/n
 state() { # state <run|wait|done|idle>
   local cur; cur="$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_state 2>/dev/null)"
   [ "$cur" = "$1" ] && return   # same state: keep the timestamp (do not reset on every tool call) / 같은 상태면 시각 유지 (도구 호출마다 갱신 방지)
-  [ "$1" = wait ] || t set -pu -t "$TMUX_PANE" @claude_wait
+  if [ "$1" = wait ]; then t set -p -t "$TMUX_PANE" @claude_wait_by "$(field agent_id)"   # empty: the main Claude / 비면 본 Claude
+  else t set -pu -t "$TMUX_PANE" @claude_wait; t set -pu -t "$TMUX_PANE" @claude_wait_by; fi
   t set -p -t "$TMUX_PANE" @claude_state "$1"
   t set -p -t "$TMUX_PANE" @claude_state_at "$(date +%s)"
   t set -w -t "$TMUX_PANE" @claude_state "$1"
   [ "$1" = done ] && { honey; ( "$(dirname "$0")/hivemux-bees" honey "$TMUX_PANE" >/dev/null 2>&1 & ); }
   "$TMUX_BIN" list-clients -F '#{client_name}' 2>/dev/null | while read -r c; do t refresh-client -t "$c" -S; done
   wake
+}
+
+# Back at work after a tool call, unless a background subagent made it while the wait is not its own: its tool
+# calls go on while the main Claude's question or approval is still on the screen
+# 도구 호출 뒤 다시 작업 중. 단 배경 서브에이전트의 호출이고 그 기다림이 자기 것이 아니면 그대로 둔다: 본 Claude 의
+# 질문이나 승인 창이 화면에 떠 있어도 서브에이전트의 도구 호출은 이어진다
+working() {
+  local a; a="$(field agent_id)"
+  [ -n "$a" ] && [ "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_state 2>/dev/null)" = wait ] &&
+    [ "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_wait_by 2>/dev/null)" != "$a" ] && return
+  state run
 }
 
 # Why it waits: kind, tool and one line, from the tool call (PermissionRequest, PreToolUse) or as given
@@ -154,12 +166,12 @@ case "$event" in
   UserPromptSubmit|PermissionDenied)
     [ "$event" = UserPromptSubmit ] && t set -pu -t "$TMUX_PANE" @claude_touched   # a new turn / 새 턴
     mode_
-    state run
+    working
     ;;
   PostToolUse|PostToolUseFailure)
     case "$(field tool_name)" in Agent|Task) agents -1 ;; Bash) pwd_ ;; Edit|Write|MultiEdit|NotebookEdit) [ "$event" = PostToolUse ] && touched ;; esac
     mode_
-    state run
+    working
     ;;
   PreToolUse)
     mode_
@@ -167,8 +179,8 @@ case "$event" in
     # 사용자에게 묻기만 하는 도구는 바로 입력 필요, 나머지는 작업 중
     case "$(field tool_name)" in
       AskUserQuestion|ExitPlanMode) why; state wait ;;
-      Agent|Task) agents +1; state run ;;
-      *) state run ;;
+      Agent|Task) agents +1; working ;;
+      *) working ;;
     esac
     ;;
   PermissionRequest)
@@ -206,7 +218,7 @@ case "$event" in
     t set -pu -t "$TMUX_PANE" @claude_agents
     t set -pu -t "$TMUX_PANE" @claude_pwd
     t set -pu -t "$TMUX_PANE" @claude_plan
-    t set -pu -t "$TMUX_PANE" @claude_wait
+    t set -pu -t "$TMUX_PANE" @claude_wait; t set -pu -t "$TMUX_PANE" @claude_wait_by
     t set -pu -t "$TMUX_PANE" @claude_touched
     # Forget the mapping only on a deliberate exit; reboots and kills still resume
     # 직접 종료했을 때만 매핑 삭제 -> 재부팅/강제 종료는 재개된다
