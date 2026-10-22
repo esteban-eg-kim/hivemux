@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.41 — 2026-10-22
 
 - Clicking a bee of the other Mac's office goes to that session again: it
   picked a screen from a long-gone connection (a missed detach) and nothing
