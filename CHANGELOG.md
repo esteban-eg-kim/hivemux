@@ -4,7 +4,8 @@
 
 - Bee office: a bee whose Claude was closed (Close Claude, Close project,
   /exit) no longer just vanishes: it holds up a box of its things, says
-  goodbye ("I got a sock! I am free!") and walks out by the elevator
+  goodbye ("I got a sock! I am free!") and walks out by the elevator, the
+  goodbye kept up all the way out
 - New Claude (right-click → New Claude…, prefix C) asks for its name in a
   popup in the middle of the screen, like renaming, instead of on the status
   line at the top where it went unseen

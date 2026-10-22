@@ -765,7 +765,7 @@ function farewell(b) {
   if (b.spot) b.spot.occ = null; b.spot = null; if (b.eve && b.eve.spot) b.eve.spot.occ = null; b.eve = null;
   if (pop === b) closePop();
   Object.assign(b, { state: 'bye', deliver: false, desk: null, deskId: null, agents: 0, byeAt: performance.now(), byeUntil: performance.now() + 30000 });
-  say(b, tr(...BYE[Math.floor(Math.random() * BYE.length)]), 4200);
+  say(b, tr(...BYE[Math.floor(Math.random() * BYE.length)]), 30000);   // kept up all the way out / 나갈 때까지 띄워 둔다
   setTarget(b, 'byewave', { x: b.x, y: b.y });
   setTimeout(() => { if (bees.get(b.key) === b) plan(); }, 2600);
 }
