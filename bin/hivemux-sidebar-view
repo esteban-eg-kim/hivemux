@@ -136,9 +136,15 @@ def state_line(p, st):
             if tool in ("Edit", "Write", "MultiEdit", "NotebookEdit"):
                 text = os.path.basename(text)
             return f"{WHY_TEXT[kind]} · {text}" if text else WHY_TEXT[kind]
-    if st == "run" and p.get("@claude_bg", "").isdigit():
-        n = int(p["@claude_bg"])   # the turn ended, its background agents work on / 턴은 끝났고 배경 에이전트가 일한다
-        return tr(f"에이전트 {n}개 실행 중", f"{n} agent" + ("s" if n > 1 else "") + " running")
+    bg = [int(x) for x in p.get("@claude_bg", "").split() if x.isdigit()] + [0, 0]
+    if st == "run" and (bg[0] or bg[1]):
+        # the turn ended, its background agents or shells work on / 턴은 끝났고 배경 에이전트나 셸이 일한다
+        a, sh = bg[0], bg[1]
+        if a and sh:
+            return tr(f"에이전트 {a}개 · 셸 {sh}개 실행 중", f"{a} agent{'s' if a > 1 else ''}, {sh} shell{'s' if sh > 1 else ''} running")
+        if a:
+            return tr(f"에이전트 {a}개 실행 중", f"{a} agent" + ("s" if a > 1 else "") + " running")
+        return tr(f"셸 {sh}개 기다리는 중", f"waiting on {sh} shell" + ("s" if sh > 1 else ""))
     if st == "done":
         n = len([f for f in p.get("@claude_touched", "").split("\t") if f])
         if n:

@@ -10,11 +10,12 @@
 # - counts subagents Claude is running on the pane (@claude_agents) and tasks finished today on the
 #   server (@hivemux-honey "<date> <count>") for the bee office (bin/hivemux-office), and writes it to the
 #   ledger under the bee that made it (bin/hivemux-bees, for the honey ranking); a turn that ends with
-#   subagents still running in the background stays running (@claude_bg: how many)
+#   subagents still running in the background, or a background shell Claude waits for, stays running
+#   (@claude_bg: "<subagents> <shells>")
 # - 칸에서 Claude 가 돌리는 서브에이전트 수(@claude_agents)와 오늘 이 서버에서 끝난 작업 수
 #   (@hivemux-honey "<날짜> <개수>")를 센다 -> 벌 사무실 (bin/hivemux-office). 그 꿀은 모은 벌 이름으로
 #   장부에도 적는다 (bin/hivemux-bees, 꿀 순위). 배경 서브에이전트가 아직 도는 채로 끝난 턴은 작업 중으로
-#   둔다 (@claude_bg: 그 수)
+#   둔다. Claude 가 기다리는 배경 셸도 (@claude_bg: "<서브에이전트 수> <셸 수>")
 # - marks a pane whose Claude is in plan mode (@claude_plan) -> it plans in the bee office's meeting room
 # - 계획 모드인 Claude 의 칸을 표시 (@claude_plan) -> 벌 사무실 회의실에서 계획을 세운다
 # - records the folder Claude is working in now (@claude_pwd; a Bash cd moves it off @claude_cwd)
@@ -201,13 +202,21 @@ case "$event" in
     pwd_
     mode_
     # Subagents still running in the background: Claude takes up their results by itself, so the work goes
-    # on (a background shell, such as a server, may run for good and does not count)
-    # 배경에서 아직 도는 서브에이전트: Claude 가 그 결과를 받아 스스로 이어 가니 일은 계속된다 (서버 같은
-    # 배경 셸은 계속 돌 수 있어 세지 않는다)
-    bg="$(printf '%s' "$input" | "$JQ" -r '[.background_tasks[]? | select(.type == "subagent" and .status == "running")] | length' 2>/dev/null)"
-    agents "${bg:-0}"
-    if [ "${bg:-0}" -gt 0 ] 2>/dev/null; then t set -p -t "$TMUX_PANE" @claude_bg "$bg"; else t set -pu -t "$TMUX_PANE" @claude_bg; fi
-    if [ "${bg:-0}" -gt 0 ] 2>/dev/null; then state run; else state done; fi
+    # on. So does a background shell Claude says it waits for (a build, a data run); one it does not, such as
+    # a server, may run for good and does not count
+    # 배경에서 아직 도는 서브에이전트: Claude 가 그 결과를 받아 스스로 이어 가니 일은 계속된다. Claude 가 기다린다고
+    # 말한 배경 셸 (빌드, 데이터 수집) 도 그렇다. 그런 말이 없는 셸 (서버 등) 은 계속 돌 수 있어 세지 않는다
+    read -r bga bgs < <(printf '%s' "$input" | "$JQ" -r '[.background_tasks[]? | select(.status == "running")] |
+      "\([.[] | select(.type == "subagent")] | length) \([.[] | select(.type == "shell")] | length)"' 2>/dev/null)
+    bga="${bga:-0}"; bgs="${bgs:-0}"
+    [ "$bgs" -gt 0 ] 2>/dev/null && field last_assistant_message | tail -c 600 |
+      grep -Eiq '기다리|기다릴|끝나면|끝나는 대로|끝날 때까지|완료되면|돌아가는 동안|wait(ing)? (for|until|on)|once (it|they|that|this|the [a-z ]+) (finish|complete|is done|are done)|when (it|they) (finish|complete)|still running' || bgs=0
+    agents "$bga"
+    if [ "$bga" -gt 0 ] || [ "$bgs" -gt 0 ] 2>/dev/null; then
+      t set -p -t "$TMUX_PANE" @claude_bg "$bga $bgs"; state run
+    else
+      t set -pu -t "$TMUX_PANE" @claude_bg; state done
+    fi
     # If a sidebar rename is pending, send it now that the turn has ended
     # 사이드바에서 바꾼 이름이 보류 중이면 응답이 끝난 지금 보낸다
     [ -n "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_rename_pending 2>/dev/null)" ] &&

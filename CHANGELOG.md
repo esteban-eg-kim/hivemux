@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- A turn that ends while a background shell Claude says it waits for is still
+  running (a build, a data run) stays running too, the card reading "waiting
+  on 1 shell", until Claude takes up the result; a shell it does not wait for,
+  such as a dev server, still leaves the turn done
 - Clocking a Claude in from its card no longer prints "Clocked in: …" over
   whatever pane is in front (another project's window): the sidebar drops
   the output of the helpers it runs
