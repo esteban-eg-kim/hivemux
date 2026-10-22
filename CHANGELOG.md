@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- A turn that ends on a question in plain words ("Shall I commit?") waits for
+  your answer instead of reading done: the card says "question · Shall I
+  commit?", the bee lines up at the question window, and it counts for ⌥0
+
 ## 0.1.39 — 2026-10-22
 
 - A turn that ends while a background shell Claude says it waits for is still
