@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Close one Claude: right-click its card → Close Claude… asks first, then
+  closes its pane (its window too when nothing else is in it). The project's
+  last window keeps its shell, so the project stays. Like /exit it is not
+  resumed again and its bee leaves; `claude --resume` still continues the
+  conversation
 - Clock out one Claude or one project while the rest work on: right-click a
   card → Clock this Claude out…, or a project's name → Clock this project
   out… (overtime as usual). Its card stays dimmed in the sidebar ("home ·

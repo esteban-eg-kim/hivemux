@@ -766,6 +766,7 @@ def menu(y, pid=None, sess=None, items=(), homes=()):
     if pid in home:                     # a Claude at home: only back to work / 집에 간 Claude: 출근만
         rows += [(tr("출근", "Clock in"), "i", lambda: clock_in(pid)),
                  (tr("이동", "Go to"), "g", lambda: goto(pid)),
+                 (tr("Claude 닫기…", "Close Claude…"), "x", lambda: bg_run(os.path.join(here, "hivemux-close-claude"), pid, client)),
                  None]
     elif pid:
         rows += [(tr("이동", "Go to"), "g", lambda: goto(pid)),
@@ -777,6 +778,7 @@ def menu(y, pid=None, sess=None, items=(), homes=()):
         # this Claude alone: the rest work on / 이 Claude 만: 나머지는 계속 일한다
         if not next((p for p in items if p["pane_id"] == pid and p["@claude_offwork"]), None):
             rows[-1:-1] = [(tr("이 Claude 퇴근…", "Clock this Claude out…"), "h", lambda: bg_run(shift, "--popup", "off", client, "--pane", pid))]
+        rows[-1:-1] = [(tr("Claude 닫기…", "Close Claude…"), "x", lambda: bg_run(os.path.join(here, "hivemux-close-claude"), pid, client))]
     elif not empty:                     # project name row / 프로젝트 이름 줄
         rows += [(tr("이름 바꾸기…", "Rename…"), "r", lambda: bg_run(os.path.join(here, "hivemux-rename-project"), "prompt", sess, client)),
                  (tr("프로젝트 닫기…", "Close project…"), "x", lambda: bg_run(os.path.join(here, "hivemux-close-project"), sess, client))]

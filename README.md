@@ -205,7 +205,7 @@ new hooks once restarted. Claude Code itself: right-click → Update Claude
 | `Option+1` … `9` | jump to that Claude (any session) |
 | `Option+0` / `prefix Space` | oldest waiting Claude, else oldest unseen finished one |
 | click card / project name | jump · double click a card: rename. A project whose Claude windows are all closed stays listed ("no Claude") until you close it |
-| right click | menu. On a task: go to, rename, move up/down, new Claude, new project. On a project name: rename, close project, new Claude, new project. On empty space: new project. Every menu ends with Open path…, Ports…, Bee office, Update Claude…, Connect to… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes |
+| right click | menu. On a task: go to, rename, move up/down, clock this Claude out, close Claude, new Claude, new project. On a project name: rename, close project, clock this project out / in, new Claude, new project. On empty space: new project, clock everyone out / in. Every menu ends with Open path…, Ports…, Bee office, Update Claude…, Connect to… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes |
 | menu → New project | folder browser in the middle: `Enter` starts the selected folder (like `hm`), `→` / `←` in and out, type to filter, `Ctrl+N` new folder |
 | menu → Settings | language (한국어 / English), animation, notifications, sidebar width, editor for Open path, this Mac's name (shown in the bee office and on remote screens); applied at once and saved |
 | drag card / project header | reorder tasks / projects |
