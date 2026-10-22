@@ -2864,6 +2864,15 @@ applySide(); setDrawer(DRAWER.open); setPlan(PLAN.on); updateShiftBtn();
 applyLang(); readTokens();
 addEventListener('resize', resize);
 new ResizeObserver(resize).observe($('#floor'));
+// Opened as a browser app window (no window app: app_browser in bin/hivemux-office), each 🐝 opens a new one
+// and macOS won't let hivemux bring an old one to the front: the new one says so and the older ones close
+// 브라우저 앱 창으로 열면 (창 앱이 없을 때: bin/hivemux-office 의 app_browser) 🐝 를 누를 때마다 새 창이 뜨고,
+// macOS 는 hivemux 가 예전 창을 앞으로 가져오지 못하게 한다: 새 창이 알리고 예전 창은 닫힌다
+if (matchMedia('(display-mode: standalone)').matches && window.BroadcastChannel) {
+  const ch = new BroadcastChannel('hivemux-office');
+  ch.onmessage = e => { if (e.data === 'opened') window.close(); };
+  ch.postMessage('opened');
+}
 poll();
 requestAnimationFrame(frame);
 </script>

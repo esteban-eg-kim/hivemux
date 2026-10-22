@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Opening the bee office again when it runs as a browser app window (no window
+  app on that Mac) no longer piles up windows: the new one stays and the older
+  ones close
 - Update Claude no longer hangs when macOS holds the new Homebrew binary for
   its "downloaded from the Internet" prompt, which nobody connected from afar
   can answer: the quarantine mark is taken off right after the upgrade, and a
