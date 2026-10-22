@@ -184,6 +184,26 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
 .pop-r { font-size: 13px; color: var(--muted); margin-top: 2px; }
 .pop-w { font: 600 13px var(--f-mono); color: var(--wait); margin-top: 6px; font-variant-numeric: tabular-nums; }
 .pop-more { font-size: 12px; color: var(--muted); }
+.pop-why { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--wait) 12%, var(--panel)); text-align: left; }
+.pop-why b { display: block; font-size: 15px; color: var(--wait); }
+.pop-why span { display: block; font-size: 14px; margin-top: 3px; overflow-wrap: anywhere; }
+.pop-why[data-kind="error"] { background: color-mix(in srgb, var(--alert) 12%, var(--panel)); }
+.pop-why[data-kind="error"] b { color: var(--alert); }
+.pop-q { margin-top: 10px; font-size: 14px; font-weight: 600; text-align: left; white-space: pre-line; max-height: 9em; overflow: auto; }
+.pop-opts { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; text-align: left; }
+.pop-opts button.opt { display: flex; gap: 10px; align-items: baseline; width: 100%; padding: 9px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); font-size: 14px; text-align: left; color: var(--fg); cursor: pointer; }
+.pop-opts button.opt:hover:not(:disabled) { border-color: var(--wait); }
+.pop-opts button.opt:disabled { opacity: .5; cursor: default; }
+.pop-opts button.opt .n { font: 600 12px var(--f-mono); color: var(--muted); min-width: 1.2em; }
+.pop-opts button.opt .l { flex: 1; overflow-wrap: anywhere; }
+.pop-opts button.opt .l small { display: block; color: var(--muted); font-size: 12px; margin-top: 1px; }
+.pop-opts button.opt.first { border-color: var(--wait); background: color-mix(in srgb, var(--wait) 14%, var(--bg)); font-weight: 600; }
+.pop-opts button.opt.on .n { color: var(--done); }
+.pop-opts .say { display: flex; gap: 6px; }
+.pop-opts .say textarea { flex: 1; min-height: 2.6em; resize: vertical; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); padding: 8px 10px; font: 14px var(--f-body); }
+.pop-opts .say button, .pop-opts .next { padding: 8px 14px; border-radius: 9px; border: 1px solid var(--wait); background: var(--wait); color: #1b1300; font-weight: 600; font-size: 13px; }
+.pop-opts .next { align-self: flex-end; }
+.pop.acting .pop-box { max-width: 460px; }
 .pop-act { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
 .pop-act button { padding: 8px 16px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); font-size: 13px; }
 .pop-act .go { background: var(--wait); border-color: var(--wait); color: #1b1300; font-weight: 600; }
@@ -282,6 +302,9 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
     <div class="pop-card">
       <div class="pop-h" id="pop-h"></div>
       <div class="pop-r" id="pop-r"></div>
+      <div class="pop-why" id="pop-why" hidden><b id="pop-why-k"></b><span id="pop-why-t"></span></div>
+      <div class="pop-q" id="pop-q" hidden></div>
+      <div class="pop-opts" id="pop-opts" hidden></div>
       <div class="pop-w" id="pop-w"></div>
       <div class="pop-more" id="pop-more"></div>
       <div class="pop-act">
@@ -559,6 +582,19 @@ const nowOf = o => o.now + (Date.now() - fetchedAt) / 1000;
 // 한 프로젝트에 Claude 가 둘 이상이면 "api #1", "api #2" (⌥ 순서). 마우스를 올리면 세션 이름이 보인다
 const nameOf = b => settings.privacy === 'name' ? `#${b.idx}` : b.project + (b.dup ? ` #${b.dup}` : '');
 const taskOf = b => settings.privacy === 'all' ? (b.name || tr('새 대화', 'new chat')) : '';
+// why a bee waits (bin/hivemux-hook): an approval, a plan, a question, an MCP server asking or an error
+// 벌이 기다리는 이유 (bin/hivemux-hook): 승인, 계획, 질문, MCP 서버의 입력 요청, 오류
+const WHY = { approve: ['✋', '승인 필요', 'Approve?'], plan: ['📋', '계획 승인', 'Approve the plan?'], ask: ['❓', '질문', 'A question'],
+  input: ['✎', '입력 필요', 'Needs input'], error: ['⚠', '오류', 'Error'] };
+const whyOf = b => { const w = b.state === 'wait' && b.why && WHY[b.why.kind]; return w ? { icon: w[0], label: tr(w[1], w[2]), kind: b.why.kind } : null; };
+// the line about it: the command's description, the file (its name), the question... hidden like task names
+// 이유 한 줄: 명령 설명, 파일 (이름만), 질문... 작업 이름처럼 숨길 수 있다
+const whyText = b => {
+  if (!b.why || settings.privacy !== 'all') return '';
+  const { tool, text } = b.why;
+  return /^(Edit|Write|MultiEdit|NotebookEdit)$/.test(tool) ? tr(`${text.split('/').pop()} 수정`, `edit ${text.split('/').pop()}`)
+    : /^mcp__/.test(tool) ? `${tool.split('__').slice(1).join(' · ')}${text ? ` · ${text}` : ''}` : text;
+};
 function fmt(sec) {
   sec = Math.max(0, Math.floor(sec));
   if (sec >= 3600) return `${Math.floor(sec / 3600)}:${String(Math.floor(sec % 3600 / 60)).padStart(2, '0')}h`;
@@ -624,7 +660,9 @@ function ingest(list) {
       if (r && greet(b, r) && b.fresh) { const e = ENTRY(); Object.assign(b, { x: e.x, y: e.y, fresh: false }); }
     }
     const was = b.state;
-    Object.assign(b, s, { office: o, oi, ssh: o.ssh || null, overtime: overtime.has(`${o.ssh || ''}|${s.bee}`), inside: false, commuteUntil: 0 });
+    // why and menu come only while it waits / why 와 menu 는 기다리는 동안만 온다
+    Object.assign(b, s, { office: o, oi, ssh: o.ssh || null, overtime: overtime.has(`${o.ssh || ''}|${s.bee}`), inside: false, commuteUntil: 0,
+      why: s.why || null, menu: s.menu || null, files: s.files || 0 });
     if (was && was !== b.state) changed(b, was);
   }));
   for (const o of list) {   // number the bees sharing a project / 프로젝트를 함께 쓰는 벌에 번호
@@ -2099,10 +2137,59 @@ function drawTags(t) {
     if (b.state === 'wait' && !b.moving) {
       const urg = Math.min(1, ageOf(b) / 120), big = (7 + urg * 3 + Math.abs(Math.sin(t * 6)) * 1.5) * z;
       circle(s.x + w / 2 + 6 * z, y + 2, big, urg > .99 ? T.alert : T.wait);
-      font((10 + urg * 3) * z, 700, 'f-mono'); c.fillStyle = '#1b1300'; c.textAlign = 'center'; c.fillText(urg > .99 ? '!!' : '!', s.x + w / 2 + 6 * z, y + 3); c.textAlign = 'left'; font(10 * z);
+      // the kind of wait (✋ ❓ 📋...) in place of "!" when it is known / 기다림의 종류를 알면 "!" 대신 (✋ ❓ 📋...)
+      const wy = whyOf(b);
+      font((wy ? 9 + urg * 2 : 10 + urg * 3) * z, 700, wy ? 'f-body' : 'f-mono'); c.fillStyle = '#1b1300'; c.textAlign = 'center';
+      c.fillText(wy ? wy.icon : urg > .99 ? '!!' : '!', s.x + w / 2 + 6 * z, y + (wy ? 1 : 3)); c.textAlign = 'left'; font(10 * z);
     }
     c.textBaseline = 'top';
   }
+}
+// A waiting bee's big bubble: why it waits and the line about it. One at a time so they never pile up: the
+// bee under the pointer, else the one waiting longest (the others show the kind by their name tag). A click
+// opens the card to answer it
+// 기다리는 벌의 큰 말풍선: 기다리는 이유와 그 한 줄. 겹치지 않게 하나만: 마우스 아래 벌, 아니면 가장 오래
+// 기다린 벌 (나머지는 이름표 옆에 종류만). 누르면 답하는 카드가 열린다
+let BUBBLE_HITS = [];
+function drawWaitBubbles(t) {
+  BUBBLE_HITS = [];
+  const list = [...bees.values()].filter(b => b.state === 'wait' && !b.moving && !b.popped && !b.inside && whyOf(b)).sort((a, b) => a.at - b.at);
+  const one = list.find(b => b.key === hoverKey) || list[0];
+  const z = textZoom();
+  (one ? [one] : []).forEach(b => {
+    const w = whyOf(b), full = true, s = P(b.x, b.y);
+    const line = full ? whyText(b) : '', hint = full && b.menu ? tr('눌러서 답하기', 'click to answer') : '';
+    font(15 * z, 700); const head = `${w.icon} ${w.label}`;
+    let wd = c.measureText(head).width;
+    font(14 * z, 400); const lines = line ? wrapLines(line, 260 * z, 2) : [];
+    for (const l of lines) wd = Math.max(wd, c.measureText(l).width);
+    font(11.5 * z, 500); if (hint) wd = Math.max(wd, c.measureText(hint).width);
+    const pad = 11 * z, bw = wd + pad * 2, bh = pad * 2 + 19 * z + lines.length * 18 * z + (hint ? 16 * z : 0);
+    const bob = reduced ? 0 : Math.sin(t * 2.2 + b.phase) * 2;
+    const x = s.x - bw / 2, y = s.y - 92 * BEE - bh - 30 * z + bob;   // above its name tag / 이름표 위
+    const edge = w.kind === 'error' || ageOf(b) > 120 ? T.alert : T.wait;
+    BUBBLE_HITS.push({ b, x, y, w: bw, h: bh });
+    c.save(); c.shadowColor = 'rgba(0,0,0,.18)'; c.shadowBlur = 10; c.shadowOffsetY = 3;
+    fillRR(x, y, bw, bh, 10 * z, T.panel); c.restore();
+    c.strokeStyle = edge; c.lineWidth = 2 * z; rr(x, y, bw, bh, 10 * z); c.stroke();
+    c.fillStyle = T.panel; c.beginPath(); c.moveTo(s.x - 7 * z, y + bh - 1); c.lineTo(s.x, y + bh + 9 * z); c.lineTo(s.x + 7 * z, y + bh - 1); c.fill();
+    c.beginPath(); c.moveTo(s.x - 7 * z, y + bh); c.lineTo(s.x, y + bh + 9 * z); c.lineTo(s.x + 7 * z, y + bh); c.stroke();
+    c.textBaseline = 'top'; c.textAlign = 'left';
+    font(15 * z, 700); c.fillStyle = edge; c.fillText(head, x + pad, y + pad);
+    font(14 * z, 400); c.fillStyle = T.fg; lines.forEach((l, k) => c.fillText(l, x + pad, y + pad + 21 * z + k * 18 * z));
+    if (hint) { font(11.5 * z, 500); c.fillStyle = T.muted; c.fillText(hint, x + pad, y + bh - pad - 12 * z); }
+  });
+}
+// up to n lines of at most width px (by character, the last one clipped with …) / 폭 안의 최대 n 줄 (글자 단위, 마지막 줄은 … 로 자른다)
+function wrapLines(text, width, n) {
+  const out = []; let cur = '';
+  for (const ch of Array.from(text)) {
+    if (c.measureText(cur + ch).width > width && cur) { out.push(cur); cur = ''; if (out.length === n) break; }
+    cur += ch;
+  }
+  if (out.length < n && cur) out.push(cur);
+  else if (out.length === n && cur) out[n - 1] = clipText(out[n - 1] + cur, width);
+  return out.map(l => l.trim());
 }
 function drawBubble(b) {
   if (!b.say || performance.now() > b.say.until) return;
@@ -2199,6 +2286,7 @@ function drawFrame(now) {
       drawEffects(t, dt);
       drawTags(t);
       [...bees.values(), ...helpers.values(), ...crew.values()].forEach(drawBubble);
+      drawWaitBubbles(t);
     }
     if (pop) drawPopBee(t);
   }
@@ -2279,20 +2367,20 @@ function flyFrom(b) {
   return `translate(${ax - (p.left + p.width / 2)}px, ${ay - (p.top + p.height / 2)}px) scale(${Math.max(.08, aw / p.width)})`;
 }
 function maybePop() {
-  if (settings.pop !== 'front') { if (pop) closePop(); return; }
+  if (settings.pop !== 'front') { if (pop && !popAsked) closePop(); return; }   // one opened by a click stays / 클릭으로 연 카드는 둔다
   if (pop) return;
   const now = Date.now();
   const b = [...bees.values()].filter(b => b.state === 'wait' && b.arrived && b.key2 === 'q' && !((snooze.get(b.key) || 0) > now)).sort((a, b) => a.at - b.at)[0];
   if (b) openPop(b);
 }
-function openPop(b) {
-  pop = b;
+function openPop(b, asked = false) {   // asked: opened by a click, so no buzz and no jumping forward / 클릭으로 열면 소리도, 앞으로 나오기도 없다
+  if (pop && pop !== b) closePop();
+  pop = b; popMenu = ''; popAsked = asked;
   popEl.hidden = false; popEl.classList.remove('leaving');
   renderPop();
   if (!reduced) popBee.animate([{ transform: flyFrom(b) }, { transform: 'none' }], { duration: 560, easing: 'cubic-bezier(.2, 1.45, .4, 1)' });
   b.popped = true;
-  tell({ front: true });
-  buzz();
+  if (!asked) { tell({ front: true }); buzz(); }
 }
 function closePop() {
   const b = pop; if (!b) return;
@@ -2319,6 +2407,69 @@ function renderPop() {
   const more = [...bees.values()].filter(b => b.state === 'wait' && b !== pop).length;
   $('#pop-more').textContent = more ? tr(`줄 서 있는 세션이 ${more}개 더 있어요`, `${more} more in line`) : '';
   $('#pop-go').textContent = tr(`⌥${pop.idx} 로 이동`, `Go to ⌥${pop.idx}`);
+  const w = whyOf(pop);
+  $('#pop-why').hidden = !w;
+  if (w) { $('#pop-why').dataset.kind = w.kind; $('#pop-why-k').textContent = `${w.icon} ${w.label}`; $('#pop-why-t').textContent = whyText(pop); }
+  renderMenu();
+}
+// The choices on the pane's screen as buttons: one press answers there (bin/hivemux-office /answer). Built again
+// only when they change, so typed words and the focus stay
+// 칸 화면의 선택지를 버튼으로: 누르면 거기 답한다 (bin/hivemux-office /answer). 바뀔 때만 다시 만들어서 입력한
+// 글과 포커스가 남는다
+let popMenu = '', answering = false, popAsked = false;
+function renderMenu() {
+  const m = pop && pop.menu, sig = m ? JSON.stringify(m) : '';
+  popEl.classList.toggle('acting', !!m);
+  if (sig === popMenu) return;
+  popMenu = sig; answering = false;
+  const box = $('#pop-opts'), q = $('#pop-q');
+  box.replaceChildren(); box.hidden = q.hidden = !m;
+  if (!m) return;
+  q.textContent = m.title;
+  q.hidden = !m.title || (pop.why && pop.why.kind === 'ask' && m.title === pop.why.text.replace(/ \(\+\d+\)$/, ''));
+  m.options.forEach((o, i) => {
+    const btn = document.createElement('button'); btn.type = 'button';
+    btn.className = 'opt' + (i === 0 && o.checked === null ? ' first' : '') + (o.checked ? ' on' : '');
+    const n = document.createElement('span'); n.className = 'n'; n.textContent = o.checked === null ? o.n : (o.checked ? '☑' : '☐');
+    // Claude's own words for typing an answer, in this page's language / 직접 입력하는 선택지는 이 페이지 말로
+    const l = document.createElement('span'); l.className = 'l'; l.textContent = /^type something\.?$/i.test(o.label) ? tr('직접 입력…', 'Type something…') : o.label;
+    if (o.desc) { const d = document.createElement('small'); d.textContent = o.desc; l.append(d); }
+    btn.append(n, l);
+    btn.addEventListener('click', () => {
+      if (!o.text) return send({ n: o.n, label: o.label });
+      // takes typed words: a box opens under it / 글을 받는 선택지: 아래에 입력 칸이 열린다
+      if (btn.nextElementSibling && btn.nextElementSibling.classList.contains('say')) return btn.nextElementSibling.querySelector('textarea').focus();
+      const say = document.createElement('div'); say.className = 'say';
+      const ta = document.createElement('textarea'); ta.placeholder = tr('여기에 입력…', 'Type here…');
+      const go = document.createElement('button'); go.type = 'button'; go.textContent = tr('보내기', 'Send');
+      const fire = () => ta.value.trim() && send({ n: o.n, label: o.label, text: ta.value });
+      go.addEventListener('click', fire);
+      ta.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); fire(); } });
+      say.append(ta, go); btn.after(say); ta.focus();
+    });
+    box.append(btn);
+  });
+  if (m.tabs || m.options.some(o => o.checked !== null)) {
+    const nx = document.createElement('button'); nx.type = 'button'; nx.className = 'next';
+    nx.textContent = m.options.some(o => o.checked !== null) ? tr('고른 대로 다음 →', 'Done, next →') : tr('다음 질문 →', 'Next question →'); nx.addEventListener('click', () => send({ key: 'next' }));
+    box.append(nx);
+  }
+}
+async function send(ans) {
+  if (!pop || answering) return;
+  const b = pop; answering = true;
+  $('#pop-opts').querySelectorAll('button').forEach(x => x.disabled = true);
+  let ok = false;
+  try {
+    const r = await fetch('/answer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pane: b.pane, ssh: b.ssh, ...ans }) });
+    ok = (await r.json()).ok;
+  } catch (e) {}
+  if (!ok) toast(tr('화면이 바뀌어서 누르지 못했어요. 다시 확인해 주세요', 'The screen changed, so nothing was pressed. Have another look'));
+  // the buttons stay off until the screen shows what came next (another question, or the bee back at work);
+  // if nothing changes they come back after a while / 다음 화면 (다음 질문, 또는 일하러 간 벌) 이 올 때까지 버튼은
+  // 꺼 둔다. 아무것도 안 바뀌면 잠시 뒤 되살린다
+  const sig = popMenu;
+  setTimeout(() => { answering = false; if (pop === b && popMenu === sig) { popMenu = ''; renderMenu(); } }, ok ? 3000 : 0);
 }
 $('#pop-go').addEventListener('click', () => { const b = pop; closePop(); visit(b); });
 $('#pop-later').addEventListener('click', () => { snooze.set(pop.key, Date.now() + 60000); closePop(); });
@@ -2386,7 +2537,9 @@ cv.addEventListener('mousemove', e => {
 cv.addEventListener('mouseleave', () => { tip.hidden = true; hoverKey = null; HOVER_HOUSE = null; });
 cv.addEventListener('click', e => {
   if (dragged) { dragged = false; return; }
-  const b = LAY && hit(worldAt(e)); if (b) return visit(b);
+  const wp = LAY && worldAt(e), bub = wp && BUBBLE_HITS.find(r => wp.x >= r.x && wp.x <= r.x + r.w && wp.y >= r.y && wp.y <= r.y + r.h);
+  if (bub) return openPop(bub.b, true);
+  const b = LAY && hit(wp); if (b) return b.state === 'wait' && (b.menu || b.why) ? openPop(b, true) : visit(b);
   // a click on a house or the pub keeps it open (again to close) / 집이나 펍을 누르면 열린 채로 (다시 누르면 닫힘)
   const hh = LAY && houses().length ? houseAtPoint(worldAt(e)) : null;
   if (hh) PEEK.has(hh.key) ? PEEK.delete(hh.key) : PEEK.add(hh.key);
@@ -2526,9 +2679,12 @@ function render() {
       r.className = 'r s-' + b.state;
       r.querySelector('.k').textContent = b.state === 'home' ? '🏠' : `⌥${b.idx}`;
       r.querySelector('.n').textContent = nameOf(b);
-      r.querySelector('.e').textContent = b.state === 'done' ? tr(`${fmt(age)} 전 끝남`, `done ${fmt(age)} ago`) : b.state === 'idle' || (b.state === 'home' && !b.at) ? label(b.state) : `${label(b.state)} ${fmt(age)}`;
+      // why it waits; how many files a finished turn changed / 기다리는 이유, 끝난 턴이 고친 파일 수
+      const wy = whyOf(b), nf = b.state === 'done' && b.files ? tr(` · 파일 ${b.files}개`, ` · ${b.files} file${b.files > 1 ? 's' : ''}`) : '';
+      r.querySelector('.e').textContent = b.state === 'done' ? tr(`${fmt(age)} 전 끝남`, `done ${fmt(age)} ago`) + nf : wy ? `${wy.icon} ${wy.label} ${fmt(age)}`
+        : b.state === 'idle' || (b.state === 'home' && !b.at) ? label(b.state) : `${label(b.state)} ${fmt(age)}`;
       r.querySelector('.w i').textContent = whereOf(b);
-      r.querySelector('.w span').textContent = taskOf(b) ? ` · ${taskOf(b)}` : '';
+      r.querySelector('.w span').textContent = wy && whyText(b) ? ` · ${whyText(b)}` : taskOf(b) ? ` · ${taskOf(b)}` : '';
       want.push(r);
     }
   });

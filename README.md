@@ -31,6 +31,11 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
   look at it.
 - **Bee office.** Every Claude session as a bee in a little office: watch who
   works, who waits for you, and who is done at a glance. See [The bee office](#the-bee-office).
+- **Why it waits, and answer from the office.** A waiting card says what it
+  waits for: an approval (with Claude's own one-line description of the
+  command, or the file), a plan, a question, or an error; a finished one says
+  how many files the turn changed. In the bee office, click the waiting bee's
+  bubble and press the answer there.
 - **Clock out, clock in.** Stop every Claude for the night and bring them all
   back in the morning, in the same conversations, while the bees go home to a
   village and walk back to work.
@@ -88,6 +93,17 @@ The 🐝 button at the top of the sidebar (or `prefix B`, the right-click menu,
   <img src="docs/office/list-en.jpg" alt="The session list drawer" width="430">
   <img src="docs/office/plan-en.jpg" alt="The 2D view, from above" width="430">
 </p>
+
+### Answering from the office
+
+A bee waiting for you holds up a big bubble with why: ✋ an approval (the
+command's description Claude wrote, or the file it wants to change), 📋 a
+plan, ❓ a question, ✎ an MCP server asking, ⚠ an error. Click the bubble (or
+the bee) and the card shows the same choices as the terminal: press one and it
+is answered there. A choice that takes words (Type something, Tell Claude what
+to change) opens a box; several questions go one by one, then a review. It
+works for bees of a connected Mac too. Nothing is pressed if the screen has
+changed meanwhile.
 
 ### Clock out, clock in
 

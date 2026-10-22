@@ -19,12 +19,12 @@
 #   so Option+O can find relative paths (bin/hivemux-open-ui)
 # - Claude 가 지금 일하는 폴더를 기록 (@claude_pwd; Bash 에서 cd 하면 @claude_cwd 와 달라진다)
 #   -> Option+O 가 상대 경로를 찾는다 (bin/hivemux-open-ui)
-# - records why a pane waits (@claude_wait "<kind>\x1e<tool>\x1e<text>": approve, plan, ask, input or error,
+# - records why a pane waits (@claude_wait "<kind>\t<tool>\t<text>": approve, plan, ask, input or error,
 #   with the tool and a line about it, e.g. a Bash command's description or the question) and the files a
-#   turn changed (@claude_touched, paths split by \x1e) -> the sidebar and the bee office show them
-# - 칸이 기다리는 이유 (@claude_wait "<종류>\x1e<도구>\x1e<설명>": approve 승인, plan 계획 승인, ask 질문,
+#   turn changed (@claude_touched, paths split by tabs) -> the sidebar and the bee office show them
+# - 칸이 기다리는 이유 (@claude_wait "<종류>\t<도구>\t<설명>": approve 승인, plan 계획 승인, ask 질문,
 #   input 입력, error 오류. 설명은 Bash 명령의 description 이나 질문 같은 한 줄) 와 한 턴에 고친 파일
-#   (@claude_touched, \x1e 로 나눈 경로) 을 기록 -> 사이드바와 벌 사무실이 보여 준다
+#   (@claude_touched, 탭으로 나눈 경로) 을 기록 -> 사이드바와 벌 사무실이 보여 준다
 # Never blocks Claude: always exits 0 and prints nothing.
 
 event="$1"
@@ -49,7 +49,7 @@ state() { # state <run|wait|done|idle>
 
 # Why it waits: kind, tool and one line, from the tool call (PermissionRequest, PreToolUse) or as given
 # 기다리는 이유: 종류, 도구, 한 줄. 도구 호출에서 (PermissionRequest, PreToolUse) 또는 주어진 대로
-RS=$'\x1e'
+RS=$'\t'   # not \x1e: Python's splitlines() breaks lines there / \x1e 은 안 된다: Python splitlines() 가 거기서 줄을 나눈다
 why() { # why [<kind> <text>]
   local w
   if [ $# -gt 0 ]; then w="$1$RS$RS$2"
@@ -64,7 +64,7 @@ why() { # why [<kind> <text>]
       elif $t == "WebFetch" then ["approve", $t, ($i.url // "")]
       elif $t == "WebSearch" then ["approve", $t, ($i.query // "")]
       else ["approve", $t, ([$i[] | strings][0] // "")] end
-      | map(gsub("[\u0000-\u001f]"; " ")) | .[2] |= .[0:200] | join("\u001e")' 2>/dev/null)"
+      | map(gsub("[\u0000-\u001f]"; " ")) | .[2] |= .[0:200] | join("\t")' 2>/dev/null)"
   fi
   [ -n "$w" ] && t set -p -t "$TMUX_PANE" @claude_wait "$w"
 }

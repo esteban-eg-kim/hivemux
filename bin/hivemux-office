@@ -234,7 +234,7 @@ def shift(busy):
 
 # ── answering from the office / 사무실에서 답하기 ──────────────────────────────
 
-RS = "\x1e"
+RS = "\t"     # (bin/hivemux-hook) not \x1e: splitlines() breaks there / \x1e 은 안 된다: splitlines() 가 나눈다
 OPTION_RE = re.compile(r"^\s*(❯\s*)?(\d{1,2})\.\s+(?:\[([ ✔✓x×])\]\s*)?(.*\S)\s*$")
 RULE_RE = re.compile(r"^\s*[─━╌▔]{8,}")
 TEXT_RE = re.compile(r"(?i)^(type something|tell claude|no, and tell claude)")

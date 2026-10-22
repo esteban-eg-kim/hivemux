@@ -46,7 +46,7 @@ US = "\x1f"
 FIELDS = ["pane_id", "session_name", "window_index", "window_name", "@claude_state",
           "@claude_state_at", "@claude_session", "window_id", "pane_active", "pane_last",
           "window_active", "session_attached", "pane_title", "@claude_title", "@claude_name", "pane_current_command",
-          "@hivemux-closing"]
+          "@hivemux-closing", "@claude_wait", "@claude_touched"]
 # a shell in front means Claude has quit there (its SessionEnd hook comes a second or two later, or never)
 # 칸 앞에 셸이 있으면 그 Claude 는 끝났다 (SessionEnd 훅은 1~2초 늦게 오거나 안 온다)
 SHELLS = {"zsh", "bash", "fish", "sh", "dash", "tcsh", "ksh", "login"}
@@ -117,6 +117,26 @@ C = {
 }
 STATE_TEXT = {"wait": tr("입력 필요", "needs input"), "run": tr("작업 중", "running"), "done": tr("완료", "done"), "idle": tr("대기", "idle")}
 STATE_ICON = {"wait": "●", "run": "◐", "done": "✓", "idle": "○"}
+# why a pane waits (@claude_wait from bin/hivemux-hook: "<kind>\t<tool>\t<text>") / 칸이 기다리는 이유
+WHY_TEXT = {"approve": tr("승인", "approve"), "plan": tr("계획 승인", "plan"), "ask": tr("질문", "question"),
+            "input": tr("입력", "input"), "error": tr("오류", "error")}
+
+
+def state_line(p, st):
+    """The card's second line: the state, with why it waits (and the line about it: a command's description,
+    a file, the question) or how many files a finished turn changed
+    카드 둘째 줄: 상태, 그리고 기다리는 이유 (와 그 한 줄: 명령 설명, 파일, 질문) 또는 끝난 턴이 고친 파일 수"""
+    if st == "wait" and p.get("@claude_wait"):
+        kind, tool, text = (p["@claude_wait"].split("\t") + ["", "", ""])[:3]
+        if kind in WHY_TEXT:
+            if tool in ("Edit", "Write", "MultiEdit", "NotebookEdit"):
+                text = os.path.basename(text)
+            return f"{WHY_TEXT[kind]} · {text}" if text else WHY_TEXT[kind]
+    if st == "done":
+        n = len([f for f in p.get("@claude_touched", "").split("\t") if f])
+        if n:
+            return STATE_TEXT[st] + tr(f" · 파일 {n}개", f" · {n} file" + ("s" if n > 1 else ""))
+    return STATE_TEXT[st]
 # Project dot colors (fixed by a hash of the name)
 # 프로젝트 점 색 (이름 해시로 고정)
 PROJECT_HUES = [(167, 139, 250), (244, 114, 182), (45, 212, 191), (251, 146, 60),
@@ -437,7 +457,7 @@ def render(items, current, w, h, cur_sess="", sessions=()):
                    limit=x1 - (width(key) + 2 if key else 1))
             r1.fill(x1 - 1 - width(key), card).put(key, C["text"] if sel else C["text3"], card).fill(x1, card).fill(cw)
             r2 = card_line()
-            r2.put(f"{icon} {STATE_TEXT[st]}", bar if st != "idle" else C["text3"], card, bold=st == "wait",
+            r2.put(f"{icon} {state_line(p, st)}", bar if st != "idle" else C["text3"], card, bold=st == "wait",
                    limit=x1 - width(t) - 2)
             r2.fill(x1 - 1 - width(t), card).put(t, C["text2"] if st != "wait" else C["wait"], card).fill(x1, card).fill(cw)
             lns = [r1, r2]
@@ -824,6 +844,8 @@ def set_state(p, new, now):
     tmux("set", "-p", "-t", pid, "@claude_state", new)
     tmux("set", "-p", "-t", pid, "@claude_state_at", ts)
     tmux("set", "-w", "-t", pid, "@claude_state", new)
+    if new != "wait":
+        tmux("set", "-pu", "-t", pid, "@claude_wait")
     tmux("refresh-client", "-S")
     p["@claude_state"], p["@claude_state_at"] = new, ts
 

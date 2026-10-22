@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Why a Claude waits: the sidebar card and the bee office say what it waits
+  for: an approval (with Claude's own description of the command, or the
+  file), a plan, a question, an MCP server asking or an error; a finished
+  card says how many files the turn changed
+- Bee office: a waiting bee holds up a big bubble with why; click it and
+  answer right there with the same choices as the terminal (approve, plan
+  approval, single or multiple choice, several questions, typed answers),
+  also for a connected Mac's bees
 - Bee office: on a Mac without the Swift compiler (no window app), it opens
   as a web app in Chrome, Edge, Brave, Whale, Vivaldi or Chromium (its own
   window, no tabs or address bar) before falling back to the browser
