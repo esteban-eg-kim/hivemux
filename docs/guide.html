@@ -393,8 +393,7 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
 
     <div class="st"><div>
       <h3>같은 프로젝트에 Claude 하나 더 열기</h3>
-      <p><kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>Shift</kbd>+<kbd>C</kbd>를 누릅니다. 상태줄에 이름 입력 칸이 뜨면 작업 내용을 알 수 있는 이름을 적고 <kbd>Enter</kbd>를 누릅니다.</p>
-      <div class="tbar"><span class="prompt">Claude 이름: <i>login-bug</i></span></div>
+      <p><kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>Shift</kbd>+<kbd>C</kbd>를 누르거나 사이드바 오른쪽 클릭 → <b>새 Claude…</b>를 고릅니다. 화면 가운데에 "새 Claude" 팝업이 뜨면 작업 내용을 알 수 있는 이름을 적고 <kbd>Enter</kbd>를 누릅니다. <kbd>Esc</kbd>는 취소입니다.</p>
       <p class="result">입력 칸에는 <b>web-3</b>처럼 기본 이름이 미리 채워져 있어서 그대로 <kbd>Enter</kbd>를 눌러도 됩니다. 입력한 이름이 창 이름이 되고 <code>claude -n login-bug</code>로 실행됩니다.</p>
     </div></div>
 
@@ -491,9 +490,11 @@ claude -c
       <tr><td><span class="pill" style="background:#303030;color:#87d787;border-left:3px solid #5fd787">✓ 완료</span></td><td>응답을 끝냈고 아직 안 봄. 초록 선</td><td>결과 확인. 열어 보면 대기로 바뀜</td></tr>
       <tr><td><span class="pill" style="background:#303030;color:#87d7ff;border-left:3px solid #5fafff">◐ 작업 중</span></td><td>작업 중. 빛 띠가 훑고 지나가고 파란 선이 맥박처럼 밝아짐. 오른쪽 숫자는 작업 시간</td><td>기다리기</td></tr>
       <tr><td><span class="pill" style="background:#303030;color:#8a8a8a;border-left:3px solid #585858">○ 대기</span></td><td>다음 지시를 기다리는 상태. 결과는 이미 봄</td><td>새 지시를 줄 때 이동</td></tr>
+      <tr><td><span class="pill" style="background:#303030;color:#9a94e0;border-left:3px solid #847ece">☾ 퇴근 · 눌러서 출근</span></td><td>혼자 퇴근한 Claude. 카드가 흐리게 남고 ⌥ 번호가 없음</td><td>누르면 같은 대화로 다시 출근</td></tr>
       <tr><td><span class="pill" style="background:#3a4152;color:#e6e9ef;box-shadow:-3px 0 0 #e1e6f0,3px 0 0 #e1e6f0;margin-inline:3px">양옆 흰 선</span></td><td>지금 보고 있는 작업</td><td>없음</td></tr>
     </tbody>
   </table></div>
+  <p>카드 둘째 줄에는 상태와 함께 한 줄 설명이 붙습니다. 입력 필요 카드는 무엇을 기다리는지 보여 줍니다. <b>승인 · DB 마이그레이션 실행</b>처럼 Claude가 명령마다 직접 쓰는 설명(파일을 고치는 승인이면 파일 이름), <b>질문 · 세션 저장소로 무엇을 쓸까요?</b>, <b>계획 승인</b>, MCP 서버가 묻는 <b>입력</b>, API 오류로 멈춘 <b>오류</b>입니다. 완료 카드는 <b>완료 · 파일 7개</b>처럼 그 턴에 고친 파일 수를 보여 줍니다. 턴은 끝났지만 배경 에이전트가 아직 일하면 <b>에이전트 2개 실행 중</b>으로 작업 중에 머물고, 결과를 받아 정말 끝날 때 완료가 됩니다. 퇴근했지만 아직 일하는 Claude에는 <b>야근 후 퇴근</b>이 붙습니다.</p>
 
   <h3>Ghostty 새 탭과 새 창</h3>
   <p>필수는 아닙니다. 두 프로젝트를 나란히 보고 싶을 때만 쓰세요. Ghostty에서 <kbd>⌘</kbd>+<kbd>T</kbd>나 <kbd>⌘</kbd>+<kbd>N</kbd>을 누르면 다음 규칙으로 tmux에 연결됩니다.</p>
@@ -503,12 +504,12 @@ claude -c
   </ul>
 
   <h3>벌 사무실 창</h3>
-  <p>사이드바 맨 위의 <b>🐝 사무실</b> 버튼을 누르면 별도 창이 열리고, Claude 세션마다 벌 한 마리가 사무실에서 일합니다. <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>Shift</kbd>+<kbd>B</kbd>, 사이드바 오른쪽 클릭 메뉴의 "벌 사무실", 터미널의 <code>hivemux office</code>로도 엽니다. 창은 처음 한 번 Mac의 Swift 컴파일러(Xcode Command Line Tools)로 만듭니다. <code>hivemux setup</code>이 미리 만들어 두고, 아직 없으면 만드는 동안(30초쯤) 진행 상황을 보여 줍니다. 컴파일러가 없으면 브라우저로 엽니다. 다른 Mac에서 붙은 화면에서 열면 그 Mac(붙어 온 쪽)에 창이 열리고, 이 Mac의 세션은 옆 사무실에 나옵니다. 두 Mac 모두 0.1.28 이상이어야 합니다.</p>
+  <p>사이드바 맨 위의 <b>🐝 사무실</b> 버튼을 누르면 별도 창이 열리고, Claude 세션마다 벌 한 마리가 사무실에서 일합니다. <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>Shift</kbd>+<kbd>B</kbd>, 사이드바 오른쪽 클릭 메뉴의 "벌 사무실", 터미널의 <code>hivemux office</code>로도 엽니다. 창은 처음 한 번 Mac의 Swift 컴파일러(Xcode Command Line Tools)로 만듭니다. <code>hivemux setup</code>이 미리 만들어 두고, 아직 없으면 만드는 동안(30초쯤) 진행 상황을 보여 줍니다. 컴파일러가 없으면 Chrome, Edge, Brave, 네이버 웨일, Vivaldi, Chromium 중 설치된 브라우저로 탭과 주소창 없는 앱 창을 열고, 그것도 없으면 기본 브라우저로 엽니다. 사무실 서버가 꺼져도 페이지가 멈추지 않습니다. "다시 연결하는 중"을 보여 주며 계속 다시 시도하고, 벌 사무실 창이면 서버를 스스로 다시 띄웁니다. 다시 붙으면 알려 줍니다. 다른 Mac에서 붙은 화면에서 열면 그 Mac(붙어 온 쪽)에 창이 열리고, 이 Mac의 세션은 옆 사무실에 나옵니다. 두 Mac 모두 0.1.28 이상이어야 합니다.</p>
   <figure class="clip"><video src="office/tour.mp4" poster="office/office-ko.jpg" autoplay muted loop playsinline controls></video><figcaption>벌 사무실 둘러보기 (영어 화면)</figcaption></figure>
   <p>사무실이 창 전체를 채우고, 버튼은 위쪽에 떠 있습니다. 세션 목록은 오른쪽 위 <b>☰</b> 버튼(또는 <kbd>L</kbd>)으로 열고 닫는 서랍입니다. Mac별로 묶여 기다리는 세션이 먼저 나오고, 행에 마우스를 올리면 그 벌 발밑에 꿀색 고리가 생기며, 누르면 그 세션으로 갑니다. 목록이 열리면 사무실은 남은 자리 가운데로 비켜나고, 기다리는 세션이 있는데 닫혀 있으면 ☰ 버튼이 깜빡입니다. 목록을 오른쪽에 둘지 왼쪽에 둘지는 ⚙ 설정의 <b>세션 목록</b>에서 고릅니다.</p>
   <ul>
     <li><b>작업 중</b>: 자기 자리에서 타자를 칩니다. 서브에이전트를 돌리면 책상 옆에 작은 부사수 벌이 노트북을 들고 섭니다. 계획 모드(Shift+Tab)면 회의실 화이트보드 앞에서 계획을 세우고, 사무실 동료 둘(안경 쓴 벌, 포스트잇 든 벌)이 들어와 같이 회의합니다.</li>
-    <li><b>입력 필요</b>: 사장실 질문 창구로 뛰어가 기다린 순서대로 줄을 섭니다. 맨 앞 벌은 창 한가운데로 튀어나오고, 다른 창 뒤에 있었으면 창이 앞으로 나옵니다. 오래 기다릴수록 더 크게 흔들고, 2분이 넘으면 빨개집니다.</li>
+    <li><b>입력 필요</b>: 사장실 질문 창구로 뛰어가 기다린 순서대로 줄을 섭니다. 맨 앞 벌은 창 한가운데로 튀어나오고, 다른 창 뒤에 있었으면 창이 앞으로 나옵니다. 오래 기다릴수록 더 크게 흔들고, 2분이 넘으면 빨개집니다. 가장 오래 기다린 벌(마우스를 올리면 그 벌)은 "✋ 승인 필요 / DB 마이그레이션 실행 / 눌러서 답하기" 같은 큰 말풍선을 들고, 나머지는 이름표 옆에 ✋ ❓ 📋 아이콘으로 종류만 보입니다.</li>
     <li><b>끝남</b>: 자리 옆에서 꿀단지를 들고 있다가, 그 작업을 보고 나면 사장실 벌집에 꿀을 채웁니다. 벌집의 꿀 칸 수는 오늘 끝낸 작업 수이고, 48칸이 다 차면 꿀단지에 담겨 아래 선반에 쌓입니다.</li>
     <li><b>대기</b>: 자리를 비우고 카페, 소파, 탁구대, 정원에서 쉽니다. 책상은 함께 쓰는 자리라서 쉬지 않는 벌만 책상이 있습니다. 일하는 벌이 늘면 4인용 책상 섬이 한 줄에 둘씩 늘어나고, 사무실이 아주 커지면 읽을 수 있는 크기를 지킨 채 나머지는 끌거나 줄여서 봅니다. 벌이 많아 이름표가 겹치면 일하는 벌의 이름표는 빼 두고, 기다리는 벌과 끝난 벌의 이름표만 보입니다(마우스를 올리거나 확대하면 다 보임).</li>
   </ul>
@@ -519,15 +520,17 @@ claude -c
     <figure><a href="office/ranks-ko.jpg"><img src="office/ranks-ko.jpg" alt="꿀 순위" loading="lazy"></a><figcaption>꿀 순위: 오늘, 이번 주, 이번 달</figcaption></figure>
     <figure><a href="office/plan-ko.jpg"><img src="office/plan-ko.jpg" alt="2D 보기" loading="lazy"></a><figcaption>2D: 같은 사무실을 위에서</figcaption></figure>
   </div>
+  <p><b>사무실에서 답하기</b>: 말풍선이나 기다리는 벌을 누르면 카드가 뜨고, 터미널과 같은 선택지가 버튼으로 나옵니다. 승인(예, 항상 허용, 아니요), 계획 승인(승인, 또는 "고칠 점 알려 주기"에 글을 써서 보내기), 질문(하나 고르기, 여러 개 고르기, 직접 입력)입니다. 질문이 여럿이면 "다음 질문 →"으로 넘기고 마지막 확인 화면에서 제출합니다. 누르는 순간 그 칸의 화면을 다시 읽어 같은 창이 그대로 있을 때만 키를 보내고, 그사이 바뀌었으면 아무것도 누르지 않고 알려 줍니다. 세션 목록에도 이유와 고친 파일 수가 나옵니다. <code>hivemux connect</code>로 붙은 Mac의 벌에게도 답할 수 있습니다(그 Mac도 0.1.37 이상).</p>
   <p>벌이나 책상을 누르면 그 세션을 터미널에 띄웁니다. 톱니바퀴에서 튀어나오기를 끄거나, 화면 공유할 때 작업 이름과 프로젝트 이름을 숨길 수 있습니다. 메뉴의 보기 → Keep on Top(<kbd>⌘</kbd>+<kbd>T</kbd>)으로 다른 창 위에 띄워 둘 수 있습니다. <code>hivemux connect</code>로 다른 Mac에 붙어 있으면 그 Mac의 세션도 따로 책상을 받습니다. Mac마다 책상 아래에 그 Mac 색의 카펫(이 Mac은 꿀색, 원격은 연보라)이 깔리고, 왼쪽 벽에 같은 색 띠의 Mac 이름 명패가 붙습니다. 이름은 설정의 "이 Mac 이름"으로 바꿀 수 있습니다. 그 Mac도 이 버전의 hivemux여야 합니다.</p>
 
-  <p><b>퇴근과 출근</b>: 위쪽 🌙 <b>퇴근</b> 버튼(또는 사이드바 오른쪽 클릭 메뉴의 "퇴근하기…")을 누르면 확인을 받은 뒤 모든 Claude를 끕니다. 벌들은 박수를 치고, 엘리베이터로 내려가 마당 너머 마을의 자기 집으로 걸어가서 쉽니다. 밤이면 불을 끄고 잡니다. 일하거나 나를 기다리던 Claude는 "야근 중" 표시를 달고 남았다가, 끝나면 꺼지고 퇴근합니다. ☀️ <b>출근</b>을 누르면 모두 같은 대화로 다시 시작하고(<code>claude --resume</code>), 벌들은 집에서 나와 자리로 걸어옵니다. 퇴근 중에 재부팅하면 다시 띄우지 않고, 출근할 때 띄웁니다. 모두 퇴근하면 사이드바에 "🌙 퇴근 중 · 눌러서 출근"이 보입니다. <code>hivemux connect</code>로 붙어 있는 Mac이 있으면 버튼을 눌렀을 때 Mac마다(이 Mac, 붙은 Mac, 모두) 고를 수 있고, 붙은 Mac은 연결된 ssh로 퇴근·출근시킵니다(그 Mac도 이 버전 이상이어야 합니다). 모든 Mac의 벌은 마을의 골목에 섞여 살고, 집에 마우스를 올리면 누가 사는지(이름, 프로젝트, Mac, 지금 상태, 입사 며칠째, 재입사, 이번 달 꿀)가 보입니다. 퇴근한 벌들은 자기 전에 놉니다. 마을 어귀 펍 "꿀단지"의 테라스에서 맥주잔을 들고 건배하거나 안에서 한잔하고, 길 건너 공원에서 둘이 공놀이를 하거나 벤치에 앉거나 분수 옆에서 수다를 떨고, 그냥 집에 가서 쉬기도 합니다. 1~2분마다 할 일을 바꾸고, 밤 11시부터 아침 6시까지는 모두 집에서 잡니다. 집이나 펍에 마우스를 올리면 지붕이 열려 안이 보입니다(집: 침대에 있는 벌과 탁자, 펍: 바와 맥주 탭, 술병 선반, 다트판, 손님들. 손님 하나는 다트를 던집니다). 누르면 열린 채로 있고, 다시 누르면 닫힙니다. 집은 모양(현관 차양 오두막, 2층집, 옥상 화분 평지붕, 모임지붕, 두 번 꺾인 헛간 지붕, 연기 나는 굴뚝 집)과 방(아늑한 침실, 게임 방, 책 방, 해먹이 있는 식물 방, 피아노가 있는 음악 방, 넓은 부엌)이 집마다 다르고, 2층집에는 계단과 다락 침대가 있습니다. 벌은 낮에는 그 방의 자리(책상, 피아노, 안락의자…)에, 밤에는 침대에 있습니다.</p>
+  <p><b>퇴근과 출근</b>: 위쪽 🌙 <b>퇴근</b> 버튼(또는 사이드바 빈 곳 오른쪽 클릭 → "모두 퇴근하기…")을 누르면 확인을 받은 뒤 모든 Claude를 끕니다. 벌들은 박수를 치고, 엘리베이터로 내려가 마당 너머 마을의 자기 집으로 걸어가서 쉽니다. 밤이면 불을 끄고 잡니다. 일하거나 나를 기다리던 Claude는 "야근 중" 표시를 달고 남았다가, 끝나면 꺼지고 퇴근합니다. ☀️ <b>출근</b>을 누르면 모두 같은 대화로 다시 시작하고(<code>claude --resume</code>), 벌들은 집에서 나와 자리로 걸어옵니다. 퇴근 중에 재부팅하면 다시 띄우지 않고, 출근할 때 띄웁니다. 모두 퇴근하면 사이드바에 "🌙 퇴근 중 · 눌러서 출근"이 보입니다. <code>hivemux connect</code>로 붙어 있는 Mac이 있으면 버튼을 눌렀을 때 Mac마다(이 Mac, 붙은 Mac, 모두) 고를 수 있고, 붙은 Mac은 연결된 ssh로 퇴근·출근시킵니다(그 Mac도 이 버전 이상이어야 합니다). 모든 Mac의 벌은 마을의 골목에 섞여 살고, 집에 마우스를 올리면 누가 사는지(이름, 프로젝트, Mac, 지금 상태, 입사 며칠째, 재입사, 이번 달 꿀)가 보입니다. 퇴근한 벌들은 자기 전에 놉니다. 마을 어귀 펍 "꿀단지"의 테라스에서 맥주잔을 들고 건배하거나 안에서 한잔하고, 길 건너 공원에서 둘이 공놀이를 하거나 벤치에 앉거나 분수 옆에서 수다를 떨고, 그냥 집에 가서 쉬기도 합니다. 1~2분마다 할 일을 바꾸고, 밤 11시부터 아침 6시까지는 모두 집에서 잡니다. 집이나 펍에 마우스를 올리면 지붕이 열려 안이 보입니다(집: 침대에 있는 벌과 탁자, 펍: 바와 맥주 탭, 술병 선반, 다트판, 손님들. 손님 하나는 다트를 던집니다). 누르면 열린 채로 있고, 다시 누르면 닫힙니다. 집은 모양(현관 차양 오두막, 2층집, 옥상 화분 평지붕, 모임지붕, 두 번 꺾인 헛간 지붕, 연기 나는 굴뚝 집)과 방(아늑한 침실, 게임 방, 책 방, 해먹이 있는 식물 방, 피아노가 있는 음악 방, 넓은 부엌)이 집마다 다르고, 2층집에는 계단과 다락 침대가 있습니다. 벌은 낮에는 그 방의 자리(책상, 피아노, 안락의자…)에, 밤에는 침대에 있습니다.</p>
+  <p><b>혼자 퇴근</b>: 카드를 오른쪽 클릭 → <b>이 Claude 퇴근…</b>, 또는 프로젝트 이름 줄 → <b>이 프로젝트 퇴근…</b>을 고르면 그 Claude만 퇴근하고 나머지는 계속 일합니다. 일하는 중이면 야근하다가 끝나면 퇴근합니다. 카드는 사이드바에 흐리게 남아 "☾ 퇴근 · 눌러서 출근"으로 보이고, 누르면 같은 대화로 다시 출근합니다(프로젝트 이름 줄 → 이 프로젝트 출근, 빈 곳 → 모두 출근하기도 됨). 사무실에서는 그 벌만 박수 치고 마을로 갑니다. 혼자 퇴근한 Claude는 재부팅해도 다시 띄우지 않습니다. 모두 퇴근하기와 모두 출근하기는 카드나 프로젝트만의 일로 읽히지 않도록 빈 곳 메뉴에만 있습니다.</p>
   <figure class="clip"><img src="office/shift-ko.gif" alt="퇴근: 박수 치고 집으로" loading="lazy"><figcaption>퇴근: 박수를 치고 마을의 집으로</figcaption></figure>
   <div class="shots">
     <figure><a href="office/village-ko.jpg"><img src="office/village-ko.jpg" alt="마을" loading="lazy"></a><figcaption>마을, 펍 "꿀단지", 공원</figcaption></figure>
     <figure><a href="office/inside-ko.jpg"><img src="office/inside-ko.jpg" alt="집 안" loading="lazy"></a><figcaption>마우스를 올리면 집과 펍 안이 보임</figcaption></figure>
   </div>
-  <p><b>입사, 퇴사, 꿀 순위</b>: 벌 한 마리는 프로젝트와 그 안의 Claude 이름입니다. 그래서 <code>/clear</code>나 새 대화를 해도 같은 벌입니다. 처음 보이면 "신입"으로 엘리베이터에서 걸어 들어오고, 프로젝트를 닫거나 그 Claude를 직접 닫으면 퇴사합니다(<code>/exit</code>는 바로, 창이나 칸을 닫으면 10분 뒤. 재부팅, 퇴근, 업데이트로 꺼진 것은 퇴사가 아닙니다). 같은 이름으로 다시 열면 재입사해서 같은 집으로 돌아오고 재입사 횟수가 쌓입니다. 작업이 끝날 때마다 그 벌의 꿀이 한 칸씩 장부에 쌓입니다. 목록 서랍의 <b>꿀 순위</b> 탭에서 오늘, 이번 주, 이번 달 순위를 보고, 뒷벽에는 "이달의 꿀벌" 액자가 걸립니다. 벌집 48칸이 다 차면 꿀단지에 담겨 아래 선반에 쌓이고 벌집은 다시 비워집니다.</p>
+  <p><b>입사, 퇴사, 꿀 순위</b>: 벌 한 마리는 프로젝트와 그 안의 Claude 이름입니다. 그래서 <code>/clear</code>나 새 대화를 해도 같은 벌입니다. 처음 보이면 "신입"으로 엘리베이터에서 걸어 들어오고, 프로젝트를 닫거나 그 Claude를 직접 닫으면 퇴사합니다(<code>/exit</code>, 사이드바의 Claude 닫기, 프로젝트 닫기는 바로, tmux로 창이나 칸을 닫으면 10분 뒤. 재부팅, 퇴근, 업데이트로 꺼진 것은 퇴사가 아닙니다). 바로 퇴사한 벌은 짐 상자를 들고 "양말을 받았어요! 이제 자유예요! 🧦" 같은 작별 인사를 띄운 채 엘리베이터로 걸어 나갑니다. 같은 이름으로 다시 열면 재입사해서 같은 집으로 돌아오고 재입사 횟수가 쌓입니다. 작업이 끝날 때마다 그 벌의 꿀이 한 칸씩 장부에 쌓입니다. 목록 서랍의 <b>꿀 순위</b> 탭에서 오늘, 이번 주, 이번 달 순위를 보고, 뒷벽에는 "이달의 꿀벌" 액자가 걸립니다. 벌집 48칸이 다 차면 꿀단지에 담겨 아래 선반에 쌓이고 벌집은 다시 비워집니다.</p>
 </section>
 
 <section id="keys">
@@ -538,7 +541,7 @@ claude -c
   <h3>소문자 c와 대문자 C의 차이</h3>
   <div class="cmp">
     <div class="card"><h3><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>c</kbd></h3><p>현재 폴더에서 <b>셸</b>이 열린 새 창을 만듭니다. git, 테스트, 개발 서버처럼 명령을 직접 입력할 때 씁니다.</p><p class="result">창 이름은 실행 중인 프로그램 이름(zsh 등)으로 자동 표시됩니다.</p></div>
-    <div class="card"><h3><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Shift</kbd>+<kbd>C</kbd></h3><p>이름을 물어본 뒤, 현재 폴더에서 그 이름으로 <b>Claude</b>를 실행한 새 창을 만듭니다.</p><p class="result">입력한 이름이 창 이름이 됩니다. Claude를 끝내도 창은 셸 상태로 남습니다.</p></div>
+    <div class="card"><h3><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Shift</kbd>+<kbd>C</kbd></h3><p>화면 가운데 팝업에서 이름을 물어본 뒤, 현재 폴더에서 그 이름으로 <b>Claude</b>를 실행한 새 창을 만듭니다.</p><p class="result">입력한 이름이 창 이름이 됩니다. Claude를 끝내도 창은 셸 상태로 남습니다.</p></div>
   </div>
 
   <div class="keygroup">
@@ -549,7 +552,8 @@ claude -c
       <div class="key"><span class="combo">사이드바 카드 클릭</span><span class="d">그 Claude로 이동</span></div>
       <div class="key"><span class="combo">프로젝트 이름 클릭</span><span class="d">그 프로젝트로 이동. Claude 창을 모두 닫은 프로젝트도 "Claude 없음"으로 남고, 오른쪽 클릭 → 프로젝트 닫기로 정리합니다</span></div>
       <div class="key"><span class="combo">카드 더블클릭</span><span class="d">작업 이름 바꾸기</span></div>
-      <div class="key"><span class="combo">오른쪽 클릭</span><span class="d">메뉴. 작업 카드: 이동, 이름 바꾸기, 위로 / 아래로 옮기기, 이 프로젝트에 새 Claude, 새 프로젝트. 프로젝트 이름 줄: 이름 바꾸기, 프로젝트 닫기, 새 Claude, 새 프로젝트. 빈 곳: 새 프로젝트. 모든 메뉴 맨 아래에 경로 열기, 포트 목록, 벌 사무실, Claude 업데이트, 원격 연결, 설정. 마우스를 올리면 강조되고 클릭하면 실행. <kbd>↑</kbd> <kbd>↓</kbd>와 <kbd>Enter</kbd>, 괄호 안 글자로도 고름. <kbd>Esc</kbd>나 바깥 클릭으로 닫힘</span></div>
+      <div class="key"><span class="combo">오른쪽 클릭</span><span class="d">메뉴. 작업 카드: 이동, 이름 바꾸기, 위로 / 아래로 옮기기, 이 Claude 퇴근, Claude 닫기, 이 프로젝트에 새 Claude, 새 프로젝트. 퇴근한 카드: 출근, 이동, Claude 닫기. 프로젝트 이름 줄: 이름 바꾸기, 프로젝트 닫기, 이 프로젝트 퇴근 / 출근, 새 Claude, 새 프로젝트. 빈 곳: 새 프로젝트, 모두 퇴근하기 / 모두 출근하기. 모든 메뉴 맨 아래에 경로 열기, 포트 목록, 벌 사무실, Claude 업데이트, 원격 연결, 설정. 마우스를 올리면 강조되고 클릭하면 실행. <kbd>↑</kbd> <kbd>↓</kbd>와 <kbd>Enter</kbd>, 괄호 안 글자로도 고름. <kbd>Esc</kbd>나 바깥 클릭으로 닫힘</span></div>
+      <div class="key"><span class="combo">메뉴 → Claude 닫기</span><span class="d">확인을 받은 뒤 그 Claude를 닫습니다. 같은 창에 다른 칸이 있으면 그 칸만, 프로젝트에 다른 창이 있으면 그 창을 닫고, 프로젝트의 마지막 창이면 Claude만 끄고 셸은 남깁니다(창을 닫으면 프로젝트가 닫히므로). <code>/exit</code>처럼 직접 닫은 것이라 재부팅이나 출근 때 다시 띄우지 않고, 벌 사무실의 그 벌은 퇴사합니다. 대화는 남아 <code>claude --resume</code>으로 이어갈 수 있습니다</span></div>
       <div class="key"><span class="combo">메뉴 → 새 프로젝트</span><span class="d">가운데 폴더 탐색 창이 열림. <kbd>Enter</kbd>는 고른 폴더에서 <code>hm</code>처럼 시작, <kbd>→</kbd> / <kbd>←</kbd>는 폴더 안 / 상위로, 글자를 치면 걸러 보기 (<code>.</code>으로 시작하면 숨김 폴더도), <kbd>Ctrl</kbd>+<kbd>N</kbd>은 새 폴더</span></div>
       <div class="key"><span class="combo">메뉴 → 설정</span><span class="d">언어 (한국어 / English), 애니메이션 켜기 / 끄기, 알림 켜기 / 끄기, 사이드바 폭, 경로 열기에 쓸 편집기, 이 Mac 이름(Enter로 고침. 벌 사무실과 <code>hivemux connect</code>로 붙은 상대 Mac에 이 이름이 보이고, 비우면 Mac 원래 이름). 바꾸면 바로 적용되고 <code>~/.local/share/hivemux</code>에 저장되어 재시작 뒤에도 유지됨. 언어를 바꾸면 사이드바를 다시 띄움</span></div>
       <div class="key"><span class="combo">카드 / 프로젝트 이름 줄 끌기</span><span class="d">작업 순서 / 프로젝트 순서 바꾸기. 놓을 자리가 파랗게 표시되고, <kbd>⌥</kbd>+숫자 번호와 맨 위 창 목록도 같은 순서를 따름. 작업은 같은 프로젝트 안에서만 옮겨짐</span></div>
@@ -809,6 +813,8 @@ ls -la ~/.local/share/hivemux/backups/</pre></div>
       <tr><td>Mac 잠자기 (덮개 닫기)</td><td><span class="pill yes">그대로</span></td><td><span class="pill part">멈춤 후 이어감</span></td><td><span class="pill part">깨면 재연결</span></td></tr>
       <tr><td>재부팅, 강제 종료</td><td><span class="pill part">마지막 저장 시점으로 복원</span></td><td><span class="pill part">자동 재개</span></td><td><span class="pill part">재개 후 다시 등록</span></td></tr>
       <tr><td><code>/exit</code> 또는 Ctrl+D로 종료</td><td><span class="pill yes">창은 남음</span></td><td><span class="pill no">재개 대상에서 빠짐</span></td><td><span class="pill no">종료</span></td></tr>
+      <tr><td>사이드바 → Claude 닫기</td><td><span class="pill part">그 칸이나 창만 닫힘 (마지막 창은 셸이 남음)</span></td><td><span class="pill no">재개 대상에서 빠짐</span></td><td><span class="pill no">종료</span></td></tr>
+      <tr><td>퇴근 (모두, 또는 Claude 하나·프로젝트 하나)</td><td><span class="pill yes">그대로</span></td><td><span class="pill part">출근할 때 재개 (퇴근 중 재부팅해도 띄우지 않음)</span></td><td><span class="pill part">출근 후 다시 등록</span></td></tr>
     </tbody>
   </table>
   </div>
@@ -854,11 +860,12 @@ hivemux uninstall</pre></div>
     <div><code>hivemux-ports</code>, <code>hivemux-ports-ui</code><span>원격 연결 중 상대 Mac의 개발 서버 포트를 이 Mac으로 잇기와 포트 목록 팝업</span></div>
     <div><code>hivemux-office</code><span>벌 사무실 창과 그 창이 읽는 로컬 웹 서버 (share/office)</span></div>
     <div><code>hivemux-paste</code><span>원격 화면의 Claude 칸에서 Ctrl+V: 접속한 Mac 클립보드의 이미지 붙이기</span></div>
-    <div><code>hivemux-shift</code><span>퇴근과 출근: 모든 Claude 끄기(야근 포함), 같은 대화로 다시 시작 (<code>shift</code>, <code>offwork.tsv</code>, <code>shift.log</code>)</span></div>
+    <div><code>hivemux-shift</code><span>퇴근과 출근: 모든 Claude, 또는 Claude 하나나 프로젝트 하나 끄기(야근 포함), 같은 대화로 다시 시작 (<code>shift</code>, <code>offwork.tsv</code>, <code>shift.log</code>)</span></div>
     <div><code>hivemux-bees</code><span>벌 명부와 꿀 장부: 입사, 퇴사, 재입사, 집, 꿀 순위 (<code>bees.json</code>, <code>honey.log</code>)</span></div>
     <div><code>hivemux-claude-update</code><span><code>hivemux update-claude</code>: Claude Code 업데이트 후 칸마다 새 버전으로 다시 시작 (기록: <code>claude-update.log</code>)</span></div>
     <div><code>hivemux-show</code><span><code>hivemux open</code>: 보고 있는 Mac의 기본 앱으로 파일 열기 (원격 화면이면 접속한 Mac으로 복사해서)</span></div>
     <div><code>hivemux-close-project</code>, <code>hivemux-close-project-ui</code><span>프로젝트 닫기 (화면 가운데 팝업으로 묻고 그 세션의 창을 모두 닫음)</span></div>
+    <div><code>hivemux-close-claude</code><span>Claude 닫기 (팝업으로 묻고 그 칸이나 창을 닫음. 프로젝트의 마지막 창은 셸을 남김)</span></div>
     <div><code>hivemux-hook</code><span>Claude 훅. 세션 ID, 폴더, 상태를 tmux 칸에 기록합니다</span></div>
     <div><code>hivemux-panes</code><span>저장 때 칸과 세션 ID 목록을 남기고, 복원 때 재개 명령을 입력합니다</span></div>
     <div><code>hivemux-sidebar</code>, <code>hivemux-sidebar-view</code><span>사이드바 칸 관리와 화면</span></div>
@@ -870,7 +877,7 @@ hivemux uninstall</pre></div>
     <div><code>hivemux-order</code><span>사이드바 작업 / 프로젝트 순서 바꾸기</span></div>
     <div><code>hivemux-open</code>, <code>hivemux-open-ui</code><span>Option+O 경로 열기 팝업</span></div>
     <div><code>hivemux-border</code><span>경계선과 핸들 끌기 피드백, 사이드바 폭 저장</span></div>
-    <div><code>hivemux-new-claude</code>, <code>hivemux-remote</code><span>prefix Shift+C, prefix Shift+R</span></div>
+    <div><code>hivemux-new-claude</code>, <code>hivemux-new-claude-ui</code>, <code>hivemux-remote</code><span>prefix Shift+C(이름을 묻는 팝업), prefix Shift+R</span></div>
     <div><code>hivemux-plugins</code><span>tmux-resurrect와 continuum을 찾아 불러옵니다</span></div>
   </div>
 </section>

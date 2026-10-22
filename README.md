@@ -34,8 +34,9 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
 - **Why it waits, and answer from the office.** A waiting card says what it
   waits for: an approval (with Claude's own one-line description of the
   command, or the file), a plan, a question, or an error; a finished one says
-  how many files the turn changed. In the bee office, click the waiting bee's
-  bubble and press the answer there.
+  how many files the turn changed, and one whose turn ended with background
+  agents still at work says "2 agents running" until it really finishes. In
+  the bee office, click the waiting bee's bubble and press the answer there.
 - **Clock out, clock in.** Stop every Claude for the night and bring them all
   back in the morning, in the same conversations, while the bees go home to a
   village and walk back to work.
@@ -88,6 +89,10 @@ The 🐝 button at the top of the sidebar (or `prefix B`, the right-click menu,
   and the office sits on a tiny planet.
 - Macs connected with `hivemux connect` get desks of their own, on a carpet of
   their color with a name plaque on the wall.
+- Without the Swift compiler for the window app, it opens as an app window in
+  Chrome, Edge, Brave, Whale, Vivaldi or Chromium (no tabs or address bar),
+  else in the browser. If the office server goes away, the page says it is
+  reconnecting and keeps trying; the office window starts the server again.
 
 <p align="center">
   <img src="docs/office/list-en.jpg" alt="The session list drawer" width="430">
@@ -136,8 +141,10 @@ and see who lives there, click to keep it open.
 
 A bee is a project and the Claude's name in it, so it stays the same bee across
 `/clear` and new conversations. A new name is hired and walks in as new;
-closing that Claude (`/exit`, or its window for ten minutes) or its project is
-leaving; the same name coming back is rehired, into the same house.
+closing that Claude (`/exit`, right-click its card → Close Claude…, or its
+window for ten minutes) or its project is leaving: the bee holds up a box of
+its things and walks out by the elevator saying goodbye. The same name coming
+back is rehired, into the same house.
 
 ## Requirements
 
@@ -206,13 +213,14 @@ new hooks once restarted. Claude Code itself: right-click → Update Claude
 | `Option+0` / `prefix Space` | oldest waiting Claude, else oldest unseen finished one |
 | click card / project name | jump · double click a card: rename. A project whose Claude windows are all closed stays listed ("no Claude") until you close it |
 | right click | menu. On a task: go to, rename, move up/down, clock this Claude out, close Claude, new Claude, new project. On a project name: rename, close project, clock this project out / in, new Claude, new project. On empty space: new project, clock everyone out / in. Every menu ends with Open path…, Ports…, Bee office, Update Claude…, Connect to… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes |
+| menu → Close Claude | asks, then closes that Claude: its pane, or its window when nothing else is in it; a project's last window keeps its shell. Not resumed again, like `/exit`; `claude --resume` still continues the conversation |
 | menu → New project | folder browser in the middle: `Enter` starts the selected folder (like `hm`), `→` / `←` in and out, type to filter, `Ctrl+N` new folder |
 | menu → Settings | language (한국어 / English), animation, notifications, sidebar width, editor for Open path, this Mac's name (shown in the bee office and on remote screens); applied at once and saved |
 | drag card / project header | reorder tasks / projects |
 | `prefix Shift+↑` / `↓` | move the current task up / down (at a project's edge, the project moves) |
 | `Option+O` / menu → Open path | open a file path from recent output (Enter editor from Settings, Tab default app, ^F Finder, ^Y copy) |
 | `Option+W` / menu → Ports | dev server ports forwarded between Macs (Enter opens in the browser of the Mac they reach, ^Y copies the address) |
-| `prefix Shift+C` | new window with a named Claude in this folder |
+| `prefix Shift+C` | new window with a named Claude in this folder (asks the name in a popup) |
 | menu → Connect to… | another Mac's hivemux in a new Ghostty window (hosts added with `hivemux connect --add`) |
 | `prefix Shift+H` | connect to the last remote host again |
 | `prefix Shift+B` | open the bee office window (also the 🐝 button at the top of the sidebar) |
