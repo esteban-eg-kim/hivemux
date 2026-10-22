@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Update Claude no longer hangs when macOS holds the new Homebrew binary for
+  its "downloaded from the Internet" prompt, which nobody connected from afar
+  can answer: the quarantine mark is taken off right after the upgrade, and a
+  Claude that doesn't start within 20 s gets a note instead of a frozen popup
+
 ## 0.1.40 — 2026-10-22
 
 - A background shell keeps the turn running by what it runs, not by how

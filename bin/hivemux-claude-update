@@ -33,7 +33,18 @@ SHELLS='^-?(zsh|bash|fish|sh|dash|tcsh|ksh|login)$'
 claude_cmd="${HIVEMUX_CLAUDE:-$(t show-environment -g HIVEMUX_CLAUDE | sed -n 's/^HIVEMUX_CLAUDE=//p')}"
 claude_cmd="${claude_cmd:-claude}"
 real() { local p; p="$(command -v "$1")" && { readlink -f "$p" 2>/dev/null || echo "$p"; }; }
-version() { "$1" --version 2>/dev/null | awk '{print $1; exit}'; }
+# At most 20 s: a just-installed binary can hang at launch while macOS waits on a Gatekeeper prompt on the Mac's
+# own screen, which nobody connected from afar can answer
+# 최대 20초: 막 설치한 실행 파일은 macOS 가 그 Mac 화면의 Gatekeeper 확인창을 기다리느라 시작하지 못할 수 있다.
+# 멀리서 접속했으면 누를 사람이 없다
+version() { # through a file, not a pipe: a child left behind can't hold it open / 파이프가 아니라 파일로: 남은 자식이 붙잡지 못하게
+  local f; f="$(mktemp)"; perl -e 'alarm 20; exec @ARGV' "$1" --version </dev/null >"$f" 2>/dev/null
+  awk '{print $1; exit}' "$f"; rm -f "$f"
+}
+hung() { # hung <binary>: tell why there's no version / 버전이 없는 까닭을 알린다
+  echo "$(say "$1 이 20초 안에 시작하지 않았습니다. 이 Mac 화면에 macOS 확인창이 떠 있을 수 있습니다. 화면에서 '열기'를 누르거나, 터미널에서 $(basename "$1") --version 을 실행해 보세요." \
+              "$1 did not start within 20 s. macOS may be showing a prompt on this Mac's screen: press Open there, or try $(basename "$1") --version in a terminal.")"
+}
 
 # The Claude process in a pane: a child of the pane's shell / 칸의 Claude 프로세스: 칸 셸의 자식
 claude_pid() {
@@ -159,7 +170,10 @@ claudes() { # claudes <current binary> <updated 0|1> -> "<pane> <old 0|1>" per l
 
 update() { # update <binary>
   case "$1" in
-    */Caskroom/*/*) local cask="${1#*/Caskroom/}"; cask="${cask%%/*}"; brew upgrade --cask "$cask" 2>&1 | grep -v '^$' ;;
+    # the new binary comes quarantined: its first launch would wait on that prompt, so take the mark off first
+    # 새 실행 파일은 격리 표시가 붙어 온다. 처음 실행이 그 확인창을 기다리지 않게 먼저 지운다
+    */Caskroom/*/*) local cask="${1#*/Caskroom/}"; cask="${cask%%/*}"; brew upgrade --cask "$cask" 2>&1 | grep -v '^$'
+      xattr -d com.apple.quarantine "$(real claude)" 2>/dev/null ;;
     */Cellar/*) brew upgrade "$(echo "$1" | sed 's#.*/Cellar/\([^/]*\)/.*#\1#')" 2>&1 | grep -v '^$' ;;
     *) claude update 2>&1 | grep -v '^$' ;;
   esac
@@ -189,6 +203,7 @@ main() {
   bin="$(real claude)"
   if [ -z "$bin" ]; then echo "$(say "claude 를 찾지 못했습니다" "claude not found")"; return 1; fi
   cur="$(version "$bin")"
+  [ -n "$cur" ] || { hung "$bin"; return 1; }
   echo "$(say "최신 버전 확인 중…" "Checking for a new version…")"
   new="$(latest "$bin")"
   all=($(claudes "$bin" 0 | awk '{print $1}')); old=($(claudes "$bin" 0 | awk '$2 == 1 {print $1}'))
@@ -211,6 +226,7 @@ main() {
   echo
   update "$bin"
   bin="$(real claude)"; new="$(version "$bin")"
+  [ -n "$new" ] || { echo; hung "$bin"; return 1; }
   echo
   if [ "$new" = "$cur" ]; then echo "$(say "버전이 그대로입니다 ($cur). 위 메시지를 확인하세요." "Still $cur; see the messages above.")"; return 1; fi
   echo "$(say "✓ $cur → $new" "✓ $cur → $new")"
