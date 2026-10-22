@@ -19,6 +19,12 @@
 #   so Option+O can find relative paths (bin/hivemux-open-ui)
 # - Claude 가 지금 일하는 폴더를 기록 (@claude_pwd; Bash 에서 cd 하면 @claude_cwd 와 달라진다)
 #   -> Option+O 가 상대 경로를 찾는다 (bin/hivemux-open-ui)
+# - records why a pane waits (@claude_wait "<kind>\x1e<tool>\x1e<text>": approve, plan, ask, input or error,
+#   with the tool and a line about it, e.g. a Bash command's description or the question) and the files a
+#   turn changed (@claude_touched, paths split by \x1e) -> the sidebar and the bee office show them
+# - 칸이 기다리는 이유 (@claude_wait "<종류>\x1e<도구>\x1e<설명>": approve 승인, plan 계획 승인, ask 질문,
+#   input 입력, error 오류. 설명은 Bash 명령의 description 이나 질문 같은 한 줄) 와 한 턴에 고친 파일
+#   (@claude_touched, \x1e 로 나눈 경로) 을 기록 -> 사이드바와 벌 사무실이 보여 준다
 # Never blocks Claude: always exits 0 and prints nothing.
 
 event="$1"
@@ -32,12 +38,46 @@ field() { printf '%s' "$input" | "$JQ" -r --arg k "$1" '.[$k] // empty' 2>/dev/n
 state() { # state <run|wait|done|idle>
   local cur; cur="$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_state 2>/dev/null)"
   [ "$cur" = "$1" ] && return   # same state: keep the timestamp (do not reset on every tool call) / 같은 상태면 시각 유지 (도구 호출마다 갱신 방지)
+  [ "$1" = wait ] || t set -pu -t "$TMUX_PANE" @claude_wait
   t set -p -t "$TMUX_PANE" @claude_state "$1"
   t set -p -t "$TMUX_PANE" @claude_state_at "$(date +%s)"
   t set -w -t "$TMUX_PANE" @claude_state "$1"
   [ "$1" = done ] && { honey; ( "$(dirname "$0")/hivemux-bees" honey "$TMUX_PANE" >/dev/null 2>&1 & ); }
   "$TMUX_BIN" list-clients -F '#{client_name}' 2>/dev/null | while read -r c; do t refresh-client -t "$c" -S; done
   wake
+}
+
+# Why it waits: kind, tool and one line, from the tool call (PermissionRequest, PreToolUse) or as given
+# 기다리는 이유: 종류, 도구, 한 줄. 도구 호출에서 (PermissionRequest, PreToolUse) 또는 주어진 대로
+RS=$'\x1e'
+why() { # why [<kind> <text>]
+  local w
+  if [ $# -gt 0 ]; then w="$1$RS$RS$2"
+  else
+    w="$(printf '%s' "$input" | "$JQ" -r '
+      (.tool_name // "") as $t | (.tool_input // {}) as $i |
+      if $t == "AskUserQuestion" then ($i.questions // []) as $q |
+        ["ask", $t, (($q[0].question // "") + (if ($q | length) > 1 then " (+\(($q | length) - 1))" else "" end))]
+      elif $t == "ExitPlanMode" then ["plan", $t, ([($i.plan // "") | split("\n")[] | sub("^[#>*\\s-]+"; "") | select(length > 0)][0] // "")]
+      elif $t == "Bash" then ["approve", $t, ($i.description // $i.command // "")]
+      elif ($t | test("^(Edit|Write|MultiEdit|NotebookEdit)$")) then ["approve", $t, ($i.file_path // $i.notebook_path // "")]
+      elif $t == "WebFetch" then ["approve", $t, ($i.url // "")]
+      elif $t == "WebSearch" then ["approve", $t, ($i.query // "")]
+      else ["approve", $t, ([$i[] | strings][0] // "")] end
+      | map(gsub("[\u0000-\u001f]"; " ")) | .[2] |= .[0:200] | join("\u001e")' 2>/dev/null)"
+  fi
+  [ -n "$w" ] && t set -p -t "$TMUX_PANE" @claude_wait "$w"
+}
+
+# A file this turn changed (Edit, Write...): kept once each until the next prompt
+# 이번 턴에 고친 파일 (Edit, Write...): 다음 프롬프트까지 하나씩 모은다
+touched() {
+  local f cur; f="$(printf '%s' "$input" | "$JQ" -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null)"
+  case "$f" in ""|"$HOME/.claude/"*) return ;; esac   # not Claude's own plans and notes / Claude 자신의 계획과 메모는 빼고
+  cur="$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_touched 2>/dev/null)"
+  case "$RS$cur$RS" in *"$RS$f$RS"*) return ;; esac
+  [ "${#cur}" -lt 20000 ] || return
+  t set -p -t "$TMUX_PANE" @claude_touched "${cur:+$cur$RS}$f"
 }
 
 # One more task finished today (a new day starts again from 1)
@@ -112,11 +152,12 @@ case "$event" in
     fi
     ;;
   UserPromptSubmit|PermissionDenied)
+    [ "$event" = UserPromptSubmit ] && t set -pu -t "$TMUX_PANE" @claude_touched   # a new turn / 새 턴
     mode_
     state run
     ;;
   PostToolUse|PostToolUseFailure)
-    case "$(field tool_name)" in Agent|Task) agents -1 ;; Bash) pwd_ ;; esac
+    case "$(field tool_name)" in Agent|Task) agents -1 ;; Bash) pwd_ ;; Edit|Write|MultiEdit|NotebookEdit) [ "$event" = PostToolUse ] && touched ;; esac
     mode_
     state run
     ;;
@@ -125,7 +166,7 @@ case "$event" in
     # Tools that only ask the user something wait right away; others are running
     # 사용자에게 묻기만 하는 도구는 바로 입력 필요, 나머지는 작업 중
     case "$(field tool_name)" in
-      AskUserQuestion|ExitPlanMode) state wait ;;
+      AskUserQuestion|ExitPlanMode) why; state wait ;;
       Agent|Task) agents +1; state run ;;
       *) state run ;;
     esac
@@ -133,11 +174,13 @@ case "$event" in
   PermissionRequest)
     # Fires when the approval dialog opens (the Notification below comes later)
     # 승인 창이 뜨는 순간 호출된다 (아래 Notification 은 몇 초 늦게 온다)
+    why
     state wait
     ;;
   Notification)
     case "$(field notification_type)" in
-      permission_prompt|elicitation_dialog|elicitation_url_dialog|agent_needs_input) state wait ;;
+      permission_prompt) state wait ;;
+      elicitation_dialog|elicitation_url_dialog|agent_needs_input) why input "$(field message)"; state wait ;;
     esac
     ;;
   Stop)
@@ -153,6 +196,7 @@ case "$event" in
   StopFailure)
     # The turn ended on an API error (rate limit, overload, auth...): no Stop comes, so ask the user to look
     # API 오류(요청 한도, 과부하, 인증 등)로 응답이 끊김: Stop 이 오지 않으니 확인하도록 입력 필요로 표시
+    why error "$(printf '%s' "$input" | "$JQ" -r '[.error, .error_type, .message, .reason][] | strings' 2>/dev/null | head -1)"
     state wait
     ;;
   SessionEnd)
@@ -162,6 +206,8 @@ case "$event" in
     t set -pu -t "$TMUX_PANE" @claude_agents
     t set -pu -t "$TMUX_PANE" @claude_pwd
     t set -pu -t "$TMUX_PANE" @claude_plan
+    t set -pu -t "$TMUX_PANE" @claude_wait
+    t set -pu -t "$TMUX_PANE" @claude_touched
     # Forget the mapping only on a deliberate exit; reboots and kills still resume
     # 직접 종료했을 때만 매핑 삭제 -> 재부팅/강제 종료는 재개된다
     case "$(field reason)" in

@@ -35,7 +35,7 @@ $XDG_DATA_HOME/hivemux/hive/; without swiftc the page opens in the browser.
 창은 작은 네이티브 앱 (share/office/OfficeWindow.swift)으로, swiftc 로 한 번 빌드해
 $XDG_DATA_HOME/hivemux/hive/ 에 둔다. swiftc 가 없으면 브라우저로 연다.
 """
-import functools, glob, hashlib, http.server, json, os, shlex, shutil, signal, socket, stat, subprocess, sys, threading, time, urllib.request
+import functools, glob, hashlib, http.server, json, os, re, shlex, shutil, signal, socket, stat, subprocess, sys, threading, time, urllib.request
 
 TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -52,7 +52,7 @@ IDLE_EXIT = 90               # seconds without a page asking before the server q
 US = "\x1f"
 FIELDS = ["pane_id", "session_name", "window_index", "window_name", "pane_title", "@claude_state", "@claude_state_at",
           "@claude_session", "@claude_title", "@claude_name", "@claude_agents", "@claude_plan", "pane_current_command",
-          "pane_index"]
+          "pane_index", "@claude_wait", "@claude_touched"]
 SHELLS = {"zsh", "bash", "fish", "sh", "dash", "tcsh", "ksh", "login"}
 SSH = shlex.split(os.environ.get("HIVEMUX_SSH") or "ssh")
 PATH = "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH"
@@ -182,6 +182,8 @@ def snapshot():
             "state": p["@claude_state"], "at": int(p["@claude_state_at"]) if p["@claude_state_at"].isdigit() else 0,
             "agents": int(p["@claude_agents"]) if p["@claude_agents"].isdigit() else 0,
             "plan": bool(p["@claude_plan"]), "bee": p["bee"],
+            "files": len([f for f in p["@claude_touched"].split(RS) if f]),
+            **(waiting(p) if p["@claude_state"] == "wait" else {}),
         } for i, p in enumerate(items, 1)],
         # clocked out (or rebooted while clocked out), the bees sent home keep their place
         # 퇴근 중 (또는 퇴근 중 재부팅): 집에 보낸 벌은 자리를 지킨다
@@ -228,6 +230,87 @@ def shift(busy):
     for bee in offwork():
         (overtime if bee in busy else home).append(bee)
     return {"state": "off", "since": int(st[1]) if len(st) > 1 and st[1].isdigit() else 0, "home": home, "overtime": overtime}
+
+
+# ── answering from the office / 사무실에서 답하기 ──────────────────────────────
+
+RS = "\x1e"
+OPTION_RE = re.compile(r"^\s*(❯\s*)?(\d{1,2})\.\s+(?:\[([ ✔✓x×])\]\s*)?(.*\S)\s*$")
+RULE_RE = re.compile(r"^\s*[─━╌▔]{8,}")
+TEXT_RE = re.compile(r"(?i)^(type something|tell claude|no, and tell claude)")
+FOOT_RE = re.compile(r"(?i)esc to cancel|enter to select|ctrl\+g to edit")   # the last lines of a dialog / 창의 맨 아랫줄
+
+
+def waiting(p):
+    """Why a waiting pane waits (@claude_wait from bin/hivemux-hook) and the choices on its screen
+    기다리는 칸의 이유 (bin/hivemux-hook 의 @claude_wait) 와 화면의 선택지"""
+    kind, tool, text = (p["@claude_wait"].split(RS) + ["", "", ""])[:3]
+    out = {"why": {"kind": kind, "tool": tool, "text": text}} if kind else {}
+    m = menu(p["pane_id"])
+    if m:
+        out["menu"] = m
+    return out
+
+
+def menu(pane):
+    """The choices Claude shows in a pane (an approval, a plan to approve, a question), read off its screen:
+    {"title", "options": [{"n", "label", "desc", "checked" (a multiple choice), "text" (takes typed words)}],
+    "tabs" (several questions: move on with →)}; None when no dialog is open
+    칸에 Claude 가 띄운 선택지 (승인, 계획 승인, 질문) 를 화면에서 읽는다. 창이 없으면 None"""
+    lines = tmux("capture-pane", "-p", "-t", pane).splitlines()
+    while lines and not lines[-1].strip():
+        lines.pop()
+    lines = lines[-60:]
+    cur = next((i for i in range(len(lines) - 1, -1, -1) if re.match(r"^\s*❯\s*\d{1,2}\.\s", lines[i])), None)
+    # a dialog's footer under it, or the options at the very bottom (the review of several answers has no footer)
+    # 아래에 창의 맨 아랫줄, 또는 선택지가 맨 아래 (여러 답을 확인하는 화면에는 맨 아랫줄이 없다)
+    if cur is None or not (any(FOOT_RE.search(l) for l in lines[-8:]) or cur >= len(lines) - 6):
+        return None
+    top = cur                     # the options run between rules around the cursor / 커서를 둘러싼 선 사이가 선택지
+    while top > 0 and not RULE_RE.match(lines[top - 1]):
+        top -= 1
+    bottom = cur
+    while bottom + 1 < len(lines) and not RULE_RE.match(lines[bottom + 1]) and not FOOT_RE.search(lines[bottom + 1]):
+        bottom += 1
+    opts, title = [], []
+    for l in lines[top:bottom + 1]:
+        m = OPTION_RE.match(l)
+        if m:
+            label = m.group(4)
+            opts.append({"n": int(m.group(2)), "label": label, "desc": "", "checked": None if m.group(3) is None else m.group(3) != " ",
+                         "text": bool(TEXT_RE.match(label))})
+        elif opts and l.strip():
+            opts[-1]["desc"] = (opts[-1]["desc"] + " " + l.strip()).strip()
+        elif not opts and l.strip() and not l.strip().startswith(("←", "☐", "☒")):
+            title.append(l.strip())
+    if not opts or [o["n"] for o in opts] != list(range(1, len(opts) + 1)):
+        return None
+    tabs = any(l.strip().startswith("←") and l.rstrip().endswith("→") for l in lines[max(0, top - 4):top + 1])
+    return {"title": "\n".join(title)[-400:], "options": opts, "tabs": tabs}
+
+
+def answer(pane, req):
+    """Press an option (its number; typed words after it for one that takes them) or → for the next question,
+    only if the same dialog is still on the screen. True when sent
+    선택지를 누른다 (번호. 글을 받는 선택지면 이어서 그 글) 또는 다음 질문으로 →. 같은 창이 아직 화면에 있을 때만"""
+    m = menu(pane)
+    if not m:
+        return False
+    if req.get("key") == "next":
+        tmux("send-keys", "-t", pane, "Right")
+        return True
+    n, label = req.get("n"), str(req.get("label") or "")
+    o = next((o for o in m["options"] if o["n"] == n), None)
+    if not o or o["label"] != label:
+        return False
+    tmux("send-keys", "-t", pane, str(n))
+    words = str(req.get("text") or "").replace("\n", " ").strip()[:2000]
+    if o["text"] and words:
+        time.sleep(.25)
+        tmux("send-keys", "-t", pane, "-l", words)
+        time.sleep(.1)
+        tmux("send-keys", "-t", pane, "Enter")
+    return True
 
 
 def goto(pane, frm=None):
@@ -379,7 +462,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self.send(403, "{}")
         if origin and origin not in (f"http://127.0.0.1:{self.server.server_port}", f"http://localhost:{self.server.server_port}"):
             return self.send(403, "{}")
-        if self.path not in ("/goto", "/shift"):
+        if self.path not in ("/goto", "/shift", "/answer"):
             return self.send(404, "{}")
         try:
             n = int(self.headers.get("Content-Length") or 0)
@@ -403,6 +486,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
         pane, ssh = str(req.get("pane", "")), req.get("ssh")
         if not pane.startswith("%"):
             return self.send(400, "{}")
+        if self.path == "/answer":  # an option chosen in the office / 사무실에서 고른 선택지
+            ans = {k: req.get(k) for k in ("n", "label", "text", "key")}
+            if ssh:
+                sock = next((s for h, s in connections() if h == ssh), None)
+                r = remote_run(sock, ssh, ["--answer", pane, json.dumps(ans)]) if sock else None
+                ok = bool(r and r.returncode == 0)
+            else:
+                ok = answer(pane, ans)
+            return self.send(200, json.dumps({"ok": ok}))
         if ssh:
             sock = next((s for h, s in connections() if h == ssh), None)
             r = remote_run(sock, ssh, ["--goto", pane, "--from", me()]) if sock else None
@@ -704,6 +796,12 @@ def main(argv):
     elif argv[:1] == ["--goto"] and len(argv) >= 2:
         frm = argv[3] if argv[2:3] == ["--from"] and len(argv) >= 4 else None
         sys.exit(0 if goto(argv[1], frm) else 1)
+    elif argv[:1] == ["--answer"] and len(argv) == 3:   # the other Mac's office answers here / 상대 Mac 의 사무실이 여기 답한다
+        try:
+            ans = json.loads(argv[2])
+        except ValueError:
+            sys.exit(2)
+        sys.exit(0 if argv[1].startswith("%") and isinstance(ans, dict) and answer(argv[1], ans) else 1)
     elif argv[:1] == ["--shift"] and argv[1:2] in (["on"], ["off"]):   # the other Mac's office asks / 상대 Mac 의 사무실이 묻는다
         r = subprocess.run([os.path.join(HERE, "hivemux-shift"), argv[1]], capture_output=True, text=True, stdin=subprocess.DEVNULL)
         print(r.stdout.strip()); sys.exit(r.returncode)
