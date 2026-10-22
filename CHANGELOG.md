@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Bee office: losing the server no longer leaves the page stuck on "Lost
+  hivemux": it says it is reconnecting and keeps trying, the office window
+  starts the server again by itself, and a note says when it is back. The
+  server also stays up while the office window is open, even minimized or
+  hidden (macOS pauses such a page, so it stopped asking and the server
+  quit after 90 seconds)
+
 ## 0.1.36 — 2026-10-21
 
 - Clock out: it said "already clocked out" after any clock in

@@ -1,12 +1,14 @@
 // The bee office window (bin/hivemux-office builds this with swiftc on first use).
 // 벌 사무실 창 (bin/hivemux-office 가 처음 쓸 때 swiftc 로 빌드한다).
-//   OfficeWindow <url> <icon.png> <pidfile>
+//   OfficeWindow <url> <icon.png> <pidfile> [<python> <hivemux-office>]
 // A plain window around a web view of the local page. The page talks back through
 // window.webkit.messageHandlers.office: {"top": true|false} keeps the window above others,
 // {"front": true} brings it forward without taking the keyboard (a bee popping out).
+// {"revive": true} (the page lost its server) and a page that will not load start the server again.
 // SIGUSR1 (hivemux-office run again) brings it to the front.
 // 로컬 페이지를 보여 주는 웹 뷰 하나짜리 창. 페이지는 window.webkit.messageHandlers.office 로 말한다:
 // {"top": true|false} 다른 창 위에 띄우기, {"front": true} 키보드는 뺏지 않고 앞으로 (벌이 튀어나올 때).
+// {"revive": true} (페이지가 서버를 잃음) 이나 페이지가 안 열리면 서버를 다시 띄운다.
 // SIGUSR1 (hivemux-office 를 다시 실행) 을 받으면 앞으로 나온다.
 import Cocoa
 import WebKit
@@ -15,6 +17,7 @@ let args = CommandLine.arguments
 let pageURL = URL(string: args.count > 1 ? args[1] : "http://127.0.0.1:47380/")!
 let iconPath = args.count > 2 ? args[2] : ""
 let pidFile = args.count > 3 ? args[3] : ""
+let server = args.count > 5 ? [args[4], args[5]] : []
 let topKey = "hivemux-office-top"
 
 final class Office: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMessageHandler, WKNavigationDelegate {
@@ -22,6 +25,19 @@ final class Office: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptM
     var web: WKWebView!
     var signalSource: DispatchSourceSignal?
     var topItem: NSMenuItem!
+    var revived = Date.distantPast
+
+    // start hivemux-office serve again, at most every 10 s (one already running just quits)
+    // hivemux-office serve 를 다시 띄운다, 10초에 한 번까지 (이미 돌고 있으면 새것은 그냥 끝난다)
+    func revive() {
+        guard server.count == 2, Date().timeIntervalSince(revived) > 10 else { return }
+        revived = Date()
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: server[0])
+        p.arguments = [server[1], "serve"]
+        p.standardInput = FileHandle.nullDevice; p.standardOutput = FileHandle.nullDevice; p.standardError = FileHandle.nullDevice
+        try? p.run()
+    }
 
     func applicationDidFinishLaunching(_ note: Notification) {
         if let img = NSImage(contentsOfFile: iconPath) { NSApp.applicationIconImage = img }
@@ -95,12 +111,14 @@ final class Office: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptM
     // the server went away (idle exit, reboot): retry until hivemux-office starts one again
     // 서버가 없어짐 (유휴 종료, 재부팅): hivemux-office 가 다시 띄울 때까지 다시 시도
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        revive()
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.web.load(URLRequest(url: pageURL)) }
     }
 
     func userContentController(_ c: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let body = message.body as? [String: Any] else { return }
         if let on = body["top"] as? Bool { setTop(on) }
+        if body["revive"] as? Bool == true { revive() }
         if body["front"] as? Bool == true {
             if window.isMiniaturized { window.deminiaturize(nil) }
             window.orderFrontRegardless()

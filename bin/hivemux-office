@@ -479,8 +479,12 @@ def serve():
     Handler.remotes = Remotes()
     Handler.remotes.start()
 
+    # quits once no page has asked for a while, but not while the office window is open: a window that is
+    # minimized or hidden stops asking (macOS pauses its page) and expects the server when it comes back
+    # 한동안 묻는 페이지가 없으면 끝난다. 단 사무실 창이 열려 있으면 그대로: 내리거나 가려진 창은 묻지 않다가
+    # (macOS 가 페이지를 멈춘다) 돌아오면 서버가 있기를 기대한다
     def reaper():
-        while time.time() - Handler.last < IDLE_EXIT:
+        while time.time() - Handler.last < IDLE_EXIT or running_window():
             time.sleep(5)
         os._exit(0)
     threading.Thread(target=reaper, daemon=True).start()
@@ -612,7 +616,8 @@ def open_window(popup=False):
     if not app:
         subprocess.run(["open", url])
         return
-    subprocess.Popen([app, url, LOGO, WINDOW_PID], start_new_session=True,
+    # the last two: how the window starts a server again if this one is gone / 마지막 둘: 서버가 없어졌을 때 창이 다시 띄우는 법
+    subprocess.Popen([app, url, LOGO, WINDOW_PID, sys.executable, os.path.realpath(__file__)], start_new_session=True,
                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 

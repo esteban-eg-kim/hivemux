@@ -572,9 +572,17 @@ async function poll() {
   try {
     const r = await fetch('/state', { cache: 'no-store' });
     s = await r.json();
+    if (failures >= 3) toast(tr('hivemux 에 다시 연결됐어요', 'Reconnected to hivemux'));
     failures = 0; $('#lost').hidden = true;
   } catch (e) {
-    if (++failures >= 3) { $('#lost').textContent = tr('hivemux 와 연결이 끊겼어요. 터미널에서 hivemux office 를 다시 실행하세요.', 'Lost hivemux. Run hivemux office again in a terminal.'); $('#lost').hidden = false; }
+    // keep trying every second; the office window also starts the server again. After half a minute, say
+    // what else to do / 1초마다 계속 시도하고, 사무실 창은 서버도 다시 띄운다. 30초가 지나면 다른 방법을 알린다
+    if (++failures >= 3) {
+      if (native) native.postMessage({ revive: true });
+      $('#lost').textContent = tr(`hivemux 와 연결이 끊겼어요. 다시 연결하는 중… (${failures}초)`, `Lost hivemux. Reconnecting… (${failures}s)`) +
+        (failures >= 30 ? tr(' 계속 안 되면 터미널에서 hivemux office 를 실행하세요.', ' If it keeps failing, run hivemux office in a terminal.') : '');
+      $('#lost').hidden = false;
+    }
   }
   // a bug drawing the state is not a lost connection / 그리다 난 버그는 끊긴 연결이 아니다
   try {
