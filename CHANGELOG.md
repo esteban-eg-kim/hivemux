@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.38 — 2026-10-22
 
 - Bee office: a bee whose Claude was closed (Close Claude, Close project,
   /exit) no longer just vanishes: it holds up a box of its things, says
