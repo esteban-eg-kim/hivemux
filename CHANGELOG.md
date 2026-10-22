@@ -5,6 +5,10 @@
 - A Claude waiting on a question or an approval while its background agents
   work no longer looks busy: their tool calls flipped the sidebar card and
   the bee back to work although the question was still open
+- A turn that ends while Claude's background agents still work is no longer
+  done: the bee stays at work (no honey yet) until Claude takes up their
+  results and really finishes, so it brings honey once instead of once per
+  agent
 
 ## 0.1.37 — 2026-10-22
 

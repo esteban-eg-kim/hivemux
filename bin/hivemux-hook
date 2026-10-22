@@ -103,10 +103,10 @@ honey() {
 
 # Subagents running on this pane: +1 when Claude starts one (the Agent tool, Task before), -1 when it returns
 # 이 칸에서 도는 서브에이전트 수: Claude 가 하나 띄우면 (Agent 도구, 예전 이름 Task) +1, 돌아오면 -1
-agents() { # agents <+1|-1|0>
+agents() { # agents <+1|-1|count>
   local n
   case "$1" in
-    0) n=0 ;;
+    [0-9]*) n="$1" ;;
     *) n="$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_agents 2>/dev/null)"; n=$(( ${n:-0} $1 )); [ "$n" -lt 0 ] && n=0 ;;
   esac
   if [ "$n" = 0 ]; then t set -pu -t "$TMUX_PANE" @claude_agents; else t set -p -t "$TMUX_PANE" @claude_agents "$n"; fi
@@ -196,10 +196,15 @@ case "$event" in
     esac
     ;;
   Stop)
-    agents 0
     pwd_
     mode_
-    state done
+    # Subagents still running in the background: Claude takes up their results by itself, so the work goes
+    # on (a background shell, such as a server, may run for good and does not count)
+    # 배경에서 아직 도는 서브에이전트: Claude 가 그 결과를 받아 스스로 이어 가니 일은 계속된다 (서버 같은
+    # 배경 셸은 계속 돌 수 있어 세지 않는다)
+    bg="$(printf '%s' "$input" | "$JQ" -r '[.background_tasks[]? | select(.type == "subagent" and .status == "running")] | length' 2>/dev/null)"
+    agents "${bg:-0}"
+    if [ "${bg:-0}" -gt 0 ] 2>/dev/null; then state run; else state done; fi
     # If a sidebar rename is pending, send it now that the turn has ended
     # 사이드바에서 바꾼 이름이 보류 중이면 응답이 끝난 지금 보낸다
     [ -n "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_rename_pending 2>/dev/null)" ] &&
