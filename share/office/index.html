@@ -350,7 +350,7 @@ const settings = { pop: 'front', privacy: 'all', sound: 'off', sky: 'auto', side
 try { Object.assign(settings, JSON.parse(localStorage.getItem('office-settings') || '{}')); } catch (e) {}
 const saveSettings = () => { try { localStorage.setItem('office-settings', JSON.stringify(settings)); } catch (e) {} };
 
-const LABEL = { run: ['일하는 중', 'working'], wait: ['기다림', 'waiting'], done: ['끝남', 'done'], idle: ['쉬는 중', 'resting'], home: ['퇴근', 'home'] };
+const LABEL = { run: ['일하는 중', 'working'], wait: ['기다림', 'waiting'], done: ['끝남', 'done'], idle: ['쉬는 중', 'resting'], home: ['퇴근', 'home'], bye: ['퇴사', 'leaving'] };
 const label = st => tr(...(LABEL[st] || LABEL.idle));
 const PLAN_TALK = [['순서부터 정하고', 'Order first'], ['1단계, 2단계…', 'Step 1, step 2…'], ['여기가 핵심', 'This is the key'], ['위험한 곳 체크', 'Mark the risks'], ['음…', 'Hmm…'], ['파일 세 개만 고치면 돼요', 'Just three files']];
 const CREW_TALK = [['이건 어때요?', 'How about this?'], ['엣지 케이스는요?', 'Edge cases?'], ['좋은데요', 'Nice'], ['테스트도 넣죠', 'Add tests too'], ['포스트잇 붙일게요', 'Sticky note!'], ['일정은요?', 'Timeline?']];
@@ -692,6 +692,12 @@ function ingest(list) {
       if (!b.commuteUntil) b.commuteUntil = performance.now() + 120000;
       if (performance.now() < b.commuteUntil) continue;
     }
+    // closed on purpose (Close Claude, Close project: the roster says it left just now): it says goodbye and
+    // leaves by the elevator with its things / 직접 닫음 (Claude 닫기, 프로젝트 닫기: 명부에 방금 떠났다고 나온다):
+    // 인사하고 짐을 들고 엘리베이터로 나간다
+    if (b.state === 'bye' && performance.now() < b.byeUntil) continue;
+    const r = b.state !== 'bye' && b.state !== 'home' && b.bee && bo && bo.bees && bo.bees[b.bee];
+    if (r && r.left && Date.now() / 1000 - r.left < 120 && b.x !== undefined && !reduced) { farewell(b); continue; }
     if (b.spot) b.spot.occ = null; if (b.eve && b.eve.spot) b.eve.spot.occ = null; if (pop === b) closePop(); bees.delete(k);
   }
   // the page opened while clocked out: the bees are already home / 퇴근 중에 연 페이지: 벌들은 이미 집에 있다
@@ -753,8 +759,20 @@ function assignDesks(all) {
   }
   for (const b of all) b.desk = b.deskId ? LAY.byId.get(b.deskId) : null;
 }
+const BYE = [['양말을 받았어요! 이제 자유예요! 🧦', 'I got a sock! I am free! 🧦'], ['그동안 즐거웠어요! 안녕히 계세요 👋', 'It was fun! Goodbye, everyone 👋'],
+  ['짐 다 챙겼어요. 다들 고마웠어요!', 'All packed. Thanks, everyone!'], ['꿀 많이 모으세요! 저는 이만 🍯', 'Keep the honey coming! I am off 🍯']];
+function farewell(b) {
+  if (b.spot) b.spot.occ = null; b.spot = null; if (b.eve && b.eve.spot) b.eve.spot.occ = null; b.eve = null;
+  if (pop === b) closePop();
+  Object.assign(b, { state: 'bye', deliver: false, desk: null, deskId: null, agents: 0, byeAt: performance.now(), byeUntil: performance.now() + 30000 });
+  say(b, tr(...BYE[Math.floor(Math.random() * BYE.length)]), 4200);
+  setTarget(b, 'byewave', { x: b.x, y: b.y });
+  setTimeout(() => { if (bees.get(b.key) === b) plan(); }, 2600);
+}
 function plan() {
-  const everyone = [...bees.values()], all = everyone.filter(b => b.state !== 'home');
+  const everyone = [...bees.values()], all = everyone.filter(b => b.state !== 'home' && b.state !== 'bye');
+  // leaving the company: a wave with its box first, then out by the elevator / 퇴사: 상자를 들고 인사한 뒤 엘리베이터로
+  for (const b of everyone) if (b.state === 'bye' && performance.now() - b.byeAt > 2500) setTarget(b, 'bye', ENTRY());
   for (const b of everyone) if (b.state === 'home') {
     const e = houseOf(b), door = e ? e.h.door : { x: villageEnd(), y: pathY() };
     b.desk = null; b.deskId = null;
@@ -819,6 +837,7 @@ function plan() {
 // honey in the comb: today's finished tasks minus the jars still carried / 벌집의 꿀: 오늘 끝난 작업 - 아직 들고 있는 꿀단지
 const honeyShown = () => Math.max(0, honeyTotal - [...bees.values()].filter(b => b.state === 'done' || b.deliver).length);
 function whereOf(b) {
+  if (b.state === 'bye') return tr('짐 싸서 퇴사하는 중', 'leaving the company with its things');
   if (b.state === 'home' && b.commuteUntil) return tr('출근하는 중', 'on the way to work');
   if (b.state === 'home' && b.key2 === 'pub') return b.inside ? tr(...EVE_LABEL.pub) : tr('펍 "꿀단지"에 가는 중', 'off to the Honey Pot');
   if (b.state === 'home' && b.key2 === 'eve' && b.eve && b.eve.spot) return b.arrived ? tr(...EVE_LABEL[b.eve.kind]) : tr('놀러 가는 중', 'going out');
@@ -2010,6 +2029,7 @@ function badge(b) {
 }
 function poseOf(b) {
   if (b.npc) return b.key2 === 'meet' ? 'meet' : 'idle';
+  if (b.state === 'bye') return 'done';   // holding up its box / 상자를 들고
   if (b.state === 'home') return b.key2 === 'clap' ? 'clap' : b.key2 === 'eve' && b.arrived && b.eve && b.eve.spot ? ({ cheers: 'cheers', kick: 'kick', bench: 'sofa', chat: 'chat', type: 'type', read: 'coffee', dart: 'pong' })[b.eve.kind] : 'idle';
   if (b.state === 'run') return b.key2 === 'meet' ? (b.atBoard ? 'board' : 'meet') : 'type';
   if (b.state === 'wait') return 'wait';
@@ -2030,7 +2050,7 @@ function drawBee(b, t) {
   const typeFront = pose === 'type' && look && toward(...look);
   const back = (busy && look ? !toward(...look) : false) || (pose === 'walk' && b.back);
   const sit = SIT[pose] || 0, f = look ? sideOf(...look) : b.face || -1, dark = T['bee-dark'];
-  const carry = pose === 'done' || ((b.state === 'done' || b.deliver) && pose === 'walk');
+  const carry = pose === 'done' || ((b.state === 'done' || b.deliver || b.state === 'bye') && pose === 'walk');
   const ph = t * (b.sprint ? 18 : 10) + (b.phase || 0);
   const swing = pose === 'walk' ? Math.sin(ph) : 0;
   let bob = 0, tilt = 0, flap = .5 + .5 * Math.sin(t * 6 + (b.phase || 0));
@@ -2102,7 +2122,10 @@ function drawBee(b, t) {
   }
   c.restore();
   if (back) wings();
-  if (carry) { fillRR(-6, -57, 12, 12, 2.5, T.honey); c.strokeStyle = dark; c.lineWidth = 1; rr(-6, -57, 12, 12, 2.5); c.stroke(); fillRR(-7, -59, 14, 3.5, 1, dark); }
+  if (carry && b.state === 'bye') {   // a moving box of its things, a plant on top / 짐 상자, 위에 화분
+    fillRR(-9, -58, 18, 13, 1.5, '#c99a62'); c.strokeStyle = dark; c.lineWidth = 1; rr(-9, -58, 18, 13, 1.5); c.stroke();
+    fillRR(-1.5, -58, 3, 13, .5, '#e3c08e'); fillRR(-5, -65, 5, 7, 1.5, T.run); fillRR(2, -62, 4, 4, 1, T.wait);
+  } else if (carry) { fillRR(-6, -57, 12, 12, 2.5, T.honey); c.strokeStyle = dark; c.lineWidth = 1; rr(-6, -57, 12, 12, 2.5); c.stroke(); fillRR(-7, -59, 14, 3.5, 1, dark); }
   if (pose === 'pong') circle(f * 13, -28 + Math.sin(t * 5.5) * 4, 3.4, T.alert);
   if (pose === 'plant') fillRR(f * 10 - 4, -22, 8, 7, 1.5, T.run);
   if (b.acc === 'glasses' && !back) { const ex = (b.face || -1) * 2.4; c.strokeStyle = dark; c.lineWidth = 1; for (const s of [-1, 1]) { c.beginPath(); c.arc(ex + s * 3.2, -35, 3.1, 0, 7); c.stroke(); } c.beginPath(); c.moveTo(ex - .3, -35); c.lineTo(ex + .3, -35); c.stroke(); }
@@ -2344,6 +2367,7 @@ function settle(b) {
   if (b.key2 === 'desk' && b.desk) b.look = [0, b.desk.far ? 1 : -1];
   if (b.key2 === 'meet') b.look = b.atBoard ? [0, -1] : at(MEET_C);
   if (b.npc && b.key2 === 'out') crew.delete(b.key);
+  if (b.key2 === 'bye') { bees.delete(b.key); return; }   // gone down the elevator / 엘리베이터로 내려갔다
   if (b.key2 === 'q') { b.look = [0, -1]; maybePop(); }
   if (b.key2 === 'comb') { b.look = [0, -1]; b.deliver = false; say(b, tr('꿀 저장 완료!', 'Honey stored!')); plan(); }
   if (b.key2 === 'lounge' && b.spot) {
