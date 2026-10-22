@@ -212,16 +212,8 @@ case "$event" in
     [ "$bgs" -gt 0 ] 2>/dev/null && field last_assistant_message | tail -c 600 |
       grep -Eiq '기다리|기다릴|끝나면|끝나는 대로|끝날 때까지|완료되면|돌아가는 동안|wait(ing)? (for|until|on)|once (it|they|that|this|the [a-z ]+) (finish|complete|is done|are done)|when (it|they) (finish|complete)|still running' || bgs=0
     agents "$bga"
-    # A turn that ends on a question in plain words ("커밋할까요?", "Shall I open the PR?") waits for your answer,
-    # like a question asked with the tool: the last question near the end of what Claude said
-    # 글로 물어보고 끝난 턴 ("커밋할까요?") 은 도구로 물은 질문처럼 답을 기다린다: Claude 가 한 말 끝부분의 마지막 질문
-    # (bytes, so Korean text passes the ASCII-only classes in any locale / 바이트로 읽어 어느 로캘에서든 한글이 통과한다)
-    ask="$(field last_assistant_message | LC_ALL=C sed '/^```/,/^```/d; s/？/?/g' | tail -c 900 | LC_ALL=C tr '\n' ' ' |
-      LC_ALL=C grep -oE '[^.!?]{4,255}[?]' | tail -1 | LC_ALL=C sed 's/[*`#>]//g; s/^[ 0-9.)-]*//; s/ *$//')"
     if [ "$bga" -gt 0 ] || [ "$bgs" -gt 0 ] 2>/dev/null; then
       t set -p -t "$TMUX_PANE" @claude_bg "$bga $bgs"; state run
-    elif [ -n "$ask" ]; then
-      t set -pu -t "$TMUX_PANE" @claude_bg; why ask "$ask"; state wait
     else
       t set -pu -t "$TMUX_PANE" @claude_bg; state done
     fi
