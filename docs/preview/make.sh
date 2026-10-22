@@ -38,6 +38,13 @@ C
   }
   st api:claude run 240 "$N1"; st docs:claude done 60 "$N2"; st web:claude wait 120 "$N3"
   st web:login-bug wait 40 "$N4"; st wayfinder:claude idle 0 "$N5"
+  # why the two wait (bin/hivemux-hook @claude_wait), the files the finished turn changed (@claude_touched)
+  # 두 칸이 기다리는 이유 (bin/hivemux-hook @claude_wait), 끝난 턴이 고친 파일 (@claude_touched)
+  why() { T set -p -t "$(T list-panes -t "$1" -F '#{pane_id} #{pane_title}' | awk '$2!="hivemux-sidebar"{print $1; exit}')" "$2" "$3"; }
+  if [ "$L" = ko ]; then Q="결제 수단은 무엇으로 할까요?"; else Q="Which payment provider should we use?"; fi
+  why web:claude @claude_wait "$(printf 'ask\tAskUserQuestion\t%s' "$Q")"
+  why web:login-bug @claude_wait "$(printf 'approve\tEdit\tsrc/routes/login/+page.server.ts')"
+  why docs:claude @claude_touched "$(printf 'docs/api/auth.md\tdocs/api/users.md\tdocs/README.md')"
   O -f /dev/null new-session -d -x $COLS -y $ROWS \
     "env -u TMUX TERM=xterm-ghostty TERMINFO_DIRS=/Applications/Ghostty.app/Contents/Resources/terminfo XDG_DATA_HOME=$XDG_DATA_HOME tmux -L hmdemo attach -t web:login-bug"
   sleep 4
