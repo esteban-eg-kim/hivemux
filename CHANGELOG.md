@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.40 — 2026-10-22
 
 - A background shell keeps the turn running by what it runs, not by how
   Claude words it: a build, a test run or a retry loop counts ("waiting on 1
