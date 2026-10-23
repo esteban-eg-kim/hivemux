@@ -429,11 +429,14 @@ const ENTRY = () => ({ x: .5, y: 9.1 + LAY.LOFF });   // the elevator / 엘리�
 let SHIFT = { state: 'on' }, ROSTER = {}, RANKS = null;
 const VILLAGE = { k: 0 };   // how far the view has moved out to take the village in / 마을을 담으려고 보기가 넓어진 정도
 const pathY = () => 9.2 + LAY.LOFF;
-// the view takes the village in while bees go home or are there, and while anyone is outside
-// 벌이 집에 가거나 집에 있는 동안, 그리고 누가 밖에 있는 동안 보기가 마을을 담는다
-// (one bee clocked out by itself while the rest work: only while it is on its way, not once it is in)
-// (혼자 퇴근한 벌 하나: 나머지가 일하는 동안에는 가는 길에만, 집에 들어가면 아니다)
-const villageWant = () => LAY && houses().length && [...bees.values()].some(b => b.state === 'home' ? !b.inside || offOf(b.office) : b.x !== undefined && !inBuilding(b)) ? 1 : 0;
+// the view takes the village in only while a Mac is clocked out (everyone home: on the way, out for the
+// evening, asleep, walking back). A bee out on its own never moves the view: one clocked out alone, a
+// newcomer, one leaving. With one bee at home while the rest worked, its evening outings (out of the
+// house every minute or two) used to slide the whole view to the village and back.
+// 보기는 Mac 이 퇴근 중일 때만 마을을 담는다 (모두 집: 가는 길, 저녁 외출, 잠, 돌아오는 길). 혼자 밖에 있는 벌
+// (혼자 퇴근한 벌, 신입, 퇴사하는 벌) 은 보기를 움직이지 않는다. 나머지가 일하는데 벌 하나가 집에 있으면, 그 벌이
+// 1~2분마다 저녁 외출로 집을 나설 때마다 보기 전체가 마을로 미끄러졌다가 돌아왔다.
+const villageWant = () => LAY && houses().length && offices.some(offOf) ? 1 : 0;
 const offOf = o => !!(o && o.shift && o.shift.state === 'off');
 // The village: lanes run off the path, every 6.5 tiles; houses sit along them facing the lane, and a few
 // face the path between lanes. Every Mac's bees live mixed: a bee's slot follows its house number in its

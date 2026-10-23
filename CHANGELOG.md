@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- The bee office no longer slides its view out to the village and back on its
+  own: with one Claude clocked out while the rest worked, that bee's evening
+  outings (out of its house every minute or two) widened the view each time.
+  The view takes the village in only while a Mac is clocked out
+
 - The questions in the sidebar's popups (Clock out, Clock in, Close Claude,
   Update Claude) end with buttons to click instead of "press y"; Cancel is
   chosen first, so Enter alone does nothing, and y still works
