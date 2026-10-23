@@ -46,7 +46,7 @@ close_now() {
 }
 
 ask() {
-  local pane="$1" a st
+  local pane="$1" st
   st="$(t show -pqv -t "$pane" @claude_state)"
   echo "$(say "이 Claude 를 닫을까요?" "Close this Claude?")"
   case "$st" in
@@ -58,8 +58,7 @@ ask() {
   else
     echo "$(say "프로젝트의 마지막 창이라 셸은 남깁니다. 대화는 claude --resume 으로 이어갈 수 있습니다." "The project's last window keeps its shell. claude --resume continues the conversation.")"
   fi
-  echo; printf '%s ' "$(say "y 닫기 · 다른 키 취소" "y to close · any other key cancels")"; read -rsn1 a; echo
-  [[ "$a" == [yY] ]] && close_now "$pane"
+  "$HM_BIN/hivemux-confirm" --danger "$(say "닫기" "Close")" "$(say "취소" "Cancel")" && close_now "$pane"
 }
 
 case "${1:-}" in

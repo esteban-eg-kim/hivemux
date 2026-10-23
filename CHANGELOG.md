@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- The questions in the sidebar's popups (Clock out, Clock in, Close Claude,
+  Update Claude) end with buttons to click instead of "press y"; Cancel is
+  chosen first, so Enter alone does nothing, and y still works
+- A Claude clocked out by itself shows as "home · right-click to clock in"; a
+  plain click on its dimmed card does nothing any more, since it was pressed by
+  mistake while picking a project. The right-click menu's Clock in brings it back
+
 ## 0.1.41 — 2026-10-22
 
 - Clicking a bee of the other Mac's office goes to that session again: it

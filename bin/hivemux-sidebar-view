@@ -117,7 +117,7 @@ C = {
     "remote":  (167, 139, 250),  # "viewed from another Mac" note (the status line's ⇄ badge) / 원격 화면 안내 (상태줄 ⇄ 표시)    # drop target while dragging / 끄는 중 놓을 자리
 }
 STATE_TEXT = {"wait": tr("입력 필요", "needs input"), "run": tr("작업 중", "running"), "done": tr("완료", "done"), "idle": tr("대기", "idle"),
-              "home": tr("퇴근 · 눌러서 출근", "home · click to clock in")}
+              "home": tr("퇴근 · 오른쪽 클릭으로 출근", "home · right-click to clock in")}
 STATE_ICON = {"wait": "●", "run": "◐", "done": "✓", "idle": "○", "home": "☾"}
 # why a pane waits (@claude_wait from bin/hivemux-hook: "<kind>\t<tool>\t<text>") / 칸이 기다리는 이유
 WHY_TEXT = {"approve": tr("승인", "approve"), "plan": tr("계획 승인", "plan"), "ask": tr("질문", "question"),
@@ -217,10 +217,11 @@ _server = []
 
 
 def home_cards(panes):
-    """Claudes clocked out and home: their panes (a shell in front), as cards that clock in on a click.
+    """Claudes clocked out and home: their panes (a shell in front), as dimmed cards. A click does nothing
+    (one landed on a card by mistake while picking a project); the right-click menu clocks in.
     The pane by its id while the same tmux runs; after a reboot by its place (as bin/hivemux-shift does)
-    퇴근해서 집에 간 Claude: 그 칸 (앞에 셸) 을 누르면 출근하는 카드로. 같은 tmux 가 도는 동안은 칸 id 로, 재부팅
-    뒤에는 자리로 (bin/hivemux-shift 와 같다)"""
+    퇴근해서 집에 간 Claude: 그 칸 (앞에 셸) 을 흐린 카드로. 클릭해도 아무 일 없다 (프로젝트를 고르다 카드를 잘못
+    눌렀다). 출근은 오른쪽 클릭 메뉴에서. 같은 tmux 가 도는 동안은 칸 id 로, 재부팅 뒤에는 자리로 (bin/hivemux-shift 와 같다)"""
     rows = offwork_rows()
     if not rows:
         return []
@@ -1301,7 +1302,7 @@ def main():
                     elif d["kind"] == "group":       # click on a project name: go to it / 프로젝트 이름 클릭: 그 프로젝트로
                         tmux("switch-client", "-t", "=" + d["src"])
                     elif d["kind"] == "card" and any(p["pane_id"] == d["src"] for p in homes):
-                        clock_in(d["src"])           # a Claude at home: back to work / 집에 간 Claude: 출근
+                        pass                         # a Claude at home: the menu clocks it in, not a click / 집에 간 Claude: 출근은 메뉴에서, 클릭은 아니다
                     elif d["kind"] == "card":
                         pid = d["src"]
                         # Double click: the first click may switch sessions, so remember it in a tmux global option

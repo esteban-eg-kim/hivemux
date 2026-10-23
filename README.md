@@ -125,9 +125,10 @@ A reboot while clocked out leaves them home.
 
 One Claude or one project can also go home on its own while the rest work on:
 right-click its card → Clock this Claude out…, or a project's name → Clock this
-project out… Its card stays in the sidebar, dimmed ("home · click to clock
-in"); click it to bring it back in the same conversation. Clocking everyone in
-brings it back too.
+project out… Its card stays in the sidebar, dimmed ("home · right-click to
+clock in"); right-click it → Clock in brings it back in the same conversation
+(a plain click does nothing, so a slip while picking a project is harmless).
+Clocking everyone in brings it back too.
 
 Off work the bees go out before bed: beer on the terrace of the Honey Pot pub
 (or darts inside), a ball game or a bench in the park, or home. From 11 pm

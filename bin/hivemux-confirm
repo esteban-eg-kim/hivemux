@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+"""Buttons at the end of a text question, for the shell scripts that ask in a popup (bin/hivemux-shift,
+bin/hivemux-close-claude, bin/hivemux-claude-update). Draws them on the line after the text, takes a click
+or a key, clears the line again and exits 0 for the first button, 1 for the second. "Cancel" is chosen
+first, so Enter alone never confirms. Without a terminal it exits 1 (no).
+팝업에서 글로 묻는 셸 스크립트 (bin/hivemux-shift, bin/hivemux-close-claude, bin/hivemux-claude-update) 의 질문
+끝에 붙는 버튼. 글 다음 줄에 버튼을 그리고, 클릭이나 키를 받으면 그 줄을 지우고 첫 버튼이면 0, 둘째면 1 로 끝난다.
+처음에는 "취소"가 골라져 있어서 Enter 만으로는 확인되지 않는다. 터미널이 아니면 1 (아니오) 로 끝난다.
+
+  hivemux-confirm [--danger] [<ok label> [<cancel label>]]     two buttons / 버튼 둘 (기본: 확인 · 취소)
+  hivemux-confirm --one [<label>]                              one button, any key closes / 버튼 하나, 아무 키나 닫는다
+  ←→ / Tab choose / 고르기    Enter run / 실행    y ok / 확인    n, Esc cancel / 취소
+"""
+import os, re, select, shutil, subprocess, sys, termios, tty, unicodedata
+
+TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
+TEXT, T2 = (230, 233, 239), (154, 163, 178)
+ACC, BAD, BG, BTN = (90, 169, 255), (240, 98, 98), (30, 33, 40), (42, 47, 58)
+
+
+def fg(c): return "\x1b[38;2;%d;%d;%dm" % c
+def bg(c): return "\x1b[48;2;%d;%d;%dm" % c
+RST, BOLD = "\x1b[0m", "\x1b[1m"
+
+
+def tr(ko, en):
+    v = os.environ.get("HIVEMUX_LANG") or subprocess.run([TMUX, "show", "-gqv", "@hivemux-lang"], capture_output=True,
+                                                         text=True, stdin=subprocess.DEVNULL).stdout.strip()
+    return ko if (v or os.environ.get("LANG", "")).startswith("ko") else en
+
+
+def width(s):
+    return sum(0 if unicodedata.combining(c) else 2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
+
+
+def cursor_row(fd, out):
+    """Where the cursor is, so the buttons go on that line and mouse rows can be matched / 커서 줄 (버튼 줄, 마우스 줄 맞추기)"""
+    out.write("\x1b[6n")
+    out.flush()
+    buf = ""
+    while select.select([fd], [], [], 0.5)[0]:
+        buf += os.read(fd, 64).decode(errors="ignore")
+        m = re.search(r"\x1b\[(\d+);(\d+)R", buf)
+        if m:
+            return int(m.group(1))
+    return os.get_terminal_size().lines
+
+
+def main():
+    args = sys.argv[1:]
+    danger = "--danger" in args
+    one = "--one" in args
+    labels = [a for a in args if not a.startswith("--")]
+    if one:
+        labels = [labels[0] if labels else tr("닫기", "Close")]
+    else:
+        labels = (labels + [tr("확인", "OK"), tr("취소", "Cancel")][len(labels):])[:2]
+    labels = ["  %s  " % l.strip() for l in labels]
+    if not sys.stdin.isatty():
+        return 1
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    out = sys.stdout
+    out.write("\r\n")                    # the buttons get a line of their own / 버튼은 한 줄을 따로 쓴다
+    out.flush()
+    tty.setraw(fd)
+    out.write("\x1b[?25l\x1b[?1000h\x1b[?1006h")
+    y = cursor_row(fd, out)
+    sel = 0 if one else 1                # 0 ok, 1 cancel: cancel first / 0 확인, 1 취소: 취소가 먼저
+    go = None
+    try:
+        while go is None:
+            buf, spots, x = [f"\x1b[{y};1H\x1b[2K"], [], 3
+            for i, l in enumerate(labels):
+                on = i == sel
+                col = (BAD if danger and i == 0 else ACC) if on else BTN
+                buf.append(f"\x1b[{y};{x}H{bg(col)}{fg(BG if on else TEXT)}{BOLD if on else ''}{l}{RST}")
+                spots.append((x, x + width(l) - 1, i))
+                x += width(l) + 2
+            if not one:
+                buf.append(f"\x1b[{y};{x + 1}H{fg(T2)}{tr('←→ 고르기 · Enter', '←→ choose · Enter')}{RST}")
+            out.write("".join(buf))
+            out.flush()
+            data = os.read(fd, 256).decode(errors="ignore")
+            for ch in re.findall(r"\x1b\[<\d+;\d+;\d+[Mm]|\x1b\[[0-9;]*[A-Za-z~]|\x1bO[A-Za-z]|\x1b|[\s\S]", data):
+                m = re.match(r"\x1b\[<(\d+);(\d+);(\d+)([Mm])", ch)
+                if m:
+                    b, mx, my = int(m.group(1)), int(m.group(2)), int(m.group(3))
+                    if b == 0 and m.group(4) == "M" and my == y:
+                        hit = next((i for a, z, i in spots if a <= mx <= z), None)
+                        if hit is not None:
+                            go = hit
+                elif one:
+                    go = 0
+                elif ch in ("\x1b", "\x03", "n", "N", "q"):
+                    go = 1
+                elif ch in ("y", "Y"):
+                    go = 0
+                elif ch in ("\x1b[D", "\x1bOD", "\x1b[C", "\x1bOC", "\t", "h", "l"):
+                    sel = 1 - sel
+                elif ch in ("\r", "\n", " "):
+                    go = sel
+                if go is not None:
+                    break
+    finally:
+        out.write(f"\x1b[?1000l\x1b[?1006l{RST}\x1b[{y};1H\x1b[2K\x1b[?25h")
+        out.flush()
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+    return 0 if go == 0 else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

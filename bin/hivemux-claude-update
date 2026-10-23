@@ -148,13 +148,15 @@ latest() { # latest <binary>
 }
 newer() { [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -1)" = "$1" ]; }   # newer <a> <b>: a > b
 
-# y/n on the terminal; --yes answers yes, and without a terminal the answer is no
-# 터미널에서 y/n. --yes 면 예, 터미널이 없으면 아니요
-ask() {
+# Buttons on the terminal (bin/hivemux-confirm; y and Enter work too); --yes answers yes, and without a terminal the answer is no
+# 터미널에 버튼 (bin/hivemux-confirm, y 와 Enter 도 된다). --yes 면 예, 터미널이 없으면 아니요
+HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
+ask() { # ask <question> [<ok label>]
   [ "$YES" = 1 ] && return 0
   [ -t 0 ] || return 1
-  local a; printf '%s ' "$1 [y/N]"; read -rsn1 a; echo "$a"
-  [[ "$a" == [yY] ]]
+  echo "$1"
+  # buttons (bin/hivemux-confirm): a click, Enter, or y; in a plain terminal the keys alone / 버튼 (bin/hivemux-confirm): 클릭, Enter, y. 보통 터미널에서는 키만
+  "$HM_BIN/hivemux-confirm" "${2:-$(say "업데이트" "Update")}" "$(say "취소" "Cancel")"
 }
 
 # Claude panes: all that run one, and those still on an older binary than <current binary>
@@ -210,13 +212,14 @@ main() {
   echo "$(say "설치된 버전 $cur · 최신 ${new:-?}" "Installed $cur · latest ${new:-?}")"
   if [ -z "$new" ]; then
     echo "$(say "최신 버전을 확인하지 못했습니다 (인터넷 연결을 확인하세요)." "Could not check the latest version (check the network).")"
-    ask "$(say "그래도 업데이트를 시도할까요?" "Try updating anyway?")" || return 0
+    ask "$(say "그래도 업데이트를 시도할까요?" "Try updating anyway?")" "$(say "시도" "Try")" || return 0
   elif ! newer "$new" "$cur"; then
     echo "$(say "✓ 최신 버전입니다." "✓ Up to date.")"
     [ "${#old[@]}" = 0 ] && return 0
     echo
     ask "$(say "예전 버전으로 도는 Claude ${#old[@]}개를 $cur 로 다시 시작할까요? (대화 그대로, 일하는 중이면 끝난 뒤)" \
-               "Restart the ${#old[@]} Claude(s) still on an older version on $cur? (same conversation; busy ones once done)")" || return 0
+               "Restart the ${#old[@]} Claude(s) still on an older version on $cur? (same conversation; busy ones once done)")" \
+        "$(say "다시 시작" "Restart")" || return 0
     restart_all "${old[@]}"; return 0
   else
     echo
@@ -238,11 +241,10 @@ main() {
 case "${1:-}" in
   watch) watch ;;
   --popup)                          # from the sidebar menu: in a popup on that screen / 사이드바 메뉴: 그 화면의 팝업에서
-    HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
     "$HM_BIN/hivemux-modal" "${2:-}" -E -w 76 -h 20 -b rounded \
       -T "#[fg=#e6e9ef,bold] $(say "Claude 업데이트" "Update Claude") " -S "fg=#5aa9ff" -s "bg=#1e2128" \
       "$(printf '%q ' "$HM_BIN/hivemux-claude-update" --ui)" ;;
-  --ui) main; echo; printf '%s' "$(say "아무 키나 누르면 닫힙니다" "Press any key to close")"; read -rsn1 ;;
+  --ui) main; echo; "$HM_BIN/hivemux-confirm" --one "$(say "닫기" "Close")" ;;
   -h|--help) sed -n '4,6p' "$0" ;;
   --yes|-y) YES=1 main ;;
   *) main ;;

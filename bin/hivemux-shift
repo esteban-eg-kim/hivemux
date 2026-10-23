@@ -185,14 +185,14 @@ popup() { # popup <off|on> <client> [<scope>]
 }
 
 ask() { # ask <off|on> [<scope>]
-  local a n busy what="$1"; shift
+  local n busy what="$1"; shift
   if [ "$what" = off ]; then
     n="$(running "$@" | wc -l | tr -d ' ')"
     busy="$(running "$@" | while read -r p pp; do t show -pqv -t "$p" @claude_state; done | grep -cE '^(run|wait)$')"
     case "$1" in
       --pane) echo "$(say "이 Claude 를 끄고 퇴근시킬까요?" "Stop this Claude and clock it out?")"
               [ "$busy" -gt 0 ] && echo "$(say "지금 일하거나 기다리는 중이라 끝난 뒤 퇴근합니다 (야근)." "It is working or waiting, so it goes once done (overtime).")"
-              echo "$(say "다른 Claude 는 그대로 일합니다. 카드를 누르면 같은 대화로 다시 출근합니다." "The others work on. Click its card to bring it back in the same conversation.")" ;;
+              echo "$(say "다른 Claude 는 그대로 일합니다. 카드 오른쪽 클릭 → 출근으로 같은 대화에 돌아옵니다." "The others work on. Right-click its card → Clock in brings it back in the same conversation.")" ;;
       --project) echo "$(say "$2 의 Claude ${n}개를 끄고 퇴근시킬까요?" "Stop ${n} Claude(s) of $2 and clock them out?")"
               [ "$busy" -gt 0 ] && echo "$(say "일하거나 기다리는 ${busy}개는 끝난 뒤 퇴근합니다 (야근)." "${busy} working or waiting go once done (overtime).")"
               echo "$(say "창과 셸은 그대로 둡니다. 출근하면 같은 대화로 다시 시작합니다." "Windows and shells stay. Clocking in brings them back in the same conversations.")" ;;
@@ -204,8 +204,9 @@ ask() { # ask <off|on> [<scope>]
     n="$( [ -f "$LIST" ] && grep -c . "$LIST" || echo 0)"
     echo "$(say "Claude ${n}개를 같은 대화로 다시 시작하고 출근할까요?" "Bring back ${n} Claude(s) in the same conversations and clock in?")"
   fi
-  echo; printf '%s ' "$(say "y 확인 · 다른 키 취소" "y to go · any other key cancels")"; read -rsn1 a; echo
-  [[ "$a" == [yY] ]] && { echo; "$what" "$@"; sleep 1.2; }
+  # buttons (bin/hivemux-confirm): a click, Enter, or y / 버튼 (bin/hivemux-confirm): 클릭, Enter, y
+  if [ "$what" = off ]; then "$HM_BIN/hivemux-confirm" --danger "$(say "퇴근" "Clock out")" "$(say "취소" "Cancel")"
+  else "$HM_BIN/hivemux-confirm" "$(say "출근" "Clock in")" "$(say "취소" "Cancel")"; fi && { echo; "$what" "$@"; sleep 1.2; }
 }
 
 case "${1:-}" in

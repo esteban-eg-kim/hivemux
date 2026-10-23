@@ -490,7 +490,7 @@ claude -c
       <tr><td><span class="pill" style="background:#303030;color:#87d787;border-left:3px solid #5fd787">✓ 완료</span></td><td>응답을 끝냈고 아직 안 봄. 초록 선</td><td>결과 확인. 열어 보면 대기로 바뀜</td></tr>
       <tr><td><span class="pill" style="background:#303030;color:#87d7ff;border-left:3px solid #5fafff">◐ 작업 중</span></td><td>작업 중. 빛 띠가 훑고 지나가고 파란 선이 맥박처럼 밝아짐. 오른쪽 숫자는 작업 시간</td><td>기다리기</td></tr>
       <tr><td><span class="pill" style="background:#303030;color:#8a8a8a;border-left:3px solid #585858">○ 대기</span></td><td>다음 지시를 기다리는 상태. 결과는 이미 봄</td><td>새 지시를 줄 때 이동</td></tr>
-      <tr><td><span class="pill" style="background:#303030;color:#9a94e0;border-left:3px solid #847ece">☾ 퇴근 · 눌러서 출근</span></td><td>혼자 퇴근한 Claude. 카드가 흐리게 남고 ⌥ 번호가 없음</td><td>누르면 같은 대화로 다시 출근</td></tr>
+      <tr><td><span class="pill" style="background:#303030;color:#9a94e0;border-left:3px solid #847ece">☾ 퇴근 · 오른쪽 클릭으로 출근</span></td><td>혼자 퇴근한 Claude. 카드가 흐리게 남고 ⌥ 번호가 없음</td><td>오른쪽 클릭 → 출근으로 같은 대화에 돌아옴 (그냥 누르면 아무 일 없음)</td></tr>
       <tr><td><span class="pill" style="background:#3a4152;color:#e6e9ef;box-shadow:-3px 0 0 #e1e6f0,3px 0 0 #e1e6f0;margin-inline:3px">양옆 흰 선</span></td><td>지금 보고 있는 작업</td><td>없음</td></tr>
     </tbody>
   </table></div>
@@ -524,7 +524,7 @@ claude -c
   <p>벌이나 책상을 누르면 그 세션을 터미널에 띄웁니다. 톱니바퀴에서 튀어나오기를 끄거나, 화면 공유할 때 작업 이름과 프로젝트 이름을 숨길 수 있습니다. 메뉴의 보기 → Keep on Top(<kbd>⌘</kbd>+<kbd>T</kbd>)으로 다른 창 위에 띄워 둘 수 있습니다. <code>hivemux connect</code>로 다른 Mac에 붙어 있으면 그 Mac의 세션도 따로 책상을 받습니다. Mac마다 책상 아래에 그 Mac 색의 카펫(이 Mac은 꿀색, 원격은 연보라)이 깔리고, 왼쪽 벽에 같은 색 띠의 Mac 이름 명패가 붙습니다. 이름은 설정의 "이 Mac 이름"으로 바꿀 수 있습니다. 그 Mac도 이 버전의 hivemux여야 합니다.</p>
 
   <p><b>퇴근과 출근</b>: 위쪽 🌙 <b>퇴근</b> 버튼(또는 사이드바 빈 곳 오른쪽 클릭 → "모두 퇴근하기…")을 누르면 확인을 받은 뒤 모든 Claude를 끕니다. 벌들은 박수를 치고, 엘리베이터로 내려가 마당 너머 마을의 자기 집으로 걸어가서 쉽니다. 밤이면 불을 끄고 잡니다. 일하거나 나를 기다리던 Claude는 "야근 중" 표시를 달고 남았다가, 끝나면 꺼지고 퇴근합니다. ☀️ <b>출근</b>을 누르면 모두 같은 대화로 다시 시작하고(<code>claude --resume</code>), 벌들은 집에서 나와 자리로 걸어옵니다. 퇴근 중에 재부팅하면 다시 띄우지 않고, 출근할 때 띄웁니다. 모두 퇴근하면 사이드바에 "🌙 퇴근 중 · 눌러서 출근"이 보입니다. <code>hivemux connect</code>로 붙어 있는 Mac이 있으면 버튼을 눌렀을 때 Mac마다(이 Mac, 붙은 Mac, 모두) 고를 수 있고, 붙은 Mac은 연결된 ssh로 퇴근·출근시킵니다(그 Mac도 이 버전 이상이어야 합니다). 모든 Mac의 벌은 마을의 골목에 섞여 살고, 집에 마우스를 올리면 누가 사는지(이름, 프로젝트, Mac, 지금 상태, 입사 며칠째, 재입사, 이번 달 꿀)가 보입니다. 퇴근한 벌들은 자기 전에 놉니다. 마을 어귀 펍 "꿀단지"의 테라스에서 맥주잔을 들고 건배하거나 안에서 한잔하고, 길 건너 공원에서 둘이 공놀이를 하거나 벤치에 앉거나 분수 옆에서 수다를 떨고, 그냥 집에 가서 쉬기도 합니다. 1~2분마다 할 일을 바꾸고, 밤 11시부터 아침 6시까지는 모두 집에서 잡니다. 집이나 펍에 마우스를 올리면 지붕이 열려 안이 보입니다(집: 침대에 있는 벌과 탁자, 펍: 바와 맥주 탭, 술병 선반, 다트판, 손님들. 손님 하나는 다트를 던집니다). 누르면 열린 채로 있고, 다시 누르면 닫힙니다. 집은 모양(현관 차양 오두막, 2층집, 옥상 화분 평지붕, 모임지붕, 두 번 꺾인 헛간 지붕, 연기 나는 굴뚝 집)과 방(아늑한 침실, 게임 방, 책 방, 해먹이 있는 식물 방, 피아노가 있는 음악 방, 넓은 부엌)이 집마다 다르고, 2층집에는 계단과 다락 침대가 있습니다. 벌은 낮에는 그 방의 자리(책상, 피아노, 안락의자…)에, 밤에는 침대에 있습니다.</p>
-  <p><b>혼자 퇴근</b>: 카드를 오른쪽 클릭 → <b>이 Claude 퇴근…</b>, 또는 프로젝트 이름 줄 → <b>이 프로젝트 퇴근…</b>을 고르면 그 Claude만 퇴근하고 나머지는 계속 일합니다. 일하는 중이면 야근하다가 끝나면 퇴근합니다. 카드는 사이드바에 흐리게 남아 "☾ 퇴근 · 눌러서 출근"으로 보이고, 누르면 같은 대화로 다시 출근합니다(프로젝트 이름 줄 → 이 프로젝트 출근, 빈 곳 → 모두 출근하기도 됨). 사무실에서는 그 벌만 박수 치고 마을로 갑니다. 혼자 퇴근한 Claude는 재부팅해도 다시 띄우지 않습니다. 모두 퇴근하기와 모두 출근하기는 카드나 프로젝트만의 일로 읽히지 않도록 빈 곳 메뉴에만 있습니다.</p>
+  <p><b>혼자 퇴근</b>: 카드를 오른쪽 클릭 → <b>이 Claude 퇴근…</b>, 또는 프로젝트 이름 줄 → <b>이 프로젝트 퇴근…</b>을 고르면 그 Claude만 퇴근하고 나머지는 계속 일합니다. 일하는 중이면 야근하다가 끝나면 퇴근합니다. 카드는 사이드바에 흐리게 남아 "☾ 퇴근 · 오른쪽 클릭으로 출근"으로 보이고, 오른쪽 클릭 → <b>출근</b>을 고르면 같은 대화로 다시 출근합니다(프로젝트 이름 줄 → 이 프로젝트 출근, 빈 곳 → 모두 출근하기도 됨). 그냥 누르면 아무 일도 없어서, 프로젝트를 고르다 카드를 잘못 눌러도 출근하지 않습니다. 사무실에서는 그 벌만 박수 치고 마을로 갑니다. 혼자 퇴근한 Claude는 재부팅해도 다시 띄우지 않습니다. 모두 퇴근하기와 모두 출근하기는 카드나 프로젝트만의 일로 읽히지 않도록 빈 곳 메뉴에만 있습니다.</p>
   <figure class="clip"><img src="office/shift-ko.gif" alt="퇴근: 박수 치고 집으로" loading="lazy"><figcaption>퇴근: 박수를 치고 마을의 집으로</figcaption></figure>
   <div class="shots">
     <figure><a href="office/village-ko.jpg"><img src="office/village-ko.jpg" alt="마을" loading="lazy"></a><figcaption>마을, 펍 "꿀단지", 공원</figcaption></figure>
@@ -874,6 +874,7 @@ hivemux uninstall</pre></div>
     <div><code>hivemux-new-project-ui</code><span>새 프로젝트 폴더 탐색 팝업</span></div>
     <div><code>hivemux-settings</code>, <code>hivemux-settings-ui</code><span>설정 팝업 (언어, 애니메이션, 알림, 사이드바 폭, 편집기, 이 Mac 이름)</span></div>
     <div><code>hivemux-modal</code><span>화면을 멈춘 사본 위에 팝업 띄우기</span></div>
+    <div><code>hivemux-confirm</code><span>팝업 질문 끝의 확인·취소 버튼 (퇴근·출근, Claude 닫기, Claude 업데이트)</span></div>
     <div><code>hivemux-order</code><span>사이드바 작업 / 프로젝트 순서 바꾸기</span></div>
     <div><code>hivemux-open</code>, <code>hivemux-open-ui</code><span>Option+O 경로 열기 팝업</span></div>
     <div><code>hivemux-border</code><span>경계선과 핸들 끌기 피드백, 사이드바 폭 저장</span></div>
