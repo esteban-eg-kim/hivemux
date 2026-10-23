@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.42 — 2026-10-23
 
 - The bee office no longer slides its view out to the village and back on its
   own: with one Claude clocked out while the rest worked, that bee's evening
