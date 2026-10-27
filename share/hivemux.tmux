@@ -79,34 +79,38 @@ set -gq @hivemux-notify on
 # language, animation, notifications and editor chosen in the sidebar menu's Settings (saved files win over the lines above)
 # 사이드바 메뉴의 설정에서 고른 언어, 애니메이션, 알림, 편집기 (저장된 파일이 위 줄보다 우선)
 run-shell 'v=$(cat "#{@hivemux-data}/lang" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-lang "$v"; v=$(cat "#{@hivemux-data}/anim" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-anim "$v"; v=$(cat "#{@hivemux-data}/notify" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-notify "$v"; v=$(cat "#{@hivemux-data}/editor" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-editor "$v"; v=$(cat "#{@hivemux-data}/mac-name" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-mac-name "$v"; true'
-set-hook -g after-new-window       'run-shell -b "#{@hivemux-bin}/hivemux-sidebar ensure #{window_id}"'
-set-hook -g after-new-session      'run-shell -b "#{@hivemux-bin}/hivemux-sidebar ensure #{window_id}"'
-set-hook -g client-session-changed 'run-shell -b "#{@hivemux-bin}/hivemux-sidebar ensure #{window_id}"'
-set-hook -g session-window-changed 'run-shell -b "#{@hivemux-bin}/hivemux-sidebar ensure #{window_id}"'
-set-hook -g pane-exited            'run-shell -b "#{@hivemux-bin}/hivemux-sidebar reap; #{@hivemux-bin}/hivemux-sidebar ensure"'
-set-hook -g after-kill-pane        'run-shell -b "#{@hivemux-bin}/hivemux-sidebar reap"'
+# Hooks never print: a failed run (one of dozens fired at once by a resize) used to fill the pane in
+# front with "'… hivemux-sidebar fix' returned 1" lines
+# 훅은 아무것도 찍지 않는다: 한꺼번에 수십 번 도는 훅 (크기 바꿈) 하나가 실패하면 앞의 칸이
+# "'… hivemux-sidebar fix' returned 1" 줄로 가득 찼다
+set-hook -g after-new-window       'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar ensure #{window_id}; } >/dev/null 2>&1; true"'
+set-hook -g after-new-session      'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar ensure #{window_id}; } >/dev/null 2>&1; true"'
+set-hook -g client-session-changed 'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar ensure #{window_id}; } >/dev/null 2>&1; true"'
+set-hook -g session-window-changed 'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar ensure #{window_id}; } >/dev/null 2>&1; true"'
+set-hook -g pane-exited            'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar reap; #{@hivemux-bin}/hivemux-sidebar ensure; } >/dev/null 2>&1; true"'
+set-hook -g after-kill-pane        'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar reap; } >/dev/null 2>&1; true"'
 # a project or window closed: every sidebar redraws now (hidden ones would show it for a few seconds)
 # 프로젝트나 창이 닫힘: 모든 사이드바를 바로 다시 그린다 (숨은 사이드바는 몇 초 동안 남겨 보인다)
-set-hook -g session-closed         'run-shell -b "#{@hivemux-bin}/hivemux-sidebar wake"'
-set-hook -g window-unlinked        'run-shell -b "#{@hivemux-bin}/hivemux-sidebar wake"'
-set-hook -g window-resized         'run-shell -b "#{@hivemux-bin}/hivemux-sidebar fix"'
+set-hook -g session-closed         'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar wake; } >/dev/null 2>&1; true"'
+set-hook -g window-unlinked        'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar wake; } >/dev/null 2>&1; true"'
+set-hook -g window-resized         'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar fix; } >/dev/null 2>&1; true"'
 # client hooks name their client with #{hook_client}: #{client_name} there can be another client
 # (with two screens attached, a resize or detach of one named the other)
 # 클라이언트 훅은 #{hook_client} 로 그 클라이언트를 가리킨다: 거기서 #{client_name} 은 다른 클라이언트일 수 있다
 # (화면 두 개가 붙어 있으면 한쪽의 크기 변경이나 떨어짐이 다른 쪽 이름으로 왔다)
-set-hook -g client-attached        'run-shell -b "#{@hivemux-bin}/hivemux-sidebar presize #{hook_client}; #{@hivemux-bin}/hivemux-sidebar sizer in #{hook_client}"'
-set-hook -g client-detached        'run-shell -b "#{@hivemux-bin}/hivemux-connect --forget-client #{hook_client}"'
-set-hook -g client-resized         'run-shell -b "#{@hivemux-bin}/hivemux-sidebar presize #{hook_client}"'
+set-hook -g client-attached        'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar presize #{hook_client}; #{@hivemux-bin}/hivemux-sidebar sizer in #{hook_client}; } >/dev/null 2>&1; true"'
+set-hook -g client-detached        'run-shell -b "{ #{@hivemux-bin}/hivemux-connect --forget-client #{hook_client}; } >/dev/null 2>&1; true"'
+set-hook -g client-resized         'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar presize #{hook_client}; } >/dev/null 2>&1; true"'
 # Only the screen that got the keyboard focus last sizes the windows (tmux ignore-size on the others):
 # a window shown on two screens of different sizes (this Mac's Ghostty and another Mac over ssh) no
 # longer shrinks and grows each time you go to it, which redrew Claude and the sidebar every time
 # 마지막으로 키보드 초점을 받은 화면만 창 크기를 정한다 (나머지는 tmux ignore-size): 크기가 다른 두 화면
 # (이 Mac 의 Ghostty 와 ssh 로 붙은 다른 Mac) 이 같은 창을 보면, 갈 때마다 창이 줄었다 커지며 Claude 와
 # 사이드바를 다시 그렸다
-set-hook -g client-focus-in        'run-shell -b "#{@hivemux-bin}/hivemux-sidebar sizer in #{hook_client}"'
+set-hook -g client-focus-in        'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar sizer in #{hook_client}; } >/dev/null 2>&1; true"'
 set-hook -gu client-focus-out
-run-shell -b "#{@hivemux-bin}/hivemux-sidebar sizer"
-run-shell -b "#{@hivemux-bin}/hivemux-sidebar ensure"
+run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar sizer; } >/dev/null 2>&1; true"
+run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar ensure; } >/dev/null 2>&1; true"
 
 # ── Keys ─────────────────────────────────────────────────────────────────
 # Option+1..9  jump to that Claude (any session)   Option+0  oldest waiting Claude

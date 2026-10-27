@@ -129,8 +129,22 @@ case "$1" in
       if [ "$c" = "$me" ]; then t refresh-client -t "$c" -f '!ignore-size'; else t refresh-client -t "$c" -f ignore-size; fi 2>/dev/null
     done ;;
   fix)
-    t list-panes -a -F '#{pane_id} #{pane_title} #{pane_width}' | awk -v T="$TITLE" -v W="$W" '$2==T && $3!=W{print $1}' |
-      while read -r p; do t resize-pane -t "$p" -x "$W"; done ;;
+    # window-resized fires for every window at once (a terminal maximized or restored: dozens). One run
+    # does them all; calls during it only ask for one more pass, so the last size always gets fixed
+    # window-resized 는 모든 창에서 한꺼번에 불린다 (터미널을 키우거나 줄이면 수십 번). 한 번 돌면 모두
+    # 맞춘다. 도는 동안 온 호출은 한 번 더 돌라고만 남겨서, 마지막 크기도 꼭 맞춘다
+    lock="${TMPDIR:-/tmp}/hivemux-fix-$(id -u)-$(t display -p '#{pid}')"
+    if ! mkdir "$lock" 2>/dev/null; then
+      if [ -n "$(find "$lock" -maxdepth 0 -mtime -10s 2>/dev/null)" ]; then : > "$lock.again"; exit 0; fi
+      rmdir "$lock" 2>/dev/null; mkdir "$lock" 2>/dev/null || exit 0      # stale (crashed run) / 오래된 잠금
+    fi
+    for _ in 1 2 3 4 5; do
+      rm -f "$lock.again"; sleep 0.1
+      t list-panes -a -F '#{pane_id} #{pane_title} #{pane_width}' | awk -v T="$TITLE" -v W="$W" '$2==T && $3!=W{print $1}' |
+        while read -r p; do t resize-pane -t "$p" -x "$W"; done
+      [ -e "$lock.again" ] || break
+    done
+    rmdir "$lock" 2>/dev/null ;;
   reap)
     t list-windows -a -F '#{window_id}' | while read -r w; do
       total="$(t list-panes -t "$w" | wc -l | tr -d ' ')"; side="$(sidebars_in "$w" | wc -l | tr -d ' ')"

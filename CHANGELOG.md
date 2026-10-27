@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Maximizing or restoring the terminal no longer fills the pane in front with
+  "'… hivemux-sidebar fix' returned 1" lines: the resize hook fired for every
+  window at once now runs one pass after the burst, and hivemux's tmux hooks
+  never print
+
 ## 0.1.42 — 2026-10-23
 
 - The bee office no longer slides its view out to the village and back on its
