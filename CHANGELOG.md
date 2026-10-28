@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- In a terminal narrower than the sidebar, the sidebar gives the work pane 40
+  columns instead of taking all but one; it grows back to the chosen width
+  when the terminal does
+- Dragging the sidebar narrower than 16 columns snaps it back instead of
+  leaving that one window's sidebar squeezed
+
 - Close project counted each sidebar as a running Claude, so a project with one
   Claude and a shell said "2 Claude tasks"; it counts only the Claudes now
 

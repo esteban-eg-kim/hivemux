@@ -32,11 +32,21 @@ case "$1" in
     rm -f "$GRIP"; wake
     t set -g pane-border-style "fg=#23262e"; t set -g pane-active-border-style "fg=#2c3039"
     w="$(t list-panes -t "$3" -F '#{pane_title} #{pane_width}' 2>/dev/null | awk '$1=="hivemux-sidebar"{print $2; exit}')"
-    if [ -n "$w" ] && [ "$w" != "$(t show -gqv @hivemux-sidebar-width)" ] && [ "$w" -ge 16 ]; then
+    # the width a narrow window holds its sidebar at (bin/hivemux-sidebar width_for) is not a new choice:
+    # a click on that border must not save it / 좁은 창이 줄여 둔 폭 (bin/hivemux-sidebar width_for) 은 새로 고른
+    # 폭이 아니다: 그 경계를 클릭만 해서 저장되면 안 된다
+    cur="$(t show -gqv @hivemux-sidebar-width)"; cur="${cur:-32}"
+    ww="$(t display -p -t "$3" '#{window_width}' 2>/dev/null)"; held="$cur"
+    [ -n "$ww" ] && [ $((ww - 41)) -lt "$held" ] && held=$((ww - 41)); [ "$held" -lt 16 ] && held=16
+    if [ -n "$w" ] && [ "$w" != "$cur" ] && [ "$w" != "$held" ] && [ "$w" -ge 16 ]; then
       t set -g @hivemux-sidebar-width "$w"
       d="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux"; mkdir -p "$d"; echo "$w" > "$d/sidebar-width"
       "$HM_BIN/hivemux-sidebar" fix
       t display -d 1200 "$(say "사이드바 폭 $w 칸" "Sidebar width $w")"
+    elif [ -n "$w" ]; then
+      # dragged under 16 columns (or not changed): every sidebar back to the width that holds
+      # 16칸보다 좁게 끌었거나 그대로: 모든 사이드바를 정해진 폭으로 되돌린다
+      "$HM_BIN/hivemux-sidebar" fix
     fi ;;
 esac
 exit 0
