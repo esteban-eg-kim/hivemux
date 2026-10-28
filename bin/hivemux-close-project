@@ -17,8 +17,12 @@ if [ "$(t list-sessions | wc -l)" -le 1 ]; then
 fi
 wins="$(t list-windows -t "=$sess" -F x | wc -l | tr -d ' ')"
 # running Claudes, as the sidebar counts them (a shell in front means it quit) / 사이드바처럼 실행 중인 Claude 만 (앞에 셸이면 끝난 것)
-claudes="$(t list-panes -s -t "=$sess" -F '#{@claude_session} #{@claude_state} #{pane_current_command}' |
-  awk '$1 != "" && $2 != "" { c = $3; sub(/^-/, "", c); if (c !~ /^(zsh|bash|fish|sh|dash|tcsh|ksh|login)$/) n++ } END { print n + 0 }')"
+# Tab-separated: a sidebar pane has no session id but shows its window's @claude_state, and with spaces the
+# empty id shifted the fields, so every sidebar counted as a Claude ("2 Claudes" for one)
+# 탭으로 나눈다: 사이드바 칸은 세션 id 가 없는데 창의 @claude_state 는 보인다. 공백으로 나누면 빈 id 때문에
+# 칸이 밀려서 사이드바마다 Claude 로 셌다 (하나인데 "Claude 2개")
+claudes="$(t list-panes -s -t "=$sess" -F '#{@claude_session}	#{@claude_state}	#{pane_current_command}' |
+  awk -F '\t' '$1 != "" && $2 != "" { c = $3; sub(/^-/, "", c); if (c !~ /^(zsh|bash|fish|sh|dash|tcsh|ksh|login)$/) n++ } END { print n + 0 }')"
 HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
 if [ -n "$client" ] && t list-commands display-popup 2>/dev/null | grep -q -- '-b border-lines'; then
   # in the middle of the screen (bin/hivemux-close-project-ui closes it on "Close")

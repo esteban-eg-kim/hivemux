@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Close project counted each sidebar as a running Claude, so a project with one
+  Claude and a shell said "2 Claude tasks"; it counts only the Claudes now
+
 ## 0.1.43 — 2026-10-28
 
 - Maximizing or restoring the terminal no longer fills the pane in front with
