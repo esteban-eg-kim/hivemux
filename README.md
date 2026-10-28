@@ -44,6 +44,12 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
   (or right-click → Rename) to rename it; hivemux sends `/rename` to that Claude (waits if it is busy).
 - **Your order.** Drag a card to reorder tasks, or a project header to reorder
   projects. `Option+N` numbers and the top window list follow the same order.
+- **Work from your laptop.** Keep the Claudes running on a desktop Mac and
+  pick them up from a laptop with `hivemux connect`. It is more than an ssh
+  window: `Ctrl+V` pastes a screenshot from the laptop into the remote Claude,
+  dev servers there open on the laptop's `localhost`, files Claude makes there
+  open on the laptop, and their notifications pop up on it. See
+  [Work from another Mac](#work-from-another-mac).
 - **Survives everything.** tmux keeps sessions alive when the terminal closes;
   tmux-resurrect restores layouts after a reboot and hivemux runs
   `claude --resume <id>` in the right pane.
@@ -247,6 +253,17 @@ from another (a laptop): the laptop attaches to the first Mac's tmux over ssh an
 sees the same sidebar and sessions. If the connection drops, the work goes on.
 Local work on the laptop stays as it is; the remote one opens in its own window.
 
+Plenty of tools get you a remote terminal. What hivemux adds is that the two Macs
+stop feeling like two: the screenshot you just took on the laptop, the dev server
+running on the desktop, the file Claude made over there all work as if Claude
+ran on the laptop.
+
+<p align="center">
+  <img src="docs/img/remote-paste-en.gif" alt="Screenshot taken on the MacBook, Ctrl+V in the Claude running on the Mac Studio: it lands as [Image #1]" width="880">
+</p>
+
+### Set it up
+
 On the Mac you connect **to**: install hivemux, turn on System Settings →
 General → Sharing → **Remote Login**, and keep it from sleeping when idle.
 
@@ -266,29 +283,48 @@ or a device name on a VPN. On the same network `name.local` works; from outside,
 a VPN such as [Tailscale](https://tailscale.com) on both Macs is the simple way
 (opening ssh to the internet with port forwarding is not recommended).
 
-- The remote window shows `⇄ <Mac name>` at the right of the status line, before the clock.
-- A dropped connection reconnects by itself: a box in the middle counts down to the next try
-  (`Enter` tries now, `Ctrl+C` stops); `prefix d` detaches and closes the window.
-- Notifications from the remote tasks show on this Mac.
-- Dev servers started there (`npm run dev` in a remote pane) are forwarded to
-  the same port on this Mac's `localhost` while connected; a port taken here
-  goes to the next free one. `Option+W` (or menu → Ports) lists them on either
-  Mac; Enter opens one in the browser of the Mac you connect from. `HIVEMUX_PORTS=0` turns it off.
-- `Ctrl+V` in a remote Claude pane pastes the image on this Mac's clipboard (a
-  screenshot taken here, say): it is copied over and shows up as `[Image #1]`.
-  Both Macs need hivemux 0.1.26 or later.
-- `hivemux open <file>` in a remote pane (or Tab in the `Option+O` popup) copies the
-  file to this Mac and opens it with its default app, so a screenshot Claude made
-  there shows up here. The 🐝 button there opens the bee office here. Both Macs
-  need hivemux 0.1.29 or later.
-- With `--mosh` (or `m` in the menu → Connect to… list), the session survives
-  sleep and network changes by itself, but notifications do not pass through
-  mosh; the list marks such a host "mosh · no notifications". Both Macs need
-  `brew install mosh`; if it stops at "Nothing received from server on UDP
-  port", allow incoming connections for `mosh-server` in the other Mac's firewall.
-- Two screens on the same project share it: switching windows on one moves the other.
-- While a remote screen looks at a window, its sidebar keeps still (no pulsing
-  cards, no status line spinner): every animation frame would go over the network.
+### Paste screenshots with Ctrl+V
+
+Claude Code reads images from the clipboard of the Mac it runs on, so over plain
+ssh a screenshot taken on your laptop never reaches it. In a remote Claude pane,
+press `Ctrl+V` as usual: hivemux copies the image on the laptop's clipboard over
+and it shows up in Claude as `[Image #1]`. Take a screenshot of the broken page
+(`⌘⌃⇧4` puts it on the clipboard), `Ctrl+V`, ask what is wrong. Both Macs need
+hivemux 0.1.26 or later.
+
+<p align="center">
+  <img src="docs/img/remote-paste-en.png" alt="The MacBook's clipboard screenshot in the remote Claude as [Image #1]" width="880">
+</p>
+
+### What else comes along
+
+- **Dev servers on your `localhost`.** A server started there (`npm run dev` in a
+  remote pane) is forwarded to the same port on this Mac's `localhost` while
+  connected; a port taken here goes to the next free one. `Option+W` (or menu →
+  Ports) lists them on either Mac; Enter opens one in the browser of the Mac you
+  connect from. `HIVEMUX_PORTS=0` turns it off.
+- **Files open on the laptop.** `hivemux open <file>` in a remote pane (or Tab in
+  the `Option+O` popup) copies the file to this Mac and opens it with its default
+  app, so a screenshot Claude made there shows up here. With the editor set to
+  VS Code or Cursor, `Option+O` opens the path over Remote-SSH. The 🐝 button
+  there opens the bee office here. Both Macs need hivemux 0.1.29 or later.
+- **Notifications here.** A remote task that needs you or finishes shows a
+  notification on this Mac.
+- **The connection looks after itself.** A dropped connection reconnects by
+  itself: a box in the middle counts down to the next try (`Enter` tries now,
+  `Ctrl+C` stops); `prefix d` detaches and closes the window. With `--mosh` (or
+  `m` in the menu → Connect to… list), the session survives sleep and network
+  changes by itself, but notifications do not pass through mosh; the list marks
+  such a host "mosh · no notifications". Both Macs need `brew install mosh`; if
+  it stops at "Nothing received from server on UDP port", allow incoming
+  connections for `mosh-server` in the other Mac's firewall.
+- **You always know where you are.** The remote window shows `⇄ <Mac name>` at
+  the right of the status line, before the clock.
+- **Two screens, one project.** Two screens on the same project share it:
+  switching windows on one moves the other.
+- **Light on the network.** While a remote screen looks at a window, its sidebar
+  keeps still (no pulsing cards, no status line spinner): every animation frame
+  would go over the network.
 
 ## How it works
 
