@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.43 — 2026-10-28
 
 - Maximizing or restoring the terminal no longer fills the pane in front with
   "'… hivemux-sidebar fix' returned 1" lines: the resize hook fired for every
