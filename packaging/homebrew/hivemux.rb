@@ -17,7 +17,7 @@ class Hivemux < Formula
   def install
     libexec.install "bin", "share", "examples"
     # link every command (hivemux-panes list, hivemux-sidebar fix ... are used for troubleshooting)
-    (libexec/"bin").children.each { |f| bin.install_symlink f }
+    (libexec/"bin").children.each { |f| bin.install_symlink f if f.extname != ".py" }
   end
 
   def caveats

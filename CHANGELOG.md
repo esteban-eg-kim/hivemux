@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Each window's sidebar takes about 9 MB instead of 15: its code runs as a
+  module Python keeps compiled, instead of a script compiled again at every
+  start (the memory that took stayed with the process). With 45 windows that
+  is about 250 MB less
 - Homebrew downloads 268 KB instead of 26 MB and installs under 1 MB instead of
   28 MB: the README's pictures and videos (docs/) are left out of the release
   archive, and the installer script clones only what runs. The bee office
