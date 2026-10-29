@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Option+O finds a long path that Claude wrapped onto an indented next line;
+  it found nothing when a reply listed scratchpad files under /private/tmp
+
 ## 0.1.44 — 2026-10-29
 
 - In a terminal narrower than the sidebar, the sidebar gives the work pane 40

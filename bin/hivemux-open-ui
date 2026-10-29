@@ -80,6 +80,12 @@ PATH_RE = re.compile(
     r")(?::(\d+))?(?::(\d+))?")
 
 
+# The rest of a wrapped path on an indented next line, and the joined path with its :line:col
+# 들여쓴 다음 줄에 이어진 경로 나머지, 그리고 이어 붙인 경로와 :줄:열
+WRAP_RE = re.compile(r"\s+([^\s'\"`<>()\[\]{},;|]+)")
+TAIL_RE = re.compile(r"(.+?)(?::(\d+))?(?::(\d+))?$")
+
+
 # Folders below the bases, for a relative path printed from a folder Claude cd'ed into earlier
 # (a worktree, a sub project). Shallow and capped so a huge tree does not stall the popup.
 # 기준 폴더 아래 폴더들: Claude 가 앞서 cd 해 들어간 폴더(워크트리, 하위 프로젝트)에서 찍힌 상대 경로용.
@@ -118,37 +124,57 @@ def candidates(pane):
     bases = list(dict.fromkeys(b for b in (pwd, ccwd, cwd) if b))
     deep = None   # built on first need / 처음 필요할 때 만든다
     text = tmux("capture-pane", "-p", "-J", "-S", "-3000", "-t", pane)
+
+    def resolve(path):
+        nonlocal deep
+        path = os.path.expanduser(path)
+        if os.path.isabs(path):
+            return path if os.path.exists(path) else None
+        for b in bases:
+            c = os.path.normpath(os.path.join(b, path))
+            if os.path.exists(c):
+                return c
+        if "/" in path.strip("/") and not path.startswith("."):
+            if deep is None:
+                deep = below(bases)
+            for b in deep:
+                c = os.path.join(b, path)
+                if os.path.exists(c):
+                    return os.path.normpath(c)
+        return None
+
+    lines = text.splitlines()
     seen, out = set(), []
-    for line in reversed(text.splitlines()):
+    for i in range(len(lines) - 1, -1, -1):
+        line = lines[i]
         for m in reversed(list(PATH_RE.finditer(line))):
             raw = m.group(1).rstrip(".:")
             if raw.startswith("http") or "://" in line[max(0, m.start() - 8):m.start() + 3]:
                 continue
-            path = os.path.expanduser(raw)
+            ln, col = m.group(2), m.group(3)
             full = None
-            if os.path.isabs(path):
-                full = path if os.path.exists(path) else None
-            else:
-                for b in bases:
-                    c = os.path.normpath(os.path.join(b, path))
-                    if os.path.exists(c):
-                        full = c
+            # A long path Claude wrapped itself goes on in the next indented lines (-J does not join those);
+            # the joined path wins, since the cut piece may name a folder of it
+            # Claude 가 직접 줄바꿈한 긴 경로는 들여쓴 다음 줄로 이어진다 (-J 로는 안 붙는다).
+            # 잘린 앞 조각이 그 경로의 폴더일 수 있어서, 이어 붙인 경로가 먼저다
+            if m.end() == len(line.rstrip()):
+                joined = m.group(0)
+                for nxt in lines[i + 1:i + 4]:
+                    w = WRAP_RE.match(nxt)
+                    if not w:
                         break
-                if not full and "/" in path.strip("/") and not path.startswith("."):
-                    if deep is None:
-                        deep = below(bases)
-                    for b in deep:
-                        c = os.path.join(b, path)
-                        if os.path.exists(c):
-                            full = os.path.normpath(c)
-                            break
+                    joined += w.group(1)
+                    j = TAIL_RE.match(joined)
+                    if j and (f := resolve(j.group(1).rstrip(".:"))):
+                        full, raw, ln, col = f, j.group(1).rstrip(".:"), j.group(2), j.group(3)
+                        break
+            full = full or resolve(raw)
             if not full or full in ("/", os.path.expanduser("~")):
                 continue
             # skip the working directory shown in the shell prompt (and its parents)
             # 셸 프롬프트에 찍힌 작업 폴더(와 그 상위 폴더)는 뺀다
             if os.path.isdir(full) and any(b == full or b.startswith(full.rstrip("/") + "/") for b in bases):
                 continue
-            ln, col = m.group(2), m.group(3)
             key = (full, ln)
             if key in seen:
                 continue
