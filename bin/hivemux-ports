@@ -61,6 +61,12 @@ SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ServerAliveInterval=3", "-o", "ServerA
 # server (its panes and everything they started). ssh gives a plain PATH there.
 # 상대 Mac 에서 실행된다: 그 tmux 서버의 프로세스(칸들과 거기서 시작된 모든 것)가 듣는 TCP 포트마다
 # "<포트> <명령>". ssh 는 기본 PATH 만 준다.
+# A dev server started in the background (nohup … &) leaves the tmux tree for launchd (parent 1), so
+# those count too: a node, python, ruby … of this user working in a folder under home (not ~/Library or a
+# dot folder) or /tmp, and not hivemux's own (the bee office server).
+# 백그라운드로 띄운 개발 서버(nohup … &)는 tmux 를 벗어나 launchd(부모 1) 아래로 가서, 그것도 센다:
+# 이 사용자의 node, python, ruby … 중 홈 아래 폴더(~/Library 와 점 폴더는 빼고)나 /tmp 에서 도는 것,
+# 그리고 hivemux 자신(벌 사무실 서버)은 뺀다.
 # Before that, "open <port>" when that Mac's port list popup asked to open one here.
 # 그 앞에, 상대 Mac 의 포트 목록 팝업이 여기서 열어 달라고 했으면 "open <포트>".
 REMOTE = r'''PATH=/opt/homebrew/bin:/usr/local/bin:$PATH
@@ -70,6 +76,11 @@ tmux set -g @hivemux-name-@ME@ @NAME@
 o=$(tmux show -gqv @hivemux-ports-open-@ME@) && [ -n "$o" ] && { tmux set -gu @hivemux-ports-open-@ME@; echo "open $o"; }
 e=$(tmux show -gqv @hivemux-edit-@ME@) && [ -n "$e" ] && { tmux set -gu @hivemux-edit-@ME@; echo "edit $e"; }
 pids=$(ps -A -o pid= -o ppid= | awk -v r="$root" '{ p[$1] = $2 } END { for (k in p) { x = k; n = 0; while (x > 1 && n++ < 64) { if (x == r) { print k; break } x = p[x] } } }' | paste -sd, -)
+cand=$(ps -A -o pid= -o ppid= -o uid= -o comm= | awk -v u="$(id -u)" '$2 == 1 && $3 == u { n = split($NF, a, "/"); c = tolower(a[n]); if (c ~ /^(node|python[0-9.]*|ruby|deno|bun|php|java|uvicorn|gunicorn)$/) print $1 }' | paste -sd, -)
+orph=$([ -n "$cand" ] && lsof -a -d cwd -p "$cand" -Fpn 2>/dev/null | awk -v h="$HOME" '/^p/ { p = substr($0, 2) } /^n/ { d = substr($0, 2); if ((index(d, h "/") == 1 && index(d, h "/Library") != 1 && index(d, h "/.") != 1) || d ~ /^\/(private\/)?tmp\//) print p }' | while read -r p; do
+  case "$(ps -ww -o command= -p "$p")" in (*hivemux*) ;; (*) echo "$p";; esac
+done | paste -sd, -)
+pids=$(printf '%s,%s' "$pids" "$orph" | sed 's/^,*//; s/,*$//')
 [ -n "$pids" ] || exit 0
 lsof -nP -a -iTCP -sTCP:LISTEN -p "$pids" -Fcn 2>/dev/null | awk '/^c/ { c = substr($0, 2) } /^n/ { n = split($0, a, ":"); print a[n], c }' | sort -un'''
 

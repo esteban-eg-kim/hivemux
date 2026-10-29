@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The port list of a connection from another Mac takes in dev servers started
+  in the background (`nohup … &`), which leave tmux for launchd: a node,
+  python, ruby … of yours working in a folder under home or /tmp
 - Option+O finds a long path that Claude wrapped onto an indented next line;
   it found nothing when a reply listed scratchpad files under /private/tmp
 
