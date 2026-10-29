@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.44 — 2026-10-29
 
 - In a terminal narrower than the sidebar, the sidebar gives the work pane 40
   columns instead of taking all but one; it grows back to the chosen width
