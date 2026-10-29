@@ -11,7 +11,11 @@ main() {
   if [ -d "$DIR/.git" ]; then
     echo "Updating $DIR"; git -C "$DIR" pull -q --ff-only
   else
-    echo "Cloning into $DIR"; mkdir -p "$(dirname "$DIR")"; git clone -q --depth 1 "$REPO" "$DIR"
+    # only what runs: the README's pictures and videos (docs/) stay on GitHub
+    # 실행에 필요한 것만: README 의 그림과 영상(docs/)은 GitHub 에 둔다
+    echo "Cloning into $DIR"; mkdir -p "$(dirname "$DIR")"
+    git clone -q --depth 1 --filter=blob:none --sparse "$REPO" "$DIR"
+    git -C "$DIR" sparse-checkout set bin share examples
   fi
   # curl | bash: stdin is the script, so read answers from the terminal when there is one
   if [ -t 1 ] && { : </dev/tty; } 2>/dev/null; then

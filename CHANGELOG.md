@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Homebrew downloads 268 KB instead of 26 MB and installs under 1 MB instead of
+  28 MB: the README's pictures and videos (docs/) are left out of the release
+  archive, and the installer script clones only what runs. The bee office
+  window's icon comes from share/logo/
+
 ## 0.1.45 — 2026-10-29
 
 - The port list of a connection from another Mac takes in dev servers started

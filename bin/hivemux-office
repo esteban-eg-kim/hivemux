@@ -40,7 +40,7 @@ import functools, glob, hashlib, http.server, json, os, re, shlex, shutil, signa
 TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
 HERE = os.path.dirname(os.path.realpath(__file__))
 SHARE = os.path.join(os.path.dirname(HERE), "share", "office")
-LOGO = os.path.join(os.path.dirname(HERE), "docs", "logo", "hivemux-logo-512.png")
+LOGO = os.path.join(os.path.dirname(HERE), "share", "logo", "hivemux-logo-512.png")
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux")
 OFFICE_DIR = os.path.join(DATA, "office")
 PORT_FILE = os.path.join(OFFICE_DIR, "port")

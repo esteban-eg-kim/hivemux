@@ -15,7 +15,7 @@ class Hivemux < Formula
   depends_on "tmux"
 
   def install
-    libexec.install "bin", "share", "docs", "examples"
+    libexec.install "bin", "share", "examples"
     # link every command (hivemux-panes list, hivemux-sidebar fix ... are used for troubleshooting)
     (libexec/"bin").children.each { |f| bin.install_symlink f }
   end
@@ -24,7 +24,7 @@ class Hivemux < Formula
     <<~EOS
       Finish the setup (adds hivemux to ~/.tmux.conf, Ghostty and Claude Code hooks):
         hivemux setup
-      Guide: #{opt_libexec}/docs/guide.html
+      Guide: https://hivemux.dev/docs/
     EOS
   end
 
