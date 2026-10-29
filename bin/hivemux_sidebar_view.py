@@ -38,6 +38,27 @@ ORDER_FILE = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser(
 GRIP = f"/tmp/hivemux-grip-{os.getuid()}"     # grip is being dragged (created by bin/hivemux-border) / 핸들을 끄는 중 (bin/hivemux-border 가 만든다)
 
 
+# A sidebar hidden for a while rests: it draws a last frame and turns into a small shell (REST_SH, about
+# 1 MB instead of 9) that keeps the pane and its screen, until bin/hivemux-sidebar ensure wakes it with
+# SIGUSR2 when its window comes on screen; the shell then turns back into the sidebar, so the pane never
+# goes blank. Python only for the windows on screen. @hivemux-sidebar-rest: seconds hidden before resting
+# (default 30, 0: never). @hivemux-rest on the pane says it rests.
+# 한동안 숨어 있던 사이드바는 쉰다: 마지막 화면을 그리고 작은 셸(REST_SH, 9MB 대신 약 1MB)로 바뀌어 칸과
+# 화면을 그대로 둔다. 창이 화면에 나오면 bin/hivemux-sidebar ensure 가 SIGUSR2 로 깨우고, 셸은 다시 사이드바로
+# 바뀐다. 그래서 칸이 비지 않는다. 파이썬은 화면에 나온 창에만 돈다. @hivemux-sidebar-rest: 쉬기 전 숨어 있는
+# 초 (기본 30, 0: 안 쉼). 칸의 @hivemux-rest 는 쉬는 중이라는 표시.
+# $0: this sidebar's command, $1: tmux. The mark is set only once the shell can take SIGUSR2; if the
+# window came on screen meanwhile, it wakes by itself. Waking ignores SIGUSR2 first: two hooks can wake
+# it at once, and the ignore lasts into Python (the launcher ignores it too).
+# $0: 이 사이드바의 명령, $1: tmux. 표시는 셸이 SIGUSR2 를 받을 수 있게 된 뒤에 단다. 그사이 창이 화면에
+# 나왔으면 스스로 깬다. 깨어날 때는 먼저 SIGUSR2 를 무시한다: 훅 둘이 한꺼번에 깨울 수 있고, 무시는
+# 파이썬까지 이어진다 (실행 파일도 무시한다).
+REST_SH = """trap '' USR1
+wake() { trap '' USR2; "$1" set -pu -t "$TMUX_PANE" @hivemux-rest; export HIVEMUX_SIDEBAR_RESUMED=1; exec "$0"; }
+trap wake USR2
+"$1" set -p -t "$TMUX_PANE" @hivemux-rest 1
+case "$("$1" display -p -t "$TMUX_PANE" '#{window_active} #{session_attached}')" in "1 "[1-9]*) wake "$@" ;; esac
+while :; do read -r _ || sleep 1; done"""
 WAKE_R, WAKE_W = os.pipe()          # SIGUSR1 -> wakes select() via this pipe / SIGUSR1 -> 이 파이프로 select() 를 깨운다
 os.set_blocking(WAKE_R, False)
 os.set_blocking(WAKE_W, False)
@@ -160,6 +181,7 @@ NOW_T = 0.0      # animation clock (seconds); motion is time-based so frame rate
 TICK = 1 / 30    # animation frame interval (30 fps) / 애니메이션 프레임 간격(초당 30)
 SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 ANIM = True
+REST = 30.0                          # see REST_SH / REST_SH 참고
 # Card or project being dragged: {"kind": "card"|"group", "src": pane|session, "over": pane|session|None}
 # 끄는 중인 카드나 프로젝트: {"kind": "card"|"group", "src": 칸|세션, "over": 칸|세션|None}
 DRAG = None
@@ -1034,9 +1056,14 @@ def main():
     out = sys.stdout
     # 1002: also report motion while a button is held (drag to reorder) / 버튼을 누른 채 움직임도 받는다 (끌어서 순서 바꾸기)
     out.write("\x1b[?1049h\x1b[?25l\x1b[?7l\x1b[?1000h\x1b[?1002h\x1b[?1006h")
-    # Show "getting ready" at once, until the first real frame (never an empty pane)
-    # 첫 화면을 그릴 때까지 "준비 중" 을 바로 보여 준다 (빈 칸으로 두지 않는다)
+    # Show "getting ready" at once, until the first real frame (never an empty pane); not when waking from
+    # a rest, whose last frame is still on the pane
+    # 첫 화면을 그릴 때까지 "준비 중" 을 바로 보여 준다 (빈 칸으로 두지 않는다). 쉬다가 깨어날 때는 빼고:
+    # 마지막 화면이 칸에 그대로 있다
+    resumed = os.environ.pop("HIVEMUX_SIDEBAR_RESUMED", "")
     try:
+        if resumed:
+            raise OSError
         w0, h0 = os.get_terminal_size()
         ready = [Line(w0, C["bg"]) for _ in range(h0)]
         ready[1].put("  Claude", C["text"], bold=True).put(tr("  세션", "  sessions"), C["text3"])
@@ -1052,7 +1079,7 @@ def main():
     signal.set_wakeup_fd(WAKE_W, warn_on_full_buffer=False)
     resized = [True]
     signal.signal(signal.SIGWINCH, lambda *_: resized.__setitem__(0, True))
-    global FRAME, ANIM, NOW_T, TICK, PENDING, REMOTE_HERE
+    global FRAME, ANIM, NOW_T, TICK, PENDING, REMOTE_HERE, REST
     prev, prev_size = None, None     # last frame, for drawing only the rows that changed / 직전 프레임(바뀐 줄만 그리기용)
     border = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-border")
     targets, heads, buf = {}, {}, ""
@@ -1062,6 +1089,7 @@ def main():
     seen, sent = {}, {}              # notify_changes: pane -> (state, time); pane -> (state, sent at) / 칸 -> (상태, 시각); 칸 -> (상태, 보낸 시각)
     waits = {}                       # pane -> (state time, dialog seen, polls without it) (see clear_answered) / 칸 -> (상태 시각, 승인 창 봤음, 안 보인 횟수)
     snap, last_poll, last_spin, last_board, last_badge, woke = None, 0.0, None, None, None, False
+    hidden_at = None                 # since when hidden (see REST_SH) / 언제부터 숨었나 (REST_SH 참고)
     # Scroll is shared by every sidebar (each window has its own): after the wheel stops, this one
     # stores it in @hivemux-scroll and wakes the others, so the window you go to shows the same place
     # 스크롤은 모든 사이드바가 같이 쓴다 (창마다 사이드바가 따로 있다): 휠이 멈추면 @hivemux-scroll 에
@@ -1084,6 +1112,8 @@ def main():
                     if v.isdigit() and not scrolled:
                         SCROLL = int(v)
                 ANIM = tmux("show", "-gqv", "@hivemux-anim").strip() != "off"
+                rest = tmux("show", "-gqv", "@hivemux-sidebar-rest").strip()
+                REST = (float(rest) or float("inf")) if rest.isdigit() else 30.0
                 # a screen attached from another Mac (bin/hivemux-attach): every animation frame and
                 # status line spinner step would go over the network and make its typing lag, so keep
                 # them still while it looks at this window (the spinner: while it is attached at all)
@@ -1204,6 +1234,18 @@ def main():
             if PENDING:
                 act, PENDING = PENDING, None
                 act()
+            hidden_at = None if visible else (hidden_at or time.time())
+            if hidden_at and time.time() - hidden_at >= REST and not (MENU or DRAG or scrolled):
+                w, h = os.get_terminal_size()
+                lines, _ = render(items, current, w, h, cur_sess, sessions, homes)
+                out.write("\x1b[H" + "\r\n".join(lines) + "\x1b[0m\x1b[?1000l\x1b[?1002l\x1b[?1006l")
+                out.flush()
+                termios.tcsetattr(fd, termios.TCSADRAIN, old)
+                # a shell cannot trap a signal it started with ignored (the launcher ignores SIGUSR2)
+                # 셸은 무시된 채로 받은 신호를 잡지 못한다 (실행 파일이 SIGUSR2 를 무시한다)
+                signal.signal(signal.SIGUSR2, signal.SIG_DFL)
+                sh = "/bin/dash" if os.path.exists("/bin/dash") else "/bin/sh"
+                os.execv(sh, [sh, "-c", REST_SH, os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-sidebar-view"), TMUX])
             wait_s = TICK if animating else (1.0 if visible else 3.0)
             if visible and board_blink:          # wake for the next blink step / 다음 깜빡임에 맞춰 깬다
                 wait_s = min(wait_s, 0.5 - (time.time() % 0.5) + 0.01)

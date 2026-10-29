@@ -47,7 +47,13 @@ ensure_one() {
   # normal one and gets its sidebar)
   # hivemux-attach 의 시작용 세션 "0" 은 복원하는 동안만 건너뛴다 (그대로 남은 "0" 은 보통 세션이므로 사이드바를 단다)
   [ -n "$(t show -gqv @hivemux-starting)" ] && [ "$(t display -p -t "$win" '#{session_name}' 2>/dev/null)" = 0 ] && return 0
-  [ -n "$(sidebars_in "$win")" ] && return 0
+  local sb; sb="$(sidebars_in "$win" | head -1)"
+  if [ -n "$sb" ]; then
+    # the window comes on screen: a resting sidebar wakes (see REST_SH in bin/hivemux_sidebar_view.py)
+    # 창이 화면에 나옴: 쉬던 사이드바를 깨운다 (bin/hivemux_sidebar_view.py 의 REST_SH 참고)
+    [ -n "$(t show -pqv -t "$sb" @hivemux-rest)" ] && kill -USR2 "$(t display -p -t "$sb" '#{pane_pid}')" 2>/dev/null
+    return 0
+  fi
   # the still copy behind a popup (bin/hivemux-modal) already shows the sidebar
   # 팝업 뒤의 화면 사본 (bin/hivemux-modal) 은 사이드바까지 찍혀 있다
   t list-panes -t "$win" -F '#{pane_start_command}' 2>/dev/null | grep -q 'hivemux-modal --backdrop' && return 0
@@ -82,6 +88,10 @@ case "$1" in
     # 창이 화면에 나옴: 그 사이드바를 (숨어 있을 때의 느린) 다음 주기가 아니라 지금 다시 그린다
     if [ -n "$2" ]; then ensure_one "$2"; "$0" wake "$2"
     else t list-windows -a -F '#{window_id}' | while read -r w; do ensure_one "$w"; done; fi ;;
+  revive)
+    # resting sidebars of windows on a screen wake (a screen attached) / 화면에 나온 창의 쉬던 사이드바를 깨운다 (화면이 붙음)
+    t list-panes -a -F '#{pane_pid} #{pane_title} #{@hivemux-rest} #{window_active} #{session_attached}' |
+      awk -v T="$TITLE" '$2==T && $3==1 && $4==1 && $5>0 {print $1}' | while read -r p; do kill -USR2 "$p" 2>/dev/null; done ;;
   wake)
     # redraw now: the sidebar of window $2, or every sidebar / 지금 다시 그리기: $2 창의 사이드바, 없으면 모두
     # only panes that really run the view: right after a restore, a saved sidebar is a plain shell that

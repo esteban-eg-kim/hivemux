@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- A sidebar hidden for 30 seconds rests: it turns into a 1 MB shell that keeps
+  its last frame on the pane, and turns back the moment its window is on screen
+  (no blank pane). Only the windows on screen run the sidebar program: with 45
+  windows about 80 MB instead of 436. `@hivemux-sidebar-rest` sets the seconds
+  (0: never rest)
 - Each window's sidebar takes about 9 MB instead of 15: its code runs as a
   module Python keeps compiled, instead of a script compiled again at every
   start (the memory that took stayed with the process). With 45 windows that

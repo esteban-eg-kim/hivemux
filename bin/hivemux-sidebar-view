@@ -9,6 +9,13 @@ Python keeps compiled in __pycache__. About 8 MB a sidebar instead of 15.
 창마다 하나씩 돌아서, 코드는 모듈로 실행한다. 모듈은 파이썬이 __pycache__ 에 컴파일해 둔다.
 사이드바 하나에 15MB 대신 약 8MB.
 """
+import signal
+# the redraw signal (SIGUSR1) comes as soon as the pane opens, and a second wake-up (SIGUSR2, see REST_SH)
+# can come after waking: ignore both before anything else
+# 다시 그리기 신호(SIGUSR1)는 칸이 열리자마자 오고, 깨우기 신호(SIGUSR2, REST_SH 참고)는 깨어난 뒤에 한 번
+# 더 올 수 있다: 무엇보다 먼저 둘 다 무시한다
+signal.signal(signal.SIGUSR1, signal.SIG_IGN)
+signal.signal(signal.SIGUSR2, signal.SIG_IGN)
 import os, runpy, sys
 
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))

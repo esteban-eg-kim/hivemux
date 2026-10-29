@@ -98,7 +98,7 @@ set-hook -g window-resized         'run-shell -b "{ #{@hivemux-bin}/hivemux-side
 # (with two screens attached, a resize or detach of one named the other)
 # 클라이언트 훅은 #{hook_client} 로 그 클라이언트를 가리킨다: 거기서 #{client_name} 은 다른 클라이언트일 수 있다
 # (화면 두 개가 붙어 있으면 한쪽의 크기 변경이나 떨어짐이 다른 쪽 이름으로 왔다)
-set-hook -g client-attached        'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar presize #{hook_client}; #{@hivemux-bin}/hivemux-sidebar sizer in #{hook_client}; } >/dev/null 2>&1; true"'
+set-hook -g client-attached        'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar presize #{hook_client}; #{@hivemux-bin}/hivemux-sidebar sizer in #{hook_client}; #{@hivemux-bin}/hivemux-sidebar revive; } >/dev/null 2>&1; true"'
 set-hook -g client-detached        'run-shell -b "{ #{@hivemux-bin}/hivemux-connect --forget-client #{hook_client}; } >/dev/null 2>&1; true"'
 set-hook -g client-resized         'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar presize #{hook_client}; } >/dev/null 2>&1; true"'
 # Only the screen that got the keyboard focus last sizes the windows (tmux ignore-size on the others):
