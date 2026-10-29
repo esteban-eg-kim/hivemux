@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.45 — 2026-10-29
 
 - The port list of a connection from another Mac takes in dev servers started
   in the background (`nohup … &`), which leave tmux for launchd: a node,
