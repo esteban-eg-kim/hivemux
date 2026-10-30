@@ -10,6 +10,9 @@
   woken from a rest kept its resting mark (the wake-up ran without the tmux
   path), so the sidebar on screen did not count as the one keeping resting
   frames current, and those frames still showed old states
+- A done card you looked at no longer shows "done" for a moment in the next
+  window: the sidebar that turns it idle now wakes the hidden sidebars, which
+  draw only when woken
 
 ## 0.1.46 — 2026-10-30
 

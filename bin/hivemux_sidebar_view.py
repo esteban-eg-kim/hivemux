@@ -969,6 +969,21 @@ def clear_answered(items, waits, now):
             waits[pid] = (at, False, 0)
 
 
+def wake_others():
+    """Make the other sidebars re-read and redraw now (SIGUSR1). A hidden one draws only when woken, so a
+    change made here (not by a hook, which wakes them all) stayed old there until its window came on screen:
+    a done card you had looked at showed "done" for a moment in the next window
+    다른 사이드바가 바로 다시 읽고 그리게 한다 (SIGUSR1). 숨은 사이드바는 깨울 때만 그려서, 훅이 아니라
+    여기서 바꾼 것은 그 창이 화면에 나올 때까지 낡아 있었다: 보고 지나간 완료 카드가 다음 창에서 잠깐 완료로 보였다"""
+    for l in tmux("list-panes", "-a", "-F", "#{pane_id} #{pane_pid} #{m:*hivemux-sidebar-view*,#{pane_start_command}}").splitlines():
+        pid_, ppid, ok = (l.split() + ["", "", ""])[:3]
+        if ok == "1" and pid_ != ME:
+            try:
+                os.kill(int(ppid), signal.SIGUSR1)
+            except (OSError, ValueError):
+                pass
+
+
 def set_state(p, new, now):
     ts = str(int(now))
     pid = p["pane_id"]
@@ -979,6 +994,7 @@ def set_state(p, new, now):
         tmux("set", "-pu", "-t", pid, "@claude_wait")
     tmux("refresh-client", "-S")
     p["@claude_state"], p["@claude_state_at"] = new, ts
+    wake_others()
 
 
 def clear_interrupted(items, runs, now):
@@ -1277,6 +1293,7 @@ def main():
                     tmux("set", "-p", "-t", current, "@claude_state", "idle")
                     tmux("set", "-w", "-t", current, "@claude_state", "idle")
                     done_here["@claude_state"] = "idle"
+                    wake_others()
                 # the pickup board (see board), redrawn on every screen only when it changes
                 # 호출판 (board 참고). 바뀔 때만 모든 화면의 상태줄을 다시 그린다
                 # the project badge, as wide as the sidebar (see badges) / 사이드바 폭의 프로젝트 이름표 (badges 참고)
@@ -1345,13 +1362,7 @@ def main():
                 if time.time() - scrolled >= 0.25:
                     scrolled, shared = 0.0, str(SCROLL)
                     tmux("set", "-g", "@hivemux-scroll", shared)
-                    for l in tmux("list-panes", "-a", "-F", "#{pane_id} #{pane_pid} #{m:*hivemux-sidebar-view*,#{pane_start_command}}").splitlines():
-                        pid_, ppid, ok = (l.split() + ["", "", ""])[:3]
-                        if ok == "1" and pid_ != ME:
-                            try:
-                                os.kill(int(ppid), signal.SIGUSR1)
-                            except (OSError, ValueError):
-                                pass
+                    wake_others()
                 else:
                     wait_s = min(wait_s, 0.26 - (time.time() - scrolled))
             r, _, _ = select.select([fd, WAKE_R], [], [], wait_s)
