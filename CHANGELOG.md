@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.47 — 2026-10-30
 
 - Switching windows no longer shows a card in an old state for a moment
   (waiting shown as idle, idle as running, done after you had seen it, a
