@@ -38,15 +38,18 @@ ORDER_FILE = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser(
 GRIP = f"/tmp/hivemux-grip-{os.getuid()}"     # grip is being dragged (created by bin/hivemux-border) / 핸들을 끄는 중 (bin/hivemux-border 가 만든다)
 
 
-# A sidebar hidden for a while rests: it draws a last frame and turns into a small shell (REST_SH, about
-# 1 MB instead of 9) that keeps the pane and its screen, until bin/hivemux-sidebar ensure wakes it with
-# SIGUSR2 when its window comes on screen; the shell then turns back into the sidebar, so the pane never
-# goes blank. Python only for the windows on screen. @hivemux-sidebar-rest: seconds hidden before resting
-# (default 30, 0: never). @hivemux-rest on the pane says it rests.
-# 한동안 숨어 있던 사이드바는 쉰다: 마지막 화면을 그리고 작은 셸(REST_SH, 9MB 대신 약 1MB)로 바뀌어 칸과
-# 화면을 그대로 둔다. 창이 화면에 나오면 bin/hivemux-sidebar ensure 가 SIGUSR2 로 깨우고, 셸은 다시 사이드바로
-# 바뀐다. 그래서 칸이 비지 않는다. 파이썬은 화면에 나온 창에만 돈다. @hivemux-sidebar-rest: 쉬기 전 숨어 있는
-# 초 (기본 30, 0: 안 쉼). 칸의 @hivemux-rest 는 쉬는 중이라는 표시.
+# A hidden sidebar rests: it draws a last frame and turns into a small shell (REST_SH, about 1 MB instead
+# of 9) that keeps the pane and its screen, until bin/hivemux-sidebar ensure wakes it with SIGUSR2 when its
+# window comes on screen; the shell then turns back into the sidebar, so the pane never goes blank. Python
+# only for the windows on screen. While it rests, one sidebar on screen draws its frame (paint_resting), so
+# every hidden frame has one owner and is at most a poll old, whatever changed and whoever changed it.
+# @hivemux-sidebar-rest: seconds hidden before resting (default 2, 0: never). @hivemux-rest on the pane
+# says it rests.
+# 숨은 사이드바는 쉰다: 마지막 화면을 그리고 작은 셸(REST_SH, 9MB 대신 약 1MB)로 바뀌어 칸과 화면을 그대로
+# 둔다. 창이 화면에 나오면 bin/hivemux-sidebar ensure 가 SIGUSR2 로 깨우고, 셸은 다시 사이드바로 바뀐다. 그래서
+# 칸이 비지 않는다. 파이썬은 화면에 나온 창에만 돈다. 쉬는 동안은 화면의 사이드바 하나가 그 화면을 그린다
+# (paint_resting). 그래서 숨은 화면마다 주인이 하나이고, 무엇이 어디서 바뀌었든 한 번 읽는 주기보다 낡지
+# 않는다. @hivemux-sidebar-rest: 쉬기 전 숨어 있는 초 (기본 2, 0: 안 쉼). 칸의 @hivemux-rest 는 쉬는 중이라는 표시.
 # $0: this sidebar's command, $1: tmux. The mark is set only once the shell can take SIGUSR2; if the
 # window came on screen meanwhile, it wakes by itself. Waking ignores SIGUSR2 first: two hooks can wake
 # it at once, and the ignore lasts into Python (the launcher ignores it too).
@@ -188,7 +191,7 @@ NOW_T = 0.0      # animation clock (seconds); motion is time-based so frame rate
 TICK = 1 / 30    # animation frame interval (30 fps) / 애니메이션 프레임 간격(초당 30)
 SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 ANIM = True
-REST = 30.0                          # see REST_SH / REST_SH 참고
+REST = 2.0                           # see REST_SH / REST_SH 참고
 # Card or project being dragged: {"kind": "card"|"group", "src": pane|session, "over": pane|session|None}
 # 끄는 중인 카드나 프로젝트: {"kind": "card"|"group", "src": 칸|세션, "over": 칸|세션|None}
 DRAG = None
@@ -561,7 +564,7 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
             r1.fill(x1 - 1 - width(key), card).put(key, C["text"] if sel else C["text3"], card).fill(x1, card).fill(cw)
             r2 = card_line()
             r2.put(f"{icon} {state_line(p, st)}", bar if st != "idle" else C["text3"], card, bold=st == "wait",
-                   limit=x1 - width(t) - 2)
+                   limit=x1 - (max(width(t), 3) if t else 0) - 2)   # room for "59s", so the line does not shift as it ages / "59s" 자리: 시간이 지나도 줄이 밀리지 않게
             r2.fill(x1 - 1 - width(t), card).put(t, C["text2"] if st != "wait" else C["wait"], card).fill(x1, card).fill(cw)
             lns = [r1, r2]
             if mi < len(members) - 1:       # a thin line under the card, before the next one / 다음 카드 앞에 가는 선
@@ -1083,6 +1086,31 @@ def notify_changes(items, seen, sent, now, emit):
         sys.stdout.flush()
 
 
+def write_all(tty, data, limit=0.5):
+    """Write all of data to a pane's terminal: a whole frame is tens of KB and the terminal takes a few at a
+    time, so one write left the rest out (half-drawn rows). False if it did not all go within limit seconds
+    칸의 터미널에 data 를 모두 쓴다: 화면 하나는 수십 KB 이고 터미널은 몇 KB 씩 받아서, 한 번 쓰면 나머지가
+    빠졌다 (반쯤 그려진 줄). limit 초 안에 다 못 쓰면 False"""
+    try:
+        t = os.open(tty, os.O_WRONLY | os.O_NOCTTY | os.O_NONBLOCK)
+    except OSError:
+        return False
+    end = time.time() + limit
+    try:
+        while data:
+            try:
+                data = data[os.write(t, data):]
+            except BlockingIOError:
+                if time.time() > end:
+                    return False
+                select.select([], [t], [], 0.05)
+        return True
+    except OSError:
+        return False
+    finally:
+        os.close(t)
+
+
 def paint_resting(painted, scroll):
     """Keep the frames of resting sidebars (see REST_SH) current: a resting sidebar cannot draw, and the
     frame it left grew old, so the window you went back to after a while showed it and then jumped to the
@@ -1129,14 +1157,8 @@ def paint_resting(painted, scroll):
             painted[pid] = size, lines, sig, now
             if not frame:
                 continue
-            try:
-                t = os.open(p["pane_tty"], os.O_WRONLY | os.O_NOCTTY | os.O_NONBLOCK)
-                try:
-                    os.write(t, (frame + "\x1b[0m\x1b[H").encode())
-                finally:
-                    os.close(t)
-            except OSError:
-                painted.pop(pid, None)
+            if not write_all(p["pane_tty"], (frame + "\x1b[0m\x1b[H").encode()):
+                painted.pop(pid, None)         # draw it whole next time / 다음에 통째로 그린다
     finally:
         SCROLL, SCROLL_TO, OFFICE_BTN, SHIFT_BTN = keep
 
@@ -1212,7 +1234,7 @@ def main():
                         SCROLL = int(v)
                 ANIM = tmux("show", "-gqv", "@hivemux-anim").strip() != "off"
                 rest = tmux("show", "-gqv", "@hivemux-sidebar-rest").strip()
-                REST = (float(rest) or float("inf")) if rest.isdigit() else 30.0
+                REST = (float(rest) or float("inf")) if rest.isdigit() else 2.0
                 # a screen attached from another Mac (bin/hivemux-attach): every animation frame and
                 # status line spinner step would go over the network and make its typing lag, so keep
                 # them still while it looks at this window (the spinner: while it is attached at all)
@@ -1355,7 +1377,7 @@ def main():
                 signal.signal(signal.SIGUSR2, signal.SIG_DFL)
                 sh = "/bin/dash" if os.path.exists("/bin/dash") else "/bin/sh"
                 os.execv(sh, [sh, "-c", REST_SH, os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-sidebar-view"), TMUX])
-            wait_s = TICK if animating else (1.0 if visible else 3.0)
+            wait_s = TICK if animating else 1.0
             if visible and board_blink:          # wake for the next blink step / 다음 깜빡임에 맞춰 깬다
                 wait_s = min(wait_s, 0.5 - (time.time() % 0.5) + 0.01)
             if scrolled:

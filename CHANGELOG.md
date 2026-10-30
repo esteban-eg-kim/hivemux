@@ -2,21 +2,17 @@
 
 ## Unreleased
 
-- Going back to a window after a while no longer shows its sidebar jump: a
-  resting sidebar kept the frame it left, which grew old (cards that changed
-  state, new ones), and the woken one redrew it all at once. The sidebar on
-  screen now keeps the resting frames current
-- Idle cards no longer flash "running" when you switch to a window: a sidebar
-  woken from a rest kept its resting mark (the wake-up ran without the tmux
-  path), so the sidebar on screen did not count as the one keeping resting
-  frames current, and those frames still showed old states
-- A done card you looked at no longer shows "done" for a moment in the next
-  window: the sidebar that turns it idle now wakes the hidden sidebars, which
-  draw only when woken
-- A card that changed without changing state (a turn that ended with a shell
-  still running: "waiting on 1 shell") no longer shows its old line for a
-  moment in the next window: the hook wakes the sidebars for it, and a hidden
-  sidebar redraws what changed every few seconds
+- Switching windows no longer shows a card in an old state for a moment
+  (waiting shown as idle, idle as running, done after you had seen it, a
+  missing "waiting on 1 shell"): every hidden sidebar's frame now has one
+  owner. A sidebar rests 2 seconds after its window is hidden (was 30), and
+  the sidebar on screen draws the resting frames from tmux every second,
+  whatever changed and whoever changed it, instead of each hidden sidebar
+  waiting to be told. A test now goes through 14 changes (state, question,
+  background shell, name, card added or removed, project closed) and checks
+  the frame shown on switching matches the live one
+- A card's age keeps room for three characters, so its line does not shift
+  when "59s" turns into "1m"
 
 ## 0.1.46 — 2026-10-30
 
