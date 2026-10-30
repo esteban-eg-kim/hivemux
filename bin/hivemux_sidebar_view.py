@@ -66,7 +66,8 @@ US = "\x1f"
 FIELDS = ["pane_id", "session_name", "window_index", "window_name", "@claude_state",
           "@claude_state_at", "@claude_session", "window_id", "pane_active", "pane_last",
           "window_active", "session_attached", "pane_title", "@claude_title", "@claude_name", "pane_current_command",
-          "@hivemux-closing", "@claude_wait", "@claude_touched", "@claude_bg", "@claude_offwork", "pane_index"]
+          "@hivemux-closing", "@claude_wait", "@claude_touched", "@claude_bg", "@claude_offwork", "pane_index",
+          "pane_tty", "pane_width", "pane_height", "@hivemux-rest"]
 # a shell in front means Claude has quit there (its SessionEnd hook comes a second or two later, or never)
 # 칸 앞에 셸이 있으면 그 Claude 는 끝났다 (SessionEnd 훅은 1~2초 늦게 오거나 안 온다)
 SHELLS = {"zsh", "bash", "fish", "sh", "dash", "tcsh", "ksh", "login"}
@@ -284,19 +285,30 @@ def hue_of(name):
     return PROJECT_HUES[sum(ord(c) for c in name) % len(PROJECT_HUES)]
 
 
+AGES = {"@claude_state_at"}     # a time, shown as an age (see paint_resting) / 경과 시간으로 보이는 시각
+PANES = []      # the panes of the last snapshot (see paint_resting) / 마지막 스냅숏의 칸들 (paint_resting 참고)
+
+
 def snapshot():
+    global PANES
     fmt = US.join("#{%s}" % f for f in FIELDS)
     panes = [dict(zip(FIELDS, l.split(US))) for l in tmux("list-panes", "-a", "-F", fmt).splitlines()]
-    panes = [p for p in panes if len(p) == len(FIELDS)]
-    me = next((p for p in panes if p["pane_id"] == ME), None)
+    PANES = [p for p in panes if len(p) == len(FIELDS)]
+    return view(PANES, ME)
+
+
+def view(panes, me_id):
+    """What the sidebar in pane me_id shows, from the panes of a snapshot
+    me_id 칸의 사이드바가 보여 줄 것 (스냅숏의 칸들에서)"""
+    me = next((p for p in panes if p["pane_id"] == me_id), None)
     if not me:
         return None
     # a project about to close (bin/hivemux-close-project-ui) is left out before it goes, so no screen shows it
     # 곧 닫힐 프로젝트 (bin/hivemux-close-project-ui)는 닫히기 전에 빼서, 어느 화면에도 보이지 않게 한다
     closing = me["@hivemux-closing"]
     if closing:
-        panes = [p for p in panes if p["session_name"] != closing or p["pane_id"] == ME]
-    mywin = [p for p in panes if p["window_id"] == me["window_id"] and p["pane_id"] != ME]
+        panes = [p for p in panes if p["session_name"] != closing or p["pane_id"] == me_id]
+    mywin = [p for p in panes if p["window_id"] == me["window_id"] and p["pane_id"] != me_id]
     act = next((p for p in mywin if p["pane_active"] == "1"), None) or \
         next((p for p in mywin if p["pane_last"] == "1"), None) or (mywin[0] if mywin else None)
     current = act["pane_id"] if act else ""
@@ -1049,6 +1061,60 @@ def notify_changes(items, seen, sent, now, emit):
         sys.stdout.flush()
 
 
+def paint_resting(painted, scroll):
+    """Keep the frames of resting sidebars (see REST_SH) current: a resting sidebar cannot draw, and the
+    frame it left grew old, so the window you went back to after a while showed it and then jumped to the
+    new one. One visible sidebar (the lowest pane number) draws them into their panes, only the rows
+    that changed, and only when what it shows changed or its ages are 15 seconds old (drawing all of them
+    every second took a tenth of a core) (painted: pane -> (size, rows, what it showed, when))
+    쉬는 사이드바(REST_SH 참고)의 화면을 최신으로 둔다: 쉬는 사이드바는 그리지 못해서 남긴 화면이 낡았고,
+    한참 만에 돌아간 창이 그 화면을 보이다가 새 화면으로 튀었다. 보이는 사이드바 하나(칸 번호가 가장
+    작은 것)가 그 칸들에 그려 준다. 보여 줄 것이 바뀌었거나 시간 표시가 15초 지났을 때만, 바뀐 줄만
+    (매초 모두 그리면 CPU 코어의 10분의 1을 썼다) (painted: 칸 -> (크기, 줄들, 보여 준 것, 시각))"""
+    global SCROLL, SCROLL_TO, OFFICE_BTN, SHIFT_BTN
+    side = [p for p in PANES if p["pane_title"] == "hivemux-sidebar"]
+    live = [p["pane_id"] for p in side if not p["@hivemux-rest"] and p["window_active"] == "1"
+            and p["session_attached"] not in ("", "0")]
+    if not live or min(live, key=lambda i: int(i[1:])) != ME:
+        painted.clear()
+        return
+    keep = SCROLL, SCROLL_TO, OFFICE_BTN, SHIFT_BTN
+    now = time.time()
+    try:
+        for p in side:
+            pid = p["pane_id"]
+            v = view(PANES, pid) if p["@hivemux-rest"] == "1" else None
+            if not v:
+                painted.pop(pid, None)
+                continue
+            items, current, _, cur_sess, sessions, homes = v
+            size = int(p["pane_width"]), int(p["pane_height"])
+            sig = repr(([{k: x for k, x in q.items() if k not in AGES} for q in items],
+                        current, cur_sess, sessions, homes, scroll))
+            old = painted.get(pid)
+            if old and old[0] == size and old[2] == sig and now - old[3] < 15:
+                continue
+            SCROLL, SCROLL_TO = scroll, None       # as it will start when woken / 깨어날 때처럼
+            lines, _ = render(items, current, *size, cur_sess, sessions, homes)
+            if old and old[0] == size:
+                frame = "".join(f"\x1b[{i + 1};1H{ln}" for i, ln in enumerate(lines) if i >= len(old[1]) or old[1][i] != ln)
+            else:
+                frame = "\x1b[H" + "\r\n".join(lines)
+            painted[pid] = size, lines, sig, now
+            if not frame:
+                continue
+            try:
+                t = os.open(p["pane_tty"], os.O_WRONLY | os.O_NOCTTY | os.O_NONBLOCK)
+                try:
+                    os.write(t, (frame + "\x1b[0m\x1b[H").encode())
+                finally:
+                    os.close(t)
+            except OSError:
+                painted.pop(pid, None)
+    finally:
+        SCROLL, SCROLL_TO, OFFICE_BTN, SHIFT_BTN = keep
+
+
 def main():
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
@@ -1095,6 +1161,9 @@ def main():
     # 스크롤은 모든 사이드바가 같이 쓴다 (창마다 사이드바가 따로 있다): 휠이 멈추면 @hivemux-scroll 에
     # 적고 다른 사이드바를 깨워서, 옮겨 간 창도 같은 자리를 보여 준다
     shared = tmux("show", "-gqv", "@hivemux-scroll").strip()
+    if shared.isdigit():
+        SCROLL = int(shared)
+    painted, paint, t0 = {}, False, time.time()    # see paint_resting; when this one started / paint_resting 참고; 시작 시각
     scrolled = 0.0                   # when the wheel last turned here / 여기서 휠을 마지막으로 굴린 시각
     board_blink = False
     REMOTE_ON = False
@@ -1146,6 +1215,11 @@ def main():
                     clear_quit(quits)
                 notify_changes(snap[0], seen, sent, nowf,
                                snap[2] and tmux("show", "-gqv", "@hivemux-notify").strip() != "off")
+                paint = snap[2]
+                # woken from a rest: draw everything once more, in case a frame for the rest landed after the first
+                # 쉬다 깨어남: 쉬는 동안의 화면이 첫 화면 뒤에 왔을 수도 있어서 한 번 더 모두 그린다
+                if resumed and nowf - t0 >= 0.5:
+                    resized[0], resumed = True, ""
                 # focus moved elsewhere (clicked another pane): close the menu / 다른 칸을 눌러 초점이 떠났으면 메뉴를 닫는다
                 if MENU and tmux("display", "-p", "-t", ME, "#{pane_active}#{window_active}").strip() != "11":
                     menu_close()
@@ -1231,6 +1305,10 @@ def main():
                     out.write(frame + "\x1b[0m")
                     out.flush()
                 prev, prev_size = lines, (w, h)
+            # after this one's own frame, which must not wait for them / 자기 화면을 그린 뒤에 (그 화면이 기다리지 않게)
+            if paint:
+                paint = False
+                paint_resting(painted, int(shared) if shared.isdigit() else 0)
             if PENDING:
                 act, PENDING = PENDING, None
                 act()
@@ -1238,7 +1316,7 @@ def main():
             if hidden_at and time.time() - hidden_at >= REST and not (MENU or DRAG or scrolled):
                 w, h = os.get_terminal_size()
                 lines, _ = render(items, current, w, h, cur_sess, sessions, homes)
-                out.write("\x1b[H" + "\r\n".join(lines) + "\x1b[0m\x1b[?1000l\x1b[?1002l\x1b[?1006l")
+                out.write("\x1b[H" + "\r\n".join(lines) + "\x1b[0m\x1b[?1000l\x1b[?1002l\x1b[?1006l\x1b[H")
                 out.flush()
                 termios.tcsetattr(fd, termios.TCSADRAIN, old)
                 # a shell cannot trap a signal it started with ignored (the launcher ignores SIGUSR2)

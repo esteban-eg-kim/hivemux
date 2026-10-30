@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Going back to a window after a while no longer shows its sidebar jump: a
+  resting sidebar kept the frame it left, which grew old (cards that changed
+  state, new ones), and the woken one redrew it all at once. The sidebar on
+  screen now keeps the resting frames current
+
 ## 0.1.46 — 2026-10-30
 
 - A sidebar hidden for 30 seconds rests: it turns into a 1 MB shell that keeps
