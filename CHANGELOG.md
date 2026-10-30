@@ -13,6 +13,10 @@
 - A done card you looked at no longer shows "done" for a moment in the next
   window: the sidebar that turns it idle now wakes the hidden sidebars, which
   draw only when woken
+- A card that changed without changing state (a turn that ended with a shell
+  still running: "waiting on 1 shell") no longer shows its old line for a
+  moment in the next window: the hook wakes the sidebars for it, and a hidden
+  sidebar redraws what changed every few seconds
 
 ## 0.1.46 — 2026-10-30
 

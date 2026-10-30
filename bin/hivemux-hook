@@ -215,7 +215,9 @@ case "$event" in
       grep -Eiq '기다리|기다릴|끝나면|끝나는 대로|끝날 때까지|완료되면|돌아가는 동안|wait(ing)? (for|until|on)|once (it|they|that|this|the [a-z ]+) (finish|complete|is done|are done)|when (it|they) (finish|complete)' && bgs="$bgall"
     agents "$bga"
     if [ "$bga" -gt 0 ] || [ "$bgs" -gt 0 ] 2>/dev/null; then
-      t set -p -t "$TMUX_PANE" @claude_bg "$bga $bgs"; state run
+      # still "run", so state does not wake the sidebars: wake them for the new line ("waiting on 1 shell")
+      # 여전히 "run" 이라 state 가 사이드바를 깨우지 않는다: 새 줄 ("셸 1개 기다리는 중") 을 위해 깨운다
+      t set -p -t "$TMUX_PANE" @claude_bg "$bga $bgs"; state run; wake
     else
       t set -pu -t "$TMUX_PANE" @claude_bg; state done
     fi

@@ -1193,7 +1193,7 @@ def main():
     shared = tmux("show", "-gqv", "@hivemux-scroll").strip()
     if shared.isdigit():
         SCROLL = int(shared)
-    painted, paint, t0 = {}, False, time.time()    # see paint_resting; when this one started / paint_resting 참고; 시작 시각
+    painted, paint, polled, t0 = {}, False, False, time.time()    # see paint_resting; when this one started / paint_resting 참고; 시작 시각
     scrolled = 0.0                   # when the wheel last turned here / 여기서 휠을 마지막으로 굴린 시각
     board_blink = False
     REMOTE_ON = False
@@ -1245,7 +1245,7 @@ def main():
                     clear_quit(quits)
                 notify_changes(snap[0], seen, sent, nowf,
                                snap[2] and tmux("show", "-gqv", "@hivemux-notify").strip() != "off")
-                paint = snap[2]
+                paint, polled = snap[2], True
                 # woken from a rest: draw everything once more, in case a frame for the rest landed after the first
                 # 쉬다 깨어남: 쉬는 동안의 화면이 첫 화면 뒤에 왔을 수도 있어서 한 번 더 모두 그린다
                 if resumed and nowf - t0 >= 0.5:
@@ -1312,13 +1312,13 @@ def main():
                         for c in tmux("list-clients", "-F", "#{client_name}").split():
                             tmux("refresh-client", "-S", "-t", c)
                     last_board = b
-            # draw while visible; a hidden sidebar draws its first frame too, so it is ready when shown
-            # 보일 때 그린다. 숨은 사이드바도 첫 화면은 그려 두어 보일 때 바로 나오게 한다
-            # hidden sidebars draw only when woken (a project closed, a state changed), so the
-            # window you switch to never shows an old frame first
-            # 숨은 사이드바는 깨울 때만 그린다 (프로젝트 닫힘, 상태 바뀜). 옮겨 간 창이 예전 화면을 먼저 보이지 않게
-            if visible or prev is None or woke:
-                woke = False
+            # draw while visible; a hidden sidebar draws its first frame, when woken (a project closed, a state
+            # changed) and after each poll, only the rows that changed: what changed with no hook waking it
+            # (a field without a state change) showed old for a moment in the window you switched to
+            # 보일 때 그린다. 숨은 사이드바는 첫 화면, 깨울 때 (프로젝트 닫힘, 상태 바뀜), 그리고 읽을 때마다
+            # 바뀐 줄만 그린다: 훅이 깨우지 않은 변화 (상태는 그대로인 항목) 가 옮겨 간 창에서 잠깐 낡게 보였다
+            if visible or prev is None or woke or polled:
+                woke = polled = False
                 w, h = os.get_terminal_size()
                 lines, (targets, heads) = render(items, current, w, h, cur_sess, sessions, homes)
                 # Draw only rows that changed since the last frame; a full redraw only on
