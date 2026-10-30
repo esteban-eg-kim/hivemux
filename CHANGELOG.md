@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Option+O finds a file Claude named from its scratchpad
+  ("scratchpad/brand/sheet.png"): paths are also looked up in the session's
+  own folder under /tmp/claude-<uid>
+
 ## 0.1.47 — 2026-10-30
 
 - Switching windows no longer shows a card in an old state for a moment
