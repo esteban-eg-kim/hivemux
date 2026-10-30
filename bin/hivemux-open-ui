@@ -9,13 +9,15 @@ Lists existing file/dir paths found in that pane's recent output, newest first.
   ↑↓ / Ctrl+P N   select / 고르기       type   filter / 걸러 보기
   Enter           open in the editor of Settings (at the line) / 설정의 편집기로 열기 (그 줄로)
   Tab             default app / 기본 앱     Ctrl+F  reveal in Finder / Finder에서 보기
-  Ctrl+Y          copy path / 경로 복사     Esc     close / 닫기
+  Ctrl+Y          copy path (on that Mac too) / 경로 복사 (그 Mac 에도)     Esc     close / 닫기
 On a screen attached from another Mac with VS Code or Cursor, Enter opens the file on that Mac,
 over Remote-SSH (bin/hivemux-ports there picks up @hivemux-edit-<Mac>); otherwise on this Mac.
 다른 Mac 에서 붙은 화면이고 편집기가 VS Code 나 Cursor 면, Enter 는 그 Mac 에서 원격 SSH 로 연다
 (그 Mac 의 bin/hivemux-ports 가 @hivemux-edit-<Mac> 을 가져간다). 아니면 이 Mac 에서 연다.
-There, Tab copies the file to that Mac and opens it with its default app (bin/hivemux-show).
-그런 화면에서 Tab 은 파일을 그 Mac 으로 복사해 기본 앱으로 연다 (bin/hivemux-show).
+There, Tab copies the file to that Mac and opens it with its default app (bin/hivemux-show), and so do
+Enter with another editor and Ctrl+F, which would otherwise open it on this Mac where nobody looks.
+그런 화면에서 Tab 은 파일을 그 Mac 으로 복사해 기본 앱으로 연다 (bin/hivemux-show). 다른 편집기의 Enter 와
+Ctrl+F 도 그렇게 한다. 아니면 아무도 안 보는 이 Mac 에서 열리기 때문이다.
 """
 import glob, shutil, os, re, subprocess, sys, termios, time, tty, unicodedata, urllib.parse
 
@@ -221,13 +223,28 @@ def from_mac():
     return mac if seen.isdigit() and time.time() - int(seen) < 20 else None
 
 
+def show_there(it):
+    """Copy the file to the Mac this screen comes from and open it there; returns what to say
+    파일을 이 화면이 붙어 온 Mac 으로 복사해 거기서 연다. 알릴 말을 돌려준다"""
+    if it["isdir"]:
+        return tr("폴더는 다른 Mac 에서 열 수 없습니다. ^Y 로 경로를 복사하세요", "A folder cannot be opened on another Mac; ^Y copies the path")
+    if os.environ.get("HIVEMUX_DRYRUN"):
+        run(["hivemux-show", "--client", CLIENT, it["full"]])
+        return ""
+    r = subprocess.run([os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-show"), "--client", CLIENT,
+                        it["full"]], capture_output=True, text=True)
+    return (r.stdout or r.stderr).strip()
+
+
 def open_editor(it):
     """Open in the editor; returns a note when it opens on another Mac / 편집기로 연다. 다른 Mac 에서 열면 알릴 말을 돌려준다"""
     e = editor()
-    mac = from_mac() if e in ("vscode", "cursor") else None
-    if mac:
+    mac = from_mac()
+    if mac and e in ("vscode", "cursor"):
         run([TMUX, "set", "-g", f"@hivemux-edit-{mac}", f"{e} {it['line'] or 0} {it['col'] or 0} {it['full']}"])
         return tr(f"{mac} 의 {editor_name(e)} 로 엽니다", f"Opening in {editor_name(e)} on {mac}")
+    if mac:                 # no remote editor: bring the file over / 원격 편집기가 없으면 파일을 가져가 연다
+        return show_there(it)
     if e == "default":
         run(["open", it["full"]] if it["isdir"] else ["open", "-t", it["full"]])
         return None
@@ -279,8 +296,12 @@ def main():
                     line = f"{bg(BG)}   {fg(T3)}{icon} {fg(T2)}{name}"
                 buf.append(line + "\r\n")
             buf.append(f"\x1b[{rows - 1};1H{fg((44, 48, 57))}  " + "─" * (cols - 4) + "\r\n")
+            there = from_mac()
             hint = msg or (f"{fg(TEXT)}Enter{fg(T3)} {editor_name(editor())}   "
                            f"{fg(TEXT)}Tab{fg(T3)} {tr('기본 앱', 'default app')}   {fg(TEXT)}^F{fg(T3)} Finder   "
+                           if not there else
+                           f"{fg(TEXT)}Enter{fg(T3)} {editor_name(editor()) if editor() in ('vscode', 'cursor') else tr(f'{there} 에서 열기', f'open on {there}')}   "
+                           f"{fg(TEXT)}Tab{fg(T3)} {tr(f'{there} 기본 앱', f'default app on {there}')}   "
                            f"{fg(TEXT)}^Y{fg(T3)} {tr('복사', 'copy')}   {fg(TEXT)}Esc{fg(T3)} {tr('닫기', 'close')}")
             buf.append("  " + hint + RST)
             out.write("".join(buf))
@@ -304,21 +325,24 @@ def main():
                     out.flush()
                     time.sleep(1.2)
                 return
-            elif ch == "\t" and shown:
-                # on a screen from another Mac, a file opens there (bin/hivemux-show) / 다른 Mac 에서 붙은 화면이면 파일은 거기서 연다
-                if from_mac() and not shown[sel]["isdir"]:
-                    r = subprocess.run([os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-show"), "--client", CLIENT,
-                                        shown[sel]["full"]], capture_output=True, text=True)
-                    out.write(f"\x1b[{rows};1H\x1b[2K  {fg(ACC)}{(r.stdout or r.stderr).strip()}{RST}")
-                    out.flush()
-                    time.sleep(1.2)
-                else:
+            elif ch in ("\t", "\x06") and shown:
+                # on a screen from another Mac, it opens there (bin/hivemux-show); ^F too, Finder here is out of sight
+                # 다른 Mac 에서 붙은 화면이면 거기서 연다 (bin/hivemux-show). ^F 도: 여기 Finder 는 안 보인다
+                if from_mac():
+                    note = show_there(shown[sel])
+                    if note:
+                        out.write(f"\x1b[{rows};1H\x1b[2K  {fg(ACC)}{note}{RST}")
+                        out.flush()
+                        time.sleep(1.5 if shown[sel]["isdir"] else 1.2)
+                elif ch == "\t":
                     run(["open", shown[sel]["full"]])
+                else:
+                    run(["open", "-R", shown[sel]["full"]])
                 return
-            elif ch == "\x06" and shown:
-                run(["open", "-R", shown[sel]["full"]]); return
             elif ch == "\x19" and shown:
                 run(["pbcopy"], input=shown[sel]["full"].encode())
+                if from_mac():      # and to that Mac's clipboard, by OSC 52 / 그 Mac 의 클립보드에도 (OSC 52)
+                    run([TMUX, "set-buffer", "-w", "-t", CLIENT, "--", shown[sel]["full"]])
                 msg = f"{fg(ACC)}{tr('복사했습니다', 'Copied')}  {fg(T2)}{cut_left(shown[sel]['full'], cols - 14)}"
             elif ch in ("\x7f", "\x08"):
                 q = q[:-1]; sel = 0

@@ -5,6 +5,11 @@
 - Option+O finds a file Claude named from its scratchpad
   ("scratchpad/brand/sheet.png"): paths are also looked up in the session's
   own folder under /tmp/claude-<uid>
+- Option+O on a screen attached from another Mac opens files on that Mac:
+  Enter (unless the editor is VS Code or Cursor, which already opened
+  there over Remote-SSH) and Ctrl+F now copy the file over like Tab, instead
+  of opening it on the Mac you are not looking at; Ctrl+Y also puts the path
+  on that Mac's clipboard
 
 ## 0.1.47 — 2026-10-30
 
