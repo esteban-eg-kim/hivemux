@@ -6,6 +6,10 @@
   resting sidebar kept the frame it left, which grew old (cards that changed
   state, new ones), and the woken one redrew it all at once. The sidebar on
   screen now keeps the resting frames current
+- Idle cards no longer flash "running" when you switch to a window: a sidebar
+  woken from a rest kept its resting mark (the wake-up ran without the tmux
+  path), so the sidebar on screen did not count as the one keeping resting
+  frames current, and those frames still showed old states
 
 ## 0.1.46 — 2026-10-30
 

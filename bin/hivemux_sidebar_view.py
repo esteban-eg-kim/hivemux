@@ -53,9 +53,15 @@ GRIP = f"/tmp/hivemux-grip-{os.getuid()}"     # grip is being dragged (created b
 # $0: 이 사이드바의 명령, $1: tmux. 표시는 셸이 SIGUSR2 를 받을 수 있게 된 뒤에 단다. 그사이 창이 화면에
 # 나왔으면 스스로 깬다. 깨어날 때는 먼저 SIGUSR2 를 무시한다: 훅 둘이 한꺼번에 깨울 수 있고, 무시는
 # 파이썬까지 이어진다 (실행 파일도 무시한다).
+# The trap passes "$@" on: a function has its own $1, so a bare `trap wake` ran "" instead of tmux, the mark
+# stayed on a sidebar that was awake, no visible sidebar counted as live in paint_resting, and resting frames
+# grew old (the window you went to showed idle cards as running for a moment)
+# 트랩은 "$@" 를 넘긴다: 함수의 $1 은 따로라서 그냥 `trap wake` 는 tmux 대신 "" 를 실행했다. 깨어난 사이드바에
+# 표시가 남아 paint_resting 이 보이는 사이드바를 하나도 살아 있다고 보지 않았고, 쉬는 화면이 낡았다
+# (옮겨 간 창에서 대기 카드가 잠깐 작업 중으로 보였다)
 REST_SH = """trap '' USR1
 wake() { trap '' USR2; "$1" set -pu -t "$TMUX_PANE" @hivemux-rest; export HIVEMUX_SIDEBAR_RESUMED=1; exec "$0"; }
-trap wake USR2
+trap 'wake "$@"' USR2
 "$1" set -p -t "$TMUX_PANE" @hivemux-rest 1
 case "$("$1" display -p -t "$TMUX_PANE" '#{window_active} #{session_attached}')" in "1 "[1-9]*) wake "$@" ;; esac
 while :; do read -r _ || sleep 1; done"""
@@ -1096,7 +1102,11 @@ def paint_resting(painted, scroll):
                 continue
             SCROLL, SCROLL_TO = scroll, None       # as it will start when woken / 깨어날 때처럼
             lines, _ = render(items, current, *size, cur_sess, sessions, homes)
-            if old and old[0] == size:
+            # the rows that changed, but all of them every 15 seconds: rows it took as unchanged may not be
+            # what the pane shows (the sidebar drew there itself while awake)
+            # 바뀐 줄만, 단 15초마다 모두: 안 바뀌었다고 본 줄이 칸에 보이는 것과 다를 수 있다 (깨어 있던
+            # 사이드바가 직접 그렸다)
+            if old and old[0] == size and now - old[3] < 15:
                 frame = "".join(f"\x1b[{i + 1};1H{ln}" for i, ln in enumerate(lines) if i >= len(old[1]) or old[1][i] != ln)
             else:
                 frame = "\x1b[H" + "\r\n".join(lines)
@@ -1127,6 +1137,10 @@ def main():
     # 첫 화면을 그릴 때까지 "준비 중" 을 바로 보여 준다 (빈 칸으로 두지 않는다). 쉬다가 깨어날 때는 빼고:
     # 마지막 화면이 칸에 그대로 있다
     resumed = os.environ.pop("HIVEMUX_SIDEBAR_RESUMED", "")
+    # a running sidebar does not rest: clear the mark here too (a shell resting since before the REST_SH fix
+    # wakes without clearing it) / 돌고 있는 사이드바는 쉬지 않는다: 여기서도 표시를 지운다 (REST_SH 를
+    # 고치기 전부터 쉬던 셸은 지우지 못하고 깬다)
+    tmux("set", "-pu", "-t", ME, "@hivemux-rest")
     try:
         if resumed:
             raise OSError
