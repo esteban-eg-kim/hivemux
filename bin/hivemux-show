@@ -24,6 +24,7 @@ PDF, 페이지는 브라우저). 그래서 Claude 가 여기서 찍은 스크린
 import os, shutil, subprocess, sys, time
 
 TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
+OS = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-os")   # open, copy on macOS or Linux / macOS 나 Linux 에서 열기, 복사
 
 
 def tmux(*a):
@@ -77,7 +78,7 @@ def main(argv):
         return 1
     mac, name = mac_of(client or looking())
     if mac is None:                      # a screen of this Mac / 이 Mac 의 화면
-        return subprocess.run(["open", *paths]).returncode
+        return subprocess.run([OS, "open", *paths]).returncode
     if not mac:
         print(tr("붙어 온 Mac 과 연결이 없어 열 수 없습니다 (hivemux connect 를 다시 하세요)",
                  "Cannot reach the Mac this screen comes from (connect again with hivemux connect)"), file=sys.stderr)

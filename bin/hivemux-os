@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# What macOS and Linux do differently, in one place: open, reveal, copy, a process's program.
+# macOS 와 Linux 가 다르게 하는 일을 한곳에: 열기, 폴더에서 보기, 복사, 프로세스의 실행 파일.
+#   hivemux-os open <file|dir|url>...   the default app (macOS open, Linux xdg-open) / 기본 앱
+#   hivemux-os edit <file>              the text editor (macOS open -t; Linux: the default app) / 텍스트 편집기
+#   hivemux-os app <App> <path>         a named app (macOS open -a; Linux: the default app) / 이름으로 고른 앱
+#   hivemux-os reveal <path>            show it in Finder / the file manager / Finder 나 파일 관리자에서 보기
+#   hivemux-os copy < text              to the clipboard (pbcopy; wl-copy, xclip or xsel; else the terminal's,
+#                                       by OSC 52 through tmux) / 클립보드로 (없으면 tmux 로 터미널의 클립보드)
+#   hivemux-os exe <pid>                the program a process runs / 프로세스가 실행 중인 파일
+# HIVEMUX_OS=linux|mac picks one for tests / 테스트용으로 고르기
+os="${HIVEMUX_OS:-$([ "$(uname -s)" = Darwin ] && echo mac || echo linux)}"
+cmd="$1"; shift
+
+# Linux: start a desktop program away from tmux (no output in the pane, it outlives a popup)
+# Linux: 데스크톱 프로그램을 tmux 와 떼어 띄운다 (칸에 출력이 없고, 팝업이 닫혀도 남는다)
+detach() { setsid -f "$@" >/dev/null 2>&1 </dev/null || "$@" >/dev/null 2>&1 </dev/null & }
+
+case "$os:$cmd" in
+  mac:open) exec open "$@" ;;
+  mac:edit) exec open -t "$@" ;;
+  mac:app) exec open -a "$@" ;;
+  mac:reveal) exec open -R "$@" ;;
+  mac:copy) exec pbcopy ;;
+  mac:exe) lsof -a -p "$1" -d txt -Fn 2>/dev/null | sed -n 's/^n//p' | head -1 ;;
+  linux:open|linux:edit|linux:app)
+    [ "$cmd" = app ] && shift
+    command -v xdg-open >/dev/null || { echo "hivemux: xdg-open not found (install xdg-utils)" >&2; exit 1; }
+    for p in "$@"; do detach xdg-open "$p"; done ;;
+  linux:reveal)
+    # the file manager selects it (FileManager1, as Nautilus, Dolphin, Nemo, Thunar do), else opens its folder
+    # 파일 관리자가 그 파일을 골라 보여 준다 (FileManager1). 안 되면 그 폴더를 연다
+    p="$(realpath "$1" 2>/dev/null || echo "$1")"
+    uri="file://$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1]))' "$p")"
+    dbus-send --session --print-reply --dest=org.freedesktop.FileManager1 /org/freedesktop/FileManager1 \
+      org.freedesktop.FileManager1.ShowItems array:string:"$uri" string:"" >/dev/null 2>&1 ||
+      { [ -d "$p" ] || p="$(dirname "$p")"; exec "$0" open "$p"; } ;;
+  linux:copy)
+    if [ -n "$WAYLAND_DISPLAY" ] && command -v wl-copy >/dev/null; then exec wl-copy
+    elif [ -n "$DISPLAY" ] && command -v xclip >/dev/null; then exec xclip -selection clipboard
+    elif [ -n "$DISPLAY" ] && command -v xsel >/dev/null; then exec xsel --clipboard --input
+    elif [ -n "$TMUX" ]; then exec tmux load-buffer -w -   # the terminal's clipboard / 터미널의 클립보드
+    else cat >/dev/null; exit 1; fi ;;
+  linux:exe) readlink "/proc/$1/exe" 2>/dev/null ;;
+  *) echo "usage: hivemux-os open|edit|app|reveal|copy|exe ..." >&2; exit 2 ;;
+esac

@@ -52,6 +52,7 @@ import os, re, shlex, signal, socket, subprocess, sys, tempfile, threading, time
 
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "ports")
 POLL = 3
+OS = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-os")   # open, copy on macOS or Linux / macOS 나 Linux 에서 열기, 복사
 PATH = "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH"
 # HIVEMUX_SSH: another ssh command, e.g. "ssh -F <config>" (used for testing) / 다른 ssh 명령 (시험용)
 SSH = shlex.split(os.environ.get("HIVEMUX_SSH") or "ssh")
@@ -247,7 +248,7 @@ class Ports:
             with open(os.environ["HIVEMUX_DRYRUN"], "a") as f:
                 f.write("show " + " ".join(got) + "\n")
             return
-        subprocess.run(["open", *got])
+        subprocess.run([OS, "open", *got])
 
     def office(self):
         """Open the bee office window on this Mac; the other Mac's sessions show next door
@@ -350,7 +351,7 @@ class Ports:
             with open(os.environ["HIVEMUX_DRYRUN"], "a") as f:
                 f.write(f"open {url}\n")
         else:
-            subprocess.run(["open", url])
+            subprocess.run([OS, "open", url])
 
     def share(self):
         """Put the list in the other Mac's tmux (for its port list popup) when it changed

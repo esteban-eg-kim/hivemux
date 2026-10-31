@@ -51,7 +51,7 @@ claude_pid() {
   ps -ax -o pid=,ppid=,comm= | awk -v p="$1" '$2 == p && $3 ~ /(^|\/)(claude|node)$/ { print $1; exit }'
 }
 # The binary a process runs / 프로세스가 실행 중인 파일
-exe() { lsof -a -p "$1" -d txt -Fn 2>/dev/null | sed -n 's/^n//p' | head -1; }
+exe() { "$HM_BIN/hivemux-os" exe "$1"; }
 
 # Still on an old version: its binary is not the one `claude` is now (a node install can't tell: only after an update)
 # 아직 예전 버전: 실행 파일이 지금의 `claude` 가 아니다 (node 설치는 알 수 없어 업데이트했을 때만)

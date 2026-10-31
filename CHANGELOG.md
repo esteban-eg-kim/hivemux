@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Linux groundwork (tested on Ubuntu 24.04 with tmux 3.4): sidebars no
+  longer quit at once there (tmux 3.4 prints the field separator as "\037"),
+  a window no longer gets two sidebars (the ensure lock used BSD-only
+  `find -mtime -10s`), and opening, revealing and copying go through
+  `hivemux-os` (xdg-open, the file manager, wl-copy / xclip / xsel or the
+  terminal's clipboard on Linux)
+
 ## 0.1.48 — 2026-10-31
 
 - Option+O finds a file Claude named from its scratchpad

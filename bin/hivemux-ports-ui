@@ -17,6 +17,7 @@ Dev server ports forwarded from another Mac (bin/hivemux-ports):
 import os, shutil, subprocess, sys, termios, tty, unicodedata
 
 TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
+OS = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-os")   # open, copy on macOS or Linux / macOS 나 Linux 에서 열기, 복사
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "ports")
 
 
@@ -95,14 +96,14 @@ def open_it(it):
         # that Mac's hivemux-ports opens it on its next poll / 그 Mac 의 hivemux-ports 가 다음에 물을 때 연다
         run([TMUX, "set", "-g", f"@hivemux-ports-open-{it['mac']}", it["rp"]])
     else:
-        run(["open", it["url"]])
+        run([OS, "open", it["url"]])
 
 
 def copy(it):
     if is_remote(CLIENT):       # to the clipboard of the Mac this screen is on (OSC 52) / 이 화면이 있는 Mac 의 클립보드로
         run([TMUX, "set-buffer", "-w", "--", it["url"]])
     else:
-        run(["pbcopy"], input=it["url"].encode())
+        run([OS, "copy"], input=it["url"].encode())
 
 
 def main():

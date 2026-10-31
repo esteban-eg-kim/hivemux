@@ -33,7 +33,10 @@ LEDGER = os.path.join(DATA, "honey.log")
 
 
 def tmux(*a):
-    return subprocess.run([TMUX, *a], capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout
+    out = subprocess.run([TMUX, *a], capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout
+    # some tmux versions (3.4) print a control character in a format as an escape ("\037"): put it back
+    # 어떤 tmux (3.4) 는 형식 안의 제어 문자를 이스케이프("\037")로 내보낸다: 되돌린다
+    return out.replace("\\037", "\x1f") if any("\x1f" in x for x in a) else out
 
 
 def bee_ids(claudes):

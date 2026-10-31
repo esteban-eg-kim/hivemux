@@ -22,6 +22,7 @@ Ctrl+F 도 그렇게 한다. 아니면 아무도 안 보는 이 Mac 에서 열�
 import glob, shutil, os, re, subprocess, sys, termios, time, tty, unicodedata, urllib.parse
 
 TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
+OS = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-os")   # open, copy on macOS or Linux / macOS 나 Linux 에서 열기, 복사
 
 
 def _is_ko():
@@ -246,18 +247,18 @@ def open_editor(it):
     if mac:                 # no remote editor: bring the file over / 원격 편집기가 없으면 파일을 가져가 연다
         return show_there(it)
     if e == "default":
-        run(["open", it["full"]] if it["isdir"] else ["open", "-t", it["full"]])
+        run([OS, "open", it["full"]] if it["isdir"] else [OS, "edit", it["full"]])
         return None
     name, app, cli = EDITORS[e]
     if e in ("vscode", "cursor") and not it["isdir"]:
         url = f"{e}://file" + urllib.parse.quote(it["full"])
         if it["line"]:
             url += f":{it['line']}" + (f":{it['col']}" if it["col"] else "")
-        run(["open", url])
+        run([OS, "open", url])
     elif cli and shutil.which(cli) and not it["isdir"]:
         run([shutil.which(cli), it["full"] + (f":{it['line']}" if it["line"] else "") + (f":{it['col']}" if it["line"] and it["col"] else "")])
     else:
-        run(["open", "-a", app, it["full"]])
+        run([OS, "app", app, it["full"]])
     return None
 
 
@@ -335,12 +336,12 @@ def main():
                         out.flush()
                         time.sleep(1.5 if shown[sel]["isdir"] else 1.2)
                 elif ch == "\t":
-                    run(["open", shown[sel]["full"]])
+                    run([OS, "open", shown[sel]["full"]])
                 else:
-                    run(["open", "-R", shown[sel]["full"]])
+                    run([OS, "reveal", shown[sel]["full"]])
                 return
             elif ch == "\x19" and shown:
-                run(["pbcopy"], input=shown[sel]["full"].encode())
+                run([OS, "copy"], input=shown[sel]["full"].encode())
                 if from_mac():      # and to that Mac's clipboard, by OSC 52 / 그 Mac 의 클립보드에도 (OSC 52)
                     run([TMUX, "set-buffer", "-w", "-t", CLIENT, "--", shown[sel]["full"]])
                 msg = f"{fg(ACC)}{tr('복사했습니다', 'Copied')}  {fg(T2)}{cut_left(shown[sel]['full'], cols - 14)}"

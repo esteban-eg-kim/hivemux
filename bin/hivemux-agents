@@ -26,6 +26,7 @@ US=$'\x1f'   # field separator; tabs collapse empty fields / 구분자. 탭은 �
 ORDER_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux/session-order"
 rows() {
   t list-panes -a -F "$(printf '%s\x1f' '#{pane_id}' '#{session_name}' '#{window_index}' '#{window_name}' '#{@claude_state}' '#{@claude_state_at}' '#{@claude_session}' '#{pane_active}' '#{window_active}' '#{session_attached}' '#{pane_current_command}')" 2>/dev/null |
+    sed 's/\\037/\x1f/g' |   # some tmux versions (3.4) escape the separator / 어떤 tmux (3.4) 는 구분자를 이스케이프한다
     # a shell in front: that Claude has quit (its SessionEnd hook comes later) / 앞에 셸: 그 Claude 는 끝났다 (SessionEnd 는 나중에 온다)
     awk -F "$US" -v f="$ORDER_FILE" 'BEGIN { while ((getline l < f) > 0) if (!(l in r)) r[l] = ++n
         split("zsh bash fish sh dash tcsh ksh login", a, " "); for (i in a) sh[a[i]] = 1 }
