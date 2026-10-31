@@ -321,14 +321,14 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
   <div class="steps">
     <div class="st"><div>
       <h3>Open Ghostty</h3>
-      <p>Open it from the Dock or Spotlight (<kbd>⌘</kbd>+<kbd>Space</kbd>, type Ghostty). A dark status line at the top and a sidebar on the left mean you are inside tmux.</p>
+      <p><code>hivemux setup</code> opens Ghostty for you when it is done; if you ran setup inside Ghostty, press <kbd>⌘</kbd>+<kbd>N</kbd> for a new window. After that, open it from the Dock or Spotlight (<kbd>⌘</kbd>+<kbd>Space</kbd>, type Ghostty). A dark status line at the top and a sidebar on the left mean you are inside tmux.</p>
       <div class="tbar"><span class="sess">main</span><span class="win cur">1:zsh</span><span class="grow"></span><span class="clock">10-06 11:02</span></div>
-      <p class="result">The top line is the window list; <b>main</b> on the left is the default session. The sidebar says there is no Claude yet. Open a project from here. Next time, Ghostty opens straight into the project you were last looking at.</p>
+      <p class="result">The top line is the window list; <b>main</b> on the left is the default session. Right after a first install, the first window opens the sidebar's <b>New project</b> folder picker once by itself: pick a folder and press <kbd>Enter</kbd>, and Claude starts there, so you can skip the next step. If you closed the picker or this is not a first install, the sidebar says there is no Claude yet. Open a project from here. Next time, Ghostty opens straight into the project you were last looking at.</p>
     </div></div>
 
     <div class="st"><div>
       <h3>Open your first project</h3>
-      <p>Type <code>hm</code> followed by the project folder. Inside the folder already, plain <code>hm</code> is enough.</p>
+      <p>If you already opened one from the first window's folder picker, go on to the next step. In a shell, type <code>hm</code> followed by the project folder. Inside the folder already, plain <code>hm</code> is enough. Right-click the sidebar → <b>New project</b> opens the same folder picker.</p>
       <div class="code"><button class="copy" type="button">Copy</button><pre>hm ~/project/claude</pre></div>
       <div class="tbar"><span class="sess">claude</span><span class="win cur">1:claude</span><span class="win">2:shell</span><span class="grow"></span><span class="clock">10-06 11:03</span></div>
       <p class="result">A session named after the folder opens with two windows. <b>1:claude</b> runs Claude as <code>claude -n claude</code>. <b>2:shell</b> is for git, dev servers and other commands.</p>
@@ -568,6 +568,7 @@ claude -c
       <div class="key"><span class="combo">Type in the popup</span><span class="d">Filter the paths</span></div>
       <div class="key"><span class="combo"><kbd>Enter</kbd></span><span class="d">Open in the editor chosen in Settings (VS Code, Cursor, Zed, Sublime Text, text editor), at the line when there is one</span></div>
       <div class="key"><span class="combo"><kbd>Tab</kbd> / <kbd>Ctrl</kbd>+<kbd>F</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></span><span class="d">Default app / reveal in Finder / copy path</span></div>
+      <div class="key"><span class="combo">Screen attached from another Mac</span><span class="d"><kbd>Enter</kbd>, <kbd>Tab</kbd> and <kbd>Ctrl</kbd>+<kbd>F</kbd> copy the file to the Mac you connect from and open it there (with VS Code or Cursor, <kbd>Enter</kbd> opens it over Remote-SSH). <kbd>Ctrl</kbd>+<kbd>Y</kbd> also copies to that Mac's clipboard</span></div>
       <div class="key"><span class="combo"><kbd>⌘</kbd>+click</span><span class="d">Open paths and URLs that Claude printed as links</span></div>
     </div>
     <h3>Projects (sessions)</h3>
@@ -686,7 +687,7 @@ hivemux connect me@work-mac.local</pre></div>
   </ul>
   <h3>Pasting images</h3>
   <p>Claude Code's <kbd>Ctrl</kbd>+<kbd>V</kbd> reads the image from the clipboard of the Mac Claude runs on, so on a remote screen a screenshot taken here did not paste. Now <kbd>Ctrl</kbd>+<kbd>V</kbd> in a remote Claude pane sends the image on this Mac's clipboard over and pastes it as <code>[Image #1]</code>; the other Mac's clipboard is left alone. With no image on the clipboard, the status line says so. It rides the same ssh connection as the ports, so <code>HIVEMUX_PORTS=0</code> turns it off too, and both Macs need hivemux 0.1.26 or later.</p>
-  <p><code>hivemux open &lt;file&gt;</code> in a remote pane copies the file to this Mac and opens it with its default app (a picture in Preview). Ask Claude to "show the screenshot with hivemux open" and a capture it made on the remote Mac appears on the Mac in front of you. <kbd>Tab</kbd> in the <kbd>Option</kbd>+<kbd>O</kbd> popup does the same, and the 🐝 button on a remote screen opens the bee office on this Mac. It rides the same ssh connection, and both Macs need hivemux 0.1.29 or later.</p>
+  <p><code>hivemux open &lt;file&gt;</code> in a remote pane copies the file to this Mac and opens it with its default app (a picture in Preview). Ask Claude to "show the screenshot with hivemux open" and a capture it made on the remote Mac appears on the Mac in front of you. The <kbd>Option</kbd>+<kbd>O</kbd> popup does the same: <kbd>Tab</kbd>, <kbd>Ctrl</kbd>+<kbd>F</kbd> and <kbd>Enter</kbd> copy the file to this Mac and open it here. With VS Code or Cursor as the editor, <kbd>Enter</kbd> opens it on this Mac over Remote-SSH instead. A folder cannot be opened here, so copy its path with <kbd>Ctrl</kbd>+<kbd>Y</kbd>, which also puts the path on this Mac's clipboard. The 🐝 button on a remote screen opens the bee office on this Mac. It rides the same ssh connection, and both Macs need hivemux 0.1.29 or later.</p>
   <div class="note">Two screens on the same project share it: switching windows on one moves the other. The size follows the screen that got the keyboard focus last. While a remote screen looks at a window, the sidebar animation and the status line spinner stop (each frame would go over the network and slow typing).</div>
 </section>
 
@@ -759,10 +760,10 @@ hivemux-sidebar respawn</pre></div>
 tmux set -g @hivemux-fps 15</pre></div>
     </div></details>
     <details class="issue" data-c="term"><summary>Option+number does nothing<span class="pill part tag">Terminal</span></summary><div class="body">
-      <p>Ghostty has to send Option as Alt. <code>hivemux setup</code> sets this, but a Ghostty that was open before needs a full quit and restart. Otherwise use <kbd>Ctrl</kbd>+<kbd>A</kbd> then <kbd>Space</kbd>, or click a card.</p>
+      <p>Ghostty has to send Option as Alt. <code>hivemux setup</code> sets this, but a Ghostty that was open before needs a full quit and restart. In Terminal.app, turn on Settings → Profiles → Keyboard → Use Option as Meta key. Otherwise use <kbd>Ctrl</kbd>+<kbd>A</kbd> then <kbd>Space</kbd>, or click a card.</p>
     </div></details>
     <details class="issue" data-c="term"><summary>Open a file Claude mentioned<span class="pill part tag">Terminal</span></summary><div class="body">
-      <p><kbd>Option</kbd>+<kbd>O</kbd> lists file paths from that pane's recent output, newest first. Only existing files are shown, and relative paths are resolved against Claude's working folder. Paths with a line number, like <code>file:42</code>, open at that line in the editor from Settings. On a screen attached from another Mac with <code>hivemux connect</code>, VS Code and Cursor open the file on <b>that Mac (the one you connect from)</b> over Remote-SSH (it needs the Remote - SSH extension there). <kbd>Tab</kbd> (default app) copies the file to that Mac and opens it with its default app there (a picture in Preview, a PDF, a page in the browser). Other editors and <kbd>Ctrl</kbd>+<kbd>F</kbd> open it on this Mac, where the file is. In a terminal or from Claude, <code>hivemux open &lt;file&gt;</code> does the same: on that Mac when a screen from it is looking, else on this Mac. So when you work remotely, ask Claude to "show the screenshot with hivemux open" and it appears on your laptop. Both Macs need this version.</p>
+      <p><kbd>Option</kbd>+<kbd>O</kbd> lists file paths from that pane's recent output, newest first. Only existing files are shown, and relative paths are resolved against Claude's working folder. They are also looked up in that Claude session's own temp folder (<code>/tmp/claude-&lt;uid&gt;/&lt;project&gt;/&lt;session id&gt;</code>), so a file Claude names from its scratchpad, like <code>scratchpad/brand/sheet.png</code>, shows up too. Paths with a line number, like <code>file:42</code>, open at that line in the editor from Settings. On a screen attached from another Mac with <code>hivemux connect</code>, files open on <b>that Mac (the one you connect from)</b>. With VS Code or Cursor as the editor, <kbd>Enter</kbd> opens the file there over Remote-SSH (it needs the Remote - SSH extension there). <kbd>Enter</kbd> with another editor, <kbd>Tab</kbd> (default app) and <kbd>Ctrl</kbd>+<kbd>F</kbd> copy the file to that Mac and open it with its default app there (a picture in Preview, a PDF, a page in the browser). A folder cannot be opened there: the popup says so and suggests <kbd>Ctrl</kbd>+<kbd>Y</kbd>, which copies the path to the clipboard of both this Mac and that one (OSC 52). In a terminal or from Claude, <code>hivemux open &lt;file&gt;</code> does the same: on that Mac when a screen from it is looking, else on this Mac. So when you work remotely, ask Claude to "show the screenshot with hivemux open" and it appears on your laptop. Both Macs need this version.</p>
       <p class="why">⌘+click works only where Claude prints the path as a link. Link support applies after Ghostty reattaches to tmux and Claude is restarted.</p>
     </div></details>
     <details class="issue" data-c="term"><summary>Shift+Enter sends instead of adding a new line<span class="pill part tag">Terminal</span></summary><div class="body">
@@ -832,21 +833,40 @@ brew install esteban-eg-kim/tap/hivemux &amp;&amp; hivemux setup
 brew update &amp;&amp; brew upgrade hivemux &amp;&amp; hivemux setup
 <span class="cmt"># update Claude Code (each pane's Claude restarts on the new version)</span>
 hivemux update-claude
+<span class="cmt"># make another terminal open every window in hivemux (ghostty, iterm, wezterm, kitty, alacritty, terminal; stop: --off)</span>
+hivemux terminal iterm
 <span class="cmt"># version / check / remove</span>
 hivemux version
 hivemux doctor
 hivemux uninstall</pre></div>
   <p><code>hivemux setup</code> leaves your config alone and only adds a block between <code># &gt;&gt;&gt; hivemux &gt;&gt;&gt;</code> markers. <code>hivemux uninstall</code> removes exactly those blocks and the hivemux hooks. Both are safe to run again.</p>
+  <p>Without Ghostty, <code>hivemux setup</code> asks to install it with Homebrew (<code>brew install --cask ghostty</code>). It never installs it with <code>--yes</code>, and without Homebrew it opens ghostty.org/download. When it is done it opens Ghostty. On a first install (no tmux server and no saved layout), the first Ghostty window opens the New project folder picker once.</p>
   <p>When you update, running <code>hivemux setup</code> again registers any hooks the new version adds, reloads the running tmux and restarts the sidebars. Your sessions keep running. Claude sessions started before the update use the new hooks once restarted.</p>
   <p><b>Updating Claude Code</b>: a running Claude keeps its old version until it starts again. Right-click → <b>Update Claude</b> (or <code>hivemux update-claude</code>) first shows the installed and the latest version (Homebrew's for a Homebrew install). Up to date, it says so and stops; with a newer one it says how many Claudes will restart and asks (<kbd>y</kbd>) before it updates Claude Code (with brew if it came from Homebrew, otherwise <code>claude update</code>) and restarts each pane's Claude that still runs an old version. It opens with <code>claude --resume</code> as after a reboot, so the conversation is the same, and a finished task you have not seen stays that way. A Claude that is working, waiting for you, or in a window on a screen (you might be typing) is left alone and restarts once it is done and off screen. Already up to date, it still restarts any Claude on an older version.</p>
+  <h3>Other terminals</h3>
+  <p>The terminal you already use can also open every window inside tmux with the sidebar, the way Ghostty does. Leave out the name to pick the terminal you are in. Run from one of them, <code>hivemux setup</code> offers it too (default no). <code>hivemux doctor</code> lists the terminals that are on, and <code>hivemux uninstall</code> removes them all.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cmt"># ghostty, iterm, wezterm, kitty, alacritty, terminal (Terminal.app)</span>
+hivemux terminal iterm
+<span class="cmt"># stop</span>
+hivemux terminal iterm --off</pre></div>
+  <ul>
+    <li><b>iTerm2</b>: a profile of its own, "hivemux", made the default profile. It applies to windows opened after iTerm2 restarts. <code>--off</code> removes the profile and puts back the previous default.</li>
+    <li><b>WezTerm</b>: hivemux lines inserted before the final <code>return config</code> of its config, or a new config file when there is none.</li>
+    <li><b>kitty</b>, <b>Alacritty</b>: a hivemux block in their config. If Alacritty's config already sets the shell, it leaves the file alone and says so; if it already has a <code>[window]</code> table, it tells you to add <code>option_as_alt = "Both"</code> there for the Option keys.</li>
+    <li><b>Terminal.app</b>: a block in <code>~/.zshrc</code> that runs <code>hivemux-attach</code>. For the Option keys, turn on Settings → Profiles → Keyboard → Use Option as Meta key.</li>
+  </ul>
   <div class="files">
     <div><code>~/.tmux.conf</code><span>The hivemux block loads <code>share/hivemux.tmux</code> and, if chosen, the recommended keys in <code>share/keys.tmux</code></span></div>
     <div><code>~/.config/ghostty/config</code><span>The hivemux block attaches every Ghostty window to tmux through <code>hivemux-attach</code></span></div>
+    <div><code>~/.config/kitty/kitty.conf</code>, <code>~/.config/alacritty/alacritty.toml</code><span>The hivemux block from <code>hivemux terminal kitty</code> / <code>alacritty</code></span></div>
+    <div><code>~/.wezterm.lua</code> or <code>~/.config/wezterm/wezterm.lua</code><span>The hivemux lines <code>hivemux terminal wezterm</code> puts before <code>return config</code></span></div>
+    <div><code>~/Library/Application Support/iTerm2/DynamicProfiles/hivemux.json</code><span>The "hivemux" profile from <code>hivemux terminal iterm</code> (made the default)</span></div>
+    <div><code>~/.zshrc</code><span>The PATH block for a git install, and the Terminal.app block from <code>hivemux terminal terminal</code></span></div>
     <div><code>~/.claude/settings.json</code><span>Eleven hivemux hooks and, if chosen, Remote Control for every session</span></div>
     <div><code>~/.local/share/hivemux/</code><span>Plugins, the pane-to-session list (<code>panes.tsv</code>), the resume log (<code>panes.log</code>), sidebar width and settings (<code>mac-name</code> and more), the bee office window (<code>office/</code>; why a build failed in <code>office/build.log</code>), config backups</span></div>
     <div><code>~/.local/share/tmux/resurrect/</code><span>tmux-resurrect layout snapshots</span></div>
-    <div><code>hivemux</code>, <code>hm</code><span>Setup, check and uninstall; open a project</span></div>
-    <div><code>hivemux-attach</code><span>Ghostty entry point. Restores and attaches to the last session when no server runs, otherwise to the most recent one</span></div>
+    <div><code>hivemux</code>, <code>hm</code><span>Setup, check, uninstall and other terminals; open a project</span></div>
+    <div><code>hivemux-attach</code><span>Entry point for Ghostty (and terminals turned on with <code>hivemux terminal</code>). Restores and attaches to the last session when no server runs, otherwise to the most recent one. Right after a first install it opens the New project folder picker once</span></div>
     <div><code>hivemux-rename-project</code>, <code>hivemux-rename-project-ui</code><span>Rename a project, and its popup</span></div>
     <div><code>hivemux-connect</code>, <code>hivemux-connect-ui</code><span>Connect to another Mac (<code>hivemux connect</code>) and its popup</span></div>
     <div><code>hivemux-ports</code>, <code>hivemux-ports-ui</code><span>Forward the other Mac's dev server ports here while connected, and the port list popup</span></div>

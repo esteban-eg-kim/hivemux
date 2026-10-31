@@ -25,7 +25,7 @@ hivemux는 모든 tmux 창 왼쪽에 사이드바를 붙입니다. 사이드바�
 - **노트북에서 이어서:** Claude는 데스크톱 Mac에서 돌리고, 노트북에서 `hivemux connect`로 붙어 이어서 합니다. ssh 창 하나로 끝나지 않습니다. 노트북에서 찍은 스크린샷을 원격 Claude에 `Ctrl+V`로 붙이고, 거기서 띄운 개발 서버를 노트북의 `localhost`로 열고, Claude가 거기서 만든 파일을 노트북에서 열고, 알림도 노트북에 뜹니다. [다른 Mac에서 이어서 작업](#다른-mac에서-이어서-작업) 참고.
 - **끊기지 않음:** 터미널을 닫아도 tmux가 세션을 살려 둡니다. 재부팅하면 tmux-resurrect가 배치를 복원하고, hivemux가 알맞은 칸에서 `claude --resume <id>`를 실행합니다.
 - **프로젝트:** `hm ~/code/api`로 폴더 하나에 tmux 세션 하나를 엽니다. 이름 붙인 Claude 창과 셸 창이 함께 생깁니다.
-- **Claude가 말한 경로 열기:** `Option+O`를 누르면 그 칸의 최근 출력에 나온 파일 경로가 목록으로 나옵니다. Enter를 누르면 설정에서 고른 편집기(VS Code, Cursor, Zed, Sublime Text, 텍스트 편집기)로 그 줄을 엽니다. 다른 Mac에서 붙은 화면이면 VS Code와 Cursor는 그 Mac에서 원격 SSH로 열고, Tab(기본 앱)은 파일을 그 Mac으로 복사해 거기서 엽니다. `hivemux open <파일>`도 같은 식이라, 원격으로 일할 때 Claude가 만든 스크린샷을 노트북에서 바로 볼 수 있습니다.
+- **Claude가 말한 경로 열기:** `Option+O`를 누르면 그 칸의 최근 출력에 나온 파일 경로가 목록으로 나옵니다. Enter를 누르면 설정에서 고른 편집기(VS Code, Cursor, Zed, Sublime Text, 텍스트 편집기)로 그 줄을 엽니다. 다른 Mac에서 붙은 화면이면 어느 키든 그 Mac에서 엽니다. VS Code와 Cursor는 원격 SSH로 열고, 그 밖의 편집기의 Enter, Tab, Ctrl+F는 파일을 그 Mac으로 복사해 거기서 엽니다. Ctrl+Y는 경로를 그 Mac의 클립보드에 복사합니다. Claude가 자기 임시 폴더 기준으로 적은 경로(`scratchpad/shot.png`)도 찾습니다. `hivemux open <파일>`도 같은 식이라, 원격으로 일할 때 Claude가 만든 스크린샷을 노트북에서 바로 볼 수 있습니다.
 - **폰에서:** 원하면 모든 세션의 Remote Control을 켭니다. Claude 앱에서 같은 세션을 보고 조작할 수 있습니다.
 - **설정을 덮어쓰지 않는 설치:** 기존 설정 파일에 표시된 블록만 추가하고, `hivemux uninstall`로 그 블록만 정확히 지웁니다.
 
@@ -146,7 +146,7 @@ curl -fsSL https://hivemux.dev/install.sh | bash   # git 설치: 같은 명령
 | 메뉴 → 설정 | 언어 (한국어 / English), 애니메이션, 알림, 사이드바 폭, 경로 열기 편집기, 이 Mac 이름(벌 사무실과 원격 화면에 보임). 바로 적용되고 저장됨 |
 | 카드 / 프로젝트 이름 줄 끌기 | 작업 순서 / 프로젝트 순서 바꾸기 |
 | `prefix Shift+↑` / `↓` | 지금 작업을 위 / 아래로 (프로젝트 끝이면 프로젝트가 움직임) |
-| `Option+O` / 메뉴 → 경로 열기 | 최근 출력의 파일 경로 열기 (Enter 설정의 편집기, Tab 기본 앱, ^F Finder, ^Y 복사) |
+| `Option+O` / 메뉴 → 경로 열기 | 최근 출력의 파일 경로 열기 (Enter 설정의 편집기, Tab 기본 앱, ^F Finder, ^Y 복사. 다른 Mac에서 붙은 화면이면 그 Mac에서) |
 | `Option+W` / 메뉴 → 포트 목록 | 두 Mac 사이에 이어진 개발 서버 포트 (Enter 이어진 Mac 의 브라우저로 열기, ^Y 주소 복사) |
 | `prefix Shift+C` | 이 폴더에서 이름 붙인 Claude 새 창 (이름은 팝업에서 물음) |
 | 메뉴 → 원격 연결 | 다른 Mac의 hivemux를 새 Ghostty 창으로 (`hivemux connect --add`로 등록한 호스트) |
@@ -203,7 +203,7 @@ Claude Code는 자기가 도는 Mac의 클립보드에서만 이미지를 읽습
 ### 함께 되는 것
 
 - **개발 서버를 내 `localhost`로:** 연결해 있는 동안 상대 Mac에서 띄운 개발 서버(원격 칸의 `npm run dev` 등)는 이 Mac의 `localhost` 같은 포트로 이어집니다. 이 Mac에서 이미 쓰는 포트면 다음 빈 포트로 잇습니다. `Option+W`(또는 메뉴 → 포트 목록)로 어느 Mac에서든 목록을 보고, Enter를 누르면 접속한 Mac의 브라우저로 열립니다. `HIVEMUX_PORTS=0`이면 끕니다.
-- **파일은 노트북에서 열기:** 원격 칸에서 `hivemux open <파일>`(또는 `Option+O` 팝업의 Tab)을 실행하면 파일을 이 Mac으로 복사해 기본 앱으로 엽니다. 그래서 Claude가 거기서 만든 스크린샷이 여기 뜹니다. 편집기를 VS Code나 Cursor로 정해 두면 `Option+O`가 원격 SSH로 그 경로를 엽니다. 거기서 🐝를 누르면 벌 사무실도 여기서 열립니다. 두 Mac 모두 hivemux 0.1.29 이상이어야 합니다.
+- **파일은 노트북에서 열기:** 원격 칸에서 `hivemux open <파일>`(또는 `Option+O` 팝업의 Enter, Tab, Ctrl+F)을 실행하면 파일을 이 Mac으로 복사해 기본 앱으로 엽니다. 그래서 Claude가 거기서 만든 스크린샷이 여기 뜹니다. 편집기를 VS Code나 Cursor로 정해 두면 Enter는 대신 원격 SSH로 그 경로를 엽니다. 폴더는 복사해 올 수 없고, Ctrl+Y로 경로를 이 Mac의 클립보드에 복사합니다. 거기서 🐝를 누르면 벌 사무실도 여기서 열립니다. 두 Mac 모두 hivemux 0.1.29 이상이어야 합니다.
 - **알림은 여기로:** 원격 작업이 나를 기다리거나 끝나면 이 Mac에 알림이 뜹니다.
 - **연결은 알아서:** 연결이 끊기면 화면 가운데 상자에 다음 연결까지 남은 시간이 나오고 저절로 다시 연결합니다(`Enter` 지금 연결, `Ctrl+C` 그만). `prefix d`로 떼면 창이 닫힙니다. `--mosh`로 등록하거나 메뉴 → 원격 연결… 목록에서 `m`을 누르면 잠자기와 네트워크 변경을 스스로 견딥니다. 대신 알림이 mosh를 지나가지 못하며, 목록에는 "mosh · 알림 없음"으로 표시됩니다. 두 Mac 모두 `brew install mosh`가 필요합니다. "Nothing received from server on UDP port"에서 멈추면 상대 Mac의 방화벽에서 `mosh-server`의 수신 연결을 허용하세요.
 - **어디에 붙었는지 표시:** 원격 창은 상태줄 오른쪽 시계 앞에 `⇄ Mac 이름`이 표시됩니다.

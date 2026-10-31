@@ -63,8 +63,10 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
 - **Open paths Claude mentions.** `Option+O` lists file paths from the pane's
   recent output; Enter opens it at the line in the editor chosen in Settings
   (VS Code, Cursor, Zed, Sublime Text or the text editor). From a screen
-  attached from another Mac, VS Code and Cursor open it on that Mac over Remote-SSH,
-  and Tab (default app) copies it to that Mac and opens it there. `hivemux open <file>`
+  attached from another Mac, every key opens it on that Mac: VS Code and Cursor over
+  Remote-SSH, anything else (Enter with another editor, Tab, Ctrl+F) by copying the
+  file there, and Ctrl+Y copies the path to that Mac's clipboard. Paths Claude gives
+  relative to its own scratchpad (`scratchpad/shot.png`) are found too. `hivemux open <file>`
   does the same, so a screenshot Claude made shows up on the laptop you work from.
 - **From your phone.** Optionally turns on Remote Control for every session, so
   the Claude app shows and drives the same sessions.
@@ -245,7 +247,7 @@ new hooks once restarted. Claude Code itself: right-click → Update Claude
 | menu → Settings | language (한국어 / English), animation, notifications, sidebar width, editor for Open path, this Mac's name (shown in the bee office and on remote screens); applied at once and saved |
 | drag card / project header | reorder tasks / projects |
 | `prefix Shift+↑` / `↓` | move the current task up / down (at a project's edge, the project moves) |
-| `Option+O` / menu → Open path | open a file path from recent output (Enter editor from Settings, Tab default app, ^F Finder, ^Y copy) |
+| `Option+O` / menu → Open path | open a file path from recent output (Enter editor from Settings, Tab default app, ^F Finder, ^Y copy; on a screen from another Mac, on that Mac) |
 | `Option+W` / menu → Ports | dev server ports forwarded between Macs (Enter opens in the browser of the Mac they reach, ^Y copies the address) |
 | `prefix Shift+C` | new window with a named Claude in this folder (asks the name in a popup) |
 | menu → Connect to… | another Mac's hivemux in a new Ghostty window (hosts added with `hivemux connect --add`) |
@@ -323,10 +325,11 @@ hivemux 0.1.26 or later.
   connected; a port taken here goes to the next free one. `Option+W` (or menu →
   Ports) lists them on either Mac; Enter opens one in the browser of the Mac you
   connect from. `HIVEMUX_PORTS=0` turns it off.
-- **Files open on the laptop.** `hivemux open <file>` in a remote pane (or Tab in
-  the `Option+O` popup) copies the file to this Mac and opens it with its default
-  app, so a screenshot Claude made there shows up here. With the editor set to
-  VS Code or Cursor, `Option+O` opens the path over Remote-SSH. The 🐝 button
+- **Files open on the laptop.** `hivemux open <file>` in a remote pane (or Enter,
+  Tab or Ctrl+F in the `Option+O` popup) copies the file to this Mac and opens it
+  with its default app, so a screenshot Claude made there shows up here. With the
+  editor set to VS Code or Cursor, Enter opens the path over Remote-SSH instead.
+  Folders cannot be copied over; Ctrl+Y puts the path on this Mac's clipboard. The 🐝 button
   there opens the bee office here. Both Macs need hivemux 0.1.29 or later.
 - **Notifications here.** A remote task that needs you or finishes shows a
   notification on this Mac.
