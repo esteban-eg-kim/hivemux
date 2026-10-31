@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.48 — 2026-10-31
 
 - Option+O finds a file Claude named from its scratchpad
   ("scratchpad/brand/sheet.png"): paths are also looked up in the session's
