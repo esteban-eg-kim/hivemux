@@ -72,6 +72,29 @@ put_block() { # put_block file "content"
 
 need() { command -v "$1" >/dev/null 2>&1; }
 
+# macOS or Linux, and on Linux the package manager / macOS 인지 Linux 인지, Linux 면 패키지 관리자
+OS="$([ "$(uname -s)" = Darwin ] && echo mac || echo linux)"
+pkg_mgr() { local m; for m in apt-get dnf pacman zypper apk; do need "$m" && { echo "$m"; return; }; done; }
+pkg_install_cmd() { # the command that installs packages "$@" / 패키지 "$@" 를 설치하는 명령
+  case "$(pkg_mgr)" in
+    apt-get) echo "sudo apt-get install -y $*" ;; dnf) echo "sudo dnf install -y $*" ;;
+    pacman) echo "sudo pacman -S --needed --noconfirm $*" ;; zypper) echo "sudo zypper install -y $*" ;;
+    apk) echo "sudo apk add $*" ;; esac
+}
+# a desktop to open windows on (not an ssh session to a server) / 창을 띄울 데스크톱 (서버에 ssh 로 들어온 것이 아니다)
+desktop() { [ "$OS" = mac ] || [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; }
+have_ghostty() { { [ "$OS" = mac ] && [ -d /Applications/Ghostty.app ]; } || need ghostty; }
+# Linux: install Ghostty with a distribution's own package when it has one, else the snap (community built,
+# https://ghostty.org/docs/install/binary) / Linux: 배포판에 자체 패키지가 있으면 그것으로, 없으면 snap (커뮤니티 빌드)
+ghostty_install_cmd() {
+  case "$(pkg_mgr)" in
+    pacman) echo "sudo pacman -S --needed ghostty"; return ;; zypper) echo "sudo zypper install ghostty"; return ;;
+    apk) echo "sudo apk add ghostty"; return ;;
+    apt-get) apt-cache policy ghostty 2>/dev/null | grep -q 'Candidate: [0-9]' && { echo "sudo apt-get install -y ghostty"; return; } ;;
+  esac
+  need snap && echo "sudo snap install ghostty --classic"
+}
+
 # Terminals: make a terminal open every window inside tmux (bin/hivemux-attach), or stop it.
 # 터미널: 창을 열 때마다 tmux 안으로 들어가게 한다 (bin/hivemux-attach). 또는 그만둔다.
 #   hivemux terminal [ghostty|iterm|wezterm|kitty|alacritty|terminal] [--off]
@@ -81,6 +104,7 @@ KITTY_CONF="${XDG_CONFIG_HOME:-$HOME/.config}/kitty/kitty.conf"
 ALACRITTY_CONF="${XDG_CONFIG_HOME:-$HOME/.config}/alacritty/alacritty.toml"
 ITERM_PROFILE="$HOME/Library/Application Support/iTerm2/DynamicProfiles/hivemux.json"
 TERMS="ghostty iterm wezterm kitty alacritty terminal"
+[ "$(uname -s)" = Darwin ] || TERMS="ghostty wezterm kitty alacritty"   # iTerm2 and Terminal.app are macOS apps / macOS 앱
 
 term_name() { case "$1" in ghostty) echo Ghostty ;; iterm) echo iTerm2 ;; wezterm) echo WezTerm ;; kitty) echo kitty ;;
   alacritty) echo Alacritty ;; terminal) echo Terminal ;; *) echo "$1" ;; esac; }
@@ -213,6 +237,7 @@ terminal() {
     echo "  makes that terminal open every window inside tmux with the sidebar (--off: stop)"
     exit 2
   fi
+  case " $TERMS " in *" $name "*) ;; *) bad "$(term_name "$name") is not available here (one of: $TERMS)"; exit 2 ;; esac
   mkdir -p "$DATA"
   if [ "$off" = 1 ]; then term_off "$name"; else term_on "$name"; fi
 }
@@ -226,10 +251,23 @@ setup() {
 
   step "1/5 Dependencies"
   local missing=0
-  for c in tmux jq python3 git; do if need "$c"; then ok "$c"; else bad "$c not found"; missing=1; fi; done
-  [ $missing = 0 ] || { echo "  install with: brew install tmux jq git (python3 comes with Xcode Command Line Tools)"; exit 1; }
+  local c lack=""
+  for c in tmux jq python3 git perl; do if need "$c"; then ok "$c"; else bad "$c not found"; missing=1; lack="$lack $c"; fi; done
+  if [ $missing = 1 ] && [ "$OS" = linux ]; then
+    # Linux: offer the distribution's packages (asked: it runs sudo) / Linux: 배포판 패키지를 권한다 (sudo 라서 묻는다)
+    local inst; inst="$(pkg_install_cmd $lack)"
+    if [ -n "$inst" ] && [ "$YES" != 1 ] && [ -t 0 ] && ask "Install them ($inst)?" y; then
+      $inst && missing=0
+      for c in $lack; do need "$c" || missing=1; done
+    fi
+    [ $missing = 0 ] || { echo "  install with: ${inst:-your package manager:$lack}"; exit 1; }
+  fi
+  [ $missing = 0 ] || { echo "  install with: brew install tmux jq git (python3 and perl come with Xcode Command Line Tools)"; exit 1; }
   local tv; tv="$(tmux -V | sed 's/[^0-9.]//g')"
-  awk -v v="$tv" 'BEGIN{split(v,a,"."); exit !((a[1]>3)||(a[1]==3&&a[2]>=3))}' && ok "tmux $tv" || { bad "tmux $tv: need 3.3 or newer"; exit 1; }
+  awk -v v="$tv" 'BEGIN{split(v,a,"."); exit !((a[1]>3)||(a[1]==3&&a[2]>=3))}' && ok "tmux $tv" || {
+    bad "tmux $tv: need 3.3 or newer"
+    [ "$OS" = linux ] && echo "  (Ubuntu 22.04 has 3.2: Ubuntu 24.04, Debian 12, Fedora and Arch have a newer one)"
+    exit 1; }
   need claude && ok "claude $(claude --version 2>/dev/null | head -1)" || warn "claude not found (install Claude Code first)"
 
   step "2/5 tmux plugins (resurrect + continuum)"
@@ -264,7 +302,19 @@ source-file \"$SHARE/keys.tmux\""
   step "5/5 Ghostty ($GHOSTTY_CONF)"
   # No Ghostty yet: offer to install it (asked, never with --yes: it is an app of its own)
   # Ghostty 가 없으면 설치를 권한다 (묻고 한다. --yes 로는 하지 않는다: 따로 된 앱이다)
-  if [ "$GHOSTTY" != no ] && [ ! -d /Applications/Ghostty.app ] && ! need ghostty && [ "$YES" != 1 ] && [ -t 0 ]; then
+  if [ "$GHOSTTY" != no ] && ! have_ghostty && ! desktop; then
+    # a server reached over ssh: no windows to open here / ssh 로 들어온 서버: 여기서 띄울 창이 없다
+    warn "no desktop here: skipped (connect to this machine with hivemux connect, or run tmux)"; GHOSTTY=no
+  elif [ "$GHOSTTY" != no ] && ! have_ghostty && [ "$YES" != 1 ] && [ -t 0 ] && [ "$OS" = linux ]; then
+    local gi; gi="$(ghostty_install_cmd)"
+    if [ -n "$gi" ]; then
+      if ask "Ghostty is not installed. Install it ($gi)? Every Ghostty window then opens hivemux" y; then
+        $gi && ok "Ghostty installed" || bad "could not install Ghostty"
+      fi
+    else
+      warn "Ghostty is not installed: see https://ghostty.org/docs/install/binary, then run hivemux setup again"
+    fi
+  elif [ "$GHOSTTY" != no ] && ! have_ghostty && [ "$YES" != 1 ] && [ -t 0 ]; then
     if need brew; then
       if ask "Ghostty is not installed. Install it (brew install --cask ghostty)? Every Ghostty window then opens hivemux" y; then
         brew install --cask ghostty && ok "Ghostty installed" || bad "could not install Ghostty"
@@ -274,11 +324,11 @@ source-file \"$SHARE/keys.tmux\""
       open https://ghostty.org/download 2>/dev/null || true
     fi
   fi
-  if [ -d /Applications/Ghostty.app ] || need ghostty; then
+  if have_ghostty; then
     if [ "$GHOSTTY" = ask ] && ask "Make every Ghostty window open inside tmux (hivemux-attach)?" y; then GHOSTTY=yes; fi
     if [ "$GHOSTTY" = yes ]; then term_on ghostty
     else warn "skipped"; fi
-  else warn "Ghostty not installed, skipped (run tmux and it still works)"; fi
+  elif [ "$GHOSTTY" != no ]; then warn "Ghostty not installed, skipped (run tmux and it still works)"; fi
   # Run from another terminal: offer that one too (it is the user's own, so the default is no)
   # 다른 터미널에서 실행: 그 터미널도 권한다 (사용자가 쓰던 것이므로 기본은 "아니오")
   local here; here="$(term_here)"
@@ -289,8 +339,15 @@ source-file \"$SHARE/keys.tmux\""
 
   # PATH for git installs (Homebrew already links bin/)
   # (decided by install location, not the current PATH, which may be stale)
-  case "$HM_BIN" in /opt/homebrew/*|/usr/local/*|*/opt/hivemux/libexec/bin) ;; *)
-    put_block "$HOME/.zshrc" "export PATH=\"$HM_BIN:\$PATH\""; ok "added $HM_BIN to PATH in ~/.zshrc" ;; esac
+  # zsh (the macOS shell) always; bash too when it is the login shell or has a ~/.bashrc (Linux)
+  # zsh (macOS 의 셸) 는 늘. bash 도 로그인 셸이거나 ~/.bashrc 가 있으면 (Linux)
+  case "$HM_BIN" in /opt/homebrew/*|/usr/local/*|/home/linuxbrew/*|*/opt/hivemux/libexec/bin) ;; *)
+    local rc
+    for rc in .zshrc .bashrc; do
+      case "$rc" in .zshrc) [ "$OS" = mac ] || [ -e "$HOME/.zshrc" ] || [ "${SHELL##*/}" = zsh ] || continue ;;
+                    .bashrc) [ -e "$HOME/.bashrc" ] || [ "${SHELL##*/}" = bash ] || continue ;; esac
+      put_block "$HOME/$rc" "export PATH=\"$HM_BIN:\$PATH\""; ok "added $HM_BIN to PATH in ~/$rc"
+    done ;; esac
 
   # an update: reload tmux and restart the sidebars so they run the new code
   # 업데이트: tmux 설정을 다시 읽고, 사이드바도 새 코드로 다시 띄운다
@@ -301,18 +358,19 @@ source-file \"$SHARE/keys.tmux\""
   fi
   # build the bee office window now, in the background, so opening it later is instant (hivemux office)
   # 벌 사무실 창을 지금 뒤에서 빌드해 둔다. 나중에 열 때 바로 뜨게 (hivemux office)
-  ( nohup "$HM_BIN/hivemux-office" --build >/dev/null 2>&1 & )
+  [ "$OS" = mac ] && ( nohup "$HM_BIN/hivemux-office" --build >/dev/null 2>&1 & )
   # A first install (no tmux server, no saved work): the first window asks for a project folder
   # (bin/hivemux-attach), so nobody has to know hm
   # 처음 설치 (tmux 서버도 저장본도 없음): 첫 창이 프로젝트 폴더를 묻는다 (bin/hivemux-attach). hm 을 몰라도 된다
   local snap="${XDG_DATA_HOME:-$HOME/.local/share}/tmux/resurrect/last"
   tmux has-session 2>/dev/null || [ -e "$snap" ] || : > "$DATA/welcome"
   echo
-  if [ "$GHOSTTY" = yes ] && [ "${TERM_PROGRAM:-}" != ghostty ] && [ "$YES" != 1 ] && [ -t 0 ]; then
+  if [ "$GHOSTTY" = yes ] && [ "${TERM_PROGRAM:-}" != ghostty ] && [ "$YES" != 1 ] && [ -t 0 ] && desktop; then
     echo "${B}Done.${X} Opening Ghostty: pick a project folder there and Claude starts in it."
-    open -a Ghostty 2>/dev/null || echo "  open Ghostty yourself (or run ${B}tmux${X}), then ${B}hm ~/your/project${X}."
+    { if [ "$OS" = mac ]; then open -a Ghostty; else setsid -f ghostty >/dev/null 2>&1 </dev/null; fi; } 2>/dev/null ||
+      echo "  open Ghostty yourself (or run ${B}tmux${X}), then ${B}hm ~/your/project${X}."
   elif [ "$GHOSTTY" = yes ]; then
-    echo "${B}Done.${X} Open Ghostty (⌘N for a new window): pick a project folder there and Claude starts in it."
+    echo "${B}Done.${X} Open Ghostty ($([ "$OS" = mac ] && echo ⌘N || echo Ctrl+Shift+N) for a new window): pick a project folder there and Claude starts in it."
   else
     echo "${B}Done.${X} Run ${B}tmux${X}, then ${B}hm ~/your/project${X}."
   fi
@@ -325,7 +383,7 @@ uninstall() {
   remove_block "$GHOSTTY_CONF" && ok "Ghostty block removed"
   local tm; for tm in kitty alacritty wezterm iterm terminal; do term_off "$tm" >/dev/null 2>&1; done
   ok "other terminals' settings removed"
-  remove_block "$HOME/.zshrc" && ok "PATH block removed"
+  remove_block "$HOME/.zshrc" && remove_block "$HOME/.bashrc" && ok "PATH block removed"
   if [ -f "$CLAUDE_SETTINGS" ]; then
     backup "$CLAUDE_SETTINGS"; local tmp; tmp="$(mktemp)"
     local rm_remote=false; grep -qx remote "$DATA/setup-flags" 2>/dev/null && rm_remote=true
@@ -351,7 +409,8 @@ doctor() {
     warn "autosave paused: this tmux server started without restoring (restore: prefix Ctrl-r, or tmux kill-server and reopen Ghostty)"
   fi
   grep -qF "$BEGIN" "$TMUX_CONF" 2>/dev/null && ok "tmux: $TMUX_CONF" || bad "tmux: block missing in $TMUX_CONF"
-  grep -qF "hivemux-attach" "$GHOSTTY_CONF" 2>/dev/null && ok "Ghostty: $GHOSTTY_CONF" || warn "Ghostty: not attached to tmux"
+  if grep -qF "hivemux-attach" "$GHOSTTY_CONF" 2>/dev/null; then ok "Ghostty: $GHOSTTY_CONF"
+  elif have_ghostty; then warn "Ghostty: not attached to tmux (hivemux terminal ghostty)"; fi
   grep -qF "hivemux-attach" "$KITTY_CONF" 2>/dev/null && ok "kitty: $KITTY_CONF"
   grep -qF "hivemux-attach" "$ALACRITTY_CONF" 2>/dev/null && ok "Alacritty: $ALACRITTY_CONF"
   grep -qF "hivemux-attach" "$(wezterm_conf)" 2>/dev/null && ok "WezTerm: $(wezterm_conf)"
@@ -367,15 +426,17 @@ doctor() {
   # Remote: this Mac as the one you connect to, and the hosts you connect to from here
   # 원격: 다른 Mac 이 붙는 쪽으로서의 이 Mac, 그리고 여기서 붙는 호스트들
   step "remote (hivemux connect)"
-  if nc -z -G 2 127.0.0.1 22 >/dev/null 2>&1; then
-    ok "Remote Login on: other Macs can connect here"
+  # sshd answering here (bash's /dev/tcp: nc differs between macOS and Linux) / 여기서 sshd 가 받는지
+  if perl -e 'alarm 2; exec @ARGV' bash -c 'exec 3<>/dev/tcp/127.0.0.1/22' 2>/dev/null; then
+    ok "ssh on: other computers can connect here"
     case "$(pmset -g 2>/dev/null | awk '$1=="sleep"{print $2; exit}')" in
       0) ok "never sleeps on its own" ;;
       "") ;;
       *) warn "this Mac sleeps when idle; others cannot connect while it sleeps (System Settings → Energy: prevent sleeping)" ;;
     esac
   else
-    warn "Remote Login off: to connect here from another Mac, turn on System Settings → General → Sharing → Remote Login"
+    if [ "$OS" = mac ]; then warn "Remote Login off: to connect here from another Mac, turn on System Settings → General → Sharing → Remote Login"
+    else warn "ssh off: to connect here from another computer, install and start the ssh server (package openssh-server or openssh, then sudo systemctl enable --now ssh or sshd)"; fi
   fi
   command -v mosh >/dev/null && ok "mosh: $(command -v mosh)"
   local h how hosts="$DATA/remote-hosts"

@@ -8,6 +8,14 @@
   `find -mtime -10s`), and opening, revealing and copying go through
   `hivemux-os` (xdg-open, the file manager, wl-copy / xclip / xsel or the
   terminal's clipboard on Linux)
+- Linux install: `hivemux setup` offers to install missing tmux, jq, git
+  or perl with the distribution's package manager (apt, dnf, pacman,
+  zypper, apk; asked, since it runs sudo), says which releases have tmux
+  3.3+, installs Ghostty from the distribution's own package or the snap
+  when there is a desktop, skips Ghostty on a server reached over ssh, puts
+  hivemux on the PATH in `~/.bashrc` too, and `hivemux doctor` checks the
+  ssh server. `hivemux terminal` offers Ghostty, WezTerm, kitty and
+  Alacritty there
 
 ## 0.1.48 — 2026-10-31
 

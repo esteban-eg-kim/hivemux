@@ -7,7 +7,9 @@ REPO="${HIVEMUX_REPO:-https://github.com/esteban-eg-kim/hivemux.git}"
 DIR="${HIVEMUX_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/hivemux/src}"
 # all in a function, so a download cut short runs nothing / 모두 함수 안에: 받다가 끊기면 아무것도 실행되지 않는다
 main() {
-  command -v git >/dev/null || { echo "hivemux: git is required" >&2; exit 1; }
+  command -v git >/dev/null || {
+    echo "hivemux: git is required (macOS: xcode-select --install; Ubuntu/Debian: sudo apt-get install git;" >&2
+    echo "         Fedora: sudo dnf install git; Arch: sudo pacman -S git)" >&2; exit 1; }
   if [ -d "$DIR/.git" ]; then
     echo "Updating $DIR"; git -C "$DIR" pull -q --ff-only
   else
