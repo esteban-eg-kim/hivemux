@@ -193,6 +193,20 @@ check everything. Use `--yes` to accept defaults, `--no-keys`, `--no-ghostty`,
 When it is done it opens Ghostty, and on a first install the first window asks for a
 project folder, so you can start without typing a command.
 
+### Other terminals
+
+```sh
+hivemux terminal iterm      # or wezterm, kitty, alacritty, terminal (Terminal.app), ghostty
+hivemux terminal iterm --off
+```
+
+Makes that terminal open every window inside tmux with the sidebar, the way Ghostty
+does. Run from one of them, `hivemux setup` offers it too (default no). It writes only
+its own block, or for iTerm2 a profile of its own ("hivemux", made the default), so
+`--off` and `hivemux uninstall` take out just that. Terminal.app starts it from
+`~/.zshrc`; turn on Settings → Profiles → Keyboard → Use Option as Meta key there for
+the Option keys.
+
 ### Update
 
 ```sh

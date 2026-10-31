@@ -16,6 +16,12 @@
   Ghostty when it is done, and the first window asks for a project folder
   (the sidebar's New project picker), so Claude starts without `hm`
 
+- `hivemux terminal <iterm|wezterm|kitty|alacritty|terminal|ghostty>`
+  makes another terminal open every window in hivemux, like Ghostty
+  (`--off` stops it; `hivemux setup` run from one of them offers it, default
+  no). iTerm2 gets a profile of its own made the default; Terminal.app starts
+  it from `~/.zshrc`; the others get a block in their config
+
 ## 0.1.47 — 2026-10-30
 
 - Switching windows no longer shows a card in an old state for a moment

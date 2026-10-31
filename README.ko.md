@@ -106,6 +106,15 @@ hivemux setup
 
 tmux-resurrect와 tmux-continuum도 받아 옵니다. 이미 `~/.tmux/plugins`에 있으면 그것을 씁니다. Claude Code 훅 열한 개도 등록합니다. `hivemux doctor`로 전체를 점검할 수 있습니다. `--yes`는 기본값으로 진행하고, `--no-keys`, `--no-ghostty`, `--no-remote`는 해당 부분을 건너뜁니다. 화면 언어는 셸 언어로 정해지고, `--lang=en` 또는 `--lang=ko`로 바꿀 수 있습니다. 설치한 뒤에는 사이드바 오른쪽 클릭 메뉴의 "설정"에서 바꿉니다. 끝나면 Ghostty를 열고, 처음 설치했다면 첫 창이 프로젝트 폴더를 묻습니다. 명령을 몰라도 바로 시작할 수 있습니다.
 
+### 다른 터미널
+
+```sh
+hivemux terminal iterm      # wezterm, kitty, alacritty, terminal (기본 터미널), ghostty
+hivemux terminal iterm --off
+```
+
+그 터미널도 Ghostty처럼 창을 열 때마다 사이드바가 있는 tmux 안으로 들어갑니다. 그 터미널에서 `hivemux setup`을 실행하면 setup도 묻습니다(기본값 "아니오"). 자기 블록만 쓰고, iTerm2는 따로 된 프로필("hivemux")을 만들어 기본으로 정하므로 `--off`와 `hivemux uninstall`은 그것만 뺍니다. 기본 터미널(Terminal.app)은 `~/.zshrc`에서 띄웁니다. Option 키를 쓰려면 터미널 설정 → 프로파일 → 키보드 → "Option을 Meta 키로 사용"을 켜세요.
+
 ### 업데이트
 
 ```sh

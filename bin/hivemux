@@ -27,6 +27,8 @@ hivemux $VERSION — see every Claude Code session in one tmux sidebar
 Usage:
   hivemux setup [--yes] [--no-keys] [--no-ghostty] [--no-remote] [--lang=en|ko]
                        install plugins and add hivemux to tmux, Ghostty and Claude Code
+  hivemux terminal <ghostty|iterm|wezterm|kitty|alacritty|terminal> [--off]
+                       make that terminal open every window in hivemux (--off: stop)
   hivemux uninstall    remove everything setup added (your own config stays)
   hivemux doctor       check dependencies and wiring
   hivemux connect <host>         work on another Mac's hivemux over ssh (reconnects)
@@ -69,6 +71,151 @@ put_block() { # put_block file "content"
 }
 
 need() { command -v "$1" >/dev/null 2>&1; }
+
+# Terminals: make a terminal open every window inside tmux (bin/hivemux-attach), or stop it.
+# 터미널: 창을 열 때마다 tmux 안으로 들어가게 한다 (bin/hivemux-attach). 또는 그만둔다.
+#   hivemux terminal [ghostty|iterm|wezterm|kitty|alacritty|terminal] [--off]
+# Each keeps to its own block or file, so --off and uninstall take out only what was added.
+# 저마다 자기 블록이나 파일만 쓴다. 그래서 --off 와 uninstall 은 넣은 것만 뺀다.
+KITTY_CONF="${XDG_CONFIG_HOME:-$HOME/.config}/kitty/kitty.conf"
+ALACRITTY_CONF="${XDG_CONFIG_HOME:-$HOME/.config}/alacritty/alacritty.toml"
+ITERM_PROFILE="$HOME/Library/Application Support/iTerm2/DynamicProfiles/hivemux.json"
+TERMS="ghostty iterm wezterm kitty alacritty terminal"
+
+term_name() { case "$1" in ghostty) echo Ghostty ;; iterm) echo iTerm2 ;; wezterm) echo WezTerm ;; kitty) echo kitty ;;
+  alacritty) echo Alacritty ;; terminal) echo Terminal ;; *) echo "$1" ;; esac; }
+
+# the terminal this runs in (not inside tmux) / 지금 실행 중인 터미널 (tmux 안이 아닐 때)
+term_here() {
+  [ -n "${TMUX:-}" ] && return
+  case "${TERM_PROGRAM:-}" in ghostty) echo ghostty; return ;; iTerm.app) echo iterm; return ;; WezTerm) echo wezterm; return ;;
+    Apple_Terminal) echo terminal; return ;; esac
+  [ -n "${KITTY_WINDOW_ID:-}" ] && { echo kitty; return; }
+  [ -n "${ALACRITTY_WINDOW_ID:-}" ] && echo alacritty
+}
+
+wezterm_conf() { # the config WezTerm reads; a new one when there is none / WezTerm 이 읽는 설정. 없으면 새 것
+  local f; for f in "${WEZTERM_CONFIG_FILE:-}" "$HOME/.wezterm.lua" "${XDG_CONFIG_HOME:-$HOME/.config}/wezterm/wezterm.lua"; do
+    [ -n "$f" ] && [ -f "$f" ] && { echo "$f"; return; }; done
+  echo "${XDG_CONFIG_HOME:-$HOME/.config}/wezterm/wezterm.lua"
+}
+
+# Remove one block between "<c> >>> hivemux <tag>>>>" markers (c is the file's comment, # or --)
+# "<c> >>> hivemux <tag>>>>" 표시 사이 블록 하나를 지운다 (c 는 그 파일의 주석, # 또는 --)
+remove_tagged() { # remove_tagged file comment tag
+  [ -f "$1" ] || return 1
+  grep -qxF -e "$2 >>> hivemux $3>>>" "$1" || return 1
+  awk -v b="$2 >>> hivemux $3>>>" -v e="$2 <<< hivemux $3<<<" '$0==b{skip=1;next} $0==e{skip=0;next} !skip' "$1" > "$1.hivemux.tmp" && mv "$1.hivemux.tmp" "$1"
+}
+
+term_on() {
+  local a="$HM_BIN/hivemux-attach" f
+  case "$1" in
+    ghostty)
+      put_block "$GHOSTTY_CONF" "command = $a
+macos-option-as-alt = true
+window-save-state = always
+confirm-close-surface = false"
+      ok "Ghostty windows open hivemux ($GHOSTTY_CONF)" ;;
+    kitty)
+      put_block "$KITTY_CONF" "shell $a
+macos_option_as_alt yes"
+      ok "kitty windows open hivemux ($KITTY_CONF)" ;;
+    alacritty)
+      f="$ALACRITTY_CONF"
+      # TOML allows a table once: leave tables the file already has to you
+      # TOML 은 표를 한 번만 허용한다: 이미 있는 표는 직접 고치게 둔다
+      local rest; rest="$(awk -v b="$BEGIN" -v e="$END" '$0==b{skip=1;next} $0==e{skip=0;next} !skip' "$f" 2>/dev/null)"   # without ours / 우리 블록 빼고
+      if grep -qE '^\[terminal(\.shell)?\]|^shell *=' <<<"$rest"; then
+        bad "$f already sets the shell: set program = \"$a\" under [terminal.shell] yourself"; return 1
+      fi
+      local body="[terminal.shell]
+program = \"$a\""
+      if grep -qE '^\[window\]' <<<"$rest"; then
+        warn "$f has [window]: add option_as_alt = \"Both\" there for the Option keys"
+      else body="$body
+
+[window]
+option_as_alt = \"Both\""; fi
+      put_block "$f" "$body"
+      ok "Alacritty windows open hivemux ($f)" ;;
+    wezterm)
+      f="$(wezterm_conf)"
+      local body="config.default_prog = { '$a' }
+config.send_composed_key_when_left_alt_is_pressed = false
+config.send_composed_key_when_right_alt_is_pressed = false"
+      remove_tagged "$f" "--" "" || true
+      if [ ! -f "$f" ]; then
+        mkdir -p "$(dirname "$f")"
+        printf '%s\n' "local wezterm = require 'wezterm'" "local config = wezterm.config_builder()" "-- >>> hivemux >>>" "$body" "-- <<< hivemux <<<" "return config" > "$f"
+      else
+        # put it before the last "return <table>", using that table's name / 마지막 "return <표>" 앞에, 그 표 이름으로
+        local v; v="$(grep -E '^return +[A-Za-z_][A-Za-z0-9_]* *$' "$f" | tail -1 | awk '{print $2}')"
+        [ -n "$v" ] || { bad "$f does not end in \"return config\": add config.default_prog = { '$a' } yourself"; return 1; }
+        backup "$f"
+        HM_BODY="${body//config./$v.}" awk -v n="$(grep -nE '^return +[A-Za-z_][A-Za-z0-9_]* *$' "$f" | tail -1 | cut -d: -f1)" \
+          'NR==n{print "-- >>> hivemux >>>"; print ENVIRON["HM_BODY"]; print "-- <<< hivemux <<<"} {print}' "$f" > "$f.hivemux.tmp" && mv "$f.hivemux.tmp" "$f"
+      fi
+      ok "WezTerm windows open hivemux ($f)" ;;
+    iterm)
+      # a profile of its own (Dynamic Profiles), made the default: the user's profiles stay as they are
+      # 따로 된 프로필 (Dynamic Profiles) 을 기본으로: 쓰던 프로필은 그대로 둔다
+      mkdir -p "$(dirname "$ITERM_PROFILE")"
+      jq -n --arg c "$a" '{Profiles: [{Name: "hivemux", Guid: "hivemux-attach", "Custom Command": "Yes", Command: $c,
+        "Option Key Sends": 2, "Right Option Key Sends": 2}]}' > "$ITERM_PROFILE"
+      local was; was="$(defaults read com.googlecode.iterm2 "Default Bookmark Guid" 2>/dev/null)"
+      [ -n "$was" ] && [ "$was" != hivemux-attach ] && echo "$was" > "$DATA/iterm-default"
+      defaults write com.googlecode.iterm2 "Default Bookmark Guid" -string hivemux-attach
+      ok "iTerm2 profile \"hivemux\" is the default (new windows after iTerm2 restarts)" ;;
+    terminal)
+      # Terminal.app cannot run a program in place of the shell for every window: the shell starts it
+      # Terminal.app 은 창마다 셸 대신 프로그램을 띄우지 못한다: 셸이 띄운다
+      local zrc="$HOME/.zshrc"
+      remove_tagged "$zrc" "#" "terminal " || true
+      { [ -s "$zrc" ] && [ -n "$(tail -c1 "$zrc")" ] && echo
+        printf '%s\n' "# >>> hivemux terminal >>>" \
+          "# Terminal windows open hivemux (hivemux terminal terminal --off to stop)" \
+          "if [[ -o interactive && -z \"\$TMUX\" && -z \"\$HIVEMUX_TRIED\" && \"\$TERM_PROGRAM\" = Apple_Terminal ]]; then" \
+          "  export HIVEMUX_TRIED=1; exec \"$a\"" \
+          "fi" "# <<< hivemux terminal <<<"; } >> "$zrc"
+      ok "Terminal windows open hivemux (~/.zshrc)"
+      warn "for the Option keys: Terminal → Settings → Profiles → Keyboard → Use Option as Meta key" ;;
+    *) bad "unknown terminal: $1 (one of: $TERMS)"; return 2 ;;
+  esac
+}
+
+term_off() {
+  local f
+  case "$1" in
+    ghostty) remove_block "$GHOSTTY_CONF" ;;
+    kitty) remove_block "$KITTY_CONF" ;;
+    alacritty) remove_block "$ALACRITTY_CONF" ;;
+    wezterm) f="$(wezterm_conf)"; remove_tagged "$f" "--" "" || true ;;
+    iterm)
+      rm -f "$ITERM_PROFILE"
+      if [ "$(defaults read com.googlecode.iterm2 "Default Bookmark Guid" 2>/dev/null)" = hivemux-attach ]; then
+        if [ -s "$DATA/iterm-default" ]; then defaults write com.googlecode.iterm2 "Default Bookmark Guid" -string "$(cat "$DATA/iterm-default")"
+        else defaults delete com.googlecode.iterm2 "Default Bookmark Guid" 2>/dev/null; fi
+      fi
+      rm -f "$DATA/iterm-default" ;;
+    terminal) remove_tagged "$HOME/.zshrc" "#" "terminal " || true ;;
+    *) bad "unknown terminal: $1 (one of: $TERMS)"; return 2 ;;
+  esac
+  ok "$(term_name "$1") windows no longer open hivemux"
+}
+
+terminal() {
+  local name="" off=0 a
+  for a in "$@"; do case "$a" in --off) off=1 ;; -h|--help) name=help ;; -*) echo "unknown option: $a" >&2; exit 2 ;; *) name="$a" ;; esac; done
+  [ -n "$name" ] || name="$(term_here)"
+  if [ -z "$name" ] || [ "$name" = help ]; then
+    echo "usage: hivemux terminal <$(echo "$TERMS" | tr ' ' '|')> [--off]"
+    echo "  makes that terminal open every window inside tmux with the sidebar (--off: stop)"
+    exit 2
+  fi
+  mkdir -p "$DATA"
+  if [ "$off" = 1 ]; then term_off "$name"; else term_on "$name"; fi
+}
 
 setup() {
   YES=0; KEYS=ask; GHOSTTY=ask; REMOTE=ask; HLANG=""
@@ -129,14 +276,16 @@ source-file \"$SHARE/keys.tmux\""
   fi
   if [ -d /Applications/Ghostty.app ] || need ghostty; then
     if [ "$GHOSTTY" = ask ] && ask "Make every Ghostty window open inside tmux (hivemux-attach)?" y; then GHOSTTY=yes; fi
-    if [ "$GHOSTTY" = yes ]; then
-      put_block "$GHOSTTY_CONF" "command = $HM_BIN/hivemux-attach
-macos-option-as-alt = true
-window-save-state = always
-confirm-close-surface = false"
-      ok "Ghostty windows attach to tmux"
+    if [ "$GHOSTTY" = yes ]; then term_on ghostty
     else warn "skipped"; fi
   else warn "Ghostty not installed, skipped (run tmux and it still works)"; fi
+  # Run from another terminal: offer that one too (it is the user's own, so the default is no)
+  # 다른 터미널에서 실행: 그 터미널도 권한다 (사용자가 쓰던 것이므로 기본은 "아니오")
+  local here; here="$(term_here)"
+  if [ -n "$here" ] && [ "$here" != ghostty ]; then
+    if ask "Make $(term_name "$here") open hivemux in every window too?" n; then term_on "$here" || true
+    else echo "  ${D}later: hivemux terminal $here${X}"; fi
+  fi
 
   # PATH for git installs (Homebrew already links bin/)
   # (decided by install location, not the current PATH, which may be stale)
@@ -174,6 +323,8 @@ uninstall() {
   step "Removing hivemux"
   remove_block "$TMUX_CONF" && ok "tmux block removed"
   remove_block "$GHOSTTY_CONF" && ok "Ghostty block removed"
+  local tm; for tm in kitty alacritty wezterm iterm terminal; do term_off "$tm" >/dev/null 2>&1; done
+  ok "other terminals' settings removed"
   remove_block "$HOME/.zshrc" && ok "PATH block removed"
   if [ -f "$CLAUDE_SETTINGS" ]; then
     backup "$CLAUDE_SETTINGS"; local tmp; tmp="$(mktemp)"
@@ -201,6 +352,11 @@ doctor() {
   fi
   grep -qF "$BEGIN" "$TMUX_CONF" 2>/dev/null && ok "tmux: $TMUX_CONF" || bad "tmux: block missing in $TMUX_CONF"
   grep -qF "hivemux-attach" "$GHOSTTY_CONF" 2>/dev/null && ok "Ghostty: $GHOSTTY_CONF" || warn "Ghostty: not attached to tmux"
+  grep -qF "hivemux-attach" "$KITTY_CONF" 2>/dev/null && ok "kitty: $KITTY_CONF"
+  grep -qF "hivemux-attach" "$ALACRITTY_CONF" 2>/dev/null && ok "Alacritty: $ALACRITTY_CONF"
+  grep -qF "hivemux-attach" "$(wezterm_conf)" 2>/dev/null && ok "WezTerm: $(wezterm_conf)"
+  [ -f "$ITERM_PROFILE" ] && ok "iTerm2: profile hivemux"
+  grep -qF "hivemux terminal >>>" "$HOME/.zshrc" 2>/dev/null && ok "Terminal: ~/.zshrc"
   local n; n="$(jq '[.hooks[]?[]?.hooks[]? | select(.command|contains("hivemux-hook"))] | length' "$CLAUDE_SETTINGS" 2>/dev/null || echo 0)"
   [ "$n" -ge 11 ] && ok "Claude hooks: $n" || bad "Claude hooks: $n of 11 (hivemux setup)"
   if tmux has-session 2>/dev/null; then
@@ -237,6 +393,7 @@ doctor() {
 case "${1:-help}" in
   setup) shift; setup "$@" ;;
   uninstall) uninstall ;;
+  terminal) shift; terminal "$@" ;;
   doctor) doctor ;;
   connect) shift; exec "$HM_BIN/hivemux-connect" "$@" ;;
   open) shift; exec "$HM_BIN/hivemux-show" "$@" ;;
