@@ -228,7 +228,7 @@ def show_there(it):
     """Copy the file to the Mac this screen comes from and open it there; returns what to say
     파일을 이 화면이 붙어 온 Mac 으로 복사해 거기서 연다. 알릴 말을 돌려준다"""
     if it["isdir"]:
-        return tr("폴더는 다른 Mac 에서 열 수 없습니다. ^Y 로 경로를 복사하세요", "A folder cannot be opened on another Mac; ^Y copies the path")
+        return tr("폴더는 다른 컴퓨터에서 열 수 없습니다. ^Y 로 경로를 복사하세요", "A folder cannot be opened on another computer; ^Y copies the path")
     if os.environ.get("HIVEMUX_DRYRUN"):
         run(["hivemux-show", "--client", CLIENT, it["full"]])
         return ""

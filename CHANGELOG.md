@@ -27,6 +27,10 @@
   Edge, Brave, Vivaldi or Whale (else the default browser); on a server
   with no desktop the 🐝 button says to connect from another computer,
   where it opens. The office server runs there as on macOS
+- Wording: "another Mac" and "this Mac" in menus, popups and messages
+  now say "another computer" and "this computer" (Settings: "This
+  computer's name"), since the other side can be Linux. README and the
+  guide cover Linux: requirements, install, keys (Option is Alt), remote
 
 ## 0.1.48 — 2026-10-31
 

@@ -31,11 +31,11 @@ Usage:
                        make that terminal open every window in hivemux (--off: stop)
   hivemux uninstall    remove everything setup added (your own config stays)
   hivemux doctor       check dependencies and wiring
-  hivemux connect <host>         work on another Mac's hivemux over ssh (reconnects)
+  hivemux connect <host>         work on another computer's hivemux over ssh (reconnects)
   hivemux connect --add <host>   check and remember a host (--mosh to use mosh)
   hivemux office       open the bee office: every Claude session as a bee in a window of its own
-  hivemux open <file>  open files with the default app of the Mac you look from (on a hivemux connect
-                       screen: copied to that Mac and opened there)
+  hivemux open <file>  open files with the default app of the computer you look from (on a hivemux connect
+                       screen: copied to that computer and opened there)
   hivemux update-claude [--yes]  check for a new Claude Code, ask, update, then restart each pane's Claude on it (same conversation;
                        busy ones once they are done)
   hivemux version
@@ -435,7 +435,7 @@ doctor() {
       *) warn "this Mac sleeps when idle; others cannot connect while it sleeps (System Settings → Energy: prevent sleeping)" ;;
     esac
   else
-    if [ "$OS" = mac ]; then warn "Remote Login off: to connect here from another Mac, turn on System Settings → General → Sharing → Remote Login"
+    if [ "$OS" = mac ]; then warn "Remote Login off: to connect here from another computer, turn on System Settings → General → Sharing → Remote Login"
     else warn "ssh off: to connect here from another computer, install and start the ssh server (package openssh-server or openssh, then sudo systemctl enable --now ssh or sshd)"; fi
   fi
   command -v mosh >/dev/null && ok "mosh: $(command -v mosh)"

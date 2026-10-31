@@ -42,6 +42,8 @@ version() { # through a file, not a pipe: a child left behind can't hold it open
   awk '{print $1; exit}' "$f"; rm -f "$f"
 }
 hung() { # hung <binary>: tell why there's no version / 버전이 없는 까닭을 알린다
+  [ "$(uname -s)" = Darwin ] || { echo "$(say "$1 이 20초 안에 시작하지 않았습니다. 터미널에서 $(basename "$1") --version 을 실행해 보세요." \
+                                                "$1 did not start within 20 s. Try $(basename "$1") --version in a terminal.")"; return; }
   echo "$(say "$1 이 20초 안에 시작하지 않았습니다. 이 Mac 화면에 macOS 확인창이 떠 있을 수 있습니다. 화면에서 '열기'를 누르거나, 터미널에서 $(basename "$1") --version 을 실행해 보세요." \
               "$1 did not start within 20 s. macOS may be showing a prompt on this Mac's screen: press Open there, or try $(basename "$1") --version in a terminal.")"
 }

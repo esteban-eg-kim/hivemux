@@ -190,8 +190,8 @@ def main():
                     lines = [l.strip() for l in (r.stdout + r.stderr).splitlines() if l.strip().startswith(("✓", "✗"))]
                     if r.returncode == 0 and how == "mosh":
                         # mosh: say what it costs / mosh: 무엇을 잃는지 알린다
-                        adding, msg = False, (tr("✓ mosh 로 바꿨습니다 · 원격 작업의 알림은 이 Mac 에 오지 않습니다",
-                                                 "✓ Now mosh · notifications from the remote work do not reach this Mac"), WARN)
+                        adding, msg = False, (tr("✓ mosh 로 바꿨습니다 · 원격 작업의 알림은 이 컴퓨터에 오지 않습니다",
+                                                 "✓ Now mosh · notifications from the remote work do not reach this computer"), WARN)
                     elif r.returncode == 0:
                         adding, msg = False, (lines[-1] if lines else "✓", OK)
                         sel = next((i for i, (h, _) in enumerate(hosts()) if h == name), sel)

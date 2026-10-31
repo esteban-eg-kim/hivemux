@@ -1211,7 +1211,7 @@ function decoBack(t) {
 const PLAQUE_PX = 34;   // text pixels per tile along the wall / 벽 방향으로 타일당 글자 픽셀
 function plaques() {
   const pl = LAY.pods.filter(p => p.n === 0).map(p => {
-    const o = offices[p.oi], sub = (p.oi === 0 ? tr('이 Mac', 'this Mac') : tr('원격', 'remote')) + (o && o.missing ? tr(' · 업데이트 필요', ' · update') : '');
+    const o = offices[p.oi], sub = (p.oi === 0 ? tr('이 컴퓨터', 'this computer') : tr('원격', 'remote')) + (o && o.missing ? tr(' · 업데이트 필요', ' · update') : '');
     const name = o ? o.host : '';
     font(14, 700); const nw = c.measureText(name).width; font(10, 600); const sw = c.measureText(sub).width;
     return { y: p.y + 1.5, name, nw, need: Math.max(nw, sw) + 24, sub, oi: p.oi };
@@ -2526,7 +2526,7 @@ async function visit(b) {
   try {
     const r = await fetch('/goto', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pane: b.pane, ssh: b.ssh }) });
     const j = await r.json();
-    if (!j.ok) toast(b.ssh ? tr(`${b.office.host} 에 이 Mac 에서 붙은 화면이 없어요`, `No screen of this Mac is attached to ${b.office.host}`) : tr('세션을 띄울 터미널 화면이 없어요', 'No terminal screen to show it on'));
+    if (!j.ok) toast(b.ssh ? tr(`${b.office.host} 에 이 컴퓨터에서 붙은 화면이 없어요`, `No screen of this computer is attached to ${b.office.host}`) : tr('세션을 띄울 터미널 화면이 없어요', 'No terminal screen to show it on'));
   } catch (e) { toast(tr('hivemux 와 연결이 끊겼어요', 'Lost hivemux')); }
 }
 // the mouse in screen units of the scene (before scaling) / 마우스 위치를 장면의 화면 단위로
@@ -2779,7 +2779,7 @@ function updateShiftBtn() {
   // moon to clock out, sun to clock in / 퇴근은 달, 출근은 해
   $('#shift-ico').setAttribute('d', allOff ? 'M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z'
     : 'M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z');
-  b.title = tr('퇴근 / 출근: Mac 마다 고르기', 'Clock out / in, Mac by Mac');
+  b.title = tr('퇴근 / 출근: 컴퓨터마다 고르기', 'Clock out / in, computer by computer');
 }
 // the card: a row per Mac with its button, and "all" when there are several / 카드: Mac 마다 한 줄과 버튼, 여럿이면 "모두"
 function askShift() {
@@ -2790,7 +2790,7 @@ function askShift() {
   list.replaceChildren(...ms.map(m => {
     const row = document.createElement('div'); row.className = 'mac';
     const name = document.createElement('span');
-    name.textContent = `${m.o.host}${m.oi === 0 ? tr(' (이 Mac)', ' (this Mac)') : ''}`;
+    name.textContent = `${m.o.host}${m.oi === 0 ? tr(' (이 컴퓨터)', ' (this computer)') : ''}`;
     const st = document.createElement('small');
     st.textContent = m.off ? tr(`🌙 퇴근 중 · ${m.home}마리 집에${m.working ? ` · ${m.working}마리 야근` : ''}`, `🌙 home: ${m.home}${m.working ? ` · ${m.working} on overtime` : ''}`)
       : tr(`${m.working}마리 근무${m.busy ? ` · ${m.busy}마리 일하는 중` : ''}`, `${m.working} at work${m.busy ? ` · ${m.busy} busy` : ''}`);

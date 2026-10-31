@@ -108,7 +108,7 @@ def main():
                       (tr(f" · {attempt}번째", f" · attempt {attempt}") if attempt > 1 else ""), T2)]
             if err:
                 lines.append((err, T3))
-            lines.append((tr("작업은 상대 Mac 에서 계속 돌고 있습니다", "The work keeps running on the other Mac"), T3))
+            lines.append((tr("작업은 상대 컴퓨터에서 계속 돌고 있습니다", "The work keeps running on the other computer"), T3))
             draw(host, title, WAIT, lines, keys)
             if left == 0:
                 break
@@ -120,7 +120,7 @@ def main():
                 if ch in (b"\r", b"\n", b" ", b"r"):
                     break
         draw(host, title, ACC, [(tr("다시 연결하는 중…", "Reconnecting…"), ACC),
-                                (tr("작업은 상대 Mac 에서 계속 돌고 있습니다", "The work keeps running on the other Mac"), T3)],
+                                (tr("작업은 상대 컴퓨터에서 계속 돌고 있습니다", "The work keeps running on the other computer"), T3)],
              tr("Ctrl+C 그만", "Ctrl+C stop"))
         return 0
     except KeyboardInterrupt:

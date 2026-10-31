@@ -80,12 +80,12 @@ def main(argv):
     if mac is None:                      # a screen of this Mac / 이 Mac 의 화면
         return subprocess.run([OS, "open", *paths]).returncode
     if not mac:
-        print(tr("붙어 온 Mac 과 연결이 없어 열 수 없습니다 (hivemux connect 를 다시 하세요)",
-                 "Cannot reach the Mac this screen comes from (connect again with hivemux connect)"), file=sys.stderr)
+        print(tr("붙어 온 컴퓨터와 연결이 없어 열 수 없습니다 (hivemux connect 를 다시 하세요)",
+                 "Cannot reach the computer this screen comes from (connect again with hivemux connect)"), file=sys.stderr)
         return 1
     dirs = [p for p in paths if os.path.isdir(p)]
     if dirs:
-        print(tr(f"폴더는 다른 Mac 에서 열 수 없습니다: {dirs[0]}", f"A folder cannot be opened on another Mac: {dirs[0]}"), file=sys.stderr)
+        print(tr(f"폴더는 다른 컴퓨터에서 열 수 없습니다: {dirs[0]}", f"A folder cannot be opened on another computer: {dirs[0]}"), file=sys.stderr)
         return 1
     opt, tag = f"@hivemux-show-{mac}", str(os.getpid())
     tmux("set", "-g", opt, "\n".join([f"{tag} {client or looking()}", *paths]))
@@ -96,7 +96,7 @@ def main(argv):
             print(tr(f"{name} 에서 엽니다", f"Opening on {name}"))
             return 0
     tmux("set", "-gu", opt)              # no answer: an older hivemux there / 대답이 없음: 거기 hivemux 가 예전 것
-    print(tr(f"{name} 에서 열지 못했습니다. 그 Mac 의 hivemux 를 업데이트하고 다시 붙으세요",
+    print(tr(f"{name} 에서 열지 못했습니다. 그 컴퓨터의 hivemux 를 업데이트하고 다시 붙으세요",
              f"Could not open it on {name}. Update hivemux there and connect again"), file=sys.stderr)
     return 1
 

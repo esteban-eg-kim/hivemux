@@ -89,7 +89,7 @@ def settings():
         ("notify", tr("알림", "Notifications"), [("on", tr("켜기", "on")), ("off", tr("끄기", "off"))], 0 if notify else 1),
         ("width", tr("사이드바 폭", "Sidebar width"), [(str(x), tr(f"{x}칸", f"{x} columns")) for x in ws], ws.index(w)),
         ("editor", tr("편집기", "Editor"), eds, next((i for i, (k, _) in enumerate(eds) if k == ed), 0)),
-        ("name", tr("이 Mac 이름", "This Mac's name"), [(nick, nick or computer_name())], 0),
+        ("name", tr("이 컴퓨터 이름", "This computer's name"), [(nick, nick or computer_name())], 0),
     ]
 
 
@@ -162,7 +162,7 @@ def main():
                     f"{fg(TEXT)}Esc{fg(T3)} {tr('닫기', 'close')}")
             if edit is not None:
                 hint = (f"{fg(TEXT)}Enter{fg(T3)} {tr('저장', 'save')}   {fg(TEXT)}Esc{fg(T3)} {tr('취소', 'cancel')}   "
-                        f"{fg(T3)}{tr('비우면 원래 이름', 'empty: the Mac’s own name')}")
+                        f"{fg(T3)}{tr('비우면 원래 이름', 'empty: the computer’s own name')}")
             elif items[sel][0] == "name":
                 hint = (f"{fg(TEXT)}Enter{fg(T3)} {tr('이름 고치기', 'edit the name')}   {fg(T3)}"
                         f"{tr('벌 사무실과 원격 화면에 보입니다', 'shown in the bee office and on remote screens')}")

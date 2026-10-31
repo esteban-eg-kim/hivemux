@@ -35,6 +35,7 @@ HOSTS="$DATA/remote-hosts"; LAST="$DATA/remote-last"
 SSH_OPTS=(-o ServerAliveInterval=3 -o ServerAliveCountMax=2 -o ConnectTimeout=10)
 # HIVEMUX_SSH: another ssh command, e.g. "ssh -F <config>" (used for testing) / 다른 ssh 명령 (시험용)
 read -ra SSH <<< "${HIVEMUX_SSH:-ssh}"
+MOSH_HINT="$([ "$(uname -s)" = Darwin ] && echo "brew install mosh" || echo "sudo apt-get install mosh, or your package manager")"
 
 # Runs on the other Mac. ssh gives a plain PATH there, so look for hivemux where it gets installed.
 # The other Mac may not know this terminal (xterm-ghostty): use Ghostty's terminfo if it has Ghostty,
@@ -55,7 +56,7 @@ echo "hivemux: not installed on $(hostname -s)"; exit 3'
 remote_client() {
   [ -n "$1" ] || return 1
   case "$("$TMUX_BIN" show -gqv @hivemux-remote-clients)" in
-    *" $1 "*) "$TMUX_BIN" display -c "$1" -d 3000 "$(say "원격으로 붙은 화면입니다. 원격 연결은 이 화면을 연 Mac 에서 하세요" "This screen is attached from another Mac; connect from that Mac")"; return 0 ;;
+    *" $1 "*) "$TMUX_BIN" display -c "$1" -d 3000 "$(say "원격으로 붙은 화면입니다. 원격 연결은 이 화면을 연 컴퓨터에서 하세요" "This screen is attached from another computer; connect from that computer")"; return 0 ;;
   esac
   return 1
 }
@@ -79,7 +80,7 @@ connect() {
   if [ "$how" = mosh ]; then
     # mosh keeps the session through sleep and network changes by itself (no notifications through it)
     # mosh 는 잠자기와 네트워크 변경을 스스로 견딘다 (알림은 지나가지 못한다)
-    printf '\033[33m%s\033[0m\n' "$(say "mosh 로 붙습니다: 원격 작업의 알림은 이 Mac 에 오지 않습니다" "Connecting over mosh: notifications from the remote work do not reach this Mac")"
+    printf '\033[33m%s\033[0m\n' "$(say "mosh 로 붙습니다: 원격 작업의 알림은 이 컴퓨터에 오지 않습니다" "Connecting over mosh: notifications from the remote work do not reach this computer")"
     mosh --server='PATH=/opt/homebrew/bin:/usr/local/bin:$PATH mosh-server' "$host" -- /bin/sh -c "$REMOTE"; rc=$?
     # keep the window open on an error so it can be read / 오류면 읽을 수 있게 창을 남긴다
     [ $rc -eq 0 ] || read -rp "$(say "Enter 로 닫기" "Enter to close")" _
@@ -133,26 +134,26 @@ case "$1" in
       0) echo "  ✓ ssh $host · $out" ;;
       3) echo "  ✗ $(say "$host 에 hivemux 가 설치되어 있지 않습니다" "hivemux is not installed on $host")" >&2; exit 1 ;;
       *) case "$out" in
-           *"IDENTIFICATION HAS CHANGED"*) echo "  ✗ $(say "$host 의 호스트 키가 바뀌었습니다. 같은 Mac 이 맞으면: ssh-keygen -R $host" "The host key of $host changed. If it is the same Mac: ssh-keygen -R $host")" >&2 ;;
+           *"IDENTIFICATION HAS CHANGED"*) echo "  ✗ $(say "$host 의 호스트 키가 바뀌었습니다. 같은 컴퓨터가 맞으면: ssh-keygen -R $host" "The host key of $host changed. If it is the same computer: ssh-keygen -R $host")" >&2 ;;
            *"Permission denied"*) echo "  ✗ $(say "ssh 키로 로그인되지 않습니다 (ssh-copy-id $host)" "ssh key login failed (ssh-copy-id $host)")" >&2 ;;
            *) echo "  ✗ $(say "ssh 로 붙지 못했습니다" "ssh failed"): $(printf '%s' "$out" | tail -1)" >&2 ;;
          esac; exit 1 ;;
     esac
     if [ "$how" = mosh ]; then
       if ! command -v mosh >/dev/null; then
-        echo "  ✗ $(say "이 Mac 에 mosh 가 없습니다 (brew install mosh)" "mosh is not installed here (brew install mosh)")" >&2; exit 1
+        echo "  ✗ $(say "이 컴퓨터에 mosh 가 없습니다 ($MOSH_HINT)" "mosh is not installed here ($MOSH_HINT)")" >&2; exit 1
       fi
       # mosh-server must be on the other Mac too (ssh gives a plain PATH: look where brew puts it)
       # 상대 Mac 에도 mosh-server 가 있어야 한다 (ssh 는 기본 PATH 만 주므로 brew 가 두는 곳에서 찾는다)
       if ! "${SSH[@]}" -o BatchMode=yes "${SSH_OPTS[@]}" "$host" \
           'for p in /opt/homebrew/bin/mosh-server /usr/local/bin/mosh-server; do [ -x "$p" ] && exit 0; done; command -v mosh-server >/dev/null' >/dev/null 2>&1; then
-        echo "  ✗ $(say "$host 에 mosh 가 없습니다 (brew install mosh)" "mosh is not installed on $host (brew install mosh there)")" >&2; exit 1
+        echo "  ✗ $(say "$host 에 mosh 가 없습니다 (brew install mosh, 또는 리눅스 패키지 mosh)" "mosh is not installed on $host (brew install mosh there, or the mosh package on Linux)")" >&2; exit 1
       fi
     fi
     mkdir -p "$DATA"
     { [ -f "$HOSTS" ] && awk -v h="$host" '$1!=h' "$HOSTS"; echo "$host${how:+ $how}"; } > "$HOSTS.tmp" && mv -f "$HOSTS.tmp" "$HOSTS"
     echo "  ✓ $(say "등록했습니다" "Remembered") · ${how:-ssh} · hivemux connect $host"
-    [ "$how" = mosh ] && echo "  ! $(say "mosh 로 붙으면 원격 작업의 알림을 이 Mac 에서 받을 수 없습니다" "Over mosh, notifications from the remote work do not reach this Mac")"
+    [ "$how" = mosh ] && echo "  ! $(say "mosh 로 붙으면 원격 작업의 알림을 이 컴퓨터에서 받을 수 없습니다" "Over mosh, notifications from the remote work do not reach this computer")"
     ;;
   --setup)    # first connection: trust the host key and put this Mac's ssh key there (asks the password once)
               # 처음 연결: 호스트 키를 믿고 이 Mac 의 ssh 키를 상대에 등록한다 (비밀번호는 한 번만 묻는다)
@@ -166,7 +167,7 @@ case "$1" in
       key="$HOME/.ssh/id_ed25519.pub"
     fi
     printf '\033[1m%s\033[0m\n' "$(say "$host 에 처음 연결합니다" "First connection to $host")"
-    echo "$(say "이 Mac 의 ssh 키를 등록해 두면 다음부터는 비밀번호를 묻지 않습니다." "This Mac's ssh key gets added there, so later connections need no password.")"
+    echo "$(say "이 컴퓨터의 ssh 키를 등록해 두면 다음부터는 비밀번호를 묻지 않습니다." "This computer's ssh key gets added there, so later connections need no password.")"
     echo "$(say "· 호스트를 믿을지 물으면 yes" "· Asked whether to trust the host: yes")"
     echo "$(say "· 비밀번호는 $host 의 로그인 비밀번호" "· The password is your login password on $host")"
     echo
@@ -205,7 +206,7 @@ case "$1" in
     pause="/tmp/hivemux-pause-$(id -u)-$("$TMUX_BIN" display -p '#{pid}')"   # per tmux server / tmux 서버마다
     : > "$pause"; trap 'rm -f "$pause"' EXIT
     "$HM_BIN/hivemux-modal" "$client" -E -w 72 -h 16 -b rounded \
-      -T "#[fg=#e6e9ef,bold] $(say "원격 연결" "Connect to another Mac") " -S "fg=#5aa9ff" -s "bg=#1e2128" \
+      -T "#[fg=#e6e9ef,bold] $(say "원격 연결" "Connect to another computer") " -S "fg=#5aa9ff" -s "bg=#1e2128" \
       "$(printf '%q ' "$HM_BIN/hivemux-connect-ui" "$client")" 2>/dev/null || true
     ;;
   --window)

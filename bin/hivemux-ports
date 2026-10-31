@@ -5,7 +5,7 @@
   hivemux-ports <host> <tty>     run until hivemux-connect (the parent) ends / hivemux-connect(부모)가 끝날 때까지
   hivemux-ports --list           forwarded ports of every connection / 모든 연결의 이어 준 포트
   hivemux-ports --pick <client>  the port list popup (Option+W, sidebar menu) / 포트 목록 팝업 (Option+W, 사이드바 메뉴)
-  hivemux-ports --me             this Mac's name as used in the options below / 아래 옵션에 쓰는 이 Mac 이름
+  hivemux-ports --me             this computer's name as used in the options below / 아래 옵션에 쓰는 이 컴퓨터 이름
 
 Every few seconds it asks the other Mac which TCP ports are listened on by processes started
 inside its tmux (a dev server Claude or a shell started: npm run dev, rails s ...), and forwards

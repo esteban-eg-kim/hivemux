@@ -36,7 +36,7 @@ done
 tmux set -gu "@hivemux-paste-$mac"
 tmux send-keys -t "$pane" C-v
 if ko; then
-  tmux display-message -c "$client" "$mac 에서 이미지를 가져오지 못했습니다. 그 Mac 의 hivemux 를 업데이트하세요"
+  tmux display-message -c "$client" "$mac 에서 이미지를 가져오지 못했습니다. 그 컴퓨터의 hivemux 를 업데이트하세요"
 else
   tmux display-message -c "$client" "Could not get the image from $mac. Update hivemux there"
 fi

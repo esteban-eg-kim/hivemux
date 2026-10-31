@@ -6,11 +6,11 @@
                                창 열기 (필요하면 아래 서버를 띄운다)
   hivemux-office serve           the local web server the window shows (exits a while after the window closes)
                                창이 보여 주는 로컬 웹 서버 (창을 닫고 잠시 뒤 끝난다)
-  hivemux-office --json          this Mac's sessions as JSON (the server, and the other Mac over ssh, read it)
-                               이 Mac 의 세션을 JSON 으로 (서버와, ssh 로 상대 Mac 이 읽는다)
+  hivemux-office --json          this computer's sessions as JSON (the server, and the other computer over ssh, read it)
+                               이 컴퓨터의 세션을 JSON 으로 (서버와, ssh 로 상대 컴퓨터가 읽는다)
   hivemux-office --goto <pane> [--from <mac>]
-                               show that pane on a screen of this Mac (or on the screen attached from <mac>)
-                               그 칸을 이 Mac 화면에 (또는 <mac> 에서 붙은 화면에) 띄운다
+                               show that pane on a screen of this computer (or on the screen attached from <mac>)
+                               그 칸을 이 컴퓨터 화면에 (또는 <mac> 에서 붙은 화면에) 띄운다
   hivemux-office --client <client>
                                open it from tmux (sidebar button and menu, prefix B); a first build shows
                                its progress in a popup on <client>
@@ -820,11 +820,11 @@ def open_there(client):
                      f"🐝 {name} 에서 벌 사무실을 엽니다" if ko else f"🐝 Opening the bee office on {name}")
                 return
         tmux("set", "-gu", opt)      # no answer: an older hivemux there / 대답이 없음: 거기 hivemux 가 예전 것
-        msg = (f"{name} 에서 벌 사무실을 열지 못했습니다. 그 Mac 의 hivemux 를 업데이트하세요" if ko
+        msg = (f"{name} 에서 벌 사무실을 열지 못했습니다. 그 컴퓨터의 hivemux 를 업데이트하세요" if ko
                else f"Could not open the bee office on {name}. Update hivemux there")
     else:
-        msg = ("다른 Mac 에서 붙은 화면입니다. 벌 사무실은 그 Mac 에서 여세요 (사이드바 🐝, prefix B)" if ko
-               else "This screen is attached from another Mac. Open the bee office on that Mac (sidebar 🐝, prefix B)")
+        msg = ("다른 컴퓨터에서 붙은 화면입니다. 벌 사무실은 그 컴퓨터에서 여세요 (사이드바 🐝, prefix B)" if ko
+               else "This screen is attached from another computer. Open the bee office on that computer (sidebar 🐝, prefix B)")
     tmux("display", "-c", client, "-d", "5000", msg)
 
 

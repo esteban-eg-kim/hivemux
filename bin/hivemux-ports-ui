@@ -122,8 +122,8 @@ def main():
             buf = ["\x1b[H\x1b[2J", bg(BG), "\r\n"]
             if not items:
                 buf.append(f"  {fg(T2)}{tr('이어진 포트가 없습니다', 'No forwarded ports')}\r\n\r\n")
-                buf.append(f"  {fg(T3)}{tr('원격으로 붙어 있는 동안 상대 Mac 의 tmux 에서 띄운', 'While connected, dev servers started in the other')}\r\n")
-                buf.append(f"  {fg(T3)}{tr('개발 서버(npm run dev 등)가 여기에 나옵니다', 'Mac’s tmux (npm run dev...) show up here')}\r\n")
+                buf.append(f"  {fg(T3)}{tr('원격으로 붙어 있는 동안 상대 컴퓨터의 tmux 에서 띄운', 'While connected, dev servers started in the other')}\r\n")
+                buf.append(f"  {fg(T3)}{tr('개발 서버(npm run dev 등)가 여기에 나옵니다', 'computer’s tmux (npm run dev...) show up here')}\r\n")
             for i in range(top, min(len(items), top + list_h)):
                 it = items[i]
                 if i == sel:

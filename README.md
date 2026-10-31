@@ -8,7 +8,8 @@ hivemux adds a sidebar to every tmux window that lists every Claude Code session
 in every tmux session: what it is working on, whether it is running, waiting for
 your approval, or done, and for how long. Press `Option+3` to jump to the third
 one, or `Option+0` to jump to whichever has waited longest. Close the terminal or
-reboot the Mac and everything comes back, with each Claude resumed in its pane.
+reboot and everything comes back, with each Claude resumed in its pane. It runs on
+macOS and Linux (on Linux, `Option` is `Alt`).
 
 <p align="center">
   <img src="docs/preview-en.png" alt="hivemux sidebar preview" width="880">
@@ -20,7 +21,7 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
   card per Claude showing live state and elapsed time. Running cards glow,
   waiting cards pulse amber, and the one you are in has a white line on each
   side. Widen the sidebar for 2 or 3 columns; a long list scrolls with the wheel.
-- **Notifications.** A macOS notification when a task needs input or finishes,
+- **Notifications.** A desktop notification when a task needs input or finishes,
   except the one you are looking at. Turn it off in Settings.
 - **Jump anywhere.** `Option+1..9`, `Option+0` (oldest waiting), or click a card.
 - **Pickup board.** Like the order board at a food court, the right of the top
@@ -44,12 +45,12 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
   (or right-click → Rename) to rename it; hivemux sends `/rename` to that Claude (waits if it is busy).
 - **Your order.** Drag a card to reorder tasks, or a project header to reorder
   projects. `Option+N` numbers and the top window list follow the same order.
-- **Work from your laptop.** Keep the Claudes running on a desktop Mac and
-  pick them up from a laptop with `hivemux connect`. It is more than an ssh
-  window: `Ctrl+V` pastes a screenshot from the laptop into the remote Claude,
-  dev servers there open on the laptop's `localhost`, files Claude makes there
-  open on the laptop, and their notifications pop up on it. See
-  [Work from another Mac](#work-from-another-mac).
+- **Work from your laptop.** Keep the Claudes running on a desktop Mac or a
+  Linux server and pick them up from a laptop with `hivemux connect`. It is more
+  than an ssh window: `Ctrl+V` pastes a screenshot from the laptop into the
+  remote Claude, dev servers there open on the laptop's `localhost`, files Claude
+  makes there open on the laptop, and their notifications pop up on it. See
+  [Work from another computer](#work-from-another-computer).
 - **Survives everything.** tmux keeps sessions alive when the terminal closes;
   tmux-resurrect restores layouts after a reboot and hivemux runs
   `claude --resume <id>` in the right pane.
@@ -63,9 +64,9 @@ reboot the Mac and everything comes back, with each Claude resumed in its pane.
 - **Open paths Claude mentions.** `Option+O` lists file paths from the pane's
   recent output; Enter opens it at the line in the editor chosen in Settings
   (VS Code, Cursor, Zed, Sublime Text or the text editor). From a screen
-  attached from another Mac, every key opens it on that Mac: VS Code and Cursor over
-  Remote-SSH, anything else (Enter with another editor, Tab, Ctrl+F) by copying the
-  file there, and Ctrl+Y copies the path to that Mac's clipboard. Paths Claude gives
+  attached from another computer, every key opens it on that computer: VS Code and
+  Cursor over Remote-SSH, anything else (Enter with another editor, Tab, Ctrl+F) by
+  copying the file there, and Ctrl+Y copies the path to that computer's clipboard. Paths Claude gives
   relative to its own scratchpad (`scratchpad/shot.png`) are found too. `hivemux open <file>`
   does the same, so a screenshot Claude made shows up on the laptop you work from.
 - **From your phone.** Optionally turns on Remote Control for every session, so
@@ -95,11 +96,13 @@ The 🐝 button at the top of the sidebar (or `prefix B`, the right-click menu,
 - Turn, tilt and zoom with the mouse (a turn pivots on the point you pressed),
   or switch to **2D** for the same office seen from straight above. Zoom far out
   and the office sits on a tiny planet.
-- Macs connected with `hivemux connect` get desks of their own, on a carpet of
-  their color with a name plaque on the wall.
-- Without the Swift compiler for the window app, it opens as an app window in
-  Chrome, Edge, Brave, Whale, Vivaldi or Chromium (no tabs or address bar),
-  else in the browser. If the office server goes away, the page says it is
+- Computers connected with `hivemux connect` get desks of their own, on a
+  carpet of their color with a name plaque on the wall.
+- Without the Swift compiler for the window app (always so on Linux), it opens
+  as an app window in Chrome, Chromium, Edge, Brave, Vivaldi or Whale (no tabs
+  or address bar), else in the default browser. On a Linux server with no
+  desktop, the 🐝 button says to connect from another computer with
+  `hivemux connect`, and the office opens there. If the office server goes away, the page says it is
   reconnecting and keeps trying; the office window starts the server again.
 
 <p align="center">
@@ -115,7 +118,7 @@ plan, ❓ a question, ✎ an MCP server asking, ⚠ an error. Click the bubble (
 the bee) and the card shows the same choices as the terminal: press one and it
 is answered there. A choice that takes words (Type something, Tell Claude what
 to change) opens a box; several questions go one by one, then a review. It
-works for bees of a connected Mac too. Nothing is pressed if the screen has
+works for bees of a connected computer too. Nothing is pressed if the screen has
 changed meanwhile.
 
 ### Clock out, clock in
@@ -125,7 +128,7 @@ changed meanwhile.
 </p>
 
 The 🌙 **Clock out** button (or right-click on empty sidebar space → Clock
-everyone out…) stops your Claudes for the night, Mac by Mac or all at once. The
+everyone out…) stops your Claudes for the night, computer by computer or all at once. The
 bees clap and walk past the yard to their own houses. A Claude still working or
 waiting for you works overtime and goes once done. Clock in and every one comes
 back in the same conversation (`claude --resume`) while the bees walk to work.
@@ -157,10 +160,13 @@ back is rehired, into the same house.
 
 ## Requirements
 
-- macOS (Linux likely works but is untested)
-- tmux 3.3+, jq, git, python3 (Xcode Command Line Tools)
+- macOS, or Linux with tmux 3.3+: Ubuntu 24.04+, Debian 12+, Fedora, Arch
+  (x86_64 and arm64). Ubuntu 22.04's tmux is 3.2, too old. Linux is tested on
+  Ubuntu 24.04 (arm64)
+- tmux 3.3+, jq, git, perl, python3 (on macOS: Homebrew and Xcode Command Line
+  Tools; on Linux `hivemux setup` offers to install the missing ones)
 - [Claude Code](https://code.claude.com) logged in
-- [Ghostty](https://ghostty.org) recommended: `hivemux setup` offers to install it with Homebrew (any terminal works if you start `tmux` yourself)
+- [Ghostty](https://ghostty.org) recommended: `hivemux setup` offers to install it (any terminal works if you start `tmux` yourself)
 
 ## Install
 
@@ -170,7 +176,7 @@ curl -fsSL https://hivemux.dev/install.sh | bash
 
 This clones hivemux into `~/.local/share/hivemux/src` and runs `hivemux setup`.
 
-Homebrew:
+Homebrew (macOS):
 
 ```sh
 brew install esteban-eg-kim/tap/hivemux
@@ -182,7 +188,7 @@ Ghostty is not installed yet:
 
 | Question | What it changes |
 |---|---|
-| Install Ghostty | `brew install --cask ghostty` (not with `--yes`) |
+| Install Ghostty | `brew install --cask ghostty`; on Linux see [Linux](#linux) (not with `--yes`) |
 | Recommended keys | prefix `Ctrl+A` (Claude Code uses `Ctrl+B`), `\|` / `-` splits |
 | Ghostty attaches to tmux | `command = hivemux-attach` in Ghostty config |
 | Remote Control for all sessions | `remoteControlAtStartup` in `~/.claude/settings.json` |
@@ -195,12 +201,43 @@ check everything. Use `--yes` to accept defaults, `--no-keys`, `--no-ghostty`,
 When it is done it opens Ghostty, and on a first install the first window asks for a
 project folder, so you can start without typing a command.
 
+### Linux
+
+Use the same command (the Homebrew formula is macOS only):
+
+```sh
+curl -fsSL https://hivemux.dev/install.sh | bash
+```
+
+- **Packages.** If tmux, jq, git or perl is missing, `hivemux setup` offers to
+  install them with the distribution's package manager (apt, dnf, pacman,
+  zypper or apk). It asks first, since it runs `sudo`; run without a terminal
+  (or with `--yes`), it only prints the command. If the tmux there is older than
+  3.3 (Ubuntu 22.04 has 3.2), setup stops and says so.
+- **Ghostty.** With a desktop, setup offers Ghostty from the distribution's own
+  package where there is one (Arch, openSUSE, Ubuntu 26.04+, Alpine), else the
+  snap (a community build); with neither, it points to
+  [ghostty.org/docs/install/binary](https://ghostty.org/docs/install/binary).
+- **A server with no desktop** (say, one you reach over ssh): the Ghostty step is
+  skipped. Run `tmux` there, or connect to it from your Mac with
+  `hivemux connect` (see [Work from another computer](#work-from-another-computer)).
+  `hivemux doctor` checks that the ssh server is running.
+- **PATH** goes in `~/.bashrc` as well as `~/.zshrc`.
+- **Keys.** `Option` in this README is `Alt` on Linux (`Alt+1`, `Alt+0`,
+  `Alt+O`), and Ghostty's new window there is `Ctrl+Shift+N`.
+- **Opening and copying** use `xdg-open`, the file manager (over the
+  FileManager1 D-Bus interface), and `wl-copy`, `xclip` or `xsel` (else the
+  terminal's clipboard through OSC 52).
+
 ### Other terminals
 
 ```sh
 hivemux terminal iterm      # or wezterm, kitty, alacritty, terminal (Terminal.app), ghostty
 hivemux terminal iterm --off
 ```
+
+On Linux the choices are ghostty, wezterm, kitty and alacritty (iTerm2 and
+Terminal.app are macOS apps).
 
 Makes that terminal open every window inside tmux with the sidebar, the way Ghostty
 does. Run from one of them, `hivemux setup` offers it too (default no). It writes only
@@ -230,7 +267,7 @@ new hooks once restarted. Claude Code itself: right-click → Update Claude
    and Claude starts in it.
 2. `hm ~/code/api` (or right-click → New project) opens project **api** with Claude running in window 1.
 3. `hm ~/code/web` opens a second project. The first keeps working.
-4. Watch the sidebar. `Option+0` takes you to whatever is waiting for you.
+4. Watch the sidebar. `Option+0` takes you to whatever is waiting for you (on Linux, `Alt` for `Option` throughout).
 5. `prefix` then `Shift+C` adds another named Claude to the current project.
 6. Close Ghostty whenever you like. Open it again and you are back where you were.
 
@@ -244,13 +281,13 @@ new hooks once restarted. Claude Code itself: right-click → Update Claude
 | right click | menu. On a task: go to, rename, move up/down, clock this Claude out, close Claude, new Claude, new project. On a project name: rename, close project, clock this project out / in, new Claude, new project. On empty space: new project, clock everyone out / in. Every menu ends with Open path…, Ports…, Bee office, Update Claude…, Connect to… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes |
 | menu → Close Claude | asks, then closes that Claude: its pane, or its window when nothing else is in it; a project's last window keeps its shell. Not resumed again, like `/exit`; `claude --resume` still continues the conversation |
 | menu → New project | folder browser in the middle: `Enter` starts the selected folder (like `hm`), `→` / `←` in and out, type to filter, `Ctrl+N` new folder |
-| menu → Settings | language (한국어 / English), animation, notifications, sidebar width, editor for Open path, this Mac's name (shown in the bee office and on remote screens); applied at once and saved |
+| menu → Settings | language (한국어 / English), animation, notifications, sidebar width, editor for Open path, this computer's name (shown in the bee office and on remote screens); applied at once and saved |
 | drag card / project header | reorder tasks / projects |
 | `prefix Shift+↑` / `↓` | move the current task up / down (at a project's edge, the project moves) |
-| `Option+O` / menu → Open path | open a file path from recent output (Enter editor from Settings, Tab default app, ^F Finder, ^Y copy; on a screen from another Mac, on that Mac) |
-| `Option+W` / menu → Ports | dev server ports forwarded between Macs (Enter opens in the browser of the Mac they reach, ^Y copies the address) |
+| `Option+O` / menu → Open path | open a file path from recent output (Enter editor from Settings, Tab default app, ^F Finder or the file manager, ^Y copy; on a screen from another computer, on that computer) |
+| `Option+W` / menu → Ports | dev server ports forwarded between computers (Enter opens in the browser of the computer they reach, ^Y copies the address) |
 | `prefix Shift+C` | new window with a named Claude in this folder (asks the name in a popup) |
-| menu → Connect to… | another Mac's hivemux in a new Ghostty window (hosts added with `hivemux connect --add`) |
+| menu → Connect to… | another computer's hivemux in a new Ghostty window (hosts added with `hivemux connect --add`) |
 | `prefix Shift+H` | connect to the last remote host again |
 | `prefix Shift+B` | open the bee office window (also the 🐝 button at the top of the sidebar) |
 | `prefix Shift+R` | Remote Control server window (start new sessions from the phone) |
@@ -259,7 +296,8 @@ new hooks once restarted. Claude Code itself: right-click → Update Claude
 | drag the sidebar grip | resize; width is saved. Wider: project boxes in 2–3 columns |
 | mouse wheel on the sidebar | scroll when the list does not fit (shared by every window) |
 
-`prefix` is `Ctrl+A` with the recommended keys, otherwise tmux's `Ctrl+B`.
+`prefix` is `Ctrl+A` with the recommended keys, otherwise tmux's `Ctrl+B`. On
+Linux, `Option` is `Alt`.
 
 <p align="center">
   <img src="docs/img/menu-en.png" alt="Right-click menu on a task" width="430">
@@ -268,15 +306,17 @@ new hooks once restarted. Claude Code itself: right-click → Update Claude
   <img src="docs/img/settings-en.png" alt="Settings popup" width="430">
 </p>
 
-## Work from another Mac
+## Work from another computer
 
-Keep the work running on one Mac (say, the one at the office) and continue it
-from another (a laptop): the laptop attaches to the first Mac's tmux over ssh and
-sees the same sidebar and sessions. If the connection drops, the work goes on.
-Local work on the laptop stays as it is; the remote one opens in its own window.
+Keep the work running on one computer (say, the Mac at the office, or a Linux dev
+server) and continue it from another (a laptop): the laptop attaches to the first
+one's tmux over ssh and sees the same sidebar and sessions. If the connection
+drops, the work goes on. Local work on the laptop stays as it is; the remote one
+opens in its own window. Macs and Linux machines connect either way: Mac to Mac,
+Mac to Linux, Linux to Mac, Linux to Linux.
 
-Plenty of tools get you a remote terminal. What hivemux adds is that the two Macs
-stop feeling like two: the screenshot you just took on the laptop, the dev server
+Plenty of tools get you a remote terminal. What hivemux adds is that the two
+computers stop feeling like two: the screenshot you just took on the laptop, the dev server
 running on the desktop, the file Claude made over there all work as if Claude
 ran on the laptop.
 
@@ -286,10 +326,14 @@ ran on the laptop.
 
 ### Set it up
 
-On the Mac you connect **to**: install hivemux, turn on System Settings →
-General → Sharing → **Remote Login**, and keep it from sleeping when idle.
+On the computer you connect **to**: install hivemux, and
+- a Mac: turn on System Settings → General → Sharing → **Remote Login**, and keep
+  it from sleeping when idle;
+- Linux: run an ssh server (package `openssh-server` or `openssh`, then
+  `sudo systemctl enable --now ssh` or `sshd`). A server with no desktop is
+  fine; setup skips Ghostty there.
 
-On the Mac you connect **from**:
+On the computer you connect **from**:
 
 ```sh
 hivemux connect --add me@work-mac.local    # check and remember (--mosh to use mosh)
@@ -297,22 +341,23 @@ hivemux connect me@work-mac.local          # or: right-click → Connect to…, 
 ```
 
 The first time, `--add` (or "+ Add a host…" in the Connect to… list) asks you to
-trust the host and for your login password there once, then adds this Mac's ssh
+trust the host and for your login password there once, then adds this computer's ssh
 key there (making one if there is none), so later connections need no password.
 
 The host is anything `ssh` takes: a `Host` from `~/.ssh/config`, `user@address`,
 or a device name on a VPN. On the same network `name.local` works; from outside,
-a VPN such as [Tailscale](https://tailscale.com) on both Macs is the simple way
+a VPN such as [Tailscale](https://tailscale.com) on both computers is the simple way
 (opening ssh to the internet with port forwarding is not recommended).
 
 ### Paste screenshots with Ctrl+V
 
-Claude Code reads images from the clipboard of the Mac it runs on, so over plain
+Claude Code reads images from the clipboard of the computer it runs on, so over plain
 ssh a screenshot taken on your laptop never reaches it. In a remote Claude pane,
 press `Ctrl+V` as usual: hivemux copies the image on the laptop's clipboard over
 and it shows up in Claude as `[Image #1]`. Take a screenshot of the broken page
-(`⌘⌃⇧4` puts it on the clipboard), `Ctrl+V`, ask what is wrong. Both Macs need
-hivemux 0.1.26 or later.
+(`⌘⌃⇧4` puts it on the clipboard), `Ctrl+V`, ask what is wrong. Both computers
+need hivemux 0.1.26 or later. On a Linux laptop the image comes from `wl-paste`
+(Wayland) or `xclip` (X11).
 
 <p align="center">
   <img src="docs/img/remote-paste-en.png" alt="The MacBook's clipboard screenshot in the remote Claude as [Image #1]" width="880">
@@ -321,28 +366,34 @@ hivemux 0.1.26 or later.
 ### What else comes along
 
 - **Dev servers on your `localhost`.** A server started there (`npm run dev` in a
-  remote pane) is forwarded to the same port on this Mac's `localhost` while
+  remote pane) is forwarded to the same port on this computer's `localhost` while
   connected; a port taken here goes to the next free one. `Option+W` (or menu →
-  Ports) lists them on either Mac; Enter opens one in the browser of the Mac you
-  connect from. `HIVEMUX_PORTS=0` turns it off.
+  Ports) lists them on either side; Enter opens one in the browser of the
+  computer you connect from. A Linux server without `lsof` is read with `ss` and
+  `/proc`, and a server that systemd took over is still found.
+  `HIVEMUX_PORTS=0` turns it off.
 - **Files open on the laptop.** `hivemux open <file>` in a remote pane (or Enter,
-  Tab or Ctrl+F in the `Option+O` popup) copies the file to this Mac and opens it
+  Tab or Ctrl+F in the `Option+O` popup) copies the file to this computer and opens it
   with its default app, so a screenshot Claude made there shows up here. With the
   editor set to VS Code or Cursor, Enter opens the path over Remote-SSH instead.
-  Folders cannot be copied over; Ctrl+Y puts the path on this Mac's clipboard. The 🐝 button
-  there opens the bee office here. Both Macs need hivemux 0.1.29 or later.
+  Folders cannot be copied over; Ctrl+Y puts the path on this computer's clipboard. The 🐝 button
+  there opens the bee office here. Both computers need hivemux 0.1.29 or later.
 - **Notifications here.** A remote task that needs you or finishes shows a
-  notification on this Mac.
+  notification on this computer.
 - **The connection looks after itself.** A dropped connection reconnects by
   itself: a box in the middle counts down to the next try (`Enter` tries now,
   `Ctrl+C` stops); `prefix d` detaches and closes the window. With `--mosh` (or
   `m` in the menu → Connect to… list), the session survives sleep and network
   changes by itself, but notifications do not pass through mosh; the list marks
-  such a host "mosh · no notifications". Both Macs need `brew install mosh`; if
-  it stops at "Nothing received from server on UDP port", allow incoming
-  connections for `mosh-server` in the other Mac's firewall.
-- **You always know where you are.** The remote window shows `⇄ <Mac name>` at
-  the right of the status line, before the clock.
+  such a host "mosh · no notifications". Both computers need mosh (`brew install
+  mosh` on a Mac, the `mosh` package on Linux); if it stops at "Nothing received
+  from server on UDP port", allow incoming connections for `mosh-server` in the
+  other computer's firewall.
+- **You always know where you are.** The remote window shows `⇄ <name>` at
+  the right of the status line, before the clock: the name from Settings, else
+  the Mac's name or the Linux host name.
+- **A new window.** On a Linux desktop, a new connection window opens in
+  Ghostty, else the desktop's terminal (`x-terminal-emulator`).
 - **Two screens, one project.** Two screens on the same project share it:
   switching windows on one moves the other.
 - **Light on the network.** While a remote screen looks at a window, its sidebar
@@ -367,13 +418,16 @@ and none are while you are clocked out.
 ## Troubleshooting
 
 ```sh
-hivemux doctor                         # check dependencies and wiring
+hivemux doctor                         # check dependencies, wiring and the ssh server
 hivemux-panes list                     # panes hivemux will resume after reboot
 tmux set -g @hivemux-anim off          # stop animations (to keep them off: menu → Settings)
 tmux set -g @hivemux-fps 15            # fewer animation frames, less CPU (default 30)
 hivemux-sidebar respawn                # restart every sidebar
 touch ~/tmux_no_auto_restore           # skip restore on next launch
 ```
+
+On Linux, `tmux 3.2: need 3.3 or newer` means the distribution's tmux is too old
+(Ubuntu 22.04): use Ubuntu 24.04+, Debian 12+, Fedora or Arch.
 
 More in the illustrated guide: [`docs/guide.en.html`](docs/guide.en.html) ([한국어](docs/guide.html)); download it and open it in a browser.
 
@@ -383,7 +437,7 @@ More in the illustrated guide: [`docs/guide.en.html`](docs/guide.en.html) ([한�
 hivemux uninstall
 ```
 
-Removes the hivemux blocks from `~/.tmux.conf`, Ghostty config and `~/.zshrc`,
+Removes the hivemux blocks from `~/.tmux.conf`, Ghostty config, `~/.zshrc` and `~/.bashrc`,
 and the hivemux hooks from Claude Code settings. Saved layouts and backups stay
 in `~/.local/share/hivemux`.
 
