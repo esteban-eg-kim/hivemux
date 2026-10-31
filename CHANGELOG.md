@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.49 — 2026-10-31
 
 - Linux groundwork (tested on Ubuntu 24.04 with tmux 3.4): sidebars no
   longer quit at once there (tmux 3.4 prints the field separator as "\037"),
