@@ -23,6 +23,10 @@
   clipboard image for Ctrl+V comes from wl-paste or xclip, a new connection
   window opens in Ghostty or the desktop's terminal, and the name shown is
   the host name
+- Bee office on Linux: the page opens as an app window in Chrome, Chromium,
+  Edge, Brave, Vivaldi or Whale (else the default browser); on a server
+  with no desktop the 🐝 button says to connect from another computer,
+  where it opens. The office server runs there as on macOS
 
 ## 0.1.48 — 2026-10-31
 
