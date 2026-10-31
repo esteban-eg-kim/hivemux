@@ -158,7 +158,7 @@ back is rehired, into the same house.
 - macOS (Linux likely works but is untested)
 - tmux 3.3+, jq, git, python3 (Xcode Command Line Tools)
 - [Claude Code](https://code.claude.com) logged in
-- [Ghostty](https://ghostty.org) recommended (any terminal works if you start `tmux` yourself)
+- [Ghostty](https://ghostty.org) recommended: `hivemux setup` offers to install it with Homebrew (any terminal works if you start `tmux` yourself)
 
 ## Install
 
@@ -175,10 +175,12 @@ brew install esteban-eg-kim/tap/hivemux
 hivemux setup
 ```
 
-`hivemux setup` asks three questions (all default to yes):
+`hivemux setup` asks three questions (all default to yes), and a fourth when
+Ghostty is not installed yet:
 
 | Question | What it changes |
 |---|---|
+| Install Ghostty | `brew install --cask ghostty` (not with `--yes`) |
 | Recommended keys | prefix `Ctrl+A` (Claude Code uses `Ctrl+B`), `\|` / `-` splits |
 | Ghostty attaches to tmux | `command = hivemux-attach` in Ghostty config |
 | Remote Control for all sessions | `remoteControlAtStartup` in `~/.claude/settings.json` |
@@ -188,6 +190,8 @@ It also downloads tmux-resurrect and tmux-continuum (or uses yours from
 check everything. Use `--yes` to accept defaults, `--no-keys`, `--no-ghostty`,
 `--no-remote` to skip parts. The screen language follows your shell; pick it with
 `--lang=en` or `--lang=ko`, and change it later in the sidebar's right-click menu → Settings.
+When it is done it opens Ghostty, and on a first install the first window asks for a
+project folder, so you can start without typing a command.
 
 ### Update
 
@@ -205,8 +209,10 @@ new hooks once restarted. Claude Code itself: right-click → Update Claude
 
 ## Quick start
 
-1. Open Ghostty. You are inside tmux; the sidebar is on the left.
-2. `hm ~/code/api` opens project **api** with Claude running in window 1.
+1. Open Ghostty. You are inside tmux; the sidebar is on the left. Right after the
+   install, a folder picker asks for your first project: pick a folder, press `Enter`,
+   and Claude starts in it.
+2. `hm ~/code/api` (or right-click → New project) opens project **api** with Claude running in window 1.
 3. `hm ~/code/web` opens a second project. The first keeps working.
 4. Watch the sidebar. `Option+0` takes you to whatever is waiting for you.
 5. `prefix` then `Shift+C` adds another named Claude to the current project.

@@ -11,6 +11,11 @@
   of opening it on the Mac you are not looking at; Ctrl+Y also puts the path
   on that Mac's clipboard
 
+- First install without typing a command: `hivemux setup` offers to install
+  Ghostty with Homebrew when it is missing (asked, never with `--yes`), opens
+  Ghostty when it is done, and the first window asks for a project folder
+  (the sidebar's New project picker), so Claude starts without `hm`
+
 ## 0.1.47 — 2026-10-30
 
 - Switching windows no longer shows a card in an old state for a moment

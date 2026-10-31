@@ -115,6 +115,18 @@ source-file \"$SHARE/keys.tmux\""
   [ "$remote" = true ] && ok "Remote Control for all sessions" && { grep -qx remote "$DATA/setup-flags" 2>/dev/null || echo "remote" >> "$DATA/setup-flags"; }
 
   step "5/5 Ghostty ($GHOSTTY_CONF)"
+  # No Ghostty yet: offer to install it (asked, never with --yes: it is an app of its own)
+  # Ghostty 가 없으면 설치를 권한다 (묻고 한다. --yes 로는 하지 않는다: 따로 된 앱이다)
+  if [ "$GHOSTTY" != no ] && [ ! -d /Applications/Ghostty.app ] && ! need ghostty && [ "$YES" != 1 ] && [ -t 0 ]; then
+    if need brew; then
+      if ask "Ghostty is not installed. Install it (brew install --cask ghostty)? Every Ghostty window then opens hivemux" y; then
+        brew install --cask ghostty && ok "Ghostty installed" || bad "could not install Ghostty"
+      fi
+    else
+      warn "Ghostty is not installed: get it from https://ghostty.org/download, then run hivemux setup again"
+      open https://ghostty.org/download 2>/dev/null || true
+    fi
+  fi
   if [ -d /Applications/Ghostty.app ] || need ghostty; then
     if [ "$GHOSTTY" = ask ] && ask "Make every Ghostty window open inside tmux (hivemux-attach)?" y; then GHOSTTY=yes; fi
     if [ "$GHOSTTY" = yes ]; then
@@ -141,8 +153,20 @@ confirm-close-surface = false"
   # build the bee office window now, in the background, so opening it later is instant (hivemux office)
   # 벌 사무실 창을 지금 뒤에서 빌드해 둔다. 나중에 열 때 바로 뜨게 (hivemux office)
   ( nohup "$HM_BIN/hivemux-office" --build >/dev/null 2>&1 & )
+  # A first install (no tmux server, no saved work): the first window asks for a project folder
+  # (bin/hivemux-attach), so nobody has to know hm
+  # 처음 설치 (tmux 서버도 저장본도 없음): 첫 창이 프로젝트 폴더를 묻는다 (bin/hivemux-attach). hm 을 몰라도 된다
+  local snap="${XDG_DATA_HOME:-$HOME/.local/share}/tmux/resurrect/last"
+  tmux has-session 2>/dev/null || [ -e "$snap" ] || : > "$DATA/welcome"
   echo
-  echo "${B}Done.${X} Open a new Ghostty window (or run ${B}tmux${X}), then ${B}hm ~/your/project${X}."
+  if [ "$GHOSTTY" = yes ] && [ "${TERM_PROGRAM:-}" != ghostty ] && [ "$YES" != 1 ] && [ -t 0 ]; then
+    echo "${B}Done.${X} Opening Ghostty: pick a project folder there and Claude starts in it."
+    open -a Ghostty 2>/dev/null || echo "  open Ghostty yourself (or run ${B}tmux${X}), then ${B}hm ~/your/project${X}."
+  elif [ "$GHOSTTY" = yes ]; then
+    echo "${B}Done.${X} Open Ghostty (⌘N for a new window): pick a project folder there and Claude starts in it."
+  else
+    echo "${B}Done.${X} Run ${B}tmux${X}, then ${B}hm ~/your/project${X}."
+  fi
   echo "${D}Phone push for approvals: in Claude Code run /config → Push when actions required.${X}"
 }
 

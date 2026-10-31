@@ -121,6 +121,15 @@ if [ -n "$want" ] && printf '%s\n' "$detached" | grep -qxF "$want"; then
   pick="$want"; t set -gu @hivemux-last-session
 fi
 [ -z "$pick" ] && pick="$(printf '%s\n' "$detached" | head -1)"
+# Right after the first install (hivemux setup left "welcome"): once attached, ask for a project folder
+# (the sidebar's "New project", hm --ask), so the first window starts a Claude without knowing hm
+# 처음 설치한 직후 (hivemux setup 이 "welcome" 을 남김): 붙은 뒤 프로젝트 폴더를 묻는다
+# (사이드바의 "새 프로젝트", hm --ask). 그래서 hm 을 몰라도 첫 창에서 Claude 가 뜬다
+WELCOME="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux/welcome"
+if [ -e "$WELCOME" ] && me="$(tty 2>/dev/null)"; then
+  rm -f "$WELCOME"
+  t run-shell -b "for i in \$(seq 1 50); do $TMUX_BIN ${HIVEMUX_SOCKET:+-L $HIVEMUX_SOCKET} list-clients -F '##{client_name}' | grep -qxF '$me' && break; sleep 0.1; done; sleep 0.5; '$HM_BIN/hm' --ask '$me'"
+fi
 [ -n "$pick" ] && exec "$TMUX_BIN" ${HIVEMUX_SOCKET:+-L "$HIVEMUX_SOCKET"} attach-session -t "=$pick"
 # No session to join: a new one. It was not restored, so it must not autosave over the snapshot
 # (cleared when a restore runs: share/hivemux.tmux post-restore hook)

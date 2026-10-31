@@ -78,7 +78,7 @@ Claude 하나나 프로젝트 하나만 먼저 퇴근시킬 수도 있습니다.
 - macOS (Linux도 동작할 가능성이 높지만 시험하지 않음)
 - tmux 3.3 이상, jq, git, python3 (Xcode Command Line Tools)
 - 로그인된 [Claude Code](https://code.claude.com)
-- [Ghostty](https://ghostty.org) 권장 (다른 터미널에서도 `tmux`를 직접 실행하면 동작)
+- [Ghostty](https://ghostty.org) 권장: `hivemux setup`이 Homebrew로 설치해 줍니다 (다른 터미널에서도 `tmux`를 직접 실행하면 동작)
 
 ## 설치
 
@@ -95,15 +95,16 @@ brew install esteban-eg-kim/tap/hivemux
 hivemux setup
 ```
 
-`hivemux setup`은 세 가지를 묻고, 기본값은 모두 "예"입니다.
+`hivemux setup`은 세 가지를 묻고, 기본값은 모두 "예"입니다. Ghostty가 아직 없으면 하나를 더 묻습니다.
 
 | 질문 | 바뀌는 것 |
 |---|---|
+| Ghostty 설치 | `brew install --cask ghostty` (`--yes`로는 설치하지 않음) |
 | 권장 키 사용 | 접두키 `Ctrl+A` (Claude Code가 `Ctrl+B`를 씀), `\|` `-` 분할 |
 | Ghostty를 tmux에 연결 | Ghostty 설정에 `command = hivemux-attach` |
 | 모든 세션 Remote Control | `~/.claude/settings.json`의 `remoteControlAtStartup` |
 
-tmux-resurrect와 tmux-continuum도 받아 옵니다. 이미 `~/.tmux/plugins`에 있으면 그것을 씁니다. Claude Code 훅 열한 개도 등록합니다. `hivemux doctor`로 전체를 점검할 수 있습니다. `--yes`는 기본값으로 진행하고, `--no-keys`, `--no-ghostty`, `--no-remote`는 해당 부분을 건너뜁니다. 화면 언어는 셸 언어로 정해지고, `--lang=en` 또는 `--lang=ko`로 바꿀 수 있습니다. 설치한 뒤에는 사이드바 오른쪽 클릭 메뉴의 "설정"에서 바꿉니다.
+tmux-resurrect와 tmux-continuum도 받아 옵니다. 이미 `~/.tmux/plugins`에 있으면 그것을 씁니다. Claude Code 훅 열한 개도 등록합니다. `hivemux doctor`로 전체를 점검할 수 있습니다. `--yes`는 기본값으로 진행하고, `--no-keys`, `--no-ghostty`, `--no-remote`는 해당 부분을 건너뜁니다. 화면 언어는 셸 언어로 정해지고, `--lang=en` 또는 `--lang=ko`로 바꿀 수 있습니다. 설치한 뒤에는 사이드바 오른쪽 클릭 메뉴의 "설정"에서 바꿉니다. 끝나면 Ghostty를 열고, 처음 설치했다면 첫 창이 프로젝트 폴더를 묻습니다. 명령을 몰라도 바로 시작할 수 있습니다.
 
 ### 업데이트
 
@@ -116,8 +117,8 @@ curl -fsSL https://hivemux.dev/install.sh | bash   # git 설치: 같은 명령
 
 ## 처음 쓰는 순서
 
-1. Ghostty를 엽니다. 이미 tmux 안이고, 왼쪽에 사이드바가 있습니다.
-2. `hm ~/code/api`를 입력하면 api 프로젝트가 열리고 1번 창에서 Claude가 실행됩니다.
+1. Ghostty를 엽니다. 이미 tmux 안이고, 왼쪽에 사이드바가 있습니다. 처음 설치한 직후에는 폴더 고르기 창이 첫 프로젝트를 묻습니다. 폴더를 고르고 `Enter`를 누르면 그 폴더에서 Claude가 시작됩니다.
+2. `hm ~/code/api`를 입력하거나 오른쪽 클릭 → 새 프로젝트를 고르면 api 프로젝트가 열리고 1번 창에서 Claude가 실행됩니다.
 3. `hm ~/code/web`을 입력하면 두 번째 프로젝트가 열립니다. 첫 번째는 계속 일합니다.
 4. 사이드바를 보다가 `Option+0`으로 기다리는 작업으로 갑니다.
 5. `prefix` 다음 `Shift+C`로 같은 프로젝트에 이름 붙인 Claude를 추가합니다.
