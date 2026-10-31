@@ -47,7 +47,14 @@ def tr(ko, en):
 
 
 def computer_name():
-    return subprocess.run(["scutil", "--get", "ComputerName"], capture_output=True, text=True).stdout.strip() or os.uname().nodename.split(".")[0]
+    """The Mac's name (scutil); empty on Linux, whose callers fall back to the host name
+    Mac 의 이름 (scutil). Linux 에서는 비어 있고, 부르는 쪽이 호스트 이름을 쓴다"""
+    return subprocess.run(["scutil", "--get", "ComputerName"], capture_output=True, text=True).stdout.strip() \
+        if shutil.which("scutil") else ""
+
+
+def computer_name():
+    return computer_name() or os.uname().nodename.split(".")[0]
 
 
 def save(name, value):

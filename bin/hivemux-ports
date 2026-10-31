@@ -48,7 +48,7 @@ hivemux open there (bin/hivemux-show; Tab in the open-path popup) sets @hivemux-
 거기서 hivemux open (bin/hivemux-show, 경로 열기 팝업의 Tab)은 @hivemux-show-<이 Mac> 에 "<번호> <화면>" 과
 경로를 한 줄에 하나씩 적는다: 파일마다 여기 /tmp/hivemux-show-<uid>/ 로 복사해 연다.
 """
-import os, re, shlex, signal, socket, subprocess, sys, tempfile, threading, time, urllib.parse
+import os, re, shlex, shutil, signal, socket, subprocess, sys, tempfile, threading, time, urllib.parse
 
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "ports")
 POLL = 3
@@ -62,7 +62,7 @@ SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ServerAliveInterval=3", "-o", "ServerA
 # server (its panes and everything they started). ssh gives a plain PATH there.
 # 상대 Mac 에서 실행된다: 그 tmux 서버의 프로세스(칸들과 거기서 시작된 모든 것)가 듣는 TCP 포트마다
 # "<포트> <명령>". ssh 는 기본 PATH 만 준다.
-# A dev server started in the background (nohup … &) leaves the tmux tree for launchd (parent 1), so
+# A dev server started in the background (nohup … &) leaves the tmux tree for launchd or init (parent 1), so
 # those count too: a node, python, ruby … of this user working in a folder under home (not ~/Library or a
 # dot folder) or /tmp, and not hivemux's own (the bee office server).
 # 백그라운드로 띄운 개발 서버(nohup … &)는 tmux 를 벗어나 launchd(부모 1) 아래로 가서, 그것도 센다:
@@ -77,13 +77,24 @@ tmux set -g @hivemux-name-@ME@ @NAME@
 o=$(tmux show -gqv @hivemux-ports-open-@ME@) && [ -n "$o" ] && { tmux set -gu @hivemux-ports-open-@ME@; echo "open $o"; }
 e=$(tmux show -gqv @hivemux-edit-@ME@) && [ -n "$e" ] && { tmux set -gu @hivemux-edit-@ME@; echo "edit $e"; }
 pids=$(ps -A -o pid= -o ppid= | awk -v r="$root" '{ p[$1] = $2 } END { for (k in p) { x = k; n = 0; while (x > 1 && n++ < 64) { if (x == r) { print k; break } x = p[x] } } }' | paste -sd, -)
-cand=$(ps -A -o pid= -o ppid= -o uid= -o comm= | awk -v u="$(id -u)" '$2 == 1 && $3 == u { n = split($NF, a, "/"); c = tolower(a[n]); if (c ~ /^(node|python[0-9.]*|ruby|deno|bun|php|java|uvicorn|gunicorn)$/) print $1 }' | paste -sd, -)
-orph=$([ -n "$cand" ] && lsof -a -d cwd -p "$cand" -Fpn 2>/dev/null | awk -v h="$HOME" '/^p/ { p = substr($0, 2) } /^n/ { d = substr($0, 2); if ((index(d, h "/") == 1 && index(d, h "/Library") != 1 && index(d, h "/.") != 1) || d ~ /^\/(private\/)?tmp\//) print p }' | while read -r p; do
+# adopted by launchd or init (1), or on Linux often by the user's systemd / launchd 나 init(1), Linux 에서는 흔히 사용자의 systemd 가 넘겨받는다
+sr=",1,$(pgrep -u "$(id -u)" -x systemd 2>/dev/null | paste -sd, -),"
+cand=$(ps -A -o pid= -o ppid= -o uid= -o comm= | awk -v u="$(id -u)" -v sr="$sr" 'index(sr, "," $2 ",") && $3 == u { n = split($NF, a, "/"); c = tolower(a[n]); if (c ~ /^(node|python[0-9.]*|ruby|deno|bun|php|java|uvicorn|gunicorn)$/) print $1 }' | paste -sd, -)
+# lsof, else (a Linux server without it) /proc and ss / lsof, 없으면 (lsof 없는 Linux 서버) /proc 과 ss
+cwds() { if command -v lsof >/dev/null; then lsof -a -d cwd -p "$1" -Fpn 2>/dev/null
+  else for p in $(echo "$1" | tr , ' '); do d=$(readlink "/proc/$p/cwd" 2>/dev/null) && printf 'p%s\nn%s\n' "$p" "$d"; done; fi; }
+orph=$([ -n "$cand" ] && cwds "$cand" | awk -v h="$HOME" '/^p/ { p = substr($0, 2) } /^n/ { d = substr($0, 2); if ((index(d, h "/") == 1 && index(d, h "/Library") != 1 && index(d, h "/.") != 1) || d ~ /^\/(private\/)?tmp\//) print p }' | while read -r p; do
   case "$(ps -ww -o command= -p "$p")" in (*hivemux*) ;; (*) echo "$p";; esac
 done | paste -sd, -)
 pids=$(printf '%s,%s' "$pids" "$orph" | sed 's/^,*//; s/,*$//')
 [ -n "$pids" ] || exit 0
-lsof -nP -a -iTCP -sTCP:LISTEN -p "$pids" -Fcn 2>/dev/null | awk '/^c/ { c = substr($0, 2) } /^n/ { n = split($0, a, ":"); print a[n], c }' | sort -un'''
+if command -v lsof >/dev/null; then
+  lsof -nP -a -iTCP -sTCP:LISTEN -p "$pids" -Fcn 2>/dev/null | awk '/^c/ { c = substr($0, 2) } /^n/ { n = split($0, a, ":"); print a[n], c }'
+else  # LISTEN 0 5 0.0.0.0:8765 0.0.0.0:* users:(("python3",pid=918,fd=3))
+  ss -ltnpH 2>/dev/null | awk -v ps=",$pids," '{ n = split($4, a, ":"); port = a[n]; s = $0
+    while (match(s, /\("[^"]*",pid=[0-9]+/)) { m = substr(s, RSTART, RLENGTH); s = substr(s, RSTART + RLENGTH)
+      c = m; sub(/^\("/, "", c); sub(/",pid=.*/, "", c); q = m; sub(/.*pid=/, "", q); if (index(ps, "," q ",")) print port, c } }'
+fi | sort -un'''
 
 
 # This Mac's clipboard image as PNG to argv 1 (screenshots are PNG; images copied from apps are often
@@ -107,6 +118,14 @@ end run"""
 
 def clip_image():
     """PNG bytes of the image on this Mac's clipboard, or None / 이 Mac 클립보드 이미지의 PNG 바이트, 없으면 None"""
+    if sys.platform != "darwin":         # Linux: Wayland or X11 clipboard / Linux: Wayland 나 X11 클립보드
+        for cmd, env in ((["wl-paste", "--no-newline", "--type", "image/png"], "WAYLAND_DISPLAY"),
+                         (["xclip", "-selection", "clipboard", "-t", "image/png", "-o"], "DISPLAY")):
+            if os.environ.get(env) and shutil.which(cmd[0]):
+                r = subprocess.run(cmd, capture_output=True, timeout=10)
+                if r.returncode == 0 and r.stdout.startswith(b"\x89PNG"):
+                    return r.stdout
+        return None
     with tempfile.TemporaryDirectory() as d:
         f = os.path.join(d, "clip")
         kind = subprocess.run(["osascript", "-e", CLIP, f], capture_output=True, text=True).stdout.strip()
@@ -122,9 +141,16 @@ def clip_image():
             return None
 
 
+def computer_name():
+    """The Mac's name (scutil); empty on Linux, whose callers fall back to the host name
+    Mac 의 이름 (scutil). Linux 에서는 비어 있고, 부르는 쪽이 호스트 이름을 쓴다"""
+    return subprocess.run(["scutil", "--get", "ComputerName"], capture_output=True, text=True).stdout.strip() \
+        if shutil.which("scutil") else ""
+
+
 def me():
     """This Mac's name, as a tmux option name part / 이 Mac 이름 (tmux 옵션 이름에 쓸 수 있게)"""
-    n = subprocess.run(["scutil", "--get", "ComputerName"], capture_output=True, text=True).stdout.strip() \
+    n = computer_name() \
         or socket.gethostname().split(".")[0]
     return re.sub(r"[^A-Za-z0-9-]+", "-", n).strip("-") or "mac"
 
@@ -138,7 +164,7 @@ def display_name():
         v = open(os.path.join(os.path.dirname(DATA), "mac-name")).read().strip()
     except OSError:
         v = ""
-    return v or subprocess.run(["scutil", "--get", "ComputerName"], capture_output=True, text=True).stdout.strip() or me()
+    return v or computer_name() or me()
 
 
 def ko():

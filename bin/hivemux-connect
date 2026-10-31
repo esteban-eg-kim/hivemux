@@ -87,7 +87,7 @@ connect() {
   fi
   # ssh's own messages (why it failed) go to a file, shown on the reconnect screen
   # ssh 자신의 메시지(실패 이유)는 파일로 받아 다시 연결 화면에 보인다
-  err="$(mktemp -t hivemux-connect)"; trap 'rm -f "$err"; [ -n "$ports" ] && kill "$ports" 2>/dev/null' EXIT
+  err="$(mktemp "${TMPDIR:-/tmp}/hivemux-connect.XXXXXX")"; trap 'rm -f "$err"; [ -n "$ports" ] && kill "$ports" 2>/dev/null' EXIT
   while true; do
     start=$(date +%s)
     "${SSH[@]}" -t "${SSH_OPTS[@]}" "$host" "$REMOTE" 2>"$err"; rc=$?
@@ -216,9 +216,14 @@ case "$1" in
     # a separate window, not inside this tmux (tmux in tmux doubles the prefix and the sidebar)
     # 이 tmux 안이 아니라 따로 창을 연다 (tmux 안의 tmux 는 접두키와 사이드바가 겹친다)
     cmd="$(printf '%q ' "$HM_BIN/hivemux-connect" "$host")"
-    osascript -e 'on run argv' -e 'tell application "Ghostty"' -e 'set cfg to new surface configuration' \
-      -e 'set command of cfg to item 1 of argv' -e 'new window with configuration cfg' -e 'activate' -e 'end tell' -e 'end run' \
-      "$cmd" >/dev/null 2>&1 || "$TMUX_BIN" display -d 4000 "$(say "새 창을 열지 못했습니다. 새 터미널에서 실행하세요" "Could not open a window; run in a new terminal"): hivemux connect $host" 2>/dev/null
+    if [ "$(uname -s)" = Darwin ]; then
+      osascript -e 'on run argv' -e 'tell application "Ghostty"' -e 'set cfg to new surface configuration' \
+        -e 'set command of cfg to item 1 of argv' -e 'new window with configuration cfg' -e 'activate' -e 'end tell' -e 'end run' \
+        "$cmd" >/dev/null 2>&1
+    else  # Linux: Ghostty, else the desktop's terminal / Linux: Ghostty, 없으면 데스크톱의 터미널
+      t=""; for t in ghostty x-terminal-emulator; do command -v "$t" >/dev/null && break; t=""; done
+      [ -n "$t" ] && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && setsid -f "$t" -e "$HM_BIN/hivemux-connect" "$host" >/dev/null 2>&1 </dev/null
+    fi || "$TMUX_BIN" display -d 4000 "$(say "새 창을 열지 못했습니다. 새 터미널에서 실행하세요" "Could not open a window; run in a new terminal"): hivemux connect $host" 2>/dev/null
     ;;
   ""|-h|--help)
     sed -n '4,20p' "$0" | sed 's/^# \{0,1\}//' ; [ -f "$HOSTS" ] && { echo; cat "$HOSTS"; }

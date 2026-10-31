@@ -81,6 +81,13 @@ def me():
     return r.stdout.strip() or socket.gethostname().split(".")[0]
 
 
+def computer_name():
+    """The Mac's name (scutil); empty on Linux, whose callers fall back to the host name
+    Mac 의 이름 (scutil). Linux 에서는 비어 있고, 부르는 쪽이 호스트 이름을 쓴다"""
+    return subprocess.run(["scutil", "--get", "ComputerName"], capture_output=True, text=True).stdout.strip() \
+        if shutil.which("scutil") else ""
+
+
 def display_name():
     """This Mac's name as people see it: the one set in Settings (@hivemux-mac-name), else the Mac's own
     이 Mac 의 보이는 이름: 설정에서 정한 이름 (@hivemux-mac-name), 없으면 Mac 원래 이름"""
@@ -90,7 +97,7 @@ def display_name():
             v = open(os.path.join(DATA, "mac-name")).read().strip()
         except OSError:
             v = ""
-    return v or subprocess.run(["scutil", "--get", "ComputerName"], capture_output=True, text=True).stdout.strip() or me()
+    return v or computer_name() or me()
 
 
 def task_name(p):

@@ -16,6 +16,13 @@
   hivemux on the PATH in `~/.bashrc` too, and `hivemux doctor` checks the
   ssh server. `hivemux terminal` offers Ghostty, WezTerm, kitty and
   Alacritty there
+- Linux and remote: `hivemux connect` works between Macs and Linux in
+  either direction (tested Mac → Ubuntu and Ubuntu → Ubuntu): dev server
+  ports are found on a Linux server without lsof (ss and /proc) and when a
+  background server was taken over by systemd; on a Linux laptop the
+  clipboard image for Ctrl+V comes from wl-paste or xclip, a new connection
+  window opens in Ghostty or the desktop's terminal, and the name shown is
+  the host name
 
 ## 0.1.48 — 2026-10-31
 
