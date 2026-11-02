@@ -1553,9 +1553,45 @@ def main():
                 with open(os.environ["HIVEMUX_DEBUG_INPUT"], "a") as dbg:
                     dbg.write(f"{time.time():.3f} {ME} IGNORED {rest!r}\n")
     finally:
-        out.write("\x1b[?1003l\x1b[?1000l\x1b[?1002l\x1b[?1006l\x1b[?7h\x1b[?25h\x1b[?1049l\x1b[0m")
+        # on a crash the sidebar starts again in this pane (see restart): stay on the alternate screen, so
+        # its last frame stays up until the new one draws / 오류로 끝나면 이 칸에서 다시 시작한다 (restart 참고):
+        # 대체 화면에 그대로 남아 새 화면을 그릴 때까지 마지막 화면이 보인다
+        crash = isinstance(sys.exc_info()[1], Exception)
+        out.write("\x1b[?1003l\x1b[?1000l\x1b[?1002l\x1b[?1006l" + ("" if crash else "\x1b[?7h\x1b[?25h\x1b[?1049l\x1b[0m"))
         out.flush()
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
+CRASH_LOG = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "sidebar-errors.log")
+
+
+def restart():
+    """An error ended the sidebar: write it to CRASH_LOG and start again in the same pane. Before, the pane
+    closed, the work pane took the whole window, and the pane-exited hook made a new sidebar a moment later.
+    Five crashes in a row, each within a minute of starting, end it as before (the hook still brings one back).
+    오류로 사이드바가 끝남: CRASH_LOG 에 적고 같은 칸에서 다시 시작한다. 전에는 칸이 닫혀 작업 칸이 창을
+    다 차지했고, 조금 뒤 pane-exited 훅이 새 사이드바를 만들었다. 시작하고 1분 안에 다섯 번 잇달아 끝나면
+    전처럼 끝낸다 (훅이 다시 만든다)."""
+    import traceback
+    try:
+        if os.path.getsize(CRASH_LOG) > 256 * 1024:
+            os.replace(CRASH_LOG, CRASH_LOG + ".old")
+    except OSError:
+        pass
+    try:
+        with open(CRASH_LOG, "a") as f:
+            f.write(time.strftime("%Y-%m-%d %H:%M:%S ") + ME + "\n" + traceback.format_exc() + "\n")
+    except OSError:
+        pass
+    quick = time.time() - STARTED < 60
+    n = int(os.environ.get("HIVEMUX_SIDEBAR_CRASHES", "0") or 0) + 1 if quick else 1
+    if n >= 5:
+        sys.exit(1)
+    os.environ["HIVEMUX_SIDEBAR_CRASHES"] = str(n)
+    os.environ["HIVEMUX_SIDEBAR_RESUMED"] = "1"          # the last frame is still up / 마지막 화면이 남아 있다
+    time.sleep(0.5)
+    launcher = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-sidebar-view")
+    os.execv(sys.executable, [sys.executable, launcher])
 
 
 if __name__ == "__main__":
@@ -1565,7 +1601,10 @@ if __name__ == "__main__":
         p = dict(zip(FIELDS, line.split(US)))
         print(task_name(p) if len(p) == len(FIELDS) else "")
         sys.exit(0)
+    STARTED = time.time()
     try:
         main()
     except KeyboardInterrupt:
         pass
+    except Exception:
+        restart()
