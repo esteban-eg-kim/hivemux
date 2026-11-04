@@ -822,9 +822,17 @@ def open_there(client):
         tmux("set", "-gu", opt)      # no answer: an older hivemux there / 대답이 없음: 거기 hivemux 가 예전 것
         msg = (f"{name} 에서 벌 사무실을 열지 못했습니다. 그 컴퓨터의 hivemux 를 업데이트하세요" if ko
                else f"Could not open the bee office on {name}. Update hivemux there")
+    elif mac:
+        # it said which computer it is, but its hivemux-ports has not asked for 20 s (gone, HIVEMUX_PORTS=0)
+        # 어느 컴퓨터인지는 알렸지만 그 hivemux-ports 가 20초 넘게 묻지 않았다 (끝남, HIVEMUX_PORTS=0)
+        msg = (f"{name} 의 hivemux connect 가 응답하지 않습니다. 그 컴퓨터에서 다시 연결하세요" if ko
+               else f"hivemux connect on {name} does not answer. Connect again from that computer")
     else:
-        msg = ("다른 컴퓨터에서 붙은 화면입니다. 벌 사무실은 그 컴퓨터에서 여세요 (사이드바 🐝, prefix B)" if ko
-               else "This screen is attached from another computer. Open the bee office on that computer (sidebar 🐝, prefix B)")
+        # attached with plain ssh, or with a hivemux older than 0.1.23 that does not say which computer it is
+        # (a copy left earlier in PATH did that) / 그냥 ssh 로, 또는 어느 컴퓨터인지 알리지 않는 0.1.23 이전
+        # hivemux 로 붙었다 (PATH 앞쪽에 남은 옛 사본이 그랬다)
+        msg = ("다른 컴퓨터에서 붙은 화면입니다. 그 컴퓨터에서 최신 hivemux 로 hivemux connect 하면 벌 사무실이 거기 열립니다" if ko
+               else "This screen is attached from another computer. Use hivemux connect from there (an up-to-date hivemux) and the bee office opens there")
     tmux("display", "-c", client, "-d", "5000", msg)
 
 

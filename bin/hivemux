@@ -72,6 +72,27 @@ put_block() { # put_block file "content"
 
 need() { command -v "$1" >/dev/null 2>&1; }
 
+# Another hivemux ahead of this one in PATH (a copy kept from before, an old git install): `hivemux` then
+# runs that one, and so does a terminal set up from it. A MacBook ran 0.1.19 this way with 0.1.49 installed,
+# and connecting from it did not tell the other side which computer it was
+# PATH 에서 이것보다 앞선 다른 hivemux (예전에 두던 사본, 옛 git 설치): `hivemux` 를 치면 그것이 돌고, 그것으로
+# 설정한 터미널도 그렇다. 0.1.49 를 깔아 둔 맥북이 이렇게 0.1.19 로 돌았고, 거기서 붙으면 어느 컴퓨터인지 알리지 못했다
+other_first() {
+  local p d
+  while read -r p; do
+    d="$(cd "$(dirname "$(realpath "$p" 2>/dev/null || echo "$p")")" 2>/dev/null && pwd)"
+    case "$d" in "$HM_BIN"|*/Cellar/hivemux/*/libexec/bin) return 1 ;; esac
+    case "$(realpath "$HM_BIN" 2>/dev/null)" in "$d") return 1 ;; esac
+    echo "$p"; return 0
+  done < <(type -ap hivemux)
+  return 1
+}
+# where a shell startup file puts that folder in PATH / 그 폴더를 PATH 에 넣는 셸 시작 파일 줄
+other_where() {
+  local dir; dir="$(dirname "$1")"
+  grep -nF "$dir" "$HOME/.zshrc" "$HOME/.zprofile" "$HOME/.zshenv" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile" 2>/dev/null | head -3
+}
+
 # macOS or Linux, and on Linux the package manager / macOS 인지 Linux 인지, Linux 면 패키지 관리자
 OS="$([ "$(uname -s)" = Darwin ] && echo mac || echo linux)"
 pkg_mgr() { local m; for m in apt-get dnf pacman zypper apk; do need "$m" && { echo "$m"; return; }; done; }
@@ -349,6 +370,11 @@ source-file \"$SHARE/keys.tmux\""
       put_block "$HOME/$rc" "export PATH=\"$HM_BIN:\$PATH\""; ok "added $HM_BIN to PATH in ~/$rc"
     done ;; esac
 
+  local o; if o="$(other_first)"; then
+    warn "another hivemux comes first in PATH: $o ($("$o" version 2>/dev/null)); typing hivemux runs that one. Remove it from PATH:"
+    other_where "$o" | sed 's/^/      /'
+  fi
+
   # an update: reload tmux and restart the sidebars so they run the new code
   # 업데이트: tmux 설정을 다시 읽고, 사이드바도 새 코드로 다시 띄운다
   if tmux has-session 2>/dev/null; then
@@ -403,13 +429,19 @@ uninstall() {
 
 doctor() {
   step "hivemux $VERSION ($HM_ROOT)"
+  local o; if o="$(other_first)"; then
+    bad "another hivemux comes first in PATH: $o ($("$o" version 2>/dev/null)); remove it from PATH"
+    other_where "$o" | sed 's/^/      /'
+  fi
   for c in tmux jq python3 git claude; do need "$c" && ok "$c: $(command -v "$c")" || bad "$c not found"; done
   [ -n "$("$HM_BIN/hivemux-plugins" dir 2>/dev/null)" ] && ok "plugins: $("$HM_BIN/hivemux-plugins" dir)" || bad "plugins missing (hivemux setup)"
   if [ -n "$(tmux show -gqv @hivemux-nosave 2>/dev/null)" ]; then
     warn "autosave paused: this tmux server started without restoring (restore: prefix Ctrl-r, or tmux kill-server and reopen Ghostty)"
   fi
   grep -qF "$BEGIN" "$TMUX_CONF" 2>/dev/null && ok "tmux: $TMUX_CONF" || bad "tmux: block missing in $TMUX_CONF"
-  if grep -qF "hivemux-attach" "$GHOSTTY_CONF" 2>/dev/null; then ok "Ghostty: $GHOSTTY_CONF"
+  if grep -qF "command = $HM_BIN/hivemux-attach" "$GHOSTTY_CONF" 2>/dev/null; then ok "Ghostty: $GHOSTTY_CONF"
+  elif grep -qF "hivemux-attach" "$GHOSTTY_CONF" 2>/dev/null; then
+    warn "Ghostty opens another hivemux: $(grep -m1 'hivemux-attach' "$GHOSTTY_CONF") (hivemux terminal ghostty)"
   elif have_ghostty; then warn "Ghostty: not attached to tmux (hivemux terminal ghostty)"; fi
   grep -qF "hivemux-attach" "$KITTY_CONF" 2>/dev/null && ok "kitty: $KITTY_CONF"
   grep -qF "hivemux-attach" "$ALACRITTY_CONF" 2>/dev/null && ok "Alacritty: $ALACRITTY_CONF"
