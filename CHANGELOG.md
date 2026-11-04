@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.50 — 2026-11-04
 
 - Remote versions: both sides of `hivemux connect` check each other. The
   computer you connect from sends its version and the one you connect to
