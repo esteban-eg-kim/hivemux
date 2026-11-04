@@ -675,6 +675,7 @@ font-size = 15
     <div class="card"><h3>붙는 대상 Linux</h3><p>hivemux를 설치하고 ssh 서버를 켭니다(<code>openssh-server</code>나 <code>openssh</code> 패키지를 설치하고 <code>sudo systemctl enable --now ssh</code> 또는 <code>sshd</code>). <code>hivemux doctor</code>가 확인합니다. 데스크톱이 없는 서버도 됩니다. setup이 거기서는 Ghostty를 건너뛰고, 개발 서버와 파일과 벌 사무실은 접속한 컴퓨터에서 열립니다.</p></div>
     <div class="card"><h3>붙는 쪽 컴퓨터</h3><p>hivemux를 설치하고 <code>hivemux connect --add</code>나 원격 연결 목록의 "+ 호스트 추가…"로 호스트를 등록합니다. 처음에는 호스트를 믿을지와 상대 컴퓨터의 로그인 비밀번호를 한 번 묻고, 이 컴퓨터의 ssh 키를 상대에 등록합니다. 그다음부터는 비밀번호 없이 붙습니다. 등록할 때 상대에 hivemux가 있는지도 확인합니다.</p></div>
     <div class="card"><h3>밖에서 붙기</h3><p>같은 네트워크에서는 <code>이름.local</code>로 붙습니다. 밖에서는 Tailscale 같은 VPN을 두 컴퓨터에 설치하고 그 기기 이름을 쓰는 방법이 간단합니다. 공유기 포트 포워딩으로 ssh를 인터넷에 여는 것은 권하지 않습니다.</p></div>
+    <div class="card"><h3>버전</h3><p>두 컴퓨터의 hivemux는 최신으로 둡니다. 한쪽이 너무 오래됐으면 붙을 때 어느 컴퓨터를 업데이트할지 화면에 뜹니다(<code>brew upgrade hivemux</code>). 업데이트했는데 <code>hivemux version</code>이 예전 그대로면 <code>PATH</code>에서 다른 사본이 먼저 실행되는 것입니다. <code>hivemux doctor</code>가 그 사본을 알려 줍니다.</p></div>
   </div>
   <div class="code"><button class="copy" type="button">복사</button><pre><span class="cmt"># 붙는 쪽 컴퓨터에서 한 번</span>
 hivemux connect --add me@work-mac.local

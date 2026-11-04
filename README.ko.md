@@ -211,6 +211,8 @@ hivemux connect me@work-mac.local          # 또는 오른쪽 클릭 → 원격 
 
 호스트에는 `ssh`에 쓰는 것이면 무엇이든 넣습니다. `~/.ssh/config`의 `Host`, `사용자@주소`, VPN 안의 기기 이름 모두 됩니다. 같은 네트워크에서는 `이름.local`로 붙고, 밖에서는 [Tailscale](https://tailscale.com) 같은 VPN을 두 컴퓨터에 설치하는 방법이 간단합니다. 공유기 포트 포워딩으로 ssh를 인터넷에 여는 것은 권하지 않습니다.
 
+두 컴퓨터의 hivemux는 최신으로 둡니다. 한쪽이 너무 오래됐으면 붙을 때 화면에 어느 컴퓨터를 업데이트할지와 명령(`brew upgrade hivemux`)이 뜹니다. `hivemux connect --add`도 알려 줍니다. 업데이트했는데 `hivemux version`이 예전 버전이면 `PATH`에서 다른 사본이 먼저 실행되는 것입니다. `/opt/homebrew/bin/hivemux doctor`로 실행하면 그 사본과 그것을 `PATH`에 넣는 줄을 알려 줍니다.
+
 ### 스크린샷을 Ctrl+V로
 
 Claude Code는 자기가 도는 컴퓨터의 클립보드에서만 이미지를 읽습니다. 그래서 그냥 ssh로 붙으면 노트북에서 찍은 스크린샷이 Claude에 닿지 않습니다. hivemux에서는 원격 Claude 칸에서 평소처럼 `Ctrl+V`를 누르면 됩니다. 노트북 클립보드의 이미지가 건너가 Claude에 `[Image #1]`로 들어갑니다. 깨진 화면을 찍고(`⌘⌃⇧4`로 찍으면 클립보드에 들어감) `Ctrl+V`를 누른 뒤 무엇이 문제인지 물어보면 됩니다. 두 컴퓨터 모두 hivemux 0.1.26 이상이어야 합니다. Linux 노트북에서는 `wl-paste`(Wayland)나 `xclip`(X11)으로 이미지를 가져옵니다.

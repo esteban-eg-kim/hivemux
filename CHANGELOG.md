@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+- Remote versions: both sides of `hivemux connect` check each other. The
+  computer you connect from sends its version and the one you connect to
+  says on your screen when it is too old, and the other way round, with the
+  computer to update and `brew upgrade hivemux`; `hivemux connect --add`
+  says it too. `REMOTE_MIN` in `bin/hivemux` is the oldest version the other
+  side may run (0.1.50: older ones leave stale request waits behind)
+- `hivemux doctor` and `hivemux setup` flag another hivemux that comes first
+  in `PATH` (with the startup-file line that adds it) and a Ghostty config
+  that opens another hivemux (a leftover 0.1.19 copy ran this way with 0.1.49
+  installed)
+- Remote: the wait for Ctrl+V and bee office requests ends when its
+  connection drops. Before, one stayed behind per lost connection (60 after
+  a few days), and a stale one could take a request before the live one did,
+  so a paste or opening the office sometimes did nothing
+- Bee office from a remote screen: says why it cannot open there (connect
+  with an up-to-date hivemux, or that computer's `hivemux connect` stopped
+  answering)
+- Sidebar: an error no longer closes it. It is written to
+  `~/.local/share/hivemux/sidebar-errors.log` and the sidebar starts again in
+  the same pane, its last frame still up. Fixed the error it caught: drawing
+  a pane 0–2 columns wide
+
 ## 0.1.49 — 2026-10-31
 
 - Linux groundwork (tested on Ubuntu 24.04 with tmux 3.4): sidebars no

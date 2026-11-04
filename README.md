@@ -349,6 +349,13 @@ or a device name on a VPN. On the same network `name.local` works; from outside,
 a VPN such as [Tailscale](https://tailscale.com) on both computers is the simple way
 (opening ssh to the internet with port forwarding is not recommended).
 
+Keep hivemux up to date on both computers. When one side is too old for the
+other, the screen says so as you connect, with the computer to update and the
+command (`brew upgrade hivemux`); `hivemux connect --add` says it too. If
+`hivemux version` shows an old version though you upgraded, another copy comes
+first in your `PATH`: `hivemux doctor` (run as `/opt/homebrew/bin/hivemux doctor`)
+names it and the line that adds it.
+
 ### Paste screenshots with Ctrl+V
 
 Claude Code reads images from the clipboard of the computer it runs on, so over plain
