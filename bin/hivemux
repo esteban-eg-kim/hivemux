@@ -2,6 +2,13 @@
 # hivemux — Claude Code session board for tmux + Ghostty
 set -uo pipefail
 VERSION="0.1.49"
+# The oldest hivemux the other computer of hivemux connect should run: raise it when a change needs both
+# sides. bin/hivemux-connect checks the computer it connects to, bin/hivemux-attach the one a screen comes
+# from, and each says so on that screen (a MacBook ran a leftover 0.1.19 and remote features quietly failed)
+# hivemux connect 의 상대 컴퓨터가 적어도 이 버전이어야 한다: 양쪽이 다 바뀌어야 하는 변경이면 올린다.
+# bin/hivemux-connect 는 붙는 상대를, bin/hivemux-attach 는 화면이 붙어 온 쪽을 확인하고, 그 화면에 알린다
+# (맥북이 남아 있던 0.1.19 로 붙어 원격 기능이 아무 말 없이 안 됐다)
+REMOTE_MIN="0.1.50"
 HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
 HM_ROOT="$(cd "$HM_BIN/.." && pwd)"
 # Homebrew: use the version-independent opt path so upgrades keep working

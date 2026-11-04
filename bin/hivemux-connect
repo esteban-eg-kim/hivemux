@@ -44,12 +44,32 @@ MOSH_HINT="$([ "$(uname -s)" = Darwin ] && echo "brew install mosh" || echo "sud
 # 상대가 이 터미널(xterm-ghostty)을 모를 수 있다: Ghostty 가 있으면 그 terminfo 를, 없으면 xterm-256color + 트루컬러.
 # HIVEMUX_FROM: this Mac's name (hivemux-ports --me), so the open-path popup there can ask this Mac to open a file
 # HIVEMUX_FROM: 이 Mac 이름 (hivemux-ports --me). 거기 경로 열기 팝업이 이 Mac 에 파일을 열어 달라고 할 수 있게
-REMOTE='g=/Applications/Ghostty.app/Contents/Resources/terminfo; [ -d "$g" ] && export TERMINFO_DIRS="$g:${TERMINFO_DIRS:-}"
+# HIVEMUX_FROM_VERSION: this side's version, which bin/hivemux-attach there checks against its REMOTE_MIN.
+# And the other way: a hivemux there older than this side's REMOTE_MIN (bin/hivemux) is said on the screen
+# once it attaches (@MIN@, @MSG1@ <its version> @MSG2@)
+# HIVEMUX_FROM_VERSION: 이쪽 버전. 거기 bin/hivemux-attach 가 자기 REMOTE_MIN 과 비교한다. 반대로 거기 hivemux 가
+# 이쪽 REMOTE_MIN (bin/hivemux) 보다 오래됐으면 화면이 붙은 뒤 그 화면에 알린다 (@MIN@, @MSG1@ <그 버전> @MSG2@)
+REMOTE="$(cat <<'EOF'
+g=/Applications/Ghostty.app/Contents/Resources/terminfo; [ -d "$g" ] && export TERMINFO_DIRS="$g:${TERMINFO_DIRS:-}"
 infocmp "$TERM" >/dev/null 2>&1 || export TERM=xterm-256color COLORTERM=truecolor
 for p in ${HIVEMUX_ATTACH:-} /opt/homebrew/bin/hivemux-attach /usr/local/bin/hivemux-attach "$HOME/.local/share/hivemux/src/bin/hivemux-attach"; do
-  [ -x "$p" ] && HIVEMUX_REMOTE=1 HIVEMUX_FROM=@FROM@ exec "$p"
+  [ -x "$p" ] || continue
+  v=$(sed -n 's/^VERSION="\(.*\)"$/\1/p' "${p%-attach}" 2>/dev/null)
+  if awk -v a="$v" -v b=@MIN@ 'BEGIN { split(a, x, "."); split(b, y, "."); for (i = 1; i <= 3; i++) if (x[i] + 0 != y[i] + 0) exit !(x[i] + 0 < y[i] + 0); exit 1 }'; then
+    t=$(tty)
+    ( PATH=/opt/homebrew/bin:/usr/local/bin:$PATH; i=0
+      while [ $i -lt 30 ]; do i=$((i + 1)); sleep 1; tmux display-message -c "$t" -d 15000 @MSG1@"${v:-?}"@MSG2@ 2>/dev/null && break; done ) >/dev/null 2>&1 </dev/null &
+  fi
+  HIVEMUX_REMOTE=1 HIVEMUX_FROM=@FROM@ HIVEMUX_FROM_VERSION=@VER@ exec "$p"
 done
-echo "hivemux: not installed on $(hostname -s)"; exit 3'
+echo "hivemux: not installed on $(hostname -s)"; exit 3
+EOF
+)"
+# a word for the shell there, in single quotes / 거기 셸에 넘길 낱말 (작은따옴표)
+sq() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
+hm_var() { sed -n "s/^$1=\"\(.*\)\"$/\1/p" "$HM_BIN/hivemux"; }
+# older A B: version A comes before B (empty A: before any) / 버전 A 가 B 보다 앞선다 (빈 A: 모든 것보다 앞)
+older() { awk -v a="$1" -v b="$2" 'BEGIN { split(a, x, "."); split(b, y, "."); for (i = 1; i <= 3; i++) if (x[i] + 0 != y[i] + 0) exit !(x[i] + 0 < y[i] + 0); exit 1 }'; }
 
 # Is <client> a terminal attached from another Mac? Then a new window would open on this Mac's screen, not there.
 # <client> 가 다른 Mac 에서 붙은 터미널이면: 새 창이 그 Mac 이 아니라 이 Mac 화면에 열리므로 막는다
@@ -66,7 +86,16 @@ remembered() { [ -f "$HOSTS" ] && awk -v h="$1" '$1==h' "$HOSTS" | head -1; }
 connect() {
   local host="$1" how="$2" n=0 rc start
   [ -z "$how" ] && how="$(remembered "$host" | awk '{print $2}')"
+  local min; min="$(hm_var REMOTE_MIN)"
   REMOTE="${REMOTE//@FROM@/$("$HM_BIN/hivemux-ports" --me)}"
+  REMOTE="${REMOTE//@VER@/$(hm_var VERSION)}"
+  REMOTE="${REMOTE//@MIN@/${min:-0}}"
+  # what to do first: a status line message is cut at the screen width / 할 일을 앞에: 상태줄 메시지는 화면 폭에서 잘린다
+  local m1 m2
+  m1="$(say "⚠ $host 의 hivemux 를 업데이트하세요: brew upgrade hivemux (지금 " "⚠ Update hivemux on $host: brew upgrade hivemux (it has ")"
+  m2="$(say ", $min 이상 필요)" ", needs $min+)")"
+  REMOTE="${REMOTE//@MSG1@/$(sq "$m1")}"
+  REMOTE="${REMOTE//@MSG2@/$(sq "$m2")}"
   mkdir -p "$DATA"; printf '%s\n' "$host" > "$LAST"
   printf '\033]2;⇄ %s\007' "$host"     # window title / 창 제목
   # dev servers there show up on this Mac's localhost while connected (HIVEMUX_PORTS=0: off)
@@ -131,7 +160,10 @@ case "$1" in
       "$HM_BIN/hivemux-connect" --setup "$host" && check
     fi
     case $rc in
-      0) echo "  ✓ ssh $host · $out" ;;
+      0) echo "  ✓ ssh $host · $out"
+         if older "${out##* }" "$(hm_var REMOTE_MIN)"; then
+           echo "  ! $(say "$host 의 hivemux 가 예전 버전입니다. 원격 기능을 다 쓰려면 거기서 업데이트하세요: brew upgrade hivemux ($(hm_var REMOTE_MIN) 이상)" "hivemux on $host is out of date. Update it there for every remote feature: brew upgrade hivemux ($(hm_var REMOTE_MIN) or later)")"
+         fi ;;
       3) echo "  ✗ $(say "$host 에 hivemux 가 설치되어 있지 않습니다" "hivemux is not installed on $host")" >&2; exit 1 ;;
       *) case "$out" in
            *"IDENTIFICATION HAS CHANGED"*) echo "  ✗ $(say "$host 의 호스트 키가 바뀌었습니다. 같은 컴퓨터가 맞으면: ssh-keygen -R $host" "The host key of $host changed. If it is the same computer: ssh-keygen -R $host")" >&2 ;;

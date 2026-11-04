@@ -102,6 +102,20 @@ if [ -n "$HIVEMUX_REMOTE" ] || [ -n "$SSH_CONNECTION" ]; then
   # 어느 Mac 인지 (한 줄에 "<화면> <Mac>". hivemux connect 가 HIVEMUX_FROM 을 넘긴다). bin/hivemux-open-ui 용
   # (only screens still attached: a missed detach leaves its line behind / 아직 붙은 화면만: 놓친 분리는 줄을 남긴다)
   [ -n "$me" ] && t set -g @hivemux-remote-from "$(t show -gqv @hivemux-remote-from | awk -v c="$me" -v live=" $(t list-clients -F '#{client_name}' | tr '\n' ' ') " '$1!=c && index(live, " " $1 " ")'; [ -n "$HIVEMUX_FROM" ] && echo "$me $HIVEMUX_FROM")"
+  # the hivemux it comes from is older than this side needs (REMOTE_MIN in bin/hivemux; a hivemux connect
+  # before 0.1.50 sends no version): say so on that screen once it attaches
+  # 붙어 온 쪽 hivemux 가 이쪽이 필요한 것보다 오래됐다 (bin/hivemux 의 REMOTE_MIN. 0.1.50 이전 hivemux connect 는
+  # 버전을 보내지 않는다): 화면이 붙은 뒤 그 화면에 알린다
+  min="$(sed -n 's/^REMOTE_MIN="\(.*\)"$/\1/p' "$HM_BIN/hivemux" 2>/dev/null)"
+  if [ -n "$HIVEMUX_REMOTE" ] && [ -n "$me" ] && [ -n "$min" ] &&
+     awk -v a="${HIVEMUX_FROM_VERSION:-}" -v b="$min" 'BEGIN { split(a, x, "."); split(b, y, "."); for (i = 1; i <= 3; i++) if (x[i] + 0 != y[i] + 0) exit !(x[i] + 0 < y[i] + 0); exit 1 }'; then
+    from="${HIVEMUX_FROM:+$(t show -gqv "@hivemux-name-$HIVEMUX_FROM")}"; from="${from:-$HIVEMUX_FROM}"
+    # what to do first: a status line message is cut at the screen width / 할 일을 앞에: 상태줄 메시지는 화면 폭에서 잘린다
+    v="${HIVEMUX_FROM_VERSION:-$(say "$min 이전" "pre-$min")}"
+    msg="$(say "⚠ ${from:-붙어 온 컴퓨터} 의 hivemux 를 업데이트하세요: brew upgrade hivemux (지금 $v, $min 이상 필요)" \
+               "⚠ Update hivemux on ${from:-the computer you came from}: brew upgrade hivemux (it has $v, needs $min+)")"
+    ( i=0; while [ $i -lt 30 ]; do i=$((i + 1)); sleep 1; t display-message -c "$me" -d 15000 "$msg" 2>/dev/null && break; done ) >/dev/null 2>&1 </dev/null &
+  fi
 else
   # a terminal on this Mac may get the name of a remote one whose detach was missed: it is not remote
   # 이 Mac 의 터미널이 분리를 놓친 원격 화면의 이름을 물려받을 수 있다: 원격이 아니다
