@@ -437,6 +437,11 @@ def pick(spans, row, x):
 def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
     now = int(time.time())
     BG = C["bg"]
+    # a pane 2 columns wide or less (a window squeezed for a moment) has no room for a box: cards came out
+    # with no cells and drawing them crashed (sidebar-errors.log) / 2칸 이하인 칸 (잠깐 좁아진 창) 에는 상자가
+    # 들어가지 않는다: 칸이 하나도 없는 카드가 나와 그리다가 오류가 났다 (sidebar-errors.log)
+    if w < 3:
+        return [Line(max(w, 0), BG).fill(max(w, 0)).render() for _ in range(max(h, 0))], ({}, {})
     L = lambda: Line(w, BG)
     lines, targets = [], {}
     n_wait = sum(1 for p in items if p["@claude_state"] == "wait")
