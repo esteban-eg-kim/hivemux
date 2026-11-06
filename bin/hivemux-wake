@@ -1,0 +1,19 @@
+#!/bin/sh
+# Wake the hivemux-ports of the Mac a screen is attached from (bin/hivemux-ports): it waits on the tmux
+# channel hivemux-paste-<Mac> over ssh, then takes the request (paste, office, show) from its option.
+# A wake reaches every waiter on the channel, so first end the waiters whose ssh connection is gone
+# (left by a dropped connection; hivemux-ports before 0.1.50 left one each time). Otherwise one of them
+# could take the request and answer into nothing.
+# 화면이 붙어 온 Mac 의 hivemux-ports (bin/hivemux-ports)를 깨운다: ssh 로 tmux 채널 hivemux-paste-<Mac> 을
+# 기다리다가 옵션에서 요청(붙여넣기, 사무실, 열기)을 가져간다.
+# 깨우면 채널의 모든 대기가 깨어서, 먼저 ssh 연결이 사라진 대기를 끝낸다 (끊긴 연결이 남긴 것.
+# 0.1.50 전의 hivemux-ports 는 끊길 때마다 하나씩 남겼다). 아니면 그중 하나가 요청을 가져가 허공에 대답할 수 있다.
+#
+#   hivemux-wake <Mac>
+[ -n "$1" ] || exit 2
+# the waiter's shell is a child of the ssh session (sshd-session on macOS, sshd on Linux) while it lives
+# 대기의 셸은 살아 있는 동안 ssh 세션(macOS 는 sshd-session, Linux 는 sshd)의 자식이다
+ps -axo pid=,ppid=,args= 2>/dev/null | awk -v w="tmux wait-for hivemux-paste-$1" '
+  { pid = $1; pp[pid] = $2; $1 = $2 = ""; a[pid] = substr($0, 3) }
+  END { for (p in a) if (a[p] == w) { s = pp[p]; if (a[pp[s]] !~ /sshd/) print p, s } }' | xargs kill 2>/dev/null
+tmux wait-for -S "hivemux-paste-$1"

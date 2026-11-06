@@ -812,7 +812,7 @@ def open_there(client):
     if seen.isdigit() and time.time() - int(seen) <= 20:
         opt, tag = f"@hivemux-office-{mac}", str(os.getpid())
         tmux("set", "-g", opt, tag)
-        tmux("wait-for", "-S", f"hivemux-paste-{mac}")
+        subprocess.run([os.path.join(HERE, "hivemux-wake"), mac])   # see there / 거기 참고
         for _ in range(20):          # hivemux-ports clears it when it takes it / 가져가면 지운다
             time.sleep(0.25)
             if tmux("show", "-gqv", opt).strip() != tag:

@@ -26,7 +26,7 @@ if [ -z "$mac" ] || ! [[ "$seen" =~ ^[0-9]+$ ]] || (( $(date +%s) - seen > 20 ))
 fi
 
 tmux set -g "@hivemux-paste-$mac" "$$ $pane $client"
-tmux wait-for -S "hivemux-paste-$mac"
+"$(dirname "$0")/hivemux-wake" "$mac"   # see there / 거기 참고
 # hivemux-ports clears the option when it takes the request / hivemux-ports 가 요청을 가져가면 옵션을 지운다
 for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
   sleep 0.25

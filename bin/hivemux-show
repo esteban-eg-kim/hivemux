@@ -89,7 +89,7 @@ def main(argv):
         return 1
     opt, tag = f"@hivemux-show-{mac}", str(os.getpid())
     tmux("set", "-g", opt, "\n".join([f"{tag} {client or looking()}", *paths]))
-    tmux("wait-for", "-S", f"hivemux-paste-{mac}")
+    subprocess.run([os.path.join(os.path.dirname(OS), "hivemux-wake"), mac])   # see there / 거기 참고
     for _ in range(20):                  # hivemux-ports clears it when it takes it / 가져가면 지운다
         time.sleep(0.25)
         if tmux("show", "-gqv", opt).split(" ", 1)[0] != tag:

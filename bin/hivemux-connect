@@ -87,8 +87,9 @@ connect() {
   local host="$1" how="$2" n=0 rc start
   [ -z "$how" ] && how="$(remembered "$host" | awk '{print $2}')"
   local min; min="$(hm_var REMOTE_MIN)"
+  local ver; ver="$(hm_var VERSION)"
   REMOTE="${REMOTE//@FROM@/$("$HM_BIN/hivemux-ports" --me)}"
-  REMOTE="${REMOTE//@VER@/$(hm_var VERSION)}"
+  REMOTE="${REMOTE//@VER@/$ver}"
   REMOTE="${REMOTE//@MIN@/${min:-0}}"
   # what to do first: a status line message is cut at the screen width / 할 일을 앞에: 상태줄 메시지는 화면 폭에서 잘린다
   local m1 m2
@@ -132,6 +133,18 @@ connect() {
     # 가운데 상자와 카운트다운. 먼저 터미널을 상대 Mac tmux 가 해 둔 상태에서 되돌린다
     "$HM_BIN/hivemux-connect-wait" "$host" "$n" "$delay" "$([ $up -gt 5 ] && echo lost || echo failed)" "$err" ||
       { printf '\033[2J\033[H'; exit 1; }
+    # hivemux was upgraded while this window stayed open: go on with the new one (its hivemux-ports and
+    # version check), not the copy loaded before, which kept the old remote side going for days
+    # 창을 연 채로 hivemux 가 업데이트됨: 전에 읽어 둔 것이 아니라 새것(그 hivemux-ports 와 버전 확인)으로
+    # 이어 간다. 아니면 예전 원격 처리가 며칠씩 남는다
+    # the same install as now: Homebrew's opt link follows upgrades, a git checkout changes in place
+    # 지금의 같은 설치: Homebrew 의 opt 링크는 업데이트를 따라가고, git 사본은 제자리에서 바뀐다
+    local now="$HM_BIN/hivemux"
+    case "$HM_BIN" in */Cellar/hivemux/*/libexec/bin) now="${HM_BIN%%/Cellar/*}/opt/hivemux/libexec/bin/hivemux" ;; esac
+    if [ -f "$now" ] && [ "$(sed -n 's/^VERSION="\(.*\)"$/\1/p' "$now" 2>/dev/null)" != "$ver" ]; then
+      [ -n "$ports" ] && kill "$ports" 2>/dev/null; rm -f "$err"
+      exec "$now" connect --ssh "$host"
+    fi
   done
 }
 
