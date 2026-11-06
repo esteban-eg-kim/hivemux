@@ -99,7 +99,7 @@ set-hook -g window-resized         'run-shell -b "{ #{@hivemux-bin}/hivemux-side
 # 클라이언트 훅은 #{hook_client} 로 그 클라이언트를 가리킨다: 거기서 #{client_name} 은 다른 클라이언트일 수 있다
 # (화면 두 개가 붙어 있으면 한쪽의 크기 변경이나 떨어짐이 다른 쪽 이름으로 왔다)
 set-hook -g client-attached        'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar presize #{hook_client}; #{@hivemux-bin}/hivemux-sidebar sizer in #{hook_client}; #{@hivemux-bin}/hivemux-sidebar revive; } >/dev/null 2>&1; true"'
-set-hook -g client-detached        'run-shell -b "{ #{@hivemux-bin}/hivemux-connect --forget-client #{hook_client}; } >/dev/null 2>&1; true"'
+set-hook -g client-detached        'run-shell -b "{ #{@hivemux-bin}/hivemux-connect --forget-client #{hook_client}; #{@hivemux-bin}/hivemux-sidebar sizer; #{@hivemux-bin}/hivemux-sidebar presize; } >/dev/null 2>&1; true"'
 set-hook -g client-resized         'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar presize #{hook_client}; } >/dev/null 2>&1; true"'
 # Only the screen that got the keyboard focus last sizes the windows (tmux ignore-size on the others):
 # a window shown on two screens of different sizes (this Mac's Ghostty and another Mac over ssh) no
@@ -107,7 +107,11 @@ set-hook -g client-resized         'run-shell -b "{ #{@hivemux-bin}/hivemux-side
 # 마지막으로 키보드 초점을 받은 화면만 창 크기를 정한다 (나머지는 tmux ignore-size): 크기가 다른 두 화면
 # (이 Mac 의 Ghostty 와 ssh 로 붙은 다른 Mac) 이 같은 창을 보면, 갈 때마다 창이 줄었다 커지며 Claude 와
 # 사이드바를 다시 그렸다
-set-hook -g client-focus-in        'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar sizer in #{hook_client}; } >/dev/null 2>&1; true"'
+# Getting the focus (or the other screen detaching) also presizes the hidden windows for this screen: they
+# kept the other Mac's size, and opening one after a while shrank or grew it with a flash of the sidebar
+# 초점을 받으면 (또는 다른 화면이 떨어지면) 숨은 창도 이 화면 크기로 미리 맞춘다: 다른 Mac 크기로 남아 있어,
+# 한동안 안 본 창을 열면 사이드바가 번쩍이며 작업 칸이 줄었다 커졌다
+set-hook -g client-focus-in        'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar sizer in #{hook_client}; #{@hivemux-bin}/hivemux-sidebar presize #{hook_client}; } >/dev/null 2>&1; true"'
 set-hook -gu client-focus-out
 run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar sizer; } >/dev/null 2>&1; true"
 run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar ensure; } >/dev/null 2>&1; true"

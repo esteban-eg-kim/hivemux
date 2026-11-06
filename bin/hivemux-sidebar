@@ -39,6 +39,9 @@ width_for() { local ww="$1" w="$W"; [ $((ww - 41)) -lt "$w" ] && w=$((ww - 41));
 
 # the lock was taken less than 10 seconds ago (find -mtime -10s is BSD only) / 잠금이 10초 안에 잡혔다 (find -mtime -10s 는 BSD 에만 있다)
 young() { perl -e 'my @s = stat shift; exit !(@s && time - $s[9] < 10)' "$1"; }
+# the client that sizes the windows: the focused one, else the one used last
+# 창 크기를 정하는 클라이언트: 초점 있는 것, 없으면 마지막에 쓴 것
+sizing_client() { t list-clients -F '#{?#{m:*focused*,#{client_flags}},1,0} #{client_activity} #{client_name}' | sort -k1,1nr -k2,2nr | head -1 | awk '{print $3}'; }
 sidebars_in() { t list-panes -t "$1" -F '#{pane_id} #{pane_title}' 2>/dev/null | awk -v T="$TITLE" '$2==T{print $1}'; }
 
 ensure_one() {
@@ -116,7 +119,12 @@ case "$1" in
     # Window size = client size minus the status lines (the hook runs before tmux resizes the window,
     # so the window's own size can still be the old one here)
     # 창 크기 = 클라이언트 크기 - 상태줄 줄 수 (훅은 tmux 가 창 크기를 바꾸기 전에 돌 수 있어 창 크기는 옛값일 수 있다)
-    read -r cw chh st <<<"$(t display -p -c "$2" '#{client_width} #{client_height} #{status}')"
+    # No client given (a screen detached): the one that sizes the windows now. Without this, after another
+    # Mac detached, every hidden window kept its size and changed on first open here
+    # 클라이언트가 없으면 (화면이 떨어짐) 이제 창 크기를 정하는 것. 이것 없이는 다른 Mac 이 떨어진 뒤 숨은 창이
+    # 모두 그 크기로 남아, 여기서 처음 열 때 크기가 바뀌었다
+    c="${2:-$(sizing_client)}"; [ -n "$c" ] || exit 0
+    read -r cw chh st <<<"$(t display -p -c "$c" '#{client_width} #{client_height} #{status}')"
     case "$st" in off) st=0 ;; on) st=1 ;; ''|*[!0-9]*) st=1 ;; esac
     ch=$((chh - st))
     case "$cw$chh" in ''|*[!0-9]*) exit 0 ;; esac
@@ -140,7 +148,7 @@ case "$1" in
     case "$2" in
       in) me="$3" ;;
       out) exit 0 ;;
-      *) me="$(t list-clients -F '#{?#{m:*focused*,#{client_flags}},1,0} #{client_activity} #{client_name}' | sort -k1,1nr -k2,2nr | head -1 | awk '{print $3}')" ;;
+      *) me="$(sizing_client)" ;;
     esac
     [ -n "$me" ] || exit 0
     t list-clients -F '#{client_name}' | while read -r c; do
