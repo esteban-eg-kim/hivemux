@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Remote: the computer you are connected to now clears the request waits left
+  by dropped connections itself before each Ctrl+V, bee office or `hivemux
+  open` request. A connecting computer on 0.1.49 or older left one behind per
+  drop (12 in two days), and a stale one could take the request, so the
+  request did nothing
+- `hivemux connect`: when hivemux is upgraded while the connect window stays
+  open, the next reconnect carries on with the new version. Before, the
+  window kept the old copy (and its remote handling) until it was closed
+
 ## 0.1.50 — 2026-11-04
 
 - Remote versions: both sides of `hivemux connect` check each other. The
