@@ -93,7 +93,13 @@ set-hook -g after-kill-pane        'run-shell -b "{ #{@hivemux-bin}/hivemux-side
 # 프로젝트나 창이 닫힘: 모든 사이드바를 바로 다시 그린다 (숨은 사이드바는 몇 초 동안 남겨 보인다)
 set-hook -g session-closed         'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar wake; } >/dev/null 2>&1; true"'
 set-hook -g window-unlinked        'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar wake; } >/dev/null 2>&1; true"'
-set-hook -g window-resized         'run-shell -b "{ #{@hivemux-bin}/hivemux-sidebar fix; } >/dev/null 2>&1; true"'
+# window-resized fires for every window at once (a terminal resize: one per window). Only the first starts
+# a job: bin/hivemux-sidebar fix clears @hivemux-fix-pending when it starts, and it fixes every window.
+# Fifty jobs at once ran the server out of open files ("returned 1" lines filled the pane)
+# window-resized 는 모든 창에서 한꺼번에 불린다 (터미널 크기 변경: 창마다 한 번). 처음 것만 작업을 띄운다:
+# bin/hivemux-sidebar fix 가 시작할 때 @hivemux-fix-pending 을 지우고 모든 창을 맞춘다.
+# 작업 50개가 한꺼번에 뜨면 서버의 열린 파일이 바닥났다 (칸이 "returned 1" 줄로 찼다)
+set-hook -g window-resized         "if -F '#{@hivemux-fix-pending}' '' 'set -g @hivemux-fix-pending 1 ; run-shell -b \"{ #{@hivemux-bin}/hivemux-sidebar fix; } >/dev/null 2>&1; true\"'"
 # client hooks name their client with #{hook_client}: #{client_name} there can be another client
 # (with two screens attached, a resize or detach of one named the other)
 # 클라이언트 훅은 #{hook_client} 로 그 클라이언트를 가리킨다: 거기서 #{client_name} 은 다른 클라이언트일 수 있다

@@ -9,6 +9,11 @@
 
 # tmux server inherits this env; make sure claude/brew are on PATH
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+# ...and this open-file limit. macOS gives 256: a server with 50 windows uses half of it for its panes, and
+# a terminal resize (a hook run per window) ran out, so the hooks failed with "returned 1"
+# ...이 열린 파일 한도도 물려받는다. macOS 는 256 이다: 창 50개면 칸만으로 절반을 쓰고, 터미널 크기를 바꾸면
+# (창마다 훅 실행) 모자라서 훅이 "returned 1" 로 실패했다
+n="$(ulimit -n)"; [ "$n" != unlimited ] && [ "$n" -lt 8192 ] && { ulimit -n 8192 2>/dev/null || ulimit -n "$(ulimit -Hn)" 2>/dev/null; }
 TMUX_BIN="$(command -v tmux)" || { echo "hivemux: tmux not found (brew install tmux)" >&2; exec "${SHELL:-/bin/zsh}" -l; }
 HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
 # HIVEMUX_SOCKET=name selects a separate tmux socket (used for testing)

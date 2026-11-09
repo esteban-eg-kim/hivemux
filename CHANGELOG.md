@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Resizing the terminal no longer fills a pane with `'... hivemux-sidebar fix
+  ...' returned 1` lines. Each window ran a job at once, and the tmux server
+  (256 open files on macOS) ran out. The resize hook now starts one job at a
+  time, and the server starts with a higher open-file limit
+- Sidebar: going back to this screen (or another screen detaching) sizes the
+  hidden windows for it ahead of time. After a connection from another Mac,
+  opening a window not seen for a while resized it: the sidebar flashed and
+  the work pane shrank and grew
 - Remote: the computer you are connected to now clears the request waits left
   by dropped connections itself before each Ctrl+V, bee office or `hivemux
   open` request. A connecting computer on 0.1.49 or older left one behind per

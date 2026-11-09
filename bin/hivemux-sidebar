@@ -159,6 +159,7 @@ case "$1" in
     # does them all; calls during it only ask for one more pass, so the last size always gets fixed
     # window-resized 는 모든 창에서 한꺼번에 불린다 (터미널을 키우거나 줄이면 수십 번). 한 번 돌면 모두
     # 맞춘다. 도는 동안 온 호출은 한 번 더 돌라고만 남겨서, 마지막 크기도 꼭 맞춘다
+    t set -gu @hivemux-fix-pending      # the next window-resized starts a new run (share/hivemux.tmux) / 다음 window-resized 는 새로 띄운다
     lock="${TMPDIR:-/tmp}/hivemux-fix-$(id -u)-$(t display -p '#{pid}')"
     if ! mkdir "$lock" 2>/dev/null; then
       if young "$lock"; then : > "$lock.again"; exit 0; fi
