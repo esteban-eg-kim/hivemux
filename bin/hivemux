@@ -1,7 +1,7 @@
 #!/bin/bash
 # hivemux — Claude Code session board for tmux + Ghostty
 set -uo pipefail
-VERSION="0.1.50"
+VERSION="0.1.51"
 # The oldest hivemux the other computer of hivemux connect should run: raise it when a change needs both
 # sides. bin/hivemux-connect checks the computer it connects to, bin/hivemux-attach the one a screen comes
 # from, and each says so on that screen (a MacBook ran a leftover 0.1.19 and remote features quietly failed)

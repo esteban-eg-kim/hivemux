@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.51 — 2026-11-09
 
 - Resizing the terminal no longer fills a pane with `'... hivemux-sidebar fix
   ...' returned 1` lines. Each window ran a job at once, and the tmux server
