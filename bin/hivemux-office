@@ -190,6 +190,9 @@ def snapshot():
         "honey": int(honey[1]) if len(honey) == 2 and honey[0] == today and honey[1].isdigit() else 0,
         "sessions": [{
             "pane": p["pane_id"], "idx": i, "project": p["session_name"], "name": task_name(p),
+            # a name you gave it (hivemux rename, or Claude's /rename), not the title Claude makes up
+            # 직접 붙인 이름 (hivemux 이름 바꾸기, 또는 Claude 의 /rename). Claude 가 지은 제목은 아니다
+            "label": p["@claude_name"] or p["@claude_title"],
             "state": p["@claude_state"], "at": int(p["@claude_state_at"]) if p["@claude_state_at"].isdigit() else 0,
             "agents": int(p["@claude_agents"]) if p["@claude_agents"].isdigit() else 0,
             "plan": bool(p["@claude_plan"]), "bee": p["bee"],

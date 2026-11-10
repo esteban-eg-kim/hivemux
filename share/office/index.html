@@ -583,9 +583,11 @@ const CREW = [{ key: 'crew|glasses', acc: 'glasses' }, { key: 'crew|notes', acc:
 const snooze = new Map();    // bee key -> time until which it does not pop out
 
 const nowOf = o => o.now + (Date.now() - fetchedAt) / 1000;
-// two Claudes in one project read "api #1", "api #2" (by their ⌥ order); hover shows each one's session name
-// 한 프로젝트에 Claude 가 둘 이상이면 "api #1", "api #2" (⌥ 순서). 마우스를 올리면 세션 이름이 보인다
-const nameOf = b => settings.privacy === 'name' ? `#${b.idx}` : b.project + (b.dup ? ` #${b.dup}` : '');
+// a bee is called by the name you gave its session; without one, by its project, and two of those in one
+// project read "api #1", "api #2" (by their ⌥ order). Hover shows the task title Claude made up
+// 벌은 세션에 직접 붙인 이름으로 부른다. 없으면 프로젝트 이름이고, 한 프로젝트에 그런 벌이 둘 이상이면
+// "api #1", "api #2" (⌥ 순서). 마우스를 올리면 Claude 가 지은 작업 제목이 보인다
+const nameOf = b => settings.privacy === 'name' ? `#${b.idx}` : b.label || b.project + (b.dup ? ` #${b.dup}` : '');
 const taskOf = b => settings.privacy === 'all' ? (b.name || tr('새 대화', 'new chat')) : '';
 // why a bee waits (bin/hivemux-hook): an approval, a plan, a question, an MCP server asking or an error
 // 벌이 기다리는 이유 (bin/hivemux-hook): 승인, 계획, 질문, MCP 서버의 입력 요청, 오류
@@ -674,7 +676,7 @@ function ingest(list) {
   }));
   for (const o of list) {   // number the bees sharing a project / 프로젝트를 함께 쓰는 벌에 번호
     const by = {};
-    for (const b of bees.values()) if (b.office === o && b.state !== 'home') (by[b.project] ||= []).push(b);
+    for (const b of bees.values()) if (b.office === o && b.state !== 'home' && !b.label) (by[b.project] ||= []).push(b);
     for (const g of Object.values(by)) { g.sort((a, c) => a.idx - c.idx); g.forEach((b, i) => { b.dup = g.length > 1 ? i + 1 : 0; }); }
   }
   for (const [k, b] of bees) {

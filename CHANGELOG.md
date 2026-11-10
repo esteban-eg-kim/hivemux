@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Bee office: a bee's name tag shows the name you gave its session (hivemux
+  rename or Claude's `/rename`). Bees without one keep the project name, and
+  number it (`api #1`, `api #2`) only among themselves
+
 ## 0.1.51 — 2026-11-09
 
 - Resizing the terminal no longer fills a pane with `'... hivemux-sidebar fix
