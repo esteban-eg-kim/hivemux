@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Remote: the stale request waits of every computer are cleared, also when a
+  screen attaches, not only those of the computer a request goes to. A
+  computer that stopped connecting (or connects under another name) left
+  them for days
 - Remote Ctrl+V of files: from 5 MB the status line there shows the progress
   (`📎 report.pdf and 2 more… 45% (12/27 MB)`) and then how many were pasted.
   A failed copy now says so

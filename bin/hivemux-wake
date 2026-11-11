@@ -9,11 +9,16 @@
 # 깨우면 채널의 모든 대기가 깨어서, 먼저 ssh 연결이 사라진 대기를 끝낸다 (끊긴 연결이 남긴 것.
 # 0.1.50 전의 hivemux-ports 는 끊길 때마다 하나씩 남겼다). 아니면 그중 하나가 요청을 가져가 허공에 대답할 수 있다.
 #
-#   hivemux-wake <Mac>
-[ -n "$1" ] || exit 2
+# Waiters of every Mac go, not only of this one: a Mac that stopped connecting (or connects under another
+# name now) never gets woken, and its leftovers stayed for days.
+# 이 Mac 만이 아니라 모든 Mac 의 대기를 정리한다: 더 이상 붙지 않는 Mac (또는 이제 다른 이름으로 붙는 Mac) 은
+# 깨울 일이 없어서, 그 남은 대기가 며칠씩 있었다.
+#
+#   hivemux-wake <Mac>     clear, then wake / 정리하고 깨우기
+#   hivemux-wake           clear only (a screen attached) / 정리만 (화면이 붙음)
 # the waiter's shell is a child of the ssh session (sshd-session on macOS, sshd on Linux) while it lives
 # 대기의 셸은 살아 있는 동안 ssh 세션(macOS 는 sshd-session, Linux 는 sshd)의 자식이다
-ps -axo pid=,ppid=,args= 2>/dev/null | awk -v w="tmux wait-for hivemux-paste-$1" '
+ps -axo pid=,ppid=,args= 2>/dev/null | awk '
   { pid = $1; pp[pid] = $2; $1 = $2 = ""; a[pid] = substr($0, 3) }
-  END { for (p in a) if (a[p] == w) { s = pp[p]; if (a[pp[s]] !~ /sshd/) print p, s } }' | xargs kill 2>/dev/null
-tmux wait-for -S "hivemux-paste-$1"
+  END { for (p in a) if (a[p] ~ /^tmux wait-for hivemux-paste-[^ ]+$/) { s = pp[p]; if (a[pp[s]] !~ /sshd/) print p, s } }' | xargs kill 2>/dev/null
+[ -z "$1" ] || tmux wait-for -S "hivemux-paste-$1"
