@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.53 — 2026-11-11
 
 - Remote: the stale request waits of every computer are cleared, also when a
   screen attaches, not only those of the computer a request goes to. A
