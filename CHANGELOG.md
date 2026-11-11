@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Remote Ctrl+V of files: from 5 MB the status line there shows the progress
+  (`📎 report.pdf and 2 more… 45% (12/27 MB)`) and then how many were pasted.
+  A failed copy now says so
+
 ## 0.1.52 — 2026-11-11
 
 - Remote Ctrl+V pastes files too: copy a PDF (or any files) in Finder, press

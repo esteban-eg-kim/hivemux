@@ -127,6 +127,17 @@ function run() {
   return out.join('\\n');
 }"""
 PASTE_MAX = 100 * 1024 * 1024     # files larger in all take too long over ssh / 합쳐서 이보다 크면 ssh 로 너무 오래 걸린다
+PASTE_SHOW = 5 * 1024 * 1024      # from this size the status line shows the progress / 이 크기부터 상태줄에 진행 상황을 보인다
+
+
+class Counted:
+    """A write-only file that counts the bytes written through it / 지나간 바이트를 세는 쓰기 전용 파일"""
+    def __init__(self, f):
+        self.f, self.n = f, 0
+
+    def write(self, b):
+        self.n += len(b)
+        return self.f.write(b)
 
 
 def clip_files():
@@ -355,7 +366,7 @@ class Ports:
         파일을 그쪽에 복사하고 (tar 하나로, 원래 이름으로) 경로를 붙여 넣는다. 터미널에 파일을 끌어다 놓을 때처럼
         이스케이프한다. Claude Code 는 경로로 PDF, 이미지, 텍스트 파일을 읽는다"""
         q = shlex.quote
-        say = lambda m: self.ssh(self.host, f"{PATH}; tmux display-message -c {q(client)} {q(m)}")
+        say = lambda m, ms=0: self.ssh(self.host, f"{PATH}; tmux display-message -c {q(client)} {f'-d {ms} ' if ms else ''}{q(m)}")
         regular = [f for f in files if os.path.isfile(f)]
         if not regular:
             return say(tr("폴더는 붙여 넣을 수 없습니다. 파일을 복사하세요", "A folder cannot be pasted. Copy files"))
@@ -381,8 +392,21 @@ class Ports:
                f"tmux paste-buffer -p -d -b hivemux-paste -t {q(pane)}")
         p = subprocess.Popen(SSH + ["-S", self.sock] + SSH_OPTS + [self.host, cmd], stdin=subprocess.PIPE,
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        out, done = Counted(p.stdin), threading.Event()
+        what = os.path.basename(regular[0]) + (tr(f" 외 {len(regular) - 1}개", f" and {len(regular) - 1} more") if len(regular) > 1 else "")
+        mb = lambda n: f"{n / 1048576:.0f}" if size >= 10485760 else f"{n / 1048576:.1f}"
+
+        def progress():
+            # on the status line there, every half second (in the pane it would mix into Claude's input)
+            # 그쪽 상태줄에 0.5초마다 (칸에 쓰면 Claude 입력에 섞인다)
+            while not done.wait(0.5):
+                pct = min(99, out.n * 100 // max(size, 1))
+                say(tr(f"📎 {what} 보내는 중… {pct}% ({mb(out.n)}/{mb(size)}MB)",
+                       f"📎 Sending {what}… {pct}% ({mb(out.n)}/{mb(size)} MB)"), 1500)
+        if size >= PASTE_SHOW:
+            threading.Thread(target=progress, daemon=True).start()
         try:
-            with tarfile.open(fileobj=p.stdin, mode="w|") as tar:
+            with tarfile.open(fileobj=out, mode="w|") as tar:
                 for f, name in zip(regular, names):
                     info = tar.gettarinfo(f, arcname=name)
                     info.uid = info.gid = 0
@@ -391,7 +415,13 @@ class Ports:
                         tar.addfile(info, fh)
             p.stdin.close()
             p.wait(timeout=600)
+            done.set()
+            if p.returncode != 0:
+                say(tr(f"{self.me} 에서 파일을 복사하지 못했습니다", f"Could not copy the files from {self.me}"))
+            elif size >= PASTE_SHOW:
+                say(tr(f"📎 {len(regular)}개 붙임", f"📎 Pasted {len(regular)} file{'s' if len(regular) > 1 else ''}"), 2000)
         except (OSError, subprocess.TimeoutExpired):
+            done.set()
             p.kill()
             say(tr(f"{self.me} 에서 파일을 복사하지 못했습니다", f"Could not copy the files from {self.me}"))
 
