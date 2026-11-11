@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Remote Ctrl+V pastes files too: copy a PDF (or any files) in Finder, press
+  Ctrl+V in a remote Claude pane, and they are copied over under their own
+  names with their paths pasted for Claude to read. Up to 100 MB in all, no
+  folders; the files come before an image on the clipboard
 - Bee office: a bee's name tag shows the name you gave its session (hivemux
   rename or Claude's `/rename`). Bees without one keep the project name, and
   number it (`api #1`, `api #2`) only among themselves

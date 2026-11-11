@@ -366,6 +366,11 @@ and it shows up in Claude as `[Image #1]`. Take a screenshot of the broken page
 need hivemux 0.1.26 or later. On a Linux laptop the image comes from `wl-paste`
 (Wayland) or `xclip` (X11).
 
+Files work the same way: copy a PDF (or any file) in Finder with `⌘C`, press
+`Ctrl+V` in the remote Claude pane, and the file goes over under its own name
+with its path pasted for Claude to read. Several at once, no folders, up to
+100 MB in all; both computers need 0.1.52 or later.
+
 <p align="center">
   <img src="docs/img/remote-paste-en.png" alt="The MacBook's clipboard screenshot in the remote Claude as [Image #1]" width="880">
 </p>

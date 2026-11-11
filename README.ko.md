@@ -217,6 +217,8 @@ hivemux connect me@work-mac.local          # 또는 오른쪽 클릭 → 원격 
 
 Claude Code는 자기가 도는 컴퓨터의 클립보드에서만 이미지를 읽습니다. 그래서 그냥 ssh로 붙으면 노트북에서 찍은 스크린샷이 Claude에 닿지 않습니다. hivemux에서는 원격 Claude 칸에서 평소처럼 `Ctrl+V`를 누르면 됩니다. 노트북 클립보드의 이미지가 건너가 Claude에 `[Image #1]`로 들어갑니다. 깨진 화면을 찍고(`⌘⌃⇧4`로 찍으면 클립보드에 들어감) `Ctrl+V`를 누른 뒤 무엇이 문제인지 물어보면 됩니다. 두 컴퓨터 모두 hivemux 0.1.26 이상이어야 합니다. Linux 노트북에서는 `wl-paste`(Wayland)나 `xclip`(X11)으로 이미지를 가져옵니다.
 
+PDF 같은 파일도 됩니다. Finder에서 `⌘C`로 복사하고 원격 Claude 칸에서 `Ctrl+V`를 누르면, 파일이 원래 이름으로 건너가고 그 경로가 붙습니다. Claude는 그 경로로 파일을 읽습니다(여러 개 가능, 폴더 제외, 합쳐서 100MB까지, 두 컴퓨터 모두 0.1.52 이상).
+
 <p align="center">
   <img src="docs/img/remote-paste-ko.png" alt="맥북 클립보드의 스크린샷이 원격 Claude에 [Image #1]로 들어간 화면" width="880">
 </p>

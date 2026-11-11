@@ -30,8 +30,8 @@ Mac in VS Code / Cursor here over Remote-SSH. @hivemux-seen-<this Mac> is the ti
 so the popup knows a request will be picked up.
 Ctrl+V in a Claude pane there on a screen from this Mac (bin/hivemux-paste) sets
 @hivemux-paste-<this Mac> to "<id> <pane> <client>" and wakes the tmux channel hivemux-paste-<this Mac>,
-which this waits on over the same ssh connection: the image on this Mac's clipboard is copied there and
-its path pasted into that pane, and Claude Code turns it into [Image #N].
+which this waits on over the same ssh connection: the files copied in Finder (else the image) on this Mac's
+clipboard are copied there and their paths pasted into that pane; Claude Code turns an image into [Image #N].
 The bee office button there (bin/hivemux-office) on a screen from this Mac sets @hivemux-office-<this Mac>
 and wakes the same channel: the window opens on this Mac, with the other Mac's sessions next door.
 hivemux open there (bin/hivemux-show; Tab in the open-path popup) sets @hivemux-show-<this Mac> to
@@ -41,14 +41,14 @@ hivemux open there (bin/hivemux-show; Tab in the open-path popup) sets @hivemux-
 @hivemux-seen-<이 Mac> 은 마지막으로 물은 시각이라, 팝업이 요청이 처리될지 안다.
 이 Mac 에서 붙은 화면의 Claude 칸에서 Ctrl+V 를 누르면 (bin/hivemux-paste) @hivemux-paste-<이 Mac> 에
 "<번호> <칸> <화면>" 을 적고 tmux 채널 hivemux-paste-<이 Mac> 을 깨운다. 여기서는 같은 ssh 연결로 그 채널을
-기다리다가, 이 Mac 클립보드의 이미지를 그쪽에 복사하고 경로를 그 칸에 붙여 넣는다. Claude Code 가 그걸
-[Image #N] 으로 바꾼다.
+기다리다가, 이 Mac 클립보드의 Finder 에서 복사한 파일 (없으면 이미지) 을 그쪽에 복사하고 경로를 그 칸에 붙여
+넣는다. Claude Code 가 이미지는 [Image #N] 으로 바꾼다.
 이 Mac 에서 붙은 화면의 벌 사무실 버튼(bin/hivemux-office)은 @hivemux-office-<이 Mac> 을 적고 같은 채널을
 깨운다. 그러면 창이 이 Mac 에서 열리고, 상대 Mac 의 세션은 옆 사무실에 나온다.
 거기서 hivemux open (bin/hivemux-show, 경로 열기 팝업의 Tab)은 @hivemux-show-<이 Mac> 에 "<번호> <화면>" 과
 경로를 한 줄에 하나씩 적는다: 파일마다 여기 /tmp/hivemux-show-<uid>/ 로 복사해 연다.
 """
-import os, re, shlex, shutil, signal, socket, subprocess, sys, tempfile, threading, time, urllib.parse
+import os, re, shlex, shutil, signal, socket, subprocess, sys, tarfile, tempfile, threading, time, urllib.parse
 
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "ports")
 POLL = 3
@@ -114,6 +114,35 @@ CLIP = """on run argv
   end repeat
   return ""
 end run"""
+
+
+# The files copied in Finder (⌘C), one path a line; nothing when there are none
+# Finder 에서 복사한 (⌘C) 파일, 한 줄에 경로 하나. 없으면 아무것도 안 찍는다
+FILES = """ObjC.import('AppKit');
+function run() {
+  var opts = $.NSDictionary.dictionaryWithObjectForKey($.NSNumber.numberWithBool(true), $.NSPasteboardURLReadingFileURLsOnlyKey);
+  var urls = $.NSPasteboard.generalPasteboard.readObjectsForClassesOptions($.NSArray.arrayWithObject($.NSURL), opts);
+  var out = [];
+  if (urls && !urls.isNil()) for (var i = 0; i < urls.count; i++) out.push(urls.objectAtIndex(i).path.js);
+  return out.join('\\n');
+}"""
+PASTE_MAX = 100 * 1024 * 1024     # files larger in all take too long over ssh / 합쳐서 이보다 크면 ssh 로 너무 오래 걸린다
+
+
+def clip_files():
+    """Paths of the files copied in Finder (or a Linux file manager), [] when none
+    Finder (또는 Linux 파일 관리자) 에서 복사한 파일의 경로, 없으면 []"""
+    if sys.platform != "darwin":
+        for cmd, env in ((["wl-paste", "--no-newline", "--type", "text/uri-list"], "WAYLAND_DISPLAY"),
+                         (["xclip", "-selection", "clipboard", "-t", "text/uri-list", "-o"], "DISPLAY")):
+            if os.environ.get(env) and shutil.which(cmd[0]):
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                if r.returncode == 0:
+                    return [urllib.parse.unquote(urllib.parse.urlparse(l.strip()).path)
+                            for l in r.stdout.splitlines() if l.strip().startswith("file://")]
+        return []
+    r = subprocess.run(["osascript", "-l", "JavaScript", "-e", FILES], capture_output=True, text=True, timeout=10)
+    return [l for l in r.stdout.splitlines() if l]
 
 
 def clip_image():
@@ -298,12 +327,16 @@ class Ports:
                          start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def paste(self, pane, client):
-        """Copy this Mac's clipboard image there and paste its path into pane
-        이 Mac 클립보드 이미지를 그쪽에 복사하고 경로를 그 칸에 붙여 넣는다"""
-        img = clip_image()
+        """Copy this Mac's clipboard there and paste the path into pane: the files copied in Finder (a PDF...),
+        else the image
+        이 Mac 클립보드를 그쪽에 복사하고 경로를 그 칸에 붙여 넣는다: Finder 에서 복사한 파일 (PDF 등), 없으면 이미지"""
         q = shlex.quote
+        files = clip_files()
+        if files:
+            return self.paste_files(files, pane, client)
+        img = clip_image()
         if not img:
-            msg = tr(f"{self.me} 클립보드에 이미지가 없습니다", f"No image on the clipboard of {self.me}")
+            msg = tr(f"{self.me} 클립보드에 이미지나 파일이 없습니다", f"No image or file on the clipboard of {self.me}")
             self.ssh(self.host, f"{PATH}; tmux display-message -c {q(client)} {q(msg)}")
             return
         # files a day old go (Claude Code has read them long before) / 하루 지난 파일은 지운다 (Claude Code 가 진작 읽었다)
@@ -315,6 +348,52 @@ class Ports:
                            capture_output=True, timeout=60)
         except subprocess.TimeoutExpired:
             pass
+
+    def paste_files(self, files, pane, client):
+        """Copy the files there (in one tar stream, under their own names) and paste their paths, escaped like a
+        file dropped on a terminal. Claude Code reads a PDF, an image or a text file from its path
+        파일을 그쪽에 복사하고 (tar 하나로, 원래 이름으로) 경로를 붙여 넣는다. 터미널에 파일을 끌어다 놓을 때처럼
+        이스케이프한다. Claude Code 는 경로로 PDF, 이미지, 텍스트 파일을 읽는다"""
+        q = shlex.quote
+        say = lambda m: self.ssh(self.host, f"{PATH}; tmux display-message -c {q(client)} {q(m)}")
+        regular = [f for f in files if os.path.isfile(f)]
+        if not regular:
+            return say(tr("폴더는 붙여 넣을 수 없습니다. 파일을 복사하세요", "A folder cannot be pasted. Copy files"))
+        size = sum(os.path.getsize(f) for f in regular)
+        if size > PASTE_MAX:
+            return say(tr(f"파일이 너무 큽니다 ({size // 1048576}MB, {PASTE_MAX // 1048576}MB 까지)",
+                          f"The files are too large ({size // 1048576} MB, up to {PASTE_MAX // 1048576} MB)"))
+        names, seen = [], set()
+        for f in regular:
+            name, n = os.path.basename(f), 1
+            while name in seen:        # the same name twice / 같은 이름이 둘
+                n += 1
+                name = f"{n}-{os.path.basename(f)}"
+            seen.add(name)
+            names.append(name)
+        # @D@ becomes the folder there (its path has no special characters) / @D@ 는 그쪽 폴더가 된다 (경로에 특수 문자가 없다)
+        text = " ".join("@D@/" + re.sub(r"([^\w./@%+,:=-])", r"\\\1", n) for n in names)
+        stamp = time.strftime("%Y%m%d-%H%M%S") + f"-{os.getpid()}"
+        # folders a day old go (Claude Code has read them long before) / 하루 지난 폴더는 지운다 (Claude Code 가 진작 읽었다)
+        cmd = (f"{PATH}; umask 077; d=/tmp/hivemux-paste-$(id -u); mkdir -p \"$d\" && "
+               f"find \"$d\" -mindepth 1 -maxdepth 1 -mtime +1 -exec rm -rf {{}} +; s=\"$d/{stamp}\"; mkdir -p \"$s\" && "
+               f"tar -xf - -C \"$s\" && tmux set-buffer -b hivemux-paste -- \"$(printf '%s' {q(text)} | sed \"s|@D@|$s|g\")\" && "
+               f"tmux paste-buffer -p -d -b hivemux-paste -t {q(pane)}")
+        p = subprocess.Popen(SSH + ["-S", self.sock] + SSH_OPTS + [self.host, cmd], stdin=subprocess.PIPE,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            with tarfile.open(fileobj=p.stdin, mode="w|") as tar:
+                for f, name in zip(regular, names):
+                    info = tar.gettarinfo(f, arcname=name)
+                    info.uid = info.gid = 0
+                    info.uname = info.gname = ""
+                    with open(f, "rb") as fh:
+                        tar.addfile(info, fh)
+            p.stdin.close()
+            p.wait(timeout=600)
+        except (OSError, subprocess.TimeoutExpired):
+            p.kill()
+            say(tr(f"{self.me} 에서 파일을 복사하지 못했습니다", f"Could not copy the files from {self.me}"))
 
     def up(self):
         """The ssh connection the forwards ride on, (re)opened when needed / 포트를 잇는 ssh 연결. 없으면 (다시) 연다"""
