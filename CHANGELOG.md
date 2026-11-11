@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.52 — 2026-11-11
 
 - Remote Ctrl+V pastes files too: copy a PDF (or any files) in Finder, press
   Ctrl+V in a remote Claude pane, and they are copied over under their own
