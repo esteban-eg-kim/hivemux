@@ -7,6 +7,13 @@
   time of day; names, tags, bubbles and team boards stay on top as before.
   Settings → Drawing switches back to the lighter drawing, which the plan,
   the planet and a browser without WebGL keep using
+- Bee office campus: in 3D the office is now a modern campus, a ring round a
+  garden courtyard: pods with long white oak tables along the back and down
+  both sides, the boss and meeting rooms as glass rooms on the right, a lobby
+  by the elevator, the cafe, lounge and ping-pong along the front, glass all
+  round, terrazzo floors, trees inside and an orchard outside; the roof is a
+  ring with solar panels. Settings → Office look → Classic brings back the
+  old office, which the lighter drawing keeps using
 - Office lights: a bulb button (and Settings → Office lights) turns them on
   or off. On, the office stays bright after dark; off, it goes dim
 - Teams (first step): `hivemux team use web-app` puts a team in the project's
