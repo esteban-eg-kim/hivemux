@@ -15,6 +15,7 @@ other by name with Claude Code's messages between sessions.
   hivemux-team resume-args <target> <sid> <cwd>   (resume paths) the role flags for that conversation, if it is a role
                                               (재개하는 곳에서) 그 대화가 역할이면 역할 실행 옵션
   hivemux-team handoff <pane> <to> <summary>  (bin/hivemux-hook, a role's SendMessage) log a hand-off / 넘김을 남긴다
+  hivemux-team rename <name> [-s S]           rename the team / 팀 이름 바꾸기
   hivemux-team goal <text> [-s S]             give the lead the team's goal (it plans and hands work out) / 리드에게 팀 목표
   hivemux-team trust [-s S]                   answer yes to the folder trust question in the roles waiting on it / 폴더 신뢰 질문에 예
   hivemux-team report [<date>] [-s S]         the team's day as JSON (states, hand-offs, diets, files, tokens) / 팀의 하루 (JSON)
@@ -741,6 +742,20 @@ def delete_role(session, rid):
             pass
 
 
+def rename_team(session, name):
+    """The team's name (the sidebar's group, the office's carpet and board) / 팀 이름 (사이드바 묶음, 사무실 카펫과 보드)"""
+    name = " ".join(str(name).split())[:40]
+    if not name:
+        die(tr("이름을 적어 주세요", "Write a name"))
+    session, folder = project(session)
+    raw = _raw(folder)
+    raw["name"] = name
+    raw.pop("name_en", None)
+    _write(folder, raw)
+    remark(session)
+    print(tr(f"팀 이름을 바꿨습니다: {name}", f"Renamed the team: {name}"))
+
+
 def set_order(session, ids):
     """The flow: the order the roles hand work on / 흐름: 역할이 일을 넘기는 순서"""
     session, folder = project(session)
@@ -1370,6 +1385,8 @@ def main(argv):
         on_start(*args)
     elif cmd == "handoff" and len(args) == 3:
         handoff(*args)
+    elif cmd == "rename" and args:
+        rename_team(session, " ".join(args))
     elif cmd == "trust":
         trust(session)
     elif cmd == "goal" and args:

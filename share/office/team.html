@@ -129,6 +129,10 @@ pre.prompt { background: var(--code-bg); color: var(--code-fg); }
 .starters { display: flex; flex-wrap: wrap; gap: 6px; }
 .starters button { border: 1px dashed var(--line); background: transparent; border-radius: 999px; padding: 4px 10px; font-size: 12px; color: var(--fg2); text-align: left; }
 .starters button:hover { border-color: var(--muted); }
+input.teamname { font: 800 26px/1.2 var(--f-body); letter-spacing: -.02em; color: var(--fg); background: transparent; border: 1px solid transparent;
+  border-radius: 8px; padding: 2px 6px; margin-left: -7px; width: min(520px, 80vw); }
+input.teamname:hover { border-color: var(--line); }
+input.teamname:focus { border-color: var(--fg); background: var(--panel); outline: none; }
 .saved { font-size: 13px; color: var(--done); font-weight: 600; }
 .state { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 3px 10px; background: var(--soft2); }
 
@@ -345,7 +349,7 @@ function renderTeam(m) {
   const flow = (t.flow || []).map(id => role(id)).filter(Boolean);
   m.innerHTML = `
     <div class="row between">
-      <div><h1>${esc(t.name)}</h1><span class="sub"><code>${esc(D.project.folder)}/.hivemux/team.toml</code> · ${tr('고치면 바로 저장돼요', 'Changes save as you go')}</span></div>
+      <div><h1 style="margin:0"><input class="teamname" id="tname" value="${esc(t.name)}" maxlength="40" aria-label="${tr('팀 이름', 'Team name')}" title="${tr('눌러서 이름 바꾸기', 'Click to rename')}"></h1><span class="sub"><code>${esc(D.project.folder)}/.hivemux/team.toml</code> · ${tr('고치면 바로 저장돼요', 'Changes save as you go')}</span></div>
       <div class="row">
         <button class="btn" id="tsave">${tr('내 템플릿으로 저장', 'Save as my template')}</button>
         <button class="btn danger" id="tdown" ${running ? '' : 'disabled'}>${tr('팀 끝내기', 'Stop team')}</button>
@@ -372,6 +376,11 @@ function renderTeam(m) {
       <ol class="handoffs" id="handoffs"></ol>
     </section>`;
   bindGuide();
+  // the team's name: edit it in place, saved on Enter or leaving the field / 팀 이름: 그 자리에서 고치고 Enter 나 칸을 떠나면 저장
+  const tn = $('#tname');
+  tn.onkeydown = e => { if (e.key === 'Enter') tn.blur(); if (e.key === 'Escape') { tn.value = t.name; tn.blur(); } };
+  tn.onchange = async () => { const v = tn.value.trim(); if (!v || v === t.name) { tn.value = t.name; return; }
+    const r = await post('/team/rename', { project: S.project, name: v }); toast(r.say || ''); S.sig = ''; load(); };
   m.querySelectorAll('.roleitem').forEach(b => b.onclick = () => { S.sel = b.dataset.role; S.tab = 'mine'; S.sig = ''; load(); });
   $('#addform').onsubmit = async e => {
     e.preventDefault();

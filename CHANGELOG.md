@@ -68,6 +68,8 @@
   `◆ <team name>`, the project's other Claudes after them under "outside
   the team"; a role's card shows its role, with ★ in front for the lead (the
   bee office's name tags too)
+- Team name: edit it in place at the top of the team page (or
+  `hivemux team rename "…"`); the sidebar's group and the office follow
 - Hand-offs sent as a reply (to the sender's address, not its name) are
   put down under the right role
 

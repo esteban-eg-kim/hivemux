@@ -663,6 +663,8 @@ def team_post(action, req):
         ok, msg = team_call(fn, project, str(req.get("role") or "") or None)
     elif action == "summary":
         ok, msg = team_call(teams.summarize, project, str(req.get("date") or "") or None)
+    elif action == "rename":
+        ok, msg = team_call(teams.rename_team, project, str(req.get("name", "")))
     elif action == "goal":
         ok, msg = team_call(teams.kickoff, project, str(req.get("goal", "")))
     elif action == "trust":
