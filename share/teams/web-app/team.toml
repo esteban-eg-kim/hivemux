@@ -9,8 +9,10 @@ author = "hivemux"
 version = 1
 flow = ["researcher", "planner", "designer", "dev", "qa", "marketer"]
 
+# a role past this many thousand tokens of context, at rest, starts fresh from its notes
+# 컨텍스트가 이 천 토큰을 넘고 쉬면 노트를 남기고 새로 시작한다
 [diet]
-at = 60
+at = 120
 how = "renew"
 
 [[role]]
@@ -50,7 +52,7 @@ effort = "high"
 prompt = "roles/dev.md"
 owns = "its own worktree"
 worktree = true
-diet = { at = 70 }
+diet = { at = 160 }
 
 [[role]]
 id = "qa"

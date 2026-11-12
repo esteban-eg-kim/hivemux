@@ -146,8 +146,9 @@ case "$event" in
     [ -n "$sid" ] && t set -p -t "$TMUX_PANE" @claude_session "$sid"
     # a team role: remember its conversation, so a reboot resumes it as that role (bin/hivemux-team)
     # 팀 역할: 그 대화를 적어 둔다. 재부팅 뒤 그 역할로 재개된다 (bin/hivemux-team)
+    # (and after a diet's /clear it carries on from its notes) / (다이어트의 /clear 뒤에는 노트로 이어 간다)
     [ -n "$sid" ] && [ -n "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @hivemux-role 2>/dev/null)" ] &&
-      "$(dirname "$0")/hivemux-team" record "$TMUX_PANE" "$sid" >/dev/null 2>&1
+      ( "$(dirname "$0")/hivemux-team" start "$TMUX_PANE" "$sid" "$(field source)" >/dev/null 2>&1 & )
     [ -n "$cwd" ] && t set -p -t "$TMUX_PANE" @claude_pwd "$cwd"
     # Where resume starts: where Claude was started. After a compact or /clear the cwd is wherever a Bash cd left it
     # (a worktree deep inside), so keep the one we have
@@ -225,6 +226,9 @@ case "$event" in
     else
       t set -pu -t "$TMUX_PANE" @claude_bg; state done
     fi
+    # the context size, and a team role past its line goes on a diet (bin/hivemux-team)
+    # 컨텍스트 크기. 기준을 넘은 팀 역할은 다이어트한다 (bin/hivemux-team)
+    ( "$(dirname "$0")/hivemux-team" stop "$TMUX_PANE" "$(field transcript_path)" >/dev/null 2>&1 & )
     # If a sidebar rename is pending, send it now that the turn has ended
     # 사이드바에서 바꾼 이름이 보류 중이면 응답이 끝난 지금 보낸다
     [ -n "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_rename_pending 2>/dev/null)" ] &&

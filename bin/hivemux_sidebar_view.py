@@ -76,7 +76,7 @@ FIELDS = ["pane_id", "session_name", "window_index", "window_name", "@claude_sta
           "@claude_state_at", "@claude_session", "window_id", "pane_active", "pane_last",
           "window_active", "session_attached", "pane_title", "@claude_title", "@claude_name", "pane_current_command",
           "@hivemux-closing", "@claude_wait", "@claude_touched", "@claude_bg", "@claude_offwork", "pane_index",
-          "pane_tty", "pane_width", "pane_height", "@hivemux-rest"]
+          "pane_tty", "pane_width", "pane_height", "@hivemux-rest", "@claude_ctx"]
 # a shell in front means Claude has quit there (its SessionEnd hook comes a second or two later, or never)
 # 칸 앞에 셸이 있으면 그 Claude 는 끝났다 (SessionEnd 훅은 1~2초 늦게 오거나 안 온다)
 SHELLS = {"zsh", "bash", "fish", "sh", "dash", "tcsh", "ksh", "login"}
@@ -553,6 +553,10 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
                 bar = mix(C["run"], C["run_hi"], 0.5 + 0.5 * math.sin(t_ * 3.1))
             dim = st in ("idle", "home")
             t = age(p["@claude_state_at"], now) if not dim else ""
+            # at rest, the size of its context instead (bin/hivemux-team, every request reads it again)
+            # 쉬는 동안은 컨텍스트 크기 (bin/hivemux-team. 매 요청이 다시 읽는 양)
+            if not t and st == "idle" and p.get("@claude_ctx", "").isdigit():
+                t = f"{int(p['@claude_ctx']) // 1000}K"
             key = f"⌥{i}" if 0 < i <= 9 else ""
             name = task_name(p)
             bar_ch = "▌" if sel else "▎"

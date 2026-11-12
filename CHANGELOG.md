@@ -18,6 +18,15 @@
   roles, start and stop the team or one role. Suggestions drawn from how
   people run teams (a read-only reviewer, sonnet for light roles, one lead,
   no shared folders) come with a button that applies them
+- Context and diet: after each answer hivemux notes how many tokens of
+  context a Claude has (resting sidebar cards show it, e.g. `142K`). A team
+  role past its line (`[diet] at`, in thousands of tokens: 120 by default,
+  160 for dev) goes on a diet once it rests: it brings its notes up to
+  date, `/clear`s, and carries on from the notes under the same name, so
+  the others keep messaging it. `how = "compact"` compacts instead; nothing
+  is typed while you are typing in its prompt. The team page shows each
+  role's context against its line and has a Diet now button; diets go to
+  `.hivemux/diet.log`
 
 ## 0.1.53 — 2026-11-11
 

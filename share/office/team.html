@@ -108,6 +108,11 @@ textarea.prompt, pre.prompt { width: 100%; min-height: 260px; margin: 0; border:
   background: var(--soft); color: var(--fg); resize: vertical; white-space: pre-wrap; }
 pre.prompt { background: var(--code-bg); color: var(--code-fg); }
 .note { font-size: 13px; color: var(--tip-fg); background: var(--tip-bg); border: 1px solid var(--tip-line); border-radius: 10px; padding: 8px 12px; }
+.ctxbar { height: 8px; border-radius: 5px; background: var(--soft2); position: relative; overflow: hidden; }
+.ctxbar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: #4caf7d; }
+.ctxbar i.near { background: #e8c46a; } .ctxbar i.over { background: #e8a13a; }
+.ctxbar b { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--fg); }
+.ctxline { font-size: 12px; color: var(--muted); font-family: var(--f-mono); }
 .saved { font-size: 13px; color: var(--done); font-weight: 600; }
 .state { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 3px 10px; background: var(--soft2); }
 
@@ -168,6 +173,8 @@ function icon(id, size = 32) {
 const ARROW = '<svg class="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
 const MODELS = ['opus', 'sonnet', 'haiku'], EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
 const DIETS = [['renew', '노트로 새로 시작', 'Fresh start from notes'], ['compact', '압축', 'Compact'], ['off', '끔', 'Off']];
+const K = n => n >= 1000 ? Math.round(n / 1000) + 'K' : String(n || 0);
+const DIETING = { pending: ['쉬면 다이어트', 'Diet at rest'], notes: ['노트 정리 중', 'Writing notes'], clear: ['새로 시작 중', 'Starting fresh'], compacting: ['압축 중', 'Compacting'], after: ['다이어트 끝', 'Diet done'] };
 const STATE = { run: ['일함', 'Working'], wait: ['답 기다림', 'Needs you'], done: ['끝남', 'Done'], idle: ['쉼', 'Resting'], off: ['꺼짐', 'Off'], '': ['꺼짐', 'Off'] };
 
 function toast(msg) {
@@ -250,9 +257,9 @@ async function useTemplate(id, plan, start) {
 function openWizard() { S.wiz = { step: 0, kind: 'webapp', have: { idea: true }, prio: 'balance' }; drawWizard(); $('#wizard').hidden = false; }
 function plan() {
   const w = S.wiz;
-  const P = { quality: { lead: ['opus', 'xhigh'], dev: ['opus', 'high'], other: ['sonnet', 'high'], light: ['sonnet', 'medium'], diet: 60 },
-    balance: { lead: ['opus', 'high'], dev: ['opus', 'high'], other: ['sonnet', 'high'], light: ['sonnet', 'medium'], diet: 60 },
-    cost: { lead: ['sonnet', 'high'], dev: ['sonnet', 'high'], other: ['sonnet', 'medium'], light: ['haiku', 'medium'], diet: 50 } }[w.prio];
+  const P = { quality: { lead: ['opus', 'xhigh'], dev: ['opus', 'high'], other: ['sonnet', 'high'], light: ['sonnet', 'medium'], diet: 120 },
+    balance: { lead: ['opus', 'high'], dev: ['opus', 'high'], other: ['sonnet', 'high'], light: ['sonnet', 'medium'], diet: 120 },
+    cost: { lead: ['sonnet', 'high'], dev: ['sonnet', 'high'], other: ['sonnet', 'medium'], light: ['haiku', 'medium'], diet: 80 } }[w.prio];
   const t = [], add = (id, m, why, extra) => t.push({ id, model: m[0], effort: m[1], why, ...extra });
   const content = w.kind === 'content';
   add('planner', P.lead, tr('리드. 스펙과 완료 기준을 쓰고 일을 나눠요. 막힌 역할이 돌아오는 곳이라 판단력이 가장 중요해요.', 'Lead. Writes specs and acceptance criteria and splits the work; blocked roles come back here, so judgment matters most.'), { lead: true });
@@ -278,11 +285,11 @@ function drawWizard() {
       .map(([v, a, b]) => choice('have', v, a, b, !!w.have[v])).join('')}</div>`;
   if (w.step === 2) body = `<div class="grid">${[['quality', tr('품질 우선', 'Quality first'), 4, tr('리드와 개발에 opus, 리드는 xhigh. 사용량이 가장 많아요.', 'opus for lead and dev, lead at xhigh. Uses the most.')],
     ['balance', tr('균형', 'Balanced'), 3, tr('리드와 개발만 opus, 나머지는 sonnet. 처음이라면 이걸 추천해요.', 'opus only for lead and dev, sonnet for the rest. The pick for a first team.')],
-    ['cost', tr('비용 우선', 'Cost first'), 2, tr('모두 sonnet, 가벼운 역할은 haiku. 다이어트를 일찍(50%) 해요.', 'All sonnet, light roles on haiku, and an earlier diet (50%).')]]
+    ['cost', tr('비용 우선', 'Cost first'), 2, tr('모두 sonnet, 가벼운 역할은 haiku. 다이어트를 일찍(80K) 해요.', 'All sonnet, light roles on haiku, and an earlier diet (80K).')]]
     .map(([v, a, n, b]) => choice('prio', v, a, b, w.prio === v, `<span class="coins" aria-label="${n}/4">${[1, 2, 3, 4].map(i => `<i class="${i <= n ? 'on' : ''}"></i>`).join('')}</span>`)).join('')}</div>`;
   if (w.step === 3) {
     const p = plan(), names = Object.fromEntries((D.templates.find(t => t.id === 'web-app') || { roles: [] }).roles.map(r => [r.id, r.name]));
-    body = `<div class="chips"><span>${p.roles.length}${tr('명', ' roles')}</span><span>${modelsLine(p.roles)}</span><span>${tr('다이어트', 'Diet')} ${p.diet}%</span></div>
+    body = `<div class="chips"><span>${p.roles.length}${tr('명', ' roles')}</span><span>${modelsLine(p.roles)}</span><span>${tr('다이어트', 'Diet')} ${p.diet}K</span></div>
       <div class="result">${p.roles.map(r => `<div>${icon(r.id, 40)}<div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span class="row" style="gap:8px"><b>${esc(r.name || names[r.id] || r.id)}</b><code>${r.model} · ${r.effort}</code>${r.lead ? `<span class="tag honey">${tr('리드', 'lead')}</span>` : ''}${r.readonly ? `<span class="tag">${tr('읽기 전용', 'read-only')}</span>` : ''}${r.worktree ? `<span class="tag">${tr('워크트리', 'worktree')}</span>` : ''}</span><span class="sub" style="font-size:13px">${esc(r.why)}</span></div></div>`).join('')}</div>`;
   }
   $('#wiz').innerHTML = `
@@ -327,7 +334,7 @@ function renderTeam(m) {
     ${flow.length ? `<div class="card flow" style="padding:10px 14px"><span class="sub" style="font-size:12px;font-weight:700;margin-right:6px">${tr('흐름', 'Flow')}</span>${flow.map((r, i) => `<span class="step">${icon(r.id, 24)}${esc(r.name)}</span>${i < flow.length - 1 ? ARROW : ''}`).join('')}</div>` : ''}
     <div class="layout">
       <nav class="card roles" aria-label="${tr('역할', 'Roles')}">
-        ${t.roles.map(r => `<button class="roleitem" data-role="${r.id}" aria-pressed="${r.id === S.sel}">${icon(r.id, 32)}<span class="meta"><b>${esc(r.name)}${r.lead ? ` <span class="tag honey">${tr('리드', 'lead')}</span>` : ''}</b><span>${r.model} · ${r.effort}</span></span><i class="dot" data-dot="${r.id}" title=""></i></button>`).join('')}
+        ${t.roles.map(r => `<button class="roleitem" data-role="${r.id}" aria-pressed="${r.id === S.sel}">${icon(r.id, 32)}<span class="meta"><b>${esc(r.name)}${r.lead ? ` <span class="tag honey">${tr('리드', 'lead')}</span>` : ''}</b><span>${r.model} · ${r.effort}</span><span class="ctxline" data-ctx="${r.id}"></span></span><i class="dot" data-dot="${r.id}" title=""></i></button>`).join('')}
         <form class="addrow" id="addform"><input id="addname" placeholder="${tr('새 역할 이름', 'New role name')}" aria-label="${tr('새 역할 이름', 'New role name')}"><button class="btn small">${tr('추가', 'Add')}</button></form>
         <div class="tips" id="tips"></div>
       </nav>
@@ -371,7 +378,12 @@ function drawDetail() {
     </div>
     <label class="field">${tr('맡는 폴더', 'Owns')}<input class="text mono" id="fowns" value="${esc(r.owns)}" style="font-size:13px;font-weight:400" placeholder="docs/spec/"></label>
     <div class="dietrow"><b>${tr('다이어트', 'Diet')}</b>${seg('diet', DIETS, r.diet.how)}
-      <div class="stepper"><span class="sub" style="font-size:13px">${tr('컨텍스트가', 'when context passes')}</span><button type="button" id="dminus" aria-label="-5%">−</button><b class="mono" style="min-width:44px;text-align:center">${r.diet.at}%</b><button type="button" id="dplus" aria-label="+5%">+</button><span class="sub" style="font-size:13px">${tr('넘고 쉬면', 'and it rests')}</span></div></div>
+      <div class="stepper"><span class="sub" style="font-size:13px">${tr('컨텍스트가', 'when context passes')}</span><button type="button" id="dminus" aria-label="-10K">−</button><b class="mono" style="min-width:52px;text-align:center">${r.diet.at}K</b><button type="button" id="dplus" aria-label="+10K">+</button><span class="sub" style="font-size:13px">${tr('넘고 쉬면', 'and it rests')}</span></div></div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div class="row between"><span class="ctxline" id="dctx"></span><button class="btn small" id="dnow" ${r.running && r.diet.how !== 'off' ? '' : 'disabled'}>${tr('지금 다이어트', 'Diet now')}</button></div>
+      <div class="ctxbar" aria-hidden="true"><i id="dbar"></i><b id="dline"></b></div>
+      <span class="sub" style="font-size:12px">${tr('컨텍스트는 매 요청이 다시 읽는 양이에요. 기준을 넘고 쉬면 노트를 정리하고 비운 뒤 노트로 이어 가요. 이름이 남아 다른 역할은 계속 보낼 수 있어요.', 'Context is what every request reads again. Past the line and at rest, the role writes its notes, clears, and goes on from them; its name stays, so the others keep messaging it.')}</span>
+    </div>
     ${r.running && S.edited[r.id] ? `<div class="note">${tr('이 역할은 지금 도는 중이에요. 바꾼 설정은 다시 시작할 때 적용돼요.', 'This role is running; the changes apply when it starts again.')}</div>` : ''}
     <div style="display:flex;flex-direction:column;gap:8px">
       <div class="row between"><div class="tabs" role="tablist"><button role="tab" id="tmine" aria-selected="${S.tab === 'mine'}">${tr('지시문', 'Prompt')}</button><button role="tab" id="tfull" aria-selected="${S.tab === 'full'}">${tr('최종 미리보기', 'Final preview')}</button></div><code class="sub">${esc(r.file || '')}</code></div>
@@ -394,8 +406,9 @@ function drawDetail() {
   box.querySelectorAll('[data-effort]').forEach(b => b.onclick = () => save({ effort: b.dataset.effort }));
   box.querySelectorAll('[data-diet]').forEach(b => b.onclick = () => save({ diet: { how: b.dataset.diet } }));
   box.querySelectorAll('[data-flag]').forEach(c => c.onchange = () => save({ [c.dataset.flag]: c.checked }));
-  $('#dminus').onclick = () => save({ diet: { at: Math.max(30, r.diet.at - 5) } });
-  $('#dplus').onclick = () => save({ diet: { at: Math.min(90, r.diet.at + 5) } });
+  $('#dminus').onclick = () => save({ diet: { at: Math.max(40, r.diet.at - 10) } });
+  $('#dplus').onclick = () => save({ diet: { at: Math.min(800, r.diet.at + 10) } });
+  $('#dnow').onclick = async () => { const x = await post('/team/diet', { project: S.project, id: r.id }); toast(x.say); load(); };
   $('#fname').onchange = e => save({ name: e.target.value });
   $('#fowns').onchange = e => save({ owns: e.target.value });
   if ($('#ftext')) $('#ftext').oninput = e => { clearTimeout(save.h); $('#saved').textContent = tr('입력 중…', 'Editing…'); save.h = setTimeout(() => { r.text = e.target.value; save({}, e.target.value); }, 600); };
@@ -425,7 +438,7 @@ function drawTips() {
   if (roles.length > 1 && !lead) { const p = roles.find(r => r.id === 'planner') || roles[0]; tips.push([tr('리드가 없어요. 막힌 역할이 돌아올 곳이 필요해요.', 'No lead: blocked roles need somewhere to go.'), [tr(`${p.name} 을 리드로`, `Make ${p.name} lead`), fix(p.id, { lead: true })]]); }
   roles.filter(r => r.id === 'qa' && !r.readonly).forEach(r => tips.push([tr('QA 가 파일을 고칠 수 있어요. 검사하는 역할이 고치기까지 하면 객관성이 떨어져요.', 'QA can edit files. A reviewer that also fixes is less objective.'), [tr('읽기 전용으로', 'Make read-only'), fix(r.id, { readonly: true })]]));
   roles.filter(r => r.id === 'dev' && !r.worktree).forEach(r => tips.push([tr('개발이 프로젝트 폴더에서 바로 일해요. 다른 역할과 같은 파일을 덮어쓸 수 있어요.', 'Dev works right in the project folder and may overwrite the others.'), [tr('워크트리 쓰기', 'Use a worktree'), fix(r.id, { worktree: true })]]));
-  roles.filter(r => r.diet.how === 'off').forEach(r => tips.push([tr(`${r.name} 의 다이어트가 꺼져 있어요. 대화가 커질수록 매 요청이 비싸져요.`, `${r.name} has the diet off; every request costs more as the conversation grows.`), [tr('70% 에서 새로 시작', 'Fresh start at 70%'), fix(r.id, { diet: { how: 'renew', at: 70 } })]]));
+  roles.filter(r => r.diet.how === 'off').forEach(r => tips.push([tr(`${r.name} 의 다이어트가 꺼져 있어요. 대화가 커질수록 매 요청이 비싸져요.`, `${r.name} has the diet off; every request costs more as the conversation grows.`), [tr('160K 에서 새로 시작', 'Fresh start at 160K'), fix(r.id, { diet: { how: 'renew', at: 160 } })]]));
   const owns = {};
   roles.forEach(r => (r.owns || '').split(',').map(x => x.trim()).filter(Boolean).forEach(o => { (owns[o] = owns[o] || []).push(r.name); }));
   Object.entries(owns).filter(([, n]) => n.length > 1).forEach(([o, n]) => tips.push([tr(`${n.join(', ')} 가 같은 곳(${o})을 맡아요. 서로 덮어쓸 수 있어요.`, `${n.join(', ')} own the same place (${o}) and may overwrite each other.`), null]));
@@ -443,6 +456,16 @@ function states() {
     const k = r.running ? (r.state || 'idle') : '';
     if (d) { d.className = 'dot ' + k; d.title = tr(...(STATE[k] || STATE[''])); }
     if (r.id === S.sel && $('#rstate')) { $('#rstate').innerHTML = `<i class="dot ${k}"></i>${tr(...(STATE[k] || STATE['']))}`; }
+    const line = r.ctx ? `ctx ${K(r.ctx)}` + (r.dieting && DIETING[r.dieting] ? ' · ' + tr(...DIETING[r.dieting]) : '') : '';
+    const c = document.querySelector(`[data-ctx="${r.id}"]`); if (c) c.textContent = line;
+    if (r.id === S.sel && $('#dctx')) {
+      const at = r.diet.at * 1000, max = Math.max(at * 1.25, r.ctx);
+      $('#dctx').textContent = r.ctx ? tr(`컨텍스트 ${K(r.ctx)} · 기준 ${r.diet.at}K`, `Context ${K(r.ctx)} · line ${r.diet.at}K`) + (r.dieting && DIETING[r.dieting] ? ' · ' + tr(...DIETING[r.dieting]) : '')
+        : tr(`컨텍스트 아직 모름 (한 차례 일하면 보여요) · 기준 ${r.diet.at}K`, `Context not known yet (shows after a turn) · line ${r.diet.at}K`);
+      $('#dbar').style.width = Math.min(100, r.ctx / max * 100) + '%';
+      $('#dbar').className = r.ctx >= at ? 'over' : r.ctx >= at * .8 ? 'near' : '';
+      $('#dline').style.left = (at / max * 100) + '%';
+    }
   });
 }
 

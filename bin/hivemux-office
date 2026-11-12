@@ -609,6 +609,8 @@ def team_post(action, req):
     elif action in ("up", "down"):
         fn = teams.up if action == "up" else teams.down
         ok, msg = team_call(fn, project, str(req.get("role") or "") or None)
+    elif action == "diet":
+        ok, msg = team_call(teams.diet_now, project, str(req.get("id", "")))
     elif action == "save":
         ok, msg = team_call(teams.save, str(req.get("id", "")), project)
     else:
