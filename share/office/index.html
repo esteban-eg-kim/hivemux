@@ -2625,7 +2625,10 @@ const parts = [];
 function puff(p, col, vy = -10) { if (!reduced) parts.push({ x: p.x, y: p.y, vx: rand(-8, 8), vy, life: 1, col, r: rand(1.5, 3) }); }
 function drawEffects(t, dt) {
   const pp = SPOTS.filter(p => p.kind === 'pong' && p.occ && p.occ.arrived && p.occ.key2 === 'lounge');
-  if (pp.length === 2) { const k = (Math.sin(t * 2.75) + 1) / 2, p = P(16.5 + k * 2.2, 10.4, 22 + Math.abs(Math.sin(t * 5.5)) * 14); circle(p.x, p.y, 2.6, '#fff'); }
+  if (pp.length === 2) {   // the ball goes between the two players, over the table between them / 공은 두 선수 사이, 그 사이 탁구대 위로
+    const [a, b] = pp[0].x < pp[1].x ? pp : [pp[1], pp[0]], k = (Math.sin(t * 2.75) + 1) / 2, x0 = a.x + .75, x1 = b.x - .75;
+    const p = P(x0 + k * (x1 - x0), a.y + k * (b.y - a.y), 22 + Math.abs(Math.sin(t * 5.5)) * 14); circle(p.x, p.y, 2.6, '#fff');
+  }
   for (const b of bees.values()) {
     const still = !b.moving && b.arrived, s = P(b.x, b.y);
     if (b.moving && b.sprint && Math.random() < .5) puff({ x: s.x - b.face * 8, y: s.y - 1 }, T.muted, -4);
