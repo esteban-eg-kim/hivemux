@@ -298,9 +298,10 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
     <a class="win" href="#font">4:Font</a>
     <a class="win" href="#phone">5:Phone</a>
     <a class="win" href="#remote">6:Remote</a>
-    <a class="win" href="#fix">7:Troubleshooting</a>
-    <a class="win" href="#how">8:How it works</a>
-    <a class="win" href="#files">9:Files</a>
+    <a class="win" href="#team">7:Teams</a>
+    <a class="win" href="#fix">8:Troubleshooting</a>
+    <a class="win" href="#how">9:How it works</a>
+    <a class="win" href="#files">10:Files</a>
     <span class="grow"></span>
     <a class="win" href="guide.html" lang="ko">한국어</a>
   </div>
@@ -695,8 +696,29 @@ hivemux connect me@work-mac.local</pre></div>
   <div class="note">Two screens on the same project share it: switching windows on one moves the other. The size follows the screen that got the keyboard focus last. While a remote screen looks at a window, the sidebar animation and the status line spinner stop (each frame would go over the network and slow typing).</div>
 </section>
 
+<section id="team">
+  <span class="label">7 · Teams</span>
+  <h2>A team of Claudes with roles</h2>
+  <p>A few Claudes with roles in one project (research, planning, design, dev, QA, marketing), each in its own window, handing work to each other by name with Claude Code's messages between sessions. The lead plans and splits the work. After a reboot each role comes back in the same conversation, with its model and prompt.</p>
+  <div class="cols">
+    <div class="card"><h3>Make one</h3><p>Right-click a project's name in the sidebar → <b>Team…</b>, or the <b>Team</b> link at the top of the bee office. Pick a template, answer the wizard's three questions for a team with the reasons for each role, or start empty.</p></div>
+    <div class="card"><h3>Edit it</h3><p>Per role: model, effort, its own worktree, lead, read-only, the folders it owns, the diet line, the prompt. A running role picks up changes when it starts again. Suggestions point out the usual mistakes (a reviewer that edits, opus on a light role, no lead) with a button that fixes them.</p></div>
+    <div class="card"><h3>Start it</h3><p>▶ Start team → trust the folder (one button) → send the lead a goal. The lead hands the work out, so you need not talk to each role. Questions a role asks you gather under <b>Questions for you</b>.</p></div>
+    <div class="card"><h3>Diet</h3><p>Each answer notes the context in tokens (resting cards show <code>142K</code>). A role past its line (120K by default) and at rest writes its notes, clears, and goes on from them. Never while you type in its prompt, or right after it asked you something.</p></div>
+    <div class="card"><h3>Where it shows</h3><p>Sidebar: grouped under <code>◆ team name</code>, the lead starred, the last hand-off as <code>✉ Planning → Dev</code>. Bee office: the team's pod and board, each role's tool, letters at hand-offs, a meeting at a new goal.</p></div>
+    <div class="card"><h3>Report</h3><p><b>Report</b> on the team page: the day's timeline (working, waiting, hand-off arrows, diets), where the work went, what waited on you, each role's day, what got made. On request, haiku writes the day's story.</p></div>
+  </div>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cmt"># in the project</span>
+hivemux team use web-app        <span class="cmt"># the template into .hivemux/</span>
+hivemux team up                 <span class="cmt"># a window per role</span>
+hivemux team goal "Build a shop MVP with sign-in and checkout"
+hivemux team report             <span class="cmt"># today (JSON)</span>
+hivemux team down               <span class="cmt"># stop (conversations stay)</span></pre></div>
+  <p>Files live in the project's <code>.hivemux/</code>: <code>team.toml</code>, <code>roles/</code>, <code>notes/</code>, <code>questions.md</code> and the logs (<code>handoffs.log</code>, <code>diet.log</code>, <code>states.log</code>, <code>files.log</code>). Your templates: <code>~/.config/hivemux/teams/</code>.</p>
+</section>
+
 <section id="fix">
-  <span class="label">7 · Troubleshooting</span>
+  <span class="label">8 · Troubleshooting</span>
   <h2>Troubleshooting by symptom</h2>
   <div class="filter" role="group" aria-label="Category">
     <button type="button" data-f="all" aria-pressed="true">All</button>
@@ -793,7 +815,7 @@ ls -la ~/.local/share/hivemux/backups/</pre></div>
 </section>
 
 <section id="how">
-  <span class="label">8 · How it works</span>
+  <span class="label">9 · How it works</span>
   <h2>What each part does</h2>
   <div class="stack">
     <div class="layer l1"><span class="name">Ghostty</span><span class="what">Draws the screen. Every window and tab attaches to tmux through the start script.<span class="keeps">Close a window and the work keeps running in tmux</span></span></div>
@@ -830,7 +852,7 @@ ls -la ~/.local/share/hivemux/backups/</pre></div>
 </section>
 
 <section id="files">
-  <span class="label">9 · Files</span>
+  <span class="label">10 · Files</span>
   <h2>Install, uninstall and file locations</h2>
   <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cmt"># install</span>
 curl -fsSL https://hivemux.dev/install.sh | bash

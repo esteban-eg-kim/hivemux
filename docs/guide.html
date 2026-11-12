@@ -298,9 +298,10 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
     <a class="win" href="#font">4:글꼴</a>
     <a class="win" href="#phone">5:폰</a>
     <a class="win" href="#remote">6:원격</a>
-    <a class="win" href="#fix">7:문제 해결</a>
-    <a class="win" href="#how">8:동작 원리</a>
-    <a class="win" href="#files">9:파일</a>
+    <a class="win" href="#team">7:팀</a>
+    <a class="win" href="#fix">8:문제 해결</a>
+    <a class="win" href="#how">9:동작 원리</a>
+    <a class="win" href="#files">10:파일</a>
     <span class="grow"></span>
     <a class="win" href="guide.en.html" lang="en">English</a>
   </div>
@@ -703,8 +704,29 @@ hivemux connect me@work-mac.local</pre></div>
   <div class="note">두 화면에서 같은 프로젝트를 보면 화면을 같이 씁니다. 한쪽에서 창을 바꾸면 다른 쪽도 바뀝니다. 크기는 마지막으로 키보드 초점을 받은 화면에 맞춥니다. 원격 화면이 보고 있는 창에서는 사이드바 애니메이션과 상태줄 스피너가 멈춥니다 (장면마다 네트워크로 가서 입력이 느려지므로).</div>
 </section>
 
+<section id="team">
+  <span class="label">7 · 팀</span>
+  <h2>역할을 나눈 Claude 팀</h2>
+  <p>한 프로젝트 안에서 조사, 기획, 디자인, 개발, QA, 마케팅처럼 역할을 나눈 Claude 여럿이 각자 창에서 일하고, Claude Code의 세션 간 메시지로 이름을 불러 일을 넘깁니다. 리드가 계획을 세우고 일을 나눕니다. 재부팅해도 역할은 같은 대화, 같은 모델과 지시문으로 돌아옵니다.</p>
+  <div class="cols">
+    <div class="card"><h3>만들기</h3><p>사이드바에서 프로젝트 이름을 오른쪽 클릭 → <b>팀…</b>, 또는 벌 사무실 위쪽의 <b>팀</b>. 템플릿을 고르거나, 위저드의 세 질문에 답해 역할마다 이유가 붙은 팀을 추천받거나, 빈 팀으로 시작합니다.</p></div>
+    <div class="card"><h3>고치기</h3><p>역할마다 모델, 노력, 자기 워크트리, 리드, 읽기 전용, 맡는 폴더, 다이어트 기준, 지시문. 바뀐 설정은 그 역할을 다시 시작할 때 적용됩니다. 제안 칸이 흔한 실수(검사 역할이 파일을 고침, 가벼운 역할에 opus, 리드 없음)를 알려 주고 버튼으로 고칩니다.</p></div>
+    <div class="card"><h3>시작하기</h3><p>▶ 팀 시작 → 폴더 신뢰 확인(버튼 하나) → 리드에게 목표 보내기. 리드가 일을 나눠 맡기니 역할마다 따로 말하지 않아도 됩니다. 역할이 나에게 묻는 질문은 팀 화면의 <b>나에게 온 질문</b>에 모입니다.</p></div>
+    <div class="card"><h3>다이어트</h3><p>답할 때마다 컨텍스트 토큰 수를 적고(쉬는 카드에 <code>142K</code>), 기준(기본 120K)을 넘은 역할은 쉴 때 노트를 정리하고 대화를 비운 뒤 노트로 이어 갑니다. 입력 중이거나 방금 질문했을 때는 하지 않습니다.</p></div>
+    <div class="card"><h3>보이는 곳</h3><p>사이드바: <code>◆ 팀 이름</code> 아래 묶음, 리드는 ★, 마지막 넘김 <code>✉ 기획 → 개발</code>. 벌 사무실: 팀 섬과 보드, 역할 소품, 넘김 편지, 목표 회의.</p></div>
+    <div class="card"><h3>리포트</h3><p>팀 화면의 <b>리포트</b>: 하루의 시간표(일함, 기다림, 넘김 화살표, 다이어트), 일이 흐른 길, 나를 기다린 일, 역할별 하루, 만든 것. 요청하면 하루 이야기를 haiku가 씁니다.</p></div>
+  </div>
+  <div class="code"><button class="copy" type="button">복사</button><pre><span class="cmt"># 프로젝트 안에서</span>
+hivemux team use web-app        <span class="cmt"># 템플릿을 .hivemux/ 로</span>
+hivemux team up                 <span class="cmt"># 역할마다 창을 열고 시작</span>
+hivemux team goal "로그인과 결제가 있는 쇼핑몰 MVP 를 만들자"
+hivemux team report             <span class="cmt"># 오늘 (JSON)</span>
+hivemux team down               <span class="cmt"># 팀 끝내기 (대화는 남음)</span></pre></div>
+  <p>파일은 프로젝트의 <code>.hivemux/</code>에 있습니다. <code>team.toml</code>, <code>roles/</code>, <code>notes/</code>, <code>questions.md</code>, 기록(<code>handoffs.log</code>, <code>diet.log</code>, <code>states.log</code>, <code>files.log</code>). 내 템플릿은 <code>~/.config/hivemux/teams/</code>.</p>
+</section>
+
 <section id="fix">
-  <span class="label">7 · 문제 해결</span>
+  <span class="label">8 · 문제 해결</span>
   <h2>증상별 문제 해결</h2>
   <div class="filter" role="group" aria-label="분류">
     <button type="button" data-f="all" aria-pressed="true">전체</button>
@@ -801,7 +823,7 @@ ls -la ~/.local/share/hivemux/backups/</pre></div>
 </section>
 
 <section id="how">
-  <span class="label">8 · 동작 원리</span>
+  <span class="label">9 · 동작 원리</span>
   <h2>구성 요소별 역할</h2>
   <div class="stack">
     <div class="layer l1"><span class="name">Ghostty</span><span class="what">화면만 담당합니다. 모든 창과 탭이 시작 스크립트로 tmux에 붙습니다.<span class="keeps">창을 닫아도 작업은 tmux에서 계속 실행됩니다</span></span></div>
@@ -838,7 +860,7 @@ ls -la ~/.local/share/hivemux/backups/</pre></div>
 </section>
 
 <section id="files">
-  <span class="label">9 · 파일</span>
+  <span class="label">10 · 파일</span>
   <h2>설치, 제거, 파일 위치</h2>
   <div class="code"><button class="copy" type="button">복사</button><pre><span class="cmt"># 설치</span>
 curl -fsSL https://hivemux.dev/install.sh | bash

@@ -32,6 +32,9 @@ macOS and Linux (on Linux, `Option` is `Alt`).
   look at it.
 - **Bee office.** Every Claude session as a bee in a little office: watch who
   works, who waits for you, and who is done at a glance. See [The bee office](#the-bee-office).
+- **Teams.** Claudes with roles in one project (planning, dev, QA…), each in
+  its own window, handing work to each other, with a lead, a diet that keeps
+  their context small, and a report of the day. See [Teams](#teams).
 - **Why it waits, and answer from the office.** A waiting card says what it
   waits for: an approval (with Claude's own one-line description of the
   command, or the file), a plan, a question, or an error; a finished one says
@@ -157,6 +160,64 @@ closing that Claude (`/exit`, right-click its card → Close Claude…, or its
 window for ten minutes) or its project is leaving: the bee holds up a box of
 its things and walks out by the elevator saying goodbye. The same name coming
 back is rehired, into the same house.
+
+## Teams
+
+A team is a few Claudes with roles in one project, say research, planning,
+design, dev, QA and marketing, each in its own window. They hand work to each
+other by name with Claude Code's messages between sessions; one of them, the
+lead, plans and splits the work. It suits a project that goes on for days: the
+roles survive a reboot and come back in the same conversations.
+
+**Make one.** Right-click a project's name in the sidebar → **Team…** (or the
+Team link at the top of the bee office). Pick a template, answer the wizard's
+three questions (what you build, what you have, what matters most) for a team
+with the reasons for each role, or start empty. In a terminal:
+`hivemux team use web-app`.
+
+**Edit it** on the same page: each role's model, effort, its own worktree, lead,
+read-only, the folders it owns, its diet line and its prompt (with a preview of
+the full prompt it gets). Suggestions drawn from how people run teams (a
+read-only reviewer, sonnet for light roles, one lead, no shared folders) come
+with a button that applies them. Rename the team at the top; **Save as my
+template** keeps it for other projects.
+
+**Start it** with ▶ Start team (`hivemux team up`). Getting started walks
+through the rest: a folder Claude has not opened asks each role to trust it
+(one button answers them, showing the folder); then write the goal for the lead,
+or pick an example, and send it (`hivemux team goal "…"`). The lead plans and
+hands the pieces out; you do not need to talk to each role, though you can.
+
+**While it works**
+
+- In the sidebar the team's cards sit together under `◆ <team name>`, the lead
+  first with a ★; the last hand-off shows as `✉ Planning → Dev · 2m`.
+- In the bee office the team gets a pod of its own, on a teal carpet with its
+  name and a board of who does what. Each role holds its tool, a letter flies
+  between desks at a hand-off, and a new goal gathers the team in the meeting
+  room for a moment.
+- Questions a role asks you go to `.hivemux/questions.md` and show on the team
+  page as **Questions for you**.
+- **Diet.** After each answer hivemux notes how many tokens of context a Claude
+  has (resting cards show it, e.g. `142K`): every request reads all of it
+  again. A role past its line (120K by default) and at rest updates its notes,
+  clears, and carries on from them under the same name, so the others keep
+  messaging it. It never does so while you type in its prompt or right after
+  it asked you something.
+- **Report.** The Report page shows a team's day: time worked, hand-offs,
+  tasks done, tokens and diets; a timeline of who worked and waited when, with
+  hand-offs as arrows between roles; who handed to whom; what waited on you;
+  each role's day; what got made. A small model writes the day's story when you
+  ask. Copy it as Markdown or save it as PDF.
+
+**Stop it** with Stop team (`hivemux team down`): the roles clock out, working
+ones once done, and come back in the same conversations next time.
+
+Everything lives in the project's `.hivemux/`: `team.toml` and `roles/` (the
+template's copy; commit them if you like), `notes/` (each role's notes),
+`questions.md`, and the logs the report reads (`handoffs.log`, `diet.log`,
+`states.log`, `files.log`). A template is just a folder of `team.toml` and
+`roles/`; yours are in `~/.config/hivemux/teams/`.
 
 ## Requirements
 
