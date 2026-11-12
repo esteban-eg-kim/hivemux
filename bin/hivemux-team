@@ -304,6 +304,8 @@ def build_prompt(session, folder, team, role):
         if lead and lead["id"] != role["id"]:
             lines.append(f"막히거나 판단이 필요하면 리드({session}-{lead['id']})에게 보낸다.")
         lines.append("다른 역할이 맡은 곳의 파일은 고치지 않는다.")
+        lines.append(f"사용자에게 물을 것은 {os.path.join(team_dir(folder), 'questions.md')} 에 번호를 붙여 적고 (누가, 언제, 원문 그대로) 답변에도 보여라. "
+                     "답이 오면 그 질문 아래에 답을 적는다. 대화가 비워져도 질문을 잃지 않게 하려는 것이다.")
         if role["readonly"]:
             lines.append("너는 읽기 전용 역할이다. 파일을 고치지 않고, 고칠 것은 맡은 역할에게 넘긴다.")
         if role["worktree"]:
@@ -316,6 +318,8 @@ def build_prompt(session, folder, team, role):
         if lead and lead["id"] != role["id"]:
             lines.append(f"When blocked or a decision is needed, message the lead ({session}-{lead['id']}).")
         lines.append("Do not change files another role owns.")
+        lines.append(f"Questions for the user go to {os.path.join(team_dir(folder), 'questions.md')}, numbered (who, when, the exact words), and in your answer too. "
+                     "Write the answer under the question when it comes, so a cleared conversation never loses a question.")
         if role["readonly"]:
             lines.append("You are a read-only role: do not change files; hand what needs fixing to the role that owns it.")
         if role["worktree"]:
@@ -511,7 +515,16 @@ def status(session):
             "team": {"id": team.get("id", ""), "name": label(team), "description": label(team, "description"),
                      "flow": team.get("flow") or [r["id"] for r in team["role"]], "diet": team["diet"], "roles": roles,
                      "handoffs": handoffs(folder, team),
+                     "questions": _read(os.path.join(team_dir(folder), "questions.md"))[:8000],
                      "starters": (lang() == "en" and team.get("starters_en")) or team.get("starters") or []}}
+
+
+def _read(path):
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return f.read()
+    except OSError:
+        return ""
 
 
 def find_team(cwd):
@@ -872,8 +885,8 @@ def diet_begin(pane, folder, role, n):
     else:
         tmux("set", "-p", "-t", pane, "@hivemux-diet", "notes")
         path = notes_path(folder, role["id"])
-        type_in(pane, (f"(hivemux 다이어트) 대화가 커져서 곧 새로 시작한다. {path} 를 지금 상태, 결정한 것, 남은 일, 중요한 파일로 최신으로 정리해라. 정리만 하고 다른 일은 하지 마라."
-                       if ko else f"(hivemux diet) The conversation is large, so it starts fresh soon. Bring {path} up to date: state, decisions, what is left, key files. Only that, nothing else."))
+        type_in(pane, (f"(hivemux 다이어트) 대화가 커져서 곧 새로 시작한다. {path} 를 지금 상태, 결정한 것, 남은 일, 중요한 파일, 사용자에게 물었는데 아직 답이 없는 질문(원문 그대로)으로 최신으로 정리해라. 정리만 하고 다른 일은 하지 마라."
+                       if ko else f"(hivemux diet) The conversation is large, so it starts fresh soon. Bring {path} up to date: state, decisions, what is left, key files, and questions to the user still unanswered (word for word). Only that, nothing else."))
     return True
 
 
@@ -902,8 +915,42 @@ def on_stop(pane, transcript):
         tmux("set", "-pu", "-t", pane, "@hivemux-diet")
         tmux("set", "-pu", "-t", pane, "@hivemux-diet-before")
         return
+    # an answer that asks the user something stays on screen until the user has answered: a diet then cleared a
+    # question before anyone read it / 사용자에게 묻는 답변은 사용자가 답할 때까지 화면에 둔다: 다이어트가 아무도
+    # 읽기 전에 질문을 지운 적이 있다
+    if not st and asks_user(last_answer(transcript)):
+        return
     if st == "pending" or (not st and role["diet"]["how"] != "off" and n >= diet_line(folder, role)):
         diet_begin(pane, folder, role, n)
+
+
+def last_answer(transcript):
+    """The text of the last answer in a conversation / 대화의 마지막 답변 글"""
+    try:
+        with open(transcript, "rb") as f:
+            f.seek(0, 2)
+            f.seek(max(0, f.tell() - 400_000))
+            lines = f.read().decode(errors="replace").splitlines()
+    except OSError:
+        return ""
+    for line in reversed(lines):
+        if '"assistant"' not in line or '"text"' not in line:
+            continue
+        try:
+            m = json.loads(line).get("message") or {}
+        except ValueError:
+            continue
+        if m.get("role") == "assistant":
+            t = "\n".join(c.get("text", "") for c in m.get("content") or [] if isinstance(c, dict) and c.get("type") == "text")
+            if t.strip():
+                return t
+    return ""
+
+
+def asks_user(text):
+    """Does the answer ask the user something? / 답변이 사용자에게 무언가 묻나"""
+    t = text[-3000:]
+    return bool(re.search(r"\?\s*($|\n)|질문|답해 주|알려 주|정해 주|골라 주|확인해 주|답을 받|답변.*기다|would you|should I|do you want|let me know|please (confirm|choose|tell)", t, re.I))
 
 
 def diet_line(folder, role):
@@ -940,8 +987,8 @@ def on_start(pane, sid, source):
         time.sleep(1.0)
         tmux("set", "-p", "-t", pane, "@hivemux-diet", "after")
         path = notes_path(folder, role["id"])
-        type_in(pane, (f"(hivemux 다이어트 뒤 새로 시작) {path} 를 읽고 하던 일을 이어서 해라. 이어서 할 일이 없으면 기다려라."
-                       if lang() == "ko" else f"(hivemux: fresh start after a diet) Read {path} and carry on with your work. If nothing is left, wait."))
+        type_in(pane, (f"(hivemux 다이어트 뒤 새로 시작) {path} 를 읽고 하던 일을 이어서 해라. 사용자의 답을 기다리는 질문이 있으면 그 질문을 원문 그대로 다시 보여 줘라. 이어서 할 일이 없으면 기다려라."
+                       if lang() == "ko" else f"(hivemux: fresh start after a diet) Read {path} and carry on with your work. If questions to the user are still unanswered, show them again word for word. If nothing is left, wait."))
     elif st == "compacting" and source == "compact":
         tmux("set", "-p", "-t", pane, "@hivemux-diet", "after")
 

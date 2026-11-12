@@ -220,7 +220,7 @@ async function load() {
   // 모양이 바뀔 때만 다시 그린다. 아니면 상태만 (입력 중인 것을 지킨다)
   const t = team();
   const sig = [S.project, d.projects.map(p => p.name + p.team).join(','), t ? t.roles.map(r => r.id + r.name + r.model + r.effort + r.lead + r.readonly + r.worktree + r.diet.how + r.diet.at + r.running + r.trust).join('|') : '-',
-    t ? Math.min(1, (t.handoffs || []).length) : 0, S.sel, S.tab].join('#');
+    t ? Math.min(1, (t.handoffs || []).length) : 0, t ? (t.questions || '').length : 0, S.sel, S.tab].join('#');
   if (sig !== S.sig) { S.sig = sig; render(); } else states();
 }
 setInterval(load, 2000);
@@ -352,6 +352,11 @@ function renderTeam(m) {
         <button class="btn primary" id="tup" ${t.roles.length && running < t.roles.length ? '' : 'disabled'}>▶ ${running ? tr('나머지 시작', 'Start the rest') : tr('팀 시작', 'Start team')} · ${t.roles.length - running}</button>
       </div>
     </div>
+    ${(t.questions || '').trim() ? `<section class="card" aria-label="${tr('나에게 온 질문', 'Questions for you')}" style="display:flex;flex-direction:column;gap:10px;border-color:var(--tip-line);background:var(--tip-bg)">
+      <div class="row between"><h2>${tr('나에게 온 질문', 'Questions for you')}</h2><code class="sub">.hivemux/questions.md</code></div>
+      <pre style="margin:0;white-space:pre-wrap;font:14px/1.7 var(--f-body);max-height:360px;overflow:auto">${esc(t.questions)}</pre>
+      <span class="sub" style="font-size:13px">${tr(`답은 질문한 역할의 창에 번호를 붙여 적으면 돼요. 잘 모르겠으면 리드(${esc((t.roles.find(r => r.lead) || t.roles[0] || {}).name || '')})에게 답하세요.`, `Answer in the window of the role that asked, by number. Not sure which? Answer the lead (${esc((t.roles.find(r => r.lead) || t.roles[0] || {}).name || '')}).`)}</span>
+    </section>` : ''}
     ${guide(t, running)}
     ${flow.length ? `<div class="card flow" style="padding:10px 14px"><span class="sub" style="font-size:12px;font-weight:700;margin-right:6px">${tr('흐름', 'Flow')}</span>${flow.map((r, i) => `<span class="step">${icon(r.id, 24)}${esc(r.name)}</span>${i < flow.length - 1 ? ARROW : ''}`).join('')}</div>` : ''}
     <div class="layout">

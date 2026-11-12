@@ -50,6 +50,11 @@
 - Diet: right after a diet the line moves up (50K above where it came
   back, and half again for 20 minutes), so a role with a low line no longer
   diets every two minutes; the wizard's cost-first line is 100K
+- Questions for the user survive a diet: a role whose last answer asks you
+  something is not put on a diet until you have answered (one cleared a
+  question before anyone read it); notes keep unanswered questions word for
+  word and a fresh start shows them again; roles write questions to
+  `.hivemux/questions.md`, which the team page shows as Questions for you
 - Hand-offs sent as a reply (to the sender's address, not its name) are
   put down under the right role
 
