@@ -97,7 +97,8 @@ function rbox(g, w, h, d, x, y, z, color, o = {}) {
 function cyl(g, rt, rb, h, x, y, z, color, o = {}) {
   return mesh(g, geo(`c${rt},${rb},${h},${o.seg ?? 20}`, () => new THREE.CylinderGeometry(rt, rb, h, o.seg ?? 20)), color, x, y + h / 2, z, o);
 }
-function ball(g, r, x, y, z, color, o = {}) { return mesh(g, geo(`s${r}`, () => new THREE.SphereGeometry(r, 20, 14)), color, x, y, z, o); }
+// small balls (eyes, cheeks, tips) get fewer faces / 작은 공 (눈, 볼, 끝) 은 면을 줄인다
+function ball(g, r, x, y, z, color, o = {}) { const n = r < .06 ? [8, 6] : r < .15 ? [12, 9] : [16, 12]; return mesh(g, geo(`s${r}`, () => new THREE.SphereGeometry(r, ...n)), color, x, y, z, o); }
 function canvasTex(w, h, draw) {
   const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
@@ -278,7 +279,7 @@ setInterval(() => world && drawClock(), 60000);
 const BEE = { body: '#f2b632', dark: '#23201a', wing: '#cfe4f7', cheek: '#f08a7a' };
 function makeBee() {
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
-  const limb = (x, y, len, r) => { const p = new THREE.Group(); p.position.set(x, y, 0); body.add(p); cyl(p, r, r, len, 0, -len, 0, BEE.dark); return p; };
+  const limb = (x, y, len, r) => { const p = new THREE.Group(); p.position.set(x, y, 0); body.add(p); cyl(p, r, r, len, 0, -len, 0, BEE.dark, { seg: 8 }); return p; };
   const legL = limb(-.07, .24, .2, .035), legR = limb(.07, .24, .2, .035);
   ball(body, .2, 0, .38, 0, BEE.body, { scale: [1, 1.15, .95] });
   for (const [y, s] of [[.31, 1.01], [.43, 1]]) mesh(body, geo('stripe', () => new THREE.TorusGeometry(.19, .035, 8, 24)), BEE.dark, 0, y, 0, { rot: [Math.PI / 2, 0, 0], scale: [s, s, 1.4] });
@@ -286,7 +287,7 @@ function makeBee() {
   const head = new THREE.Group(); head.position.set(0, .72, 0); body.add(head);
   ball(head, .19, 0, 0, 0, BEE.body);
   for (const s of [-1, 1]) { ball(head, .05, s * .075, .03, .16, '#ffffff', { shadow: false }); ball(head, .03, s * .075, .03, .2, BEE.dark, { shadow: false }); ball(head, .035, s * .12, -.05, .15, BEE.cheek, { shadow: false, scale: [1, .6, .5] }); }
-  for (const s of [-1, 1]) { const a = cyl(head, .012, .012, .2, s * .07, .14, 0, BEE.dark); a.rotation.z = -s * .35; ball(head, .035, s * .13, .33, 0, BEE.dark); }
+  for (const s of [-1, 1]) { const a = cyl(head, .012, .012, .2, s * .07, .14, 0, BEE.dark, { shadow: false, seg: 6 }); a.rotation.z = -s * .35; ball(head, .035, s * .13, .33, 0, BEE.dark, { shadow: false }); }
   const wings = [-1, 1].map(s => { const w = new THREE.Group(); w.position.set(s * .1, .55, -.14); body.add(w); mesh(w, geo('wing', () => new THREE.CircleGeometry(.16, 20)), null, s * .12, .08, 0, { material: mat(BEE.wing, { op: .6 }), shadow: false, scale: [1, 1.5, 1], rot: [0, s * .5, 0] }); return w; });
   const jar = new THREE.Group(); jar.position.set(0, 1.08, .05); body.add(jar); cyl(jar, .1, .1, .16, 0, 0, 0, BEE.body); cyl(jar, .11, .11, .04, 0, .16, 0, '#d2ad52'); jar.visible = false;
   g.traverse(o => { if (o.isMesh) o.userData.bee = g; });
