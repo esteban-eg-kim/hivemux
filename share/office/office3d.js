@@ -182,85 +182,86 @@ function bookshelf(g, x, y, w, d, h, seed) {
 function cooler(g, x, y) { B(g, x - .18, y - .18, .36, .36, 18, '#e9edf2', 0, { r: .04 }); C(g, x, y, .14, 10, '#7fb6e6', 18, { op: .85 }); C(g, x, y, .15, 1.5, '#5a93c6', 27.5); }
 
 // ── walls: painted canvases, the near ones left open like the page / 벽: 칠한 캔버스. 가까운 벽은 페이지처럼 열어 둔다 ──
-const PT = 48;   // canvas px per tile along a wall / 벽 방향 타일당 캔버스 px
-const PV = PT / HPX;   // canvas px per page px of height / 높이 페이지 px 당 캔버스 px
-function wallPlane(g, a, b, len, tex) {
-  const gm = new THREE.BufferGeometry(), h = H(WALL);
-  gm.setAttribute('position', new THREE.Float32BufferAttribute([a[0], 0, a[1], b[0], 0, b[1], b[0], h, b[1], a[0], h, a[1]], 3));
+const PT = 48;   // the wall itself: canvas px per tile along it (plain paint) / 벽 자체: 벽 방향 타일당 캔버스 px (단색 칠)
+const DK = 360;   // what hangs on it (words, the clock, the comb): px per tile, sharp up close / 걸린 것 (글자, 시계, 벌집): 타일당 px, 가까이서도 또렷하게
+function quad(g, a, d, n, u0, u1, v0, v1, tex, lift = 0) {   // a piece of wall from u0 to u1 tiles, v0 to v1 px / 벽 조각
+  const p = (u, v) => [a[0] + d[0] * u + n[0] * lift, H(v), a[1] + d[1] * u + n[1] * lift];
+  const gm = new THREE.BufferGeometry();
+  gm.setAttribute('position', new THREE.Float32BufferAttribute([...p(u0, v0), ...p(u1, v0), ...p(u1, v1), ...p(u0, v1)], 3));
   gm.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1], 2));
   gm.setIndex([0, 1, 2, 0, 2, 3]); gm.computeVertexNormals();
-  const m = new THREE.Mesh(gm, lit(new THREE.MeshStandardMaterial({ map: tex, roughness: .9, side: THREE.DoubleSide })));
-  m.receiveShadow = true; m.userData.tex = tex; g.add(m);
-  const top = rbox(g, len, .05, .1, (a[0] + b[0]) / 2, H(WALL), (a[1] + b[1]) / 2, tok('m-wall'), { r: .01, shadow: false });
-  top.rotation.y = -Math.atan2(b[1] - a[1], b[0] - a[0]);
+  const m = new THREE.Mesh(gm, lit(new THREE.MeshStandardMaterial({ map: tex, roughness: .9, side: THREE.DoubleSide, transparent: lift > 0 })));
+  m.receiveShadow = true; m.userData.tex = tex; m.userData.merged = true; g.add(m);
+  return m;
 }
-// paint on a wall canvas in the page's units: u tiles along it, v px up / 페이지 단위로 벽 캔버스에: u 는 벽 따라 타일, v 는 위로 px
-const wallRect = (c, u, v0, w, v1, col) => { c.fillStyle = col; c.fillRect(u * PT, (WALL - v1) * PV, w * PT, (v1 - v0) * PV); };
-function wallWord(c, u, v, text, px, weight, col, family = FONT_NAME, mirror = false) {
-  c.save(); c.translate(u * PT, (WALL - v) * PV); if (mirror) c.scale(-1, 1);
-  c.font = `${weight} ${px * PV * 1.15}px ${family}`; c.fillStyle = col; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, 0, 0); c.restore();
+// a surface to paint on in the page's units: u tiles along the wall, v px up / 페이지 단위로 칠할 면: u 는 벽 따라 타일, v 는 위로 px
+const surface = (tex, k, u0, v1) => ({ c: tex.image.getContext('2d'), k, u0, v1 });
+const sx = (S, u) => (u - S.u0) * S.k, sy = (S, v) => (S.v1 - v) * S.k / HPX;
+const wallRect = (S, u, v0, w, v1, col) => { S.c.fillStyle = col; S.c.fillRect(sx(S, u), sy(S, v1), w * S.k, (v1 - v0) * S.k / HPX); };
+function wallWord(S, u, v, text, px, weight, col, family = FONT_NAME, mirror = false) {
+  const c = S.c; c.save(); c.translate(sx(S, u), sy(S, v)); if (mirror) c.scale(-1, 1);
+  c.font = `${weight} ${px * S.k / HPX * 1.15}px ${family}`; c.fillStyle = col; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, 0, 0); c.restore();
 }
-function paintBack(tex, t) {
-  const c = tex.image.getContext('2d'), best = RANKS && RANKS.month && RANKS.month[0];
-  c.fillStyle = tok('m-wallface'); c.fillRect(0, 0, tex.image.width, tex.image.height);
-  for (let x = 1.2; x < (best ? 12 : 14); x += 3) wallRect(c, x, 24, 1.8, 60, colOf(T.win));
-  if (best) {   // bee of the month / 이달의 꿀벌
+// the walls' plain paint: the face and its windows / 벽의 바탕: 면과 창
+function paintWall(S, len, windows) {
+  S.c.fillStyle = tok('m-wallface'); S.c.fillRect(0, 0, S.c.canvas.width, S.c.canvas.height);
+  for (const u of windows) wallRect(S, u, 24, 1.8, 60, colOf(T.win));
+}
+// what hangs on the walls, each on its own sharp canvas: [wall, u0, u1, v0, v1, paint, mirrored]
+// 벽에 걸린 것, 각자 또렷한 캔버스에: [벽, u0, u1, v0, v1, 칠하기, 뒤집힘]
+function hangings() {
+  const out = [], best = RANKS && RANKS.month && RANKS.month[0];
+  if (best) out.push(['back', 13.3, 15.35, 18, 60, S => {   // bee of the month / 이달의 꿀벌
     const u = 13.3, w = 2.05, r = ROSTER[best.id], name = r ? (r.name === 'claude' ? r.project : r.name) : best.id.split('/').pop();
-    wallRect(c, u, 18, w, 60, '#b8873e'); wallRect(c, u + .08, 20, w - .16, 58, '#fffaf0');
-    wallWord(c, u + w / 2, 53.5, '🏆', 6, 400, '#000');
-    wallWord(c, u + w / 2, 47.5, tr('이달의 꿀벌', 'Bee of the Month'), 3.8, 'italic 400', tok('m-label'), FONT_FANCY);
+    wallRect(S, u, 18, w, 60, '#b8873e'); wallRect(S, u + .08, 20, w - .16, 58, '#fffaf0');
+    wallWord(S, u + w / 2, 53.5, '🏆', 6, 400, '#000');
+    wallWord(S, u + w / 2, 47.5, tr('이달의 꿀벌', 'Bee of the Month'), 3.8, 'italic 400', tok('m-label'), FONT_FANCY);
     const fit = wrapFit(name, w * PLAQUE_PX - 10, 6.5, 4, FONT_NAME, 600), lh = fit.size + 3.8, top = fit.lines.length > 1 ? 40 : 37.5;
-    fit.lines.forEach((l, i) => wallWord(c, u + w / 2, top - i * lh, l, fit.size, 600, '#3a2612'));
-    wallWord(c, u + w / 2, top - (fit.lines.length - 1) * lh - 9.5, tr(`꿀 ${best.honey}칸`, `${best.honey} honey`), 4.6, 600, colOf(T.wait));
-  }
-  // the clock / 벽시계
-  const now = new Date(), cx = 3.6 * PT, cy = (WALL - 47) * PV, r = 11 * PV;
-  c.fillStyle = '#3a404c'; c.beginPath(); c.arc(cx, cy, r + 2, 0, 7); c.fill(); c.fillStyle = '#fbfaf6'; c.beginPath(); c.arc(cx, cy, r, 0, 7); c.fill();
-  c.fillStyle = '#7a8394'; for (let k = 0; k < 12; k++) { const a = k / 12 * 2 * Math.PI; c.fillRect(cx + Math.sin(a) * r * .8 - 1, cy - Math.cos(a) * r * .8 - 1, 2, 2); }
-  c.strokeStyle = '#1b1f27'; c.lineCap = 'round';
-  for (const [f, len, w] of [[(now.getHours() % 12 + now.getMinutes() / 60) / 12, .5, 3], [now.getMinutes() / 60, .78, 2]]) { const a = f * 2 * Math.PI; c.lineWidth = w; c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx + Math.sin(a) * r * len, cy - Math.cos(a) * r * len); c.stroke(); }
-  c.fillStyle = colOf(T.alert); c.beginPath(); c.arc(cx, cy, 2, 0, 7); c.fill();
-  // the whiteboard, filling while a bee draws / 화이트보드. 벌이 그리는 동안 찬다
-  wallRect(c, 16.9, 15, 3.2, 55, tok('m-wall')); wallRect(c, 17, 16, 3, 54, tok('m-board'));
-  const drawer = [...bees.values()].find(b => b.atBoard && b.key2 === 'meet' && b.arrived);
-  if (drawer) {
+    fit.lines.forEach((l, i) => wallWord(S, u + w / 2, top - i * lh, l, fit.size, 600, '#3a2612'));
+    wallWord(S, u + w / 2, top - (fit.lines.length - 1) * lh - 9.5, tr(`꿀 ${best.honey}칸`, `${best.honey} honey`), 4.6, 600, colOf(T.wait));
+  }]);
+  const R = 11;   // the clock, px / 벽시계, px
+  out.push(['back', 3.6 - (R + 2) / HPX, 3.6 + (R + 2) / HPX, 47 - R - 2, 47 + R + 2, S => {
+    const c = S.c, now = new Date(), cx = sx(S, 3.6), cy = sy(S, 47), r = R * S.k / HPX, e = r / 11;
+    c.fillStyle = '#3a404c'; c.beginPath(); c.arc(cx, cy, r + 2 * e, 0, 7); c.fill(); c.fillStyle = '#fbfaf6'; c.beginPath(); c.arc(cx, cy, r, 0, 7); c.fill();
+    c.fillStyle = '#7a8394'; for (let k = 0; k < 12; k++) { const a = k / 12 * 2 * Math.PI; c.beginPath(); c.arc(cx + Math.sin(a) * r * .8, cy - Math.cos(a) * r * .8, (k % 3 ? .7 : 1.1) * e, 0, 7); c.fill(); }
+    c.strokeStyle = '#1b1f27'; c.lineCap = 'round';
+    for (const [f, len, w] of [[(now.getHours() % 12 + now.getMinutes() / 60) / 12, .5, 2.2], [now.getMinutes() / 60, .78, 1.4]]) { const a = f * 2 * Math.PI; c.lineWidth = w * e; c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx + Math.sin(a) * r * len, cy - Math.cos(a) * r * len); c.stroke(); }
+    c.fillStyle = colOf(T.alert); c.beginPath(); c.arc(cx, cy, 1.2 * e, 0, 7); c.fill();
+  }]);
+  out.push(['back', 16.9, 20.1, 15, 55, (S, t) => {   // the whiteboard, filling while a bee draws / 화이트보드. 벌이 그리는 동안 찬다
+    wallRect(S, 16.9, 15, 3.2, 55, tok('m-wall')); wallRect(S, 17, 16, 3, 54, tok('m-board'));
+    const drawer = [...bees.values()].find(b => b.atBoard && b.key2 === 'meet' && b.arrived);
+    if (!drawer) return;
     const n = reduced ? 6 : Math.floor((t * .6 + drawer.phase) % 7);
-    for (let i = 0; i < n; i++) wallRect(c, 17.25 + (i % 2) * 1.4, 48 - Math.floor(i / 2) * 9, [1, .7, 1.2, .9, .5, 1.1][i], 49.6 - Math.floor(i / 2) * 9, colOf(T.run));
+    for (let i = 0; i < n; i++) wallRect(S, 17.25 + (i % 2) * 1.4, 48 - Math.floor(i / 2) * 9, [1, .7, 1.2, .9, .5, 1.1][i], 49.6 - Math.floor(i / 2) * 9, colOf(T.run));
     const notes = crew.get('crew|notes');
-    if (notes && notes.key2 === 'meet' && notes.arrived) [[19.4, 46, T.wait], [19.6, 34, T.done], [18.9, 24, T.alert]].forEach(([u, v, col]) => wallRect(c, u, v, .3, v + 6, colOf(col)));
-  }
-  // the honeycomb: today's finished tasks; a full comb goes into a jar on the shelf / 벌집: 오늘 끝난 작업. 다 차면 선반의 단지로
-  const honey = honeyShown(), cap = COMB.cols * COMB.rows, filled = honey - jarsOf(honey) * cap;
-  for (let i = 0; i < cap; i++) {
-    const { u, v } = cellAt(i); c.beginPath();
-    for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + k * Math.PI / 3; c.lineTo(u * PT + Math.cos(a) * COMB.R * PT / COMB.TILE * 1.02, (WALL - v) * PV - Math.sin(a) * COMB.R * PV); }
-    c.closePath(); c.fillStyle = colOf(i < filled ? T.honey : T['m-wax']); c.fill(); c.strokeStyle = tok('m-wax-edge'); c.lineWidth = 1; c.stroke();
-  }
-  tex.needsUpdate = true;
-}
-function paintLeft(tex) {
-  const c = tex.image.getContext('2d'), LOFF = LAY.LOFF, pl = plaques();
-  c.fillStyle = tok('m-wallface'); c.fillRect(0, 0, tex.image.width, tex.image.height);
-  for (let y = 1.2; y < 7.5 + LOFF; y += 3) if (!pl.some(q => Math.abs(y + .9 - q.y) < q.W / 2 + 1.1)) wallRect(c, y, 24, 1.8, 60, colOf(T.win));
-  // seen from inside, this wall runs right to left: its words are mirrored to read / 안에서 보면 이 벽은 오른쪽에서 왼쪽: 글자를 뒤집어야 읽힌다
-  for (const q of pl) {
+    if (notes && notes.key2 === 'meet' && notes.arrived) [[19.4, 46, T.wait], [19.6, 34, T.done], [18.9, 24, T.alert]].forEach(([u, v, col]) => wallRect(S, u, v, .3, v + 6, colOf(col)));
+  }]);
+  const c0 = cellAt(0), cN = cellAt(COMB.cols * COMB.rows - 1), cr = COMB.R / COMB.TILE * 1.1;
+  out.push(['back', c0.u - cr, cN.u + COMB.du / 2 + cr, c0.v - COMB.R - 1, cN.v + COMB.R + 1, S => {   // the honeycomb: today's tasks; full, it goes into a jar / 벌집: 오늘의 작업. 다 차면 단지로
+    const c = S.c, honey = honeyShown(), cap = COMB.cols * COMB.rows, filled = honey - jarsOf(honey) * cap;
+    for (let i = 0; i < cap; i++) {
+      const { u, v } = cellAt(i); c.beginPath();
+      for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + k * Math.PI / 3; c.lineTo(sx(S, u + Math.cos(a) * COMB.R / COMB.TILE * 1.02), sy(S, v + Math.sin(a) * COMB.R)); }
+      c.closePath(); c.fillStyle = colOf(i < filled ? T.honey : T['m-wax']); c.fill(); c.strokeStyle = tok('m-wax-edge'); c.lineWidth = S.k / 120; c.stroke();
+    }
+  }]);
+  // the name plaques; seen from inside this wall runs right to left, so its words are mirrored to read
+  // 명패. 안에서 보면 이 벽은 오른쪽에서 왼쪽이라 글자를 뒤집어야 읽힌다
+  for (const q of plaques()) out.push(['left', q.y - q.W / 2, q.y + q.W / 2, 26, 56, S => {
     const y0 = q.y - q.W / 2;
-    wallRect(c, y0, 26, q.W, 56, tok('m-desk-edge')); wallRect(c, y0 + .06, 27.2, q.W - .12, 54.8, liteC(T['m-desk'], .22));
-    wallRect(c, y0 + .06, 27.2, q.W - .12, 36.2, q.oi === 0 ? colOf(T.honey) : '#a78bfa');
-    wallWord(c, q.y, 45.5, q.name, q.size * .9, 700, '#3a2612', T['f-body'], true);
-    wallWord(c, q.y, 31.8, q.sub, 8.5, 600, q.oi === 0 ? '#3a2612' : '#ffffff', T['f-body'], true);
-  }
-  const e = 8.5 + LOFF;   // the elevator / 엘리베이터
-  wallRect(c, e - .1, 0, 1.4, 52, tok('m-wall')); wallRect(c, e, 0, .58, 48, tok('m-board')); wallRect(c, e + .62, 0, .58, 48, tok('m-board'));
-  wallRect(c, 10.4 + LOFF, 34, 2.6, 56, tok('m-mon'));   // the cafe menu / 카페 메뉴판
-  for (let i = 0; i < 3; i++) wallRect(c, 10.7 + LOFF, 50 - i * 6, 1.2 + (i % 2) * .6, 52 - i * 6, colOf(T.honey));
-  tex.needsUpdate = true;
-}
-function paintPlain(tex, len) {
-  const c = tex.image.getContext('2d');
-  c.fillStyle = tok('m-wallface'); c.fillRect(0, 0, tex.image.width, tex.image.height);
-  for (let u = 1.2; u < len - 2; u += 3) wallRect(c, u, 24, 1.8, 60, colOf(T.win));
-  tex.needsUpdate = true;
+    wallRect(S, y0, 26, q.W, 56, tok('m-desk-edge')); wallRect(S, y0 + .06, 27.2, q.W - .12, 54.8, liteC(T['m-desk'], .22));
+    wallRect(S, y0 + .06, 27.2, q.W - .12, 36.2, q.oi === 0 ? colOf(T.honey) : '#a78bfa');
+    wallWord(S, q.y, 45.5, q.name, q.size * .9, 700, '#3a2612', T['f-body'], true);
+    wallWord(S, q.y, 31.8, q.sub, 8.5, 600, q.oi === 0 ? '#3a2612' : '#ffffff', T['f-body'], true);
+  }]);
+  const L = LAY.LOFF;
+  out.push(['left', 10.4 + L, 13 + L, 34, 56, S => {   // the cafe menu / 카페 메뉴판
+    wallRect(S, 10.4 + L, 34, 2.6, 56, tok('m-mon'));
+    for (let i = 0; i < 3; i++) wallRect(S, 10.7 + L, 50 - i * 6, 1.2 + (i % 2) * .6, 52 - i * 6, colOf(T.honey));
+  }]);
+  return out;
 }
 
 // ── the office, rebuilt when the layout changes / 사무실. 배치가 바뀌면 다시 짓는다 ─────────────────
@@ -287,14 +288,28 @@ function buildOfficeIn() {
   disc(stat, MEET_C.x, MEET_C.y, 2.24, tok('m-rug', T['m-meet']), .006); disc(stat, 10.2, 13.2 + LOFF, 1.93, tok('m-rug', T['m-lounge']), .006); disc(stat, 24.8, 4.4, 1.22, tok('m-rug', T['m-mine']), .006);
   // walls (drawBackWalls): which ones stand is decided each frame / 벽: 어느 벽이 설지는 매 프레임
   dyn.walls = []; dyn.paintAt = {};
-  const wall = (a, b, n, paint) => {
-    const len = Math.hypot(b[0] - a[0], b[1] - a[1]), tex = canvasTex(Math.round(len * PT), Math.round(WALL * PV)), g = new THREE.Group(); office.add(g);
-    wallPlane(g, a, b, len, tex); dyn.walls.push({ g, n, paint: t => paint(tex, t, len) });
+  const walls = {}, pl = plaques();
+  const wall = (name, a, b, n, windows) => {
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]), d = [(b[0] - a[0]) / len, (b[1] - a[1]) / len], g = new THREE.Group(); office.add(g);
+    const tex = canvasTex(Math.round(len * PT), Math.round(WALL * PT / HPX));
+    quad(g, a, d, n, 0, len, 0, WALL, tex);
+    const top = rbox(g, len, .05, .1, (a[0] + b[0]) / 2, H(WALL), (a[1] + b[1]) / 2, tok('m-wall'), { r: .01, shadow: false }); top.rotation.y = -Math.atan2(d[1], d[0]);
+    const w = { g, n, a, d, parts: [{ S: surface(tex, PT, 0, WALL), tex, paint: S => paintWall(S, len, windows) }] };
+    walls[name] = w; dyn.walls.push(w);
   };
-  wall([0, 0], [GX, 0], [0, 1], paintBack);
-  wall([0, 0], [0, GY], [1, 0], paintLeft);
-  wall([GX, 0], [GX, GY], [-1, 0], (tex, t, len) => paintPlain(tex, len));
-  wall([0, GY], [GX, GY], [0, -1], (tex, t, len) => paintPlain(tex, len));
+  const run = (from, to) => { const u = []; for (let x = from; x < to; x += 3) u.push(x); return u; };
+  wall('back', [0, 0], [GX, 0], [0, 1], run(1.2, RANKS && RANKS.month && RANKS.month[0] ? 12 : 14));
+  wall('left', [0, 0], [0, GY], [1, 0], run(1.2, 7.5 + LOFF).filter(y => !pl.some(q => Math.abs(y + .9 - q.y) < q.W / 2 + 1.1)));
+  wall('right', [GX, 0], [GX, GY], [-1, 0], run(1.2, GY - 2));
+  wall('front', [0, GY], [GX, GY], [0, -1], run(1.2, GX - 2));
+  // the elevator, plain enough for the wall's own paint / 엘리베이터는 벽 바탕에 칠해도 충분하다
+  const lw = walls.left.parts[0], e = 8.5 + LOFF, plain = lw.paint;
+  lw.paint = S => { plain(S); wallRect(S, e - .1, 0, 1.4, 52, tok('m-wall')); wallRect(S, e, 0, .58, 48, tok('m-board')); wallRect(S, e + .62, 0, .58, 48, tok('m-board')); };
+  for (const [name, u0, u1, v0, v1, paint] of hangings()) {
+    const w = walls[name], tex = canvasTex(Math.max(8, Math.round((u1 - u0) * DK)), Math.max(8, Math.round(H(v1 - v0) * DK)));
+    quad(w.g, w.a, w.d, w.n, u0, u1, v0, v1, tex, .006);
+    w.parts.push({ S: surface(tex, DK, u0, v1), tex, paint });
+  }
   // glass rooms (buildScene) / 유리 방
   const glassM = mat(tok('m-window'), { op: .22, rough: .05, side: 1 }), frame = tok('m-wall');
   const pane = (x0, y0, x1, y1) => { const w = Math.hypot(x1 - x0, y1 - y0); const m = mesh(office, geo(`gp${f3(w)}`, () => new THREE.BoxGeometry(w, H(44), .02)), null, (x0 + x1) / 2, H(22), (y0 + y1) / 2, { material: glassM, shadow: false }); m.rotation.y = -Math.atan2(y1 - y0, x1 - x0); };
@@ -665,7 +680,7 @@ function updateLive(t) {
   // walls: the far ones stand, repainted when what hangs on them changes / 벽: 먼 쪽만 서고, 걸린 것이 바뀌면 다시 칠한다
   const drawer = [...bees.values()].find(b => b.atBoard && b.key2 === 'meet' && b.arrived), best = RANKS && RANKS.month && RANKS.month[0];
   const key = [new Date().getMinutes(), T.win, honeyShown(), drawer ? Math.floor((t * .6 + drawer.phase) % 7) : -1, best ? best.id + best.honey : '', lang, offices.map(o => o.host + (o.missing ? '!' : '')).join()].join('|');
-  dyn.walls.forEach((w, i) => { w.g.visible = toward(...w.n); if (w.g.visible && dyn.paintAt[i] !== key) { dyn.paintAt[i] = key; w.paint(t); } });
+  dyn.walls.forEach((w, i) => { w.g.visible = toward(...w.n); if (w.g.visible && dyn.paintAt[i] !== key) { dyn.paintAt[i] = key; for (const p of w.parts) { p.S.c.clearRect(0, 0, p.tex.image.width, p.tex.image.height); p.paint(p.S, t); p.tex.needsUpdate = true; } } });
   // desks: chairs, laptops and their screens / 책상: 의자, 노트북과 화면
   const owners = new Map([...bees.values()].filter(b => b.desk).map(b => [b.desk.id, b]));
   screens(t);
