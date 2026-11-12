@@ -492,10 +492,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self.send(200, json.dumps({"ok": ok, "text": text if ok else ""}, ensure_ascii=False))
         # one page: the office at an angle, or seen from above (/2d opens it that way; the page switches)
         # 한 페이지: 비스듬히 본 사무실, 또는 위에서 본 모습 (/2d 는 그렇게 연다. 페이지에서 서로 바꾼다)
-        page = {"/": "index.html", "/index.html": "index.html", "/2d": "index.html", "/team": "team.html", "/report": "report.html"}.get(path)
+        page = {"/": "index.html", "/index.html": "index.html", "/2d": "index.html", "/team": "team.html", "/report": "report.html",
+                "/office3d": "office3d.html"}.get(path)
         if page:
             with open(os.path.join(SHARE, page), "rb") as f:
                 return self.send(200, f.read(), "text/html; charset=utf-8")
+        if path.startswith("/vendor/"):    # three.js for the 3D office, served from share/office/vendor / 3D 사무실용 three.js
+            rel = os.path.normpath(path[len("/vendor/"):])
+            full = os.path.join(SHARE, "vendor", rel)
+            if rel.startswith("..") or not rel.endswith(".js") or not os.path.isfile(full):
+                return self.send(404, "{}")
+            with open(full, "rb") as f:
+                return self.send(200, f.read(), "text/javascript; charset=utf-8")
         if path == "/logo.svg":
             with open(os.path.join(os.path.dirname(LOGO), "hivemux-logo.svg"), "rb") as f:
                 return self.send(200, f.read(), "image/svg+xml")
