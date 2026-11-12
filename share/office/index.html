@@ -822,6 +822,19 @@ function plan() {
   const planners = all.filter(b => b.state === 'run' && b.plan);
   for (const b of all) b.atBoard = false;
   planners.forEach((b, i) => { b.atBoard = i === 0; b.meetSeat = i === 0 ? BOARD_SPOT : seats[Math.min(seat++, seats.length - 1)]; });
+  // a team that just got its goal meets for 40 s: the lead at the whiteboard, the rest at the table
+  // 방금 목표를 받은 팀은 40초 동안 모인다: 리드는 화이트보드, 나머지는 탁자
+  const nowS = Date.now() / 1000;
+  const meet = planners.length ? [] : all.filter(b => b.team && b.kickoff && nowS - b.kickoff < 40 && b.state !== 'wait')
+    .sort((a, c) => (c.lead ? 1 : 0) - (a.lead ? 1 : 0) || (a.order ?? 99) - (c.order ?? 99));
+  meet.forEach((b, i) => {
+    b.atBoard = i === 0 && b.lead; b.meetSeat = b.atBoard ? BOARD_SPOT : seats[Math.min(seat++, seats.length - 1)];
+    if (b.metAt !== b.kickoff) {       // once per goal / 목표마다 한 번
+      b.metAt = b.kickoff;
+      say(b, b.lead ? tr(`오늘 목표: ${b.goal.length > 26 ? b.goal.slice(0, 25) + '…' : b.goal}`, `Today: ${b.goal.length > 26 ? b.goal.slice(0, 25) + '…' : b.goal}`) : tr(...[['좋아요!', 'Got it!'], ['제가 맡을게요', 'I will take it'], ['바로 시작할게요', 'On it']][i % 3]), 6000);
+      setTimeout(plan, Math.max(1000, (b.kickoff + 41 - Date.now() / 1000) * 1000));   // then back to work / 그다음 일하러
+    }
+  });
   // subagents: small helper bees by the desk, or at the table with a planning bee
   // 서브에이전트: 책상 옆의 작은 부사수 벌. 계획 중인 벌이면 회의 탁자에 같이 앉는다
   const alive = new Set();
@@ -846,7 +859,8 @@ function plan() {
     } else if (n) setTarget(n, 'out', ENTRY());
   });
   for (const b of all) {
-    if (b.state === 'run') b.plan || !b.desk ? setTarget(b, 'meet', b.plan ? b.meetSeat : MEET_STAND[0]) : setTarget(b, 'desk', b.desk.seat);
+    if (meet.includes(b)) setTarget(b, 'meet', b.meetSeat);
+    else if (b.state === 'run') b.plan || !b.desk ? setTarget(b, 'meet', b.plan ? b.meetSeat : MEET_STAND[0]) : setTarget(b, 'desk', b.desk.seat);
     else if (b.state === 'wait') setTarget(b, 'q', qSpot(waits.indexOf(b)), true);
     else if (b.state === 'done') setTarget(b, 'brag', b.desk ? { x: b.desk.seat.x + .6, y: b.desk.seat.y + (b.desk.far ? -.1 : .1) } : COMB_SPOT);
     else if (b.deliver) setTarget(b, 'comb', COMB_SPOT);
@@ -2058,6 +2072,31 @@ function laptop(d, owner, t) {
     else c.fillRect(.2, 24, .44, 3);
   });
 }
+// a team's board on an easel by its pod: each role, its state, its context against the diet line
+// 팀 섬 옆 이젤의 팀 보드: 역할마다 상태와, 다이어트 기준에 대한 컨텍스트
+const BOARD_STATE = { run: ['일함', 'working'], wait: ['기다림', 'needs you'], done: ['끝남', 'done'], idle: ['쉼', 'resting'] };
+function teamBoard(p, tm) {
+  const members = [...bees.values()].filter(b => b.team === tm && b.project && b.state !== 'bye')
+    .sort((a, c) => (c.lead ? 1 : 0) - (a.lead ? 1 : 0) || (a.order ?? 99) - (c.order ?? 99)).slice(0, 7);
+  if (!members.length) return;
+  const z = textZoom(), foot = P(p.x - .35, p.y + 1.6), row = 13 * z, w = 132 * z, h = 22 * z + members.length * row, x = foot.x - w / 2, y = foot.y - h - 34 * z;
+  c.strokeStyle = T['m-desk-edge']; c.lineWidth = 2;
+  for (const dx of [-w * .3, w * .3]) { c.beginPath(); c.moveTo(foot.x + dx * .6, y + h); c.lineTo(foot.x + dx, foot.y); c.stroke(); }
+  fillRR(x - 3, y - 3, w + 6, h + 6, 4, T['m-desk-edge']); fillRR(x, y, w, h, 3, T['m-board']);
+  c.textBaseline = 'middle'; font(9.5 * z, 700); c.fillStyle = T['m-team-fg']; c.fillText(tm, x + 7 * z, y + 10 * z);
+  members.forEach((b, i) => {
+    const ry = y + 22 * z + i * row + row / 2, st = b.dieting && b.dieting !== 'after' ? 'diet' : b.state;
+    circle(x + 10 * z, ry, 3.2 * z, T[b.state] || T.sleep);
+    font(9 * z, 600); c.fillStyle = '#1b1f27'; c.fillText(String(b.label || '').replace(' ★', ''), x + 17 * z, ry);
+    font(8.5 * z, 400); c.fillStyle = '#4a5263';
+    c.fillText(st === 'diet' ? tr('다이어트', 'diet') : tr(...(BOARD_STATE[b.state] || BOARD_STATE.idle)), x + 62 * z, ry);
+    if (b.line) {     // context against the line / 기준 대비 컨텍스트
+      const bw = 30 * z, f = Math.min(1, b.ctx / b.line);
+      fillRR(x + w - bw - 7 * z, ry - 2 * z, bw, 4 * z, 2, '#e3e7ee'); fillRR(x + w - bw - 7 * z, ry - 2 * z, Math.max(2, bw * f), 4 * z, 2, f > .9 ? '#e8a13a' : '#4caf7d');
+    }
+  });
+  c.textBaseline = 'alphabetic';
+}
 // the team most of a pod's bees belong to / 섬의 벌 대부분이 속한 팀
 function podTeam(p) {
   const n = {};
@@ -2069,7 +2108,7 @@ function labels() {
   const { LOFF } = LAY;
   // a team's name on its pod's floor / 팀 섬의 바닥에 팀 이름
   font(11 * textZoom(), 700); c.fillStyle = T['m-team-fg']; c.textBaseline = 'alphabetic';
-  for (const p of LAY.pods) { const tm = podTeam(p); if (tm) { const q = P(p.x + .15, p.y + 3.25); c.fillText(tm, q.x + 4, q.y); } }
+  for (const p of LAY.pods) { const tm = podTeam(p); if (tm) { const q = P(p.x + .15, p.y + 3.25); c.fillText(tm, q.x + 4, q.y); teamBoard(p, tm); } }
   font(10.5 * textZoom(), 600); c.fillStyle = T['m-label']; c.textBaseline = 'alphabetic';
   const m = P(16.3, 5.7); c.fillText(tr(...ROOMS.meet.name), m.x + 6, m.y + 2);
   const bo = P(22.3, 5.7); c.fillText(tr(...ROOMS.boss.name), bo.x + 6, bo.y + 2);

@@ -1088,6 +1088,8 @@ def kickoff(session, goal):
         die(tr("리드가 폴더 신뢰 확인을 기다립니다. 먼저 폴더를 확인하세요", "The lead waits on the folder trust question. Answer it first"))
     if not prompt_free(p["pane"]):
         die(tr(f"{label(lead)} 의 입력창에 쓰던 글이 있습니다. 비운 뒤 다시 보내세요", f"{label(lead)} has text in its prompt. Clear it, then send again"))
+    # the bee office gathers the team in the meeting room for a while / 벌 사무실이 팀을 잠시 회의실에 모은다
+    tmux("set", "-t", f"={session}:", "@hivemux-kickoff", f"{int(time.time())}\t{goal[:80]}")
     type_in(p["pane"], tr(f"팀 목표: {goal} — 너는 리드다. 이 목표로 계획을 세우고, 일을 작게 나눠 팀원에게 메시지로 맡겨라. "
                           "시작 전에 내가 정해야 할 것이 있으면 한 번에 모아 먼저 물어라.",
                           f"Team goal: {goal} — You are the lead. Plan for this goal, split the work into small pieces and hand them "

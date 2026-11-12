@@ -60,6 +60,10 @@
   its tool (magnifier, clipboard, brush, headset, flag, megaphone, pen) and
   its name tag shows the role (★ for the lead); a role grows round as its
   context nears its diet line and says so when it diets
+- Bee office, teams: an easel by the team's pod is its board (each role,
+  its state, its context against the diet line); when you send the team a
+  goal, the team meets in the meeting room for a moment, the lead at the
+  whiteboard saying the goal, then goes back to work
 - Hand-offs sent as a reply (to the sender's address, not its name) are
   put down under the right role
 

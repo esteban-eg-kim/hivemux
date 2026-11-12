@@ -55,7 +55,7 @@ IDLE_EXIT = 90               # seconds without a page asking before the server q
 US = "\x1f"
 FIELDS = ["pane_id", "session_name", "window_index", "window_name", "pane_title", "@claude_state", "@claude_state_at",
           "@claude_session", "@claude_title", "@claude_name", "@claude_agents", "@claude_plan", "pane_current_command",
-          "pane_index", "@claude_wait", "@claude_touched", "@hivemux-role", "@claude_ctx", "@hivemux-diet"]
+          "pane_index", "@claude_wait", "@claude_touched", "@hivemux-role", "@claude_ctx", "@hivemux-diet", "@hivemux-kickoff"]
 SHELLS = {"zsh", "bash", "fish", "sh", "dash", "tcsh", "ksh", "login"}
 SSH = shlex.split(os.environ.get("HIVEMUX_SSH") or "ssh")
 PATH = "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH"
@@ -606,10 +606,12 @@ def team_of(p):
     if not t or rid not in t["roles"]:
         return {}
     name, lead, line, how = t["roles"][rid]
+    ko = (p.get("@hivemux-kickoff") or "").split("\t", 1)
     return {"role": rid, "label": name + (" ★" if lead else ""), "team": t["name"], "lead": lead,
             "order": t["flow"].index(rid) if rid in t["flow"] else 99,
             "ctx": int(p["@claude_ctx"]) if p["@claude_ctx"].isdigit() else 0, "line": line if how != "off" else 0,
-            "dieting": p.get("@hivemux-diet", "")}
+            "dieting": p.get("@hivemux-diet", ""),
+            "kickoff": int(ko[0]) if ko[0].isdigit() else 0, "goal": ko[1] if len(ko) > 1 else ""}
 
 
 def letters():
