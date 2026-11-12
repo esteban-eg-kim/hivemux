@@ -1879,8 +1879,10 @@ function yardItems() {
   hive(GX + 2.6, 12.6); hive(GX + 2.6, 14.2);
   for (const [x, y] of [[-3, 2], [GX + 3, 5.5], [9, -2.6], [3, GY + 3], [GX + 4.5, GY + 1.5]]) bed(x, y);
   items.push([-3.6, pathY() + 3.4, () => { box(-4.4, pathY() + 3.2, 1.6, .45, 8, night(T['m-desk'])); }]);
-  for (const e of houses()) items.push([e.h.x + e.h.w / 2, e.h.y + e.h.d / 2, () => house(e)]);
-  if (houses().length) {
+  // the village only on the ground: once the planet comes in it would float in space / 마을은 땅에서만: 행성이 나타나면 우주에 뜬다
+  const town = globeFor(cam.zoom) === 0 ? houses() : [];
+  for (const e of town) items.push([e.h.x + e.h.w / 2, e.h.y + e.h.d / 2, () => house(e)]);
+  if (town.length) {
     const pb = PUB(); items.push([pb.x + pb.w / 2, pb.y + pb.d / 2, () => pub(pb)]);
     const pk = PARK();
     for (const [bx, by] of [[-14.65, pathY() + 1.45]]) items.push([bx + .7, by + .2, () => box(bx, by, 1.4, .4, 7, night(T['m-desk']))]);
@@ -1889,7 +1891,7 @@ function yardItems() {
     items.push([-11.5, pathY() + 3.6, () => ball()]);
     lamp(-7.6, pathY() - 1); lamp(-15.4, pathY() + 1);
   }
-  for (let k = 0; k < VILL.blocks; k++) {   // trees between the houses / 집들 사이 나무
+  for (let k = 0; k < (town.length ? VILL.blocks : 0); k++) {   // trees between the houses / 집들 사이 나무
     const L = LANE(k), py = pathY();
     for (const [dx, dy, sz] of [[-4.5, -4.6, 1], [-4.5, 4.4, .9], [4, -9.4, 1.1], [-6.6, -8.8, .8], [-2.2, 9.6, 1], [-7.4, 9.2, 1.1]]) tree(L + dx + (hash(k, dy, 3) - .5) * .8, py + dy, sz);
   }
@@ -2220,7 +2222,7 @@ function drawYard(t) {
     const C = PARK_C, r = PARK_R + 1.4; poly(Array.from({ length: 72 }, (_, i) => P(C.x + Math.cos(i / 72 * Math.PI * 2) * r, C.y + Math.sin(i / 72 * Math.PI * 2) * r)), night(T['o-path']));
   } else floorRect(-1, -1, GX + 2, GY + 2, night(T['o-path']));
   floorRect(-E, pathY() - .6, E, 1.2, night(T['o-path']));
-  if (houses().length) {   // the village path and its lanes / 마을 큰길과 골목
+  if (houses().length && globeFor(cam.zoom) === 0) {   // the village path and its lanes / 마을 큰길과 골목
     const vx = villageEnd(), py = pathY(); floorRect(vx, py - .6, -E - vx, 1.2, night(T['o-path']));
     for (let k = 0; k < VILL.blocks; k++) floorRect(LANE(k) - .45, py - 8.8, .9, 17.6, night(T['o-path']));
     const pk = PARK(); floorOval(pk.x + pk.w / 2, pk.y + pk.d / 2, 3.3, 1.9, night(mixc(T['o-grass'], '#ffffff', .18)));   // the park / 공원
@@ -2717,7 +2719,7 @@ function drawFrame(now) {
     drawSky(t);
     c.textBaseline = 'top';
     if (globe < 1) {
-      faded(clamp01(1 - globe * 2.2), () => drawYard(t));
+      faded(clamp01(1 - globe * 4), () => drawYard(t));
       if (roof < 1) {   // the office inside / 사무실 안
         drawFloor(); drawBackWalls(t);
         buildScene(t);
@@ -2733,7 +2735,7 @@ function drawFrame(now) {
         }
       }
       if (roof > 0) { c.globalAlpha = roof; drawRoof(t); c.globalAlpha = 1; }
-      faded(clamp01(1 - globe * 2.2), () => yardFront.sort((a, b) => D(a[0], a[1]) - D(b[0], b[1])).forEach(i => i[2]()));
+      faded(clamp01(1 - globe * 4), () => yardFront.sort((a, b) => D(a[0], a[1]) - D(b[0], b[1])).forEach(i => i[2]()));
     }
     if (globe > 0) {   // the tiny planet fades in over the roof / 작은 행성이 지붕 위로 서서히
       c.globalAlpha = globe;
