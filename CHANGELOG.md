@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Bee office in 3D: the floor, walls, furniture, bees, yard, village and roof
+  are now solid (three.js, bundled), with light and shadows that follow the
+  time of day; names, tags, bubbles and team boards stay on top as before.
+  Settings → Drawing switches back to the lighter drawing, which the plan,
+  the planet and a browser without WebGL keep using
+- Office lights: a bulb button (and Settings → Office lights) turns them on
+  or off. On, the office stays bright after dark; off, it goes dim
 - Teams (first step): `hivemux team use web-app` puts a team in the project's
   `.hivemux/` (team.toml + a prompt per role), and `hivemux team up` opens
   each role in its own window: `claude -n <project>-<role>` with the role's

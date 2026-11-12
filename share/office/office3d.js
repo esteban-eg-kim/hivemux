@@ -60,11 +60,28 @@ function colOf(c, base = '#ffffff') {
   const rgb = '#' + [m[1], m[2], m[3]].map(v => (+v).toString(16).padStart(2, '0')).join('');
   return mixc(colOf(base), rgb, m[4] === undefined ? 1 : +m[4]);
 }
+// what the office lights reach: the office and the bees, built while INSIDE is on; they glow a little in the dark
+// 사무실 조명이 닿는 것: INSIDE 가 켜진 동안 지은 사무실과 벌. 어두울 때 조금 빛난다
+const LIT = new Set();
+let INSIDE = false;
+const lit = m => { if (m.map) { m.emissiveMap = m.map; m.needsUpdate = true; } LIT.add(m); return m; };
 function mat(color, o = {}) {
-  const op = o.op ?? 1, k = `${color}|${op}|${o.em || ''}|${o.rough ?? .78}|${o.side ? 1 : 0}|${o.flat ? 1 : 0}`;
-  if (!mats.has(k)) mats.set(k, new THREE.MeshStandardMaterial({ color: colOf(color), roughness: o.rough ?? .78, metalness: 0, transparent: op < 1, opacity: op,
-    emissive: o.em ? colOf(o.em) : 0x000000, depthWrite: op >= 1, side: o.side ? THREE.DoubleSide : THREE.FrontSide, flatShading: !!o.flat }));
+  const op = o.op ?? 1, k = `${color}|${op}|${o.em || ''}|${o.rough ?? .78}|${o.side ? 1 : 0}|${o.flat ? 1 : 0}|${INSIDE && !o.em ? 1 : 0}`;
+  if (!mats.has(k)) {
+    const m = new THREE.MeshStandardMaterial({ color: colOf(color), roughness: o.rough ?? .78, metalness: 0, transparent: op < 1, opacity: op,
+      emissive: o.em ? colOf(o.em) : 0x000000, depthWrite: op >= 1, side: o.side ? THREE.DoubleSide : THREE.FrontSide, flatShading: !!o.flat });
+    mats.set(k, INSIDE && !o.em ? lit(m) : m);
+  }
   return mats.get(k);
+}
+// the office lights (Settings or the bulb button): on, the office stays bright after dark / 사무실 조명 (설정이나 전구 버튼): 켜면 어두워져도 사무실은 밝다
+let litK = -1;
+const WARM = new THREE.Color(0xfff1d6);
+function officeLights() {
+  const k = settings.lights === 'off' ? 0 : clamp01((.95 - LIGHT) / .6);
+  if (Math.abs(k - litK) < .01) return;
+  litK = k;
+  for (const m of LIT) m.emissive.copy(m.map ? WARM : m.color).multiplyScalar(k * (m.map ? .55 : .6));
 }
 const geo = (k, make) => { if (!geos.has(k)) geos.set(k, make()); return geos.get(k); };
 function mesh(g, gm, color, x, y, z, o = {}) {
@@ -158,7 +175,7 @@ function bookshelf(g, x, y, w, d, h, seed) {
     for (let u = 6; u < W - 8;) { const bw = 6 + hash(row, k) * 7, bh = Hh / 3 - 8 - hash(k, row) * 6; if (hash(k, row, 2) > .12) { c.fillStyle = cols[k % cols.length]; c.fillRect(u, y0 + Hh / 3 - 3 - bh, bw, bh); } u += bw + 1.5; k++; }
   }
   for (const fy of [y + d + .003, y - .003]) {   // both long faces show books / 긴 면 둘 다 책
-    const m = new THREE.Mesh(geo(`bs${f3(w)},${f3(H(h))}`, () => new THREE.PlaneGeometry(w - .04, H(h) - .04)), new THREE.MeshStandardMaterial({ map: t, roughness: .85, side: THREE.DoubleSide }));
+    const m = new THREE.Mesh(geo(`bs${f3(w)},${f3(H(h))}`, () => new THREE.PlaneGeometry(w - .04, H(h) - .04)), lit(new THREE.MeshStandardMaterial({ map: t, roughness: .85, side: THREE.DoubleSide })));
     m.position.set(x + w / 2, H(h) / 2, fy); m.userData.keep = true; m.userData.tex = t; m.receiveShadow = true; g.add(m);
   }
 }
@@ -172,7 +189,7 @@ function wallPlane(g, a, b, len, tex) {
   gm.setAttribute('position', new THREE.Float32BufferAttribute([a[0], 0, a[1], b[0], 0, b[1], b[0], h, b[1], a[0], h, a[1]], 3));
   gm.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1], 2));
   gm.setIndex([0, 1, 2, 0, 2, 3]); gm.computeVertexNormals();
-  const m = new THREE.Mesh(gm, new THREE.MeshStandardMaterial({ map: tex, roughness: .9, side: THREE.DoubleSide }));
+  const m = new THREE.Mesh(gm, lit(new THREE.MeshStandardMaterial({ map: tex, roughness: .9, side: THREE.DoubleSide })));
   m.receiveShadow = true; m.userData.tex = tex; g.add(m);
   const top = rbox(g, len, .05, .1, (a[0] + b[0]) / 2, H(WALL), (a[1] + b[1]) / 2, tok('m-wall'), { r: .01, shadow: false });
   top.rotation.y = -Math.atan2(b[1] - a[1], b[0] - a[0]);
@@ -250,6 +267,11 @@ function paintPlain(tex, len) {
 let office = null, sig = '';
 const dyn = { walls: [], desks: [], bulbs: [], homes: [], paintAt: {} };
 function buildOffice() {
+  INSIDE = true;
+  try { buildOfficeIn(); } finally { INSIDE = false; }
+  litK = -1;
+}
+function buildOfficeIn() {
   drop(office);
   office = new THREE.Group(); root.add(office);
   const stat = new THREE.Group(); office.add(stat);
@@ -512,6 +534,10 @@ function buildOutside() {
 // ── bees / 벌 ────────────────────────────────────────────────────────────────────────────────
 const BEE_S = .55;   // about as tall as the page's bee / 페이지의 벌만 한 키
 function makeBee(mini) {
+  INSIDE = true;
+  try { return makeBeeIn(mini); } finally { INSIDE = false; }
+}
+function makeBeeIn(mini) {
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
   const gold = colOf(T.honey), dark = colOf(T['bee-dark']);
   const limb = (x, y, len, r) => { const p = new THREE.Group(); p.position.set(x, y, 0); body.add(p); cyl(p, r, r, len, 0, -len, 0, dark, { seg: 6 }); return p; };
@@ -675,7 +701,7 @@ function render(t, dt, roof = 0) {
   if (s1 !== sig) { sig = s1; buildOffice(); buildRoof(); }
   const s2 = `${s1}|${houses().map(e => e.key + (e.r.left ? 'x' : '') + e.h.x.toFixed(1)).join()}|${VILL.blocks}|${T['o-grass']}`;
   if (s2 !== outSig) { outSig = s2; buildOutside(); }
-  paintSky(); lightUp(); updateLive(t); syncBees(t, dt); roofUp(roof);
+  paintSky(); lightUp(); officeLights(); updateLive(t); syncBees(t, dt); roofUp(roof);
   matchCamera(w, h);
   renderer.render(scene, camera);
   return true;

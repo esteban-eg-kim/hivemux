@@ -130,6 +130,9 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
 .ranks .who span { font-size: 11px; color: var(--muted); }
 .ranks .h { font: 700 12px var(--f-mono); color: var(--wait); white-space: nowrap; }
 .ranks li.gone { opacity: .55; }
+/* the office lights: lit yellow while on / 사무실 조명: 켜져 있으면 노랗게 */
+#v-light[aria-pressed="true"] { background: color-mix(in srgb, var(--honey) 22%, var(--panel)); border-color: color-mix(in srgb, var(--honey) 60%, var(--line)); }
+#v-light[aria-pressed="true"] svg { fill: color-mix(in srgb, var(--honey) 55%, transparent); }
 .shiftbtn { gap: 5px; padding: 0 9px 0 7px !important; font-size: 12px !important; font-weight: 600; }
 .shiftbtn.off { background: #2c3060 !important; color: #fff; border-color: #2c3060 !important; }
 .ask { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 40%, transparent); backdrop-filter: blur(2px); }
@@ -274,6 +277,13 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
       </div>
     </fieldset>
     <fieldset>
+      <legend data-t="사무실 조명|Office lights"></legend>
+      <div class="seg">
+        <label><input type="radio" name="lights" id="lights-on" value="on"><span data-t="켜기 (어두워도 밝게)|On (bright after dark)"></span></label>
+        <label><input type="radio" name="lights" id="lights-off" value="off"><span data-t="끄기|Off"></span></label>
+      </div>
+    </fieldset>
+    <fieldset>
       <legend data-t="그림|Drawing"></legend>
       <div class="seg">
         <label><input type="radio" name="look" id="look-3d" value="3d"><span data-t="입체 (3D)|Solid (3D)"></span></label>
@@ -302,6 +312,7 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
       <span class="vg vg-tilt"><button type="button" id="v-up" data-k="up"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m17 11-5-5-5 5"/><path d="m17 18-5-5-5 5"/></svg></button><button type="button" id="v-down" data-k="down"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 6 5 5 5-5"/><path d="m7 13 5 5 5-5"/></svg></button></span>
       <span class="vg"><button type="button" id="v-out" data-k="out"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M8 11h6"/></svg></button><button type="button" id="v-in" data-k="in"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M8 11h6M11 8v6"/></svg></button></span>
       <button type="button" id="v-home" data-k="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M8 13.5 12 11l4 2.5-4 2.5z"/></svg></button>
+      <button type="button" id="v-light" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg></button>
       <span class="sep"></span>
       <button type="button" class="shiftbtn" id="shiftbtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="shift-ico" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span id="shift-t"></span></button>
       <button type="button" class="listbtn" id="listbtn" aria-expanded="false" aria-controls="drawer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01" stroke-width="3"/></svg><span id="list-n">0</span><i id="list-dot" hidden></i></button>
@@ -366,7 +377,7 @@ function applyLang() {
     'Bee office. One bee per Claude session moves between its desk, the meeting room, the lounge and the question window in the boss room.'));
 }
 
-const settings = { pop: 'front', privacy: 'all', sound: 'off', sky: 'auto', side: 'right', look: '3d' };
+const settings = { pop: 'front', privacy: 'all', sound: 'off', sky: 'auto', side: 'right', look: '3d', lights: 'on' };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('office-settings') || '{}')); } catch (e) {}
 const saveSettings = () => { try { localStorage.setItem('office-settings', JSON.stringify(settings)); } catch (e) {} };
 
@@ -2587,6 +2598,15 @@ function drawFrame(now) {
         drawFloor(); drawBackWalls(t);
         buildScene(t);
         drawScene();
+        // lights off after dark: the room goes dim (in 3D the lights live in office3d.js) / 어두운데 조명을 끄면 방이 어둑해진다 (3D 는 office3d.js 에서)
+        const dim = settings.lights === 'off' ? clamp01((.95 - LIGHT) / .6) * .5 : 0;
+        if (dim > 0) {   // over the floor and the walls: the hull of the room's corners / 바닥과 벽 위로: 방 꼭짓점들의 껍질
+          const pts = [];
+          for (const [x, y] of [[0, 0], [GX, 0], [GX, LAY.GY], [0, LAY.GY]]) pts.push(P(x, y), P(x, y, WALL));
+          pts.sort((a, b) => a.x - b.x || a.y - b.y);
+          const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x), half = list => { const h = []; for (const p of list) { while (h.length > 1 && cross(h[h.length - 2], h[h.length - 1], p) <= 0) h.pop(); h.push(p); } h.pop(); return h; };
+          poly([...half(pts), ...half([...pts].reverse())], `rgba(8, 12, 32, ${dim})`);
+        }
       }
       if (roof > 0) { c.globalAlpha = roof; drawRoof(t); c.globalAlpha = 1; }
       yardFront.sort((a, b) => D(a[0], a[1]) - D(b[0], b[1])).forEach(i => i[2]());
@@ -2908,6 +2928,14 @@ function setPlan(on) {
   saveView();
 }
 $('#v-2d').addEventListener('click', () => setPlan(!PLAN.on));
+// the office lights, here and in Settings / 사무실 조명. 여기와 설정에서
+const lightBtn = () => { const on = settings.lights !== 'off', b = $('#v-light'); b.setAttribute('aria-pressed', String(on));
+  b.title = on ? tr('사무실 조명 끄기', 'Turn the office lights off') : tr('사무실 조명 켜기', 'Turn the office lights on'); b.setAttribute('aria-label', b.title); };
+$('#v-light').addEventListener('click', () => {
+  settings.lights = settings.lights === 'off' ? 'on' : 'off'; saveSettings(); lightBtn();
+  const r = panel.querySelector(`input[name="lights"][value="${settings.lights}"]`); if (r) r.checked = true;
+});
+lightBtn();
 addEventListener('keydown', e => {
   if (e.target.closest && e.target.closest('input, textarea, select') || e.metaKey || e.ctrlKey || e.altKey) return;
   const k = { q: 'rotL', e: 'rotR', w: 'up', s: 'down', '+': 'in', '=': 'in', '-': 'out', '0': 'home' }[e.key.toLowerCase()];
@@ -3043,11 +3071,11 @@ function toast(msg) {
 const panel = $('#settings'), gear = $('#gear');
 gear.addEventListener('click', () => { panel.hidden = !panel.hidden; gear.setAttribute('aria-expanded', String(!panel.hidden)); });
 document.addEventListener('click', e => { if (!panel.hidden && !panel.contains(e.target) && !gear.contains(e.target)) { panel.hidden = true; gear.setAttribute('aria-expanded', 'false'); } });
-for (const k of ['pop', 'privacy', 'sound', 'sky', 'side', 'look']) { const r = panel.querySelector(`input[name="${k}"][value="${settings[k]}"]`); if (r) r.checked = true; }
+for (const k of ['pop', 'privacy', 'sound', 'sky', 'side', 'look', 'lights']) { const r = panel.querySelector(`input[name="${k}"][value="${settings[k]}"]`); if (r) r.checked = true; }
 panel.addEventListener('submit', e => e.preventDefault());
 panel.addEventListener('change', e => {
   if (e.target.id === 'top') return tell({ top: e.target.checked });
-  settings[e.target.name] = e.target.value; saveSettings(); applySide();
+  settings[e.target.name] = e.target.value; saveSettings(); applySide(); lightBtn();
   if (e.target.name === 'sound' && e.target.value === 'on') buzz();
   render(); maybePop();
 });
