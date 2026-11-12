@@ -46,6 +46,9 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 const $ = s => document.querySelector(s);
 const Q = new URLSearchParams(location.search).get('q') || 'mid';      // low | mid | high
 const LOW = Q === 'low';
+// for measuring: switch parts off (?env=0&shadow=0&dpr=1&bees=0) / 측정용: 부분을 끈다
+const OFF = Object.fromEntries([...new URLSearchParams(location.search)].filter(([, v]) => v === '0').map(([k]) => [k, true]));
+const DPR = Number(new URLSearchParams(location.search).get('dpr')) || 0;
 let L = 'ko';
 const tr = (ko, en) => L === 'ko' ? ko : en;
 const PX = .045;                     // the 2D office's pixel heights to world units / 2D 사무실의 픽셀 높이를 월드 단위로
@@ -53,19 +56,19 @@ const PX = .045;                     // the 2D office's pixel heights to world u
 // ── renderer, light / 렌더러, 빛 ─────────────────────────────────────────────────────────────────
 const canvas = $('#view');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !LOW, powerPreference: 'low-power' });
-renderer.setPixelRatio(LOW ? 1 : Math.min(devicePixelRatio, Q === 'high' ? 2 : 1.5));
+renderer.setPixelRatio(DPR || (LOW ? 1 : Math.min(devicePixelRatio, Q === 'high' ? 2 : 1.5)));
 renderer.toneMapping = THREE.NeutralToneMapping;
 renderer.toneMappingExposure = .95;
-renderer.shadowMap.enabled = !LOW;
+renderer.shadowMap.enabled = !LOW && !OFF.shadow;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#cfe3f2');
 const pmrem = new THREE.PMREMGenerator(renderer);
-scene.environment = pmrem.fromScene(new RoomEnvironment(), .04).texture;
+if (!OFF.env) scene.environment = pmrem.fromScene(new RoomEnvironment(), .04).texture;
 const camera = new THREE.PerspectiveCamera(30, 1, .5, 400);
 const hemi = new THREE.HemisphereLight(0xfff6e6, 0xc9a882, .8);
 const sun = new THREE.DirectionalLight(0xfff0d8, 2.2);
-sun.castShadow = !LOW;
+sun.castShadow = !LOW && !OFF.shadow;
 sun.shadow.mapSize.set(Q === 'high' ? 2048 : 1536, Q === 'high' ? 2048 : 1536);
 sun.shadow.bias = -.0005; sun.shadow.normalBias = .02;
 scene.add(hemi, sun, sun.target);
@@ -302,7 +305,7 @@ async function poll() {
   if (!LAY || LAY.sig !== lay.sig) { LAY = lay; build(lay); for (const b of bees.values()) b.deskId = null; }
   else LAY.spots = lay.spots;
   const seen = new Set();
-  for (const s of sessions) {
+  for (const s of OFF.bees ? [] : sessions) {
     const key = `${s.ssh}|${s.pane}`; seen.add(key);
     let b = bees.get(key);
     if (!b) { const m = makeBee(); b = { key, m, x: .9, y: 9.1 + LAY.LOFF, tag: document.createElement('div'), phase: Math.random() * 9 }; b.tag.className = 'tag'; $('#tags').append(b.tag); scene.add(m.g); bees.set(key, b); }
