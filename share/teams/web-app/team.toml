@@ -1,0 +1,71 @@
+# A hivemux team template: this folder (team.toml + roles/) is the whole template, so it can be shared as is.
+# hivemux 팀 템플릿: 이 폴더 (team.toml + roles/) 가 템플릿 전부라 그대로 나눌 수 있다.
+id = "web-app"
+name = "웹·앱 서비스 팀"
+name_en = "Web & app service team"
+description = "조사부터 출시까지, 웹과 앱 서비스를 만드는 6명 팀"
+description_en = "Six roles that take a web or app service from research to launch"
+author = "hivemux"
+version = 1
+flow = ["researcher", "planner", "designer", "dev", "qa", "marketer"]
+
+[diet]
+at = 60
+how = "renew"
+
+[[role]]
+id = "researcher"
+name = "조사"
+name_en = "Research"
+model = "sonnet"
+effort = "medium"
+prompt = "roles/researcher.md"
+owns = "docs/research/"
+
+[[role]]
+id = "planner"
+name = "기획"
+name_en = "Planning"
+model = "opus"
+effort = "high"
+prompt = "roles/planner.md"
+owns = "docs/spec/, docs/board.md"
+lead = true
+
+[[role]]
+id = "designer"
+name = "디자인"
+name_en = "Design"
+model = "sonnet"
+effort = "high"
+prompt = "roles/designer.md"
+owns = "docs/design/"
+
+[[role]]
+id = "dev"
+name = "개발"
+name_en = "Dev"
+model = "opus"
+effort = "high"
+prompt = "roles/dev.md"
+owns = "its own worktree"
+worktree = true
+diet = { at = 70 }
+
+[[role]]
+id = "qa"
+name = "QA"
+name_en = "QA"
+model = "sonnet"
+effort = "high"
+prompt = "roles/qa.md"
+readonly = true
+
+[[role]]
+id = "marketer"
+name = "마케팅"
+name_en = "Marketing"
+model = "sonnet"
+effort = "medium"
+prompt = "roles/marketer.md"
+owns = "docs/marketing/"

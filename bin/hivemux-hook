@@ -144,6 +144,10 @@ case "$event" in
   SessionStart)
     sid="$(field session_id)"; cwd="$(field cwd)"
     [ -n "$sid" ] && t set -p -t "$TMUX_PANE" @claude_session "$sid"
+    # a team role: remember its conversation, so a reboot resumes it as that role (bin/hivemux-team)
+    # 팀 역할: 그 대화를 적어 둔다. 재부팅 뒤 그 역할로 재개된다 (bin/hivemux-team)
+    [ -n "$sid" ] && [ -n "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @hivemux-role 2>/dev/null)" ] &&
+      "$(dirname "$0")/hivemux-team" record "$TMUX_PANE" "$sid" >/dev/null 2>&1
     [ -n "$cwd" ] && t set -p -t "$TMUX_PANE" @claude_pwd "$cwd"
     # Where resume starts: where Claude was started. After a compact or /clear the cwd is wherever a Bash cd left it
     # (a worktree deep inside), so keep the one we have

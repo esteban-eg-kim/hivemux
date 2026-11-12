@@ -7,6 +7,7 @@
 
 TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
 STATE_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux"
+HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
 MAP="$STATE_DIR/panes.tsv"
 LOG="$STATE_DIR/panes.log"
 mkdir -p "$STATE_DIR"
@@ -36,7 +37,7 @@ restore() {
   fi
   local claude_cmd="${HIVEMUX_CLAUDE:-$("$TMUX_BIN" show-environment -g HIVEMUX_CLAUDE 2>/dev/null | sed -n 's/^HIVEMUX_CLAUDE=//p')}"
   claude_cmd="${claude_cmd:-claude}"
-  local target sid cwd cmd
+  local target sid cwd cmd role
   while IFS=$'\t' read -r target sid cwd; do
     [ -n "$target" ] && [ -n "$sid" ] || continue
     # clocked out by itself (bin/hivemux-shift --pane / --project): it comes back when it clocks in
@@ -49,13 +50,15 @@ restore() {
       *) log "skip $target: busy ($cmd)"; continue ;;
     esac
     [ -d "$cwd" ] || cwd=""
+    # a team role (bin/hivemux-team) comes back with its model, effort and prompt / 팀 역할은 모델, 노력, 지시문과 함께 돌아온다
+    role="$("$HM_BIN/hivemux-team" resume-args "$target" "$sid" "$cwd" 2>/dev/null)"
     # a leading space keeps it out of the shell history (zsh hist_ignore_space, bash ignorespace): with a shared
     # history, ↑ in any shell brought back the last Claude resumed / 앞의 공백은 셸 기록에서 뺀다 (zsh
     # hist_ignore_space, bash ignorespace). 기록을 공유하면 어느 셸에서든 ↑ 가 마지막에 재개한 Claude 를 꺼냈다
     if [ -n "$cwd" ]; then
-      "$TMUX_BIN" send-keys -t "$target" " cd $(printf '%q' "$cwd") && $claude_cmd --resume $sid" Enter
+      "$TMUX_BIN" send-keys -t "$target" " cd $(printf '%q' "$cwd") && $claude_cmd --resume $sid${role:+ $role}" Enter
     else
-      "$TMUX_BIN" send-keys -t "$target" " $claude_cmd --resume $sid" Enter
+      "$TMUX_BIN" send-keys -t "$target" " $claude_cmd --resume $sid${role:+ $role}" Enter
     fi
     log "resume $target -> $sid ($cwd)"
   done < "$MAP"

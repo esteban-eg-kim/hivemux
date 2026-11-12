@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Teams (first step): `hivemux team use web-app` puts a team in the project's
+  `.hivemux/` (team.toml + a prompt per role), and `hivemux team up` opens
+  each role in its own window: `claude -n <project>-<role>` with the role's
+  model, effort and prompt, plus a block naming the teammates to message.
+  The web & app template has research, planning (lead), design, dev (its own
+  worktree), QA (read-only) and marketing. `team down` clocks the roles out;
+  after a reboot, clocking in or a Claude update, a role resumes with its
+  flags. `hivemux team save <id>` keeps a project's team as your template
+
 ## 0.1.53 — 2026-11-11
 
 - Remote: the stale request waits of every computer are cleared, also when a

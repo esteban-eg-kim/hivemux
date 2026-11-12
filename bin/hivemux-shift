@@ -148,8 +148,10 @@ on() { # on [<scope>]
       done
       [[ "$cmd" =~ $SHELLS ]] || continue           # still on overtime / 아직 야근 중
       [ "$cwd" != - ] && [ -d "$cwd" ] || cwd=""
-      if [ -n "$cwd" ]; then t send-keys -t "$pane" " cd $(printf '%q' "$cwd") && $claude_cmd --resume $sid" Enter
-      else t send-keys -t "$pane" " $claude_cmd --resume $sid" Enter; fi
+      # a team role (bin/hivemux-team) comes back with its model, effort and prompt / 팀 역할은 모델, 노력, 지시문과 함께 돌아온다
+      role="$("$HM_BIN/hivemux-team" resume-args "$pane" "$sid" "$cwd" 2>/dev/null)"
+      if [ -n "$cwd" ]; then t send-keys -t "$pane" " cd $(printf '%q' "$cwd") && $claude_cmd --resume $sid${role:+ $role}" Enter
+      else t send-keys -t "$pane" " $claude_cmd --resume $sid${role:+ $role}" Enter; fi
       n=$((n + 1)); log "back $pane -> $sid ($bee)"
     done < "$LIST"
     if [ -s "$LIST.left" ]; then mv -f "$LIST.left" "$LIST"; else rm -f "$LIST" "$LIST.left"; fi

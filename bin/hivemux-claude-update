@@ -106,11 +106,13 @@ restart() {
 }
 
 resume() { # resume <pane> <session id> <cwd>
-  local cwd="$3"
+  local cwd="$3" role
   t set -pu -t "$1" @claude_restart_pending
   [ -d "$cwd" ] || cwd=""
-  if [ -n "$cwd" ]; then t send-keys -t "$1" " cd $(printf '%q' "$cwd") && $claude_cmd --resume $2" Enter
-  else t send-keys -t "$1" " $claude_cmd --resume $2" Enter; fi
+  # a team role (bin/hivemux-team) comes back with its model, effort and prompt / 팀 역할은 모델, 노력, 지시문과 함께 돌아온다
+  role="$("$HM_BIN/hivemux-team" resume-args "$1" "$2" "$cwd" 2>/dev/null)"
+  if [ -n "$cwd" ]; then t send-keys -t "$1" " cd $(printf '%q' "$cwd") && $claude_cmd --resume $2${role:+ $role}" Enter
+  else t send-keys -t "$1" " $claude_cmd --resume $2${role:+ $role}" Enter; fi
 }
 
 pending() { t list-panes -a -F '#{pane_id} #{@claude_restart_pending}' | awk '$2 != "" { print $1 }'; }

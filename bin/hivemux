@@ -45,6 +45,8 @@ Usage:
                        screen: copied to that computer and opened there)
   hivemux update-claude [--yes]  check for a new Claude Code, ask, update, then restart each pane's Claude on it (same conversation;
                        busy ones once they are done)
+  hivemux team templates | use <template> | up | down | status   a team of Claudes with roles in this project
+                       (planner, dev, QA...), each in its own window, handing work to each other by name
   hivemux version
   hm [dir] [name]      open (or jump to) a project: one tmux session per folder
 
@@ -499,6 +501,7 @@ case "${1:-help}" in
   open) shift; exec "$HM_BIN/hivemux-show" "$@" ;;
   office) shift; exec "$HM_BIN/hivemux-office" "$@" ;;
   update-claude) shift; exec "$HM_BIN/hivemux-claude-update" "$@" ;;
+  team) shift; exec "$HM_BIN/hivemux-team" "$@" ;;
   version|-v|--version) echo "hivemux $VERSION" ;;
   help|-h|--help) usage ;;
   *) usage; exit 2 ;;
