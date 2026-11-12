@@ -1145,6 +1145,81 @@ function plant(x, y, s = 1) {
   for (const [dx, dy, r] of [[-4, -6, 6], [4, -7, 5.5], [0, -12, 6], [0, -4, 6]]) circle(p.x + dx * s, p.y + dy * s, r * s, T['m-plant']);
 }
 
+/* ---------- furniture / 가구 ---------- */
+const lite = (col, k) => /^#[0-9a-f]{6}$/i.test(col) ? mixc(col, '#ffffff', k) : col;
+// an office chair at (x, y), its back toward (bx, by): a five-star base on castors, a post, a seat; the back is
+// its own scene item just outside the sitter's box, so it hides a bee seen from behind and not one seen from the front
+// (x, y) 의 사무 의자, 등받이는 (bx, by) 쪽: 다섯 갈래 바퀴 받침, 기둥, 좌판. 등받이는 앉은 벌의 상자 바로 바깥의 따로 된
+// 장면 조각이라, 뒤에서 보면 벌을 가리고 앞에서 보면 가리지 않는다
+function addChair(x, y, bx, by, col = T['m-chair'], tall = 0) {
+  add(x, y, () => {
+    const base = P(x, y, 1.5), dark = shade(col, .3);
+    c.strokeStyle = dark; c.lineWidth = 1.8; c.lineCap = 'round';
+    for (let i = 0; i < 5; i++) {
+      const a = i * 2 * Math.PI / 5 + .35, q = P(x + Math.cos(a) * .22, y + Math.sin(a) * .22, .5);
+      c.beginPath(); c.moveTo(base.x, base.y); c.lineTo(q.x, q.y); c.stroke(); circle(q.x, q.y + 1, 1.3, dark);
+    }
+    c.lineCap = 'butt';
+    cyl(x, y, .04, 7, shade(col, .15), 1.5);
+    box(x - .21, y - .21, .42, .42, 2.5, col, 8);
+    box(x - .23, y - .23, .46, .46, 1.2, shade(col, .2), 7);
+  }, -.05, .24, 11);
+  const w = .42, t = .07, h = 12 + tall;
+  if (bx) { const x0 = bx > 0 ? x + .21 : x - .21 - t; put(x0, y - w / 2, x0 + t, y + w / 2, 10, 10 + h, () => { box(x0, y - w / 2, t, w, h, col, 10); box(x0 + (bx > 0 ? 0 : t / 2), y - .03, t / 2, .06, 3, shade(col, .3), 8); }); }
+  else { const y0 = by > 0 ? y + .21 : y - .21 - t; put(x - w / 2, y0, x + w / 2, y0 + t, 10, 10 + h, () => { box(x - w / 2, y0, w, t, h, col, 10); box(x - .03, y0 + (by > 0 ? 0 : t / 2), .06, t / 2, 3, shade(col, .3), 8); }); }
+}
+// a desk: end panels, a drawer pedestal, the top / 책상: 양옆 판, 서랍장, 상판
+function addDesk(d) {
+  const x = d.x - DESK_W / 2, y = d.y - DESK_D / 2, leg = shade(T['m-desk'], .18);
+  addBox(x + .06, y + .08, .07, DESK_D - .16, 13.5, leg);
+  addBox(x + DESK_W - .13, y + .08, .07, DESK_D - .16, 13.5, leg);
+  const px = d.far ? x + DESK_W - .62 : x + .13;      // the pedestal at the end away from the aisle / 서랍장은 통로 반대쪽 끝
+  addBox(px, y + .12, .48, DESK_D - .24, 13.5, T['m-desk-edge']);
+  put(px, y + .12, px + .48, y + DESK_D - .12, 0, 13.5, () => {      // drawer lines on the side we see / 보이는 면의 서랍 선
+    const fy = d.far ? y + .12 : y + DESK_D - .12, n = d.far ? -1 : 1;
+    if (!toward(0, n)) return;
+    onFaceY(px, fy, () => { c.fillStyle = shade(T['m-desk-edge'], .35); for (const v of [4.5, 9]) c.fillRect(.04, v, .4, .5); c.fillRect(.2, 11, .08, 1); c.fillRect(.2, 6.5, .08, 1); c.fillRect(.2, 2, .08, 1); });
+  }, .01);
+  addBox(x, y, DESK_W, DESK_D, 2.5, T['m-desk'], 13.5);
+}
+// a pedestal table: a post and a round top / 기둥 탁자: 기둥과 둥근 상판
+function addRoundTable(x, y, r, h, col = T['m-desk']) {
+  add(x, y, () => { cyl(x, y, r * .5, 1.2, shade(col, .3)); cyl(x, y, .07, h - 2, shade(col, .25), 1); cyl(x, y, r, 2, col, h - 2); }, 0, r, h);
+}
+const addStool = (x, y, col = T['m-chair']) => add(x, y, () => { cyl(x, y, .12, 1, shade(col, .3)); cyl(x, y, .035, 8, shade(col, .2), 1); cyl(x, y, .19, 2.2, col, 8.5); }, -.05, .19, 11);
+// a bookshelf: books on the shelves of the side we see / 책장: 보이는 면의 칸마다 책
+function addBookshelf(x, y, w, d, h) {
+  addBox(x, y, w, d, h, T['m-counter']);
+  const front = toward(0, 1) ? y + d : y;
+  put(x, y, x + w, y + d, 0, h, () => onFaceY(x, front, () => {
+    const cols = ['#c0504d', '#4f81bd', '#9bbb59', '#8064a2', '#f2b632', '#4bacc6', '#e46c0a'];
+    c.fillStyle = shade(T['m-counter'], .35);
+    for (let v = 2; v < h; v += h / 3) c.fillRect(.03, v, w - .06, .8);
+    let k = 0;
+    for (let row = 0; row < 3; row++) {
+      const v0 = 2.8 + row * h / 3;
+      for (let u = .08; u < w - .12;) {
+        const bw = .06 + hash(row, k) * .07, bh = h / 3 - 3.2 - hash(k, row) * 2.5;
+        if (hash(k, row, 2) > .12) { c.fillStyle = cols[k % cols.length]; c.fillRect(u, v0, bw, bh); }
+        u += bw + .015; k++;
+      }
+    }
+  }), .01);
+}
+// a water cooler: a white stand and a blue bottle / 정수기: 흰 받침과 파란 물통
+function addCooler(x, y) {
+  add(x, y, () => { box(x - .18, y - .18, .36, .36, 18, '#e9edf2'); cyl(x, y, .14, 10, '#7fb6e6', 18); cyl(x, y, .15, 1.5, '#5a93c6', 27.5); const p = P(x, y + .18, 12); fillRR(p.x - 2, p.y - 2, 4, 3, 1, '#4a5160'); }, 0, .2, 30);
+}
+// a floor lamp; lit after dark / 스탠드 조명. 어두워지면 켜진다
+function addLamp(x, y) {
+  add(x, y, () => {
+    cyl(x, y, .14, 1.2, '#3a404c'); cyl(x, y, .025, 34, '#3a404c', 1.2);
+    const on = LIGHT < .6, top = P(x, y, 40);
+    if (on) { const g = c.createRadialGradient(top.x, top.y + 6, 0, top.x, top.y + 6, 46); g.addColorStop(0, 'rgba(255, 214, 140, .45)'); g.addColorStop(1, 'rgba(255, 214, 140, 0)'); c.fillStyle = g; c.beginPath(); c.arc(top.x, top.y + 6, 46, 0, 7); c.fill(); }
+    cyl(x, y, .18, 7, on ? '#ffe2a8' : '#efe6d6', 34);
+  }, 0, .2, 42);
+}
+
 /* the scene: things on the floor, each with the box it fills (x, y in tiles, z in px), drawn back to front.
    Sorting by one depth per thing (its middle) gets things of different sizes wrong: a bee on a long sofa,
    a chair by a desk, a laptop on it. So two things whose pictures overlap are compared by their boxes:
@@ -1289,6 +1364,17 @@ function decoBack(t) {
     fit.lines.forEach((l, i) => wallText(u + w / 2, top - i * lh, l, fit.size, 600, '#3a2612', FONT_NAME));
     wallText(u + w / 2, top - (fit.lines.length - 1) * lh - 9.5, tr(`꿀 ${best.honey}칸`, `${best.honey} honey`), 4.6, 600, T.wait, FONT_NAME);
   });
+  // a clock between the windows, at the real time; drawn flat toward us (on the slanted wall its hands smeared)
+  // 창 사이의 벽시계, 실제 시각. 이쪽을 향해 평평하게 그린다 (기운 벽에 그리면 바늘이 번졌다)
+  if (toward(0, 1)) {
+    const q = P(3.6, 0, 47), r = 8.5 * Math.min(1.6, Math.max(.7, scale)), now = new Date();
+    const H = (now.getHours() % 12 + now.getMinutes() / 60) / 12, M = now.getMinutes() / 60;
+    circle(q.x, q.y, r + 1.6, '#3a404c'); circle(q.x, q.y, r, '#fbfaf6');
+    c.fillStyle = '#7a8394'; for (let k = 0; k < 12; k++) { const a = k / 12 * 2 * Math.PI; c.fillRect(q.x + Math.sin(a) * r * .8 - .6, q.y - Math.cos(a) * r * .8 - .6, 1.2, 1.2); }
+    c.strokeStyle = '#1b1f27'; c.lineCap = 'round';
+    for (const [f, len, w] of [[H, .5, 1.8], [M, .78, 1.2]]) { const a = f * 2 * Math.PI; c.lineWidth = w; c.beginPath(); c.moveTo(q.x, q.y); c.lineTo(q.x + Math.sin(a) * r * len, q.y - Math.cos(a) * r * len); c.stroke(); }
+    c.lineCap = 'butt'; circle(q.x, q.y, 1.2, T.alert);
+  }
   // the whiteboard; the plan grows while a bee draws at it / 화이트보드. 벌이 그리는 동안 계획이 늘어난다
   onFaceY(0, 0, () => {
     c.fillStyle = T['m-wall']; c.fillRect(16.9, 15, 3.2, 40); c.fillStyle = T['m-board']; c.fillRect(17, 16, 3, 38);
@@ -2030,11 +2116,12 @@ function buildScene(t) {
     put(x + .1, ROOM_Y - .02, x + 1, ROOM_Y + .02, 40, 44, () => box(x + .1, ROOM_Y - .02, .9, .04, 4, T['m-wall'], 40));
   }
   // meeting room / 회의실
-  MEET_CHAIRS.forEach(p => add(p.x, p.y, () => cyl(p.x, p.y, .24, 8, T['m-chair']), -.05, .24, 8));
-  add(MEET_C.x, MEET_C.y, () => cyl(MEET_C.x, MEET_C.y, 1.05, 14, T['m-desk']), 0, 1.05, 14);
+  // chairs round the table, backs away from it / 탁자를 두른 의자, 등받이는 바깥쪽
+  MEET_CHAIRS.forEach(p => { const dx = p.x - MEET_C.x, dy = p.y - MEET_C.y; Math.abs(dx) > Math.abs(dy) ? addChair(p.x, p.y, Math.sign(dx), 0) : addChair(p.x, p.y, 0, Math.sign(dy)); });
+  addRoundTable(MEET_C.x, MEET_C.y, 1.05, 15);
   add(21.4, 5.4, () => plant(21.4, 5.4, .9));
   // boss room: the desk with the question window, the boss chair / 사장실: 질문 창구가 있는 책상, 사장 의자
-  add(24.8, 1.5, () => cyl(24.8, 1.5, .32, 12, T['m-chair']), 0, .32, 12);
+  addChair(24.8, 1.5, 0, -1, shade(T['m-chair'], .1), 9);     // the boss's chair has a tall back / 사장 의자는 등받이가 높다
   addBox(24, 2.3, 1.7, .7, 17, T['m-counter']);
   shelf();
   // a sign hanging over the counter / 카운터 위에 매단 팻말
@@ -2049,25 +2136,39 @@ function buildScene(t) {
   const owners = new Map([...bees.values()].filter(b => b.desk).map(b => [b.desk.id, b]));
   for (const d of LAY.desks) {
     const o = owners.get(d.id), cy = d.seat.y + (o ? 0 : d.far ? .25 : -.25);
-    add(d.seat.x, cy, () => cyl(d.seat.x, cy, .26, 10, T['m-chair']), -.05, .26, 10);
-    addBox(d.x - DESK_W / 2, d.y - DESK_D / 2, DESK_W, DESK_D, 16, T['m-desk']);
+    addChair(d.seat.x, cy, 0, d.far ? -1 : 1);       // its back away from the desk / 등받이는 책상 반대쪽
+    addDesk(d);
     put(d.x - .45, d.y - .45, d.x + .45, d.y + .45, 16, 34, () => laptop(d, o, t));   // on the desk / 책상 위
+    if (o) put(d.x + .62, d.y - .1, d.x + .78, d.y + .06, 16, 21, () => cyl(d.x + .7, d.y - .02, .065, 4.5, d.far ? '#e8eef6' : '#f4d9a8', 16));   // a mug / 머그컵
   }
+  // a low divider down the middle of each pod / 섬 가운데 낮은 칸막이
+  for (const p of LAY.pods) addBox(p.x + .3, p.y + 1.48, 5.3, .05, 11, 'rgba(120, 150, 180, .45)', 16);
   for (let i = LAY.pods.length; i < LAY.rows * POD_ROW; i++) {
     const { x, y } = podAt(i);
     add(x + 1.2, y + 1, () => plant(x + 1.2, y + 1, 1.2)); add(x + 4.6, y + 2.1, () => plant(x + 4.6, y + 2.1, .9));
-    addBox(x + 1.6, y + 1.6, 2.6, .5, 26, T['m-counter']);
+    addBookshelf(x + 1.6, y + 1.6, 2.6, .5, 30);
+    addCooler(x + 5.1, y + .9);
   }
   // cafe / 카페
-  addBox(.3, 9.8 + LOFF, .9, 4, 18, T['m-counter']);
+  addBox(.3, 9.8 + LOFF, .9, 4, 17, T['m-counter']);
+  addBox(.25, 9.75 + LOFF, 1.05, 4.1, 2, lite(T['m-counter'], .25), 17);      // the counter top / 카운터 상판
   put(.55, 10.05 + LOFF, 1.05, 10.55 + LOFF, 18, 32, () => box(.55, 10.05 + LOFF, .5, .5, 14, T['m-mon'], 18));
-  for (const s of SPOTS.filter(s => s.kind === 'coffee')) add(s.x, s.y, () => cyl(s.x, s.y, .18, 10, T['m-chair']), -.05, .18, 10);
-  for (const y of [11, 13.5]) add(4, y + LOFF, () => cyl(4, y + LOFF, .45, 14, T['m-desk']), 0, .45, 14);
+  for (const s of SPOTS.filter(s => s.kind === 'coffee')) addStool(s.x, s.y);
+  for (const y of [11, 13.5]) addRoundTable(4, y + LOFF, .45, 15);
   // sofa corner / 소파 코너
-  addBox(7.9, 11 + LOFF, 4.8, .35, 24, T['m-sofa']);
-  addBox(7.9, 11.35 + LOFF, 4.8, .85, 10, T['m-sofa']);
-  addBox(7.6, 11 + LOFF, .3, 1.2, 16, T['m-sofa']); addBox(12.7, 11 + LOFF, .3, 1.2, 16, T['m-sofa']);
-  addBox(9.4, 12.9 + LOFF, 1.7, .7, 8, T['m-desk']);
+  // the sofa: a frame, three seat cushions and three back cushions, arms / 소파: 틀, 방석 셋, 등쿠션 셋, 팔걸이
+  const sofa = T['m-sofa'], cush = lite(sofa, .14);
+  addBox(7.9, 11 + LOFF, 4.8, .3, 22, shade(sofa, .08));
+  addBox(7.9, 11.3 + LOFF, 4.8, .9, 6, shade(sofa, .1));
+  for (let i = 0; i < 3; i++) {
+    addBox(7.95 + i * 1.6, 11.32 + LOFF, 1.55, .85, 4, cush, 6);
+    addBox(7.98 + i * 1.6, 11.3 + LOFF, 1.5, .26, 11, cush, 10);
+  }
+  addBox(7.6, 11 + LOFF, .3, 1.2, 15, sofa); addBox(12.7, 11 + LOFF, .3, 1.2, 15, sofa);
+  // a low table on four legs / 다리 넷의 낮은 탁자
+  for (const [lx, ly] of [[9.5, 13], [10.95, 13], [9.5, 13.45], [10.95, 13.45]]) addBox(lx, ly + LOFF, .08, .08, 7, shade(T['m-desk'], .3));
+  addBox(9.4, 12.9 + LOFF, 1.7, .7, 1.8, T['m-desk'], 7);
+  addLamp(7.25, 11.15 + LOFF);
   add(13.6, 11.3 + LOFF, () => plant(13.6, 11.3 + LOFF, 1.2));
   add(6.6, 15 + LOFF, () => plant(6.6, 15 + LOFF, 1));
   // ping-pong / 탁구대
@@ -2075,7 +2176,10 @@ function buildScene(t) {
   add(17.6, 10.4, () => { const a = P(17.6, 9.7, 13), b = P(17.6, 11.1, 13); c.strokeStyle = T['m-board']; c.lineWidth = 2; c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(a.x, a.y - 5); c.lineTo(b.x, b.y - 5); c.lineTo(b.x, b.y); c.stroke(); }, .3, .05, 6, 13);
   // garden / 정원
   for (const [x, y, sz] of [[21.6, 8.2, 1.3], [25.3, 7.8, 1.5], [25.3, 11.3, 1.2], [21, 10.6, 1], [25.5, 15, 1.3], [20.9, 14.9, 1.1]]) add(x, y, () => plant(x, y, sz));
-  addBox(22.4, 12.1, 1.8, .45, 9, T['m-desk']);
+  // a park bench: slats on two legs / 공원 벤치: 다리 둘 위의 널빤지
+  for (const lx of [22.5, 24]) addBox(lx, 12.12, .1, .41, 6, '#5b6372');
+  addBox(22.4, 12.1, 1.8, .45, 2.5, T['m-desk'], 6);
+  addBox(22.4, 12.1, 1.8, .08, 9, T['m-desk'], 6);
   // bees, helpers and colleagues / 벌, 부사수, 동료
   for (const b of bees.values()) if (!b.popped && !b.inside) add(b.x, b.y, () => { drawBee(b, t); badge(b); }, .02, .2, 46);
   for (const h of helpers.values()) add(h.x, h.y, () => drawBee(h, t), .02, .15, 36);

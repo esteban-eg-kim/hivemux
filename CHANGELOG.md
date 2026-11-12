@@ -70,6 +70,13 @@
   bee office's name tags too)
 - Team name: edit it in place at the top of the team page (or
   `hivemux team rename "…"`); the sidebar's group and the office follow
+- Bee office furniture: desks with end panels, a drawer pedestal and a
+  divider down each pod; office chairs on five castors with backs (a tall one
+  for the boss); pedestal tables in the meeting room and the cafe; stools;
+  a sofa with seat and back cushions, a low table on legs and a floor lamp
+  that lights up after dark; bookshelves full of books and a water cooler
+  where a pod could go; a park bench with a back; a wall clock at the real
+  time
 - Hand-offs sent as a reply (to the sender's address, not its name) are
   put down under the right role
 
