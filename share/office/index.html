@@ -19,6 +19,7 @@
   --m-sofa: #5a7bb5; --m-plant: #4caf6e; --m-pot: #b56a45; --m-pong: #2f8f5b; --m-board: #ffffff; --m-wax: #f1e2b4; --m-wax-edge: #d2ad52;
   --m-label: #6b7383; --m-shadow: rgba(0, 0, 0, .14); --m-wing: rgba(170, 205, 245, .75);
   --tag-bg: rgba(255, 255, 255, .94); --tag-fg: #1b1f27;
+  --m-team: rgba(10, 163, 166, .18); --m-team-fg: #0b6f71;
   --scrim: rgba(233, 237, 243, .78);
   --f-body: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
   --f-mono: ui-monospace, "SF Mono", Menlo, monospace;
@@ -33,6 +34,7 @@
   --m-sofa: #3d5683; --m-plant: #3d9a5d; --m-pot: #8a4f33; --m-pong: #23704a; --m-board: #d9dee8; --m-wax: #3e341c; --m-wax-edge: #7d6427;
   --m-label: #8b93a3; --m-shadow: rgba(0, 0, 0, .35); --m-wing: rgba(220, 235, 255, .55);
   --tag-bg: rgba(30, 33, 41, .94); --tag-fg: #e1e6f0;
+  --m-team: rgba(10, 163, 166, .14); --m-team-fg: #5fd0d2;
   --scrim: rgba(16, 18, 23, .74); color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #101217; --panel: #1a1d24; --line: #2b303b; --fg: #e1e6f0; --muted: #8b93a3;
@@ -44,6 +46,7 @@
   --m-sofa: #3d5683; --m-plant: #3d9a5d; --m-pot: #8a4f33; --m-pong: #23704a; --m-board: #d9dee8; --m-wax: #3e341c; --m-wax-edge: #7d6427;
   --m-label: #8b93a3; --m-shadow: rgba(0, 0, 0, .35); --m-wing: rgba(220, 235, 255, .55);
   --tag-bg: rgba(30, 33, 41, .94); --tag-fg: #e1e6f0;
+  --m-team: rgba(10, 163, 166, .14); --m-team-fg: #5fd0d2;
   --scrim: rgba(16, 18, 23, .74); color-scheme: dark }
 
 html, body { height: 100%; }
@@ -678,6 +681,10 @@ function ingest(list) {
     }
     const was = b.state;
     // why and menu come only while it waits / why 와 menu 는 기다리는 동안만 온다
+    if (s.dieting !== (b.dieting || '') && s.dieting) {      // the diet, in its words / 다이어트를 말로
+      const said = { notes: ['다이어트! 노트 정리 중 🥗', 'Diet! Writing my notes 🥗'], clear: ['새로 시작할게요', 'Starting fresh'], after: ['가벼워졌어요!', 'Feeling light!'] }[s.dieting];
+      if (said) setTimeout(() => say(b, tr(...said), 4000), 0);
+    }
     Object.assign(b, s, { office: o, oi, ssh: o.ssh || null, overtime: overtime.has(`${o.ssh || ''}|${s.bee}`), inside: false, commuteUntil: 0,
       why: s.why || null, menu: s.menu || null, files: s.files || 0 });
     if (was && was !== b.state) changed(b, was);
@@ -766,7 +773,9 @@ function assignDesks(all) {
     const d = b.state !== 'idle' && b.deskId && LAY.byId.get(b.deskId);
     if (d && d.oi === b.oi && !taken.has(d.id)) taken.add(d.id); else b.deskId = null;
   }
-  for (const b of all.filter(b => b.state !== 'idle' && !b.deskId).sort((a, c) => a.idx - c.idx)) {
+  // a team sits together, in its flow order (the lead first) / 팀은 흐름 순서대로 모여 앉는다 (리드 먼저)
+  const tk = b => b.team ? `${b.project}|${b.team}` : '~', ord = b => b.team ? (b.lead ? -1 : b.order ?? 99) : 0;
+  for (const b of all.filter(b => b.state !== 'idle' && !b.deskId).sort((a, c) => tk(a).localeCompare(tk(c)) || ord(a) - ord(c) || a.idx - c.idx)) {
     const d = LAY.desks.find(d => d.oi === b.oi && !taken.has(d.id));
     if (d) { taken.add(d.id); b.deskId = d.id; }
   }
@@ -995,7 +1004,7 @@ function place() {
 }
 const T = {};
 const TOKENS = ['bg', 'panel', 'line', 'fg', 'muted', 'run', 'wait', 'done', 'sleep', 'alert', 'honey', 'bee-dark', 'm-wall', 'm-wallface', 'm-office', 'm-plank', 'm-remote', 'm-meet',
-  'm-lounge', 'm-tile', 'm-mine', 'm-rug', 'm-zone', 'm-zone-remote', 'm-grass', 'm-window', 'm-glass', 'm-desk', 'm-desk-edge', 'm-chair', 'm-mon', 'm-screen', 'm-lid', 'm-counter', 'm-sofa', 'm-plant', 'm-pot',
+  'm-lounge', 'm-tile', 'm-mine', 'm-rug', 'm-zone', 'm-zone-remote', 'm-team', 'm-team-fg', 'm-grass', 'm-window', 'm-glass', 'm-desk', 'm-desk-edge', 'm-chair', 'm-mon', 'm-screen', 'm-lid', 'm-counter', 'm-sofa', 'm-plant', 'm-pot',
   'm-pong', 'm-board', 'm-wax', 'o-grass', 'o-grass2', 'o-wild', 'o-wild2', 'o-sea', 'o-ice', 'o-river', 'o-roof', 'o-roof2', 'o-soil', 'o-path', 'o-leaf', 'o-leaf2', 'o-trunk', 'o-hedge', 'o-hive', 'o-lamp', 'm-wax-edge', 'm-label', 'm-shadow', 'm-wing', 'tag-bg', 'tag-fg', 'f-body', 'f-mono'];
 function readTokens() {
   const cs = getComputedStyle(document.documentElement);
@@ -1149,7 +1158,7 @@ function drawFloor() {
   // a carpet under every pod in its Mac's color (honey: this Mac, lilac: remote), so each Mac's desks read as one area
   // 섬마다 그 Mac 색의 카펫 (꿀색: 이 Mac, 연보라: 원격). 그래서 Mac 마다 책상이 한 구역으로 보인다
   for (const p of LAY.pods) {
-    const col = p.oi === 0 ? T['m-zone'] : T['m-zone-remote'];
+    const col = podTeam(p) ? T['m-team'] : p.oi === 0 ? T['m-zone'] : T['m-zone-remote'];
     floorRect(p.x - .1, p.y - .25, 6, 3.5, col);
     floorRect(p.x + .05, p.y - .1, 5.7, 3.2, col);
   }
@@ -2049,8 +2058,18 @@ function laptop(d, owner, t) {
     else c.fillRect(.2, 24, .44, 3);
   });
 }
+// the team most of a pod's bees belong to / 섬의 벌 대부분이 속한 팀
+function podTeam(p) {
+  const n = {};
+  for (const b of bees.values()) if (b.team && b.desk && b.deskId && b.deskId.startsWith(`${p.oi}:${p.n}:`)) n[b.team] = (n[b.team] || 0) + 1;
+  const best = Object.entries(n).sort((a, c) => c[1] - a[1])[0];
+  return best ? best[0] : '';
+}
 function labels() {
   const { LOFF } = LAY;
+  // a team's name on its pod's floor / 팀 섬의 바닥에 팀 이름
+  font(11 * textZoom(), 700); c.fillStyle = T['m-team-fg']; c.textBaseline = 'alphabetic';
+  for (const p of LAY.pods) { const tm = podTeam(p); if (tm) { const q = P(p.x + .15, p.y + 3.25); c.fillText(tm, q.x + 4, q.y); } }
   font(10.5 * textZoom(), 600); c.fillStyle = T['m-label']; c.textBaseline = 'alphabetic';
   const m = P(16.3, 5.7); c.fillText(tr(...ROOMS.meet.name), m.x + 6, m.y + 2);
   const bo = P(22.3, 5.7); c.fillText(tr(...ROOMS.boss.name), bo.x + 6, bo.y + 2);
@@ -2060,6 +2079,18 @@ function labels() {
   c.textBaseline = 'top';
 }
 
+// what a team role holds, by its role / 팀 역할이 드는 소품
+function prop(role, f, t, back, dark) {
+  const x = f * 11, y = -27;
+  c.strokeStyle = dark; c.lineWidth = 1.2;
+  if (role === 'researcher') { c.beginPath(); c.arc(x, y - 3, 3.6, 0, 7); c.stroke(); fillRR(x - .2, y - 3, .1, .1, 0, dark); c.fillStyle = 'rgba(200,230,255,.55)'; c.beginPath(); c.arc(x, y - 3, 3, 0, 7); c.fill(); c.beginPath(); c.moveTo(x + f * 2.6, y); c.lineTo(x + f * 5, y + 3.5); c.stroke(); }
+  else if (role === 'planner') { fillRR(x - 4, y - 6, 8, 10, 1, '#c99c6a'); fillRR(x - 3, y - 4.5, 6, 7.5, .5, '#ffffff'); fillRR(x - 1.5, y - 7, 3, 2, .5, dark); c.fillStyle = T.run; for (let i = 0; i < 3; i++) c.fillRect(x - 2.2, y - 3 + i * 2, 4.4, .8); }
+  else if (role === 'designer') { c.save(); c.translate(x, y); c.rotate(f * -.6); fillRR(-.8, -8, 1.6, 9, .6, '#8a6a4a'); fillRR(-1.4, -11, 2.8, 3.5, 1.2, '#8b6fd6'); c.restore(); }
+  else if (role === 'dev' && !back) { c.beginPath(); c.arc(0, -36, 7.6, Math.PI * 1.05, Math.PI * 1.95); c.stroke(); fillRR(-8.6, -37, 2.6, 4, 1, dark); fillRR(6, -37, 2.6, 4, 1, dark); }
+  else if (role === 'qa') { fillRR(x - .5, y - 9, 1, 12, .4, dark); c.fillStyle = '#2e9e6a'; c.beginPath(); c.moveTo(x + .5, y - 9); c.lineTo(x + .5 + f * 7, y - 7); c.lineTo(x + .5, y - 5); c.fill(); }
+  else if (role === 'marketer') { c.save(); c.translate(x, y - 2); c.rotate(f > 0 ? -.3 : .3); c.fillStyle = '#e06a4a'; c.beginPath(); c.moveTo(0, -1.5); c.lineTo(f * 7, -4.5); c.lineTo(f * 7, 4.5); c.lineTo(0, 1.5); c.fill(); fillRR(f > 0 ? -2 : 0, -1.5, 2, 3, .5, dark); c.restore(); }
+  else if (role === 'writer') { c.save(); c.translate(x, y); c.rotate(f * .5); fillRR(-.9, -8, 1.8, 8, .5, '#34507a'); c.fillStyle = dark; c.beginPath(); c.moveTo(-.9, 0); c.lineTo(.9, 0); c.lineTo(0, 2.2); c.fill(); c.restore(); }
+}
 /* an upright bee person; origin is between the feet. Seen from behind at a desk or walking away.
    서 있는 벌. 원점은 두 발 사이. 책상에 앉았거나 멀어질 때는 뒷모습 */
 const SIT = { type: 12, meet: 8, sofa: 6 };   // (a park bench sits like the sofa / 공원 벤치는 소파처럼 앉는다)
@@ -2119,7 +2150,9 @@ function drawBee(b, t) {
   if (b.key === hoverKey && !mini) {   // pointed at in the list / 목록에서 가리킨 벌
     c.strokeStyle = T.honey; c.lineWidth = 2.5 / Math.max(.5, scale); c.beginPath(); c.ellipse(0, 0, 15 * sc, 5.5 * sc, 0, 0, 7); c.stroke();
   }
-  c.translate(0, bob); c.scale(sc * grow, sc * grow); c.rotate(tilt);
+  // a team role grows round as its context nears its diet line / 팀 역할은 컨텍스트가 다이어트 기준에 가까울수록 통통해진다
+  const fat = b.line && !mini ? Math.max(0, Math.min(1, (b.ctx / b.line - .5) / .5)) : 0;
+  c.translate(0, bob); c.scale(sc * grow * (1 + fat * .22), sc * grow); c.rotate(tilt);
   c.lineCap = 'round'; c.lineJoin = 'round';
   c.strokeStyle = dark; c.lineWidth = 2.6;
   for (const s of [-1, 1]) {
@@ -2180,6 +2213,7 @@ function drawBee(b, t) {
   if (pose === 'pong') circle(f * 13, -28 + Math.sin(t * 5.5) * 4, 3.4, T.alert);
   if (pose === 'plant') fillRR(f * 10 - 4, -22, 8, 7, 1.5, T.run);
   if (b.acc === 'glasses' && !back) { const ex = (b.face || -1) * 2.4; c.strokeStyle = dark; c.lineWidth = 1; for (const s of [-1, 1]) { c.beginPath(); c.arc(ex + s * 3.2, -35, 3.1, 0, 7); c.stroke(); } c.beginPath(); c.moveTo(ex - .3, -35); c.lineTo(ex + .3, -35); c.stroke(); }
+  if (b.role && !mini) prop(b.role, b.face || -1, t, back, dark);
   if (b.acc === 'notes') { const f2 = b.face || -1; fillRR(f2 * 10 - 4, -27, 8, 8, 1, T.wait); fillRR(f2 * 10 - 4, -27, 8, 2, .5, T.alert); }
   if (pose === 'board') { c.save(); c.translate(9 + Math.sin(t * 3) * 1.5, -48 + Math.sin(t * 7) * 3); c.rotate(.5); fillRR(-1.5, -5, 3, 8, 1, T.run); c.restore(); }
   if (pose === 'help') {   // a tiny laptop, its screen busy / 작은 노트북, 화면이 바쁘다

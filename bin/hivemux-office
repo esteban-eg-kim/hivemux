@@ -55,7 +55,7 @@ IDLE_EXIT = 90               # seconds without a page asking before the server q
 US = "\x1f"
 FIELDS = ["pane_id", "session_name", "window_index", "window_name", "pane_title", "@claude_state", "@claude_state_at",
           "@claude_session", "@claude_title", "@claude_name", "@claude_agents", "@claude_plan", "pane_current_command",
-          "pane_index", "@claude_wait", "@claude_touched"]
+          "pane_index", "@claude_wait", "@claude_touched", "@hivemux-role", "@claude_ctx", "@hivemux-diet"]
 SHELLS = {"zsh", "bash", "fish", "sh", "dash", "tcsh", "ksh", "login"}
 SSH = shlex.split(os.environ.get("HIVEMUX_SSH") or "ssh")
 PATH = "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH"
@@ -200,6 +200,9 @@ def snapshot():
             # a name you gave it (hivemux rename, or Claude's /rename), not the title Claude makes up
             # 직접 붙인 이름 (hivemux 이름 바꾸기, 또는 Claude 의 /rename). Claude 가 지은 제목은 아니다
             "label": p["@claude_name"] or p["@claude_title"],
+            # a team role: its role, team, place in the flow and diet line (the office seats a team together)
+            # 팀 역할: 역할, 팀, 흐름 순서, 다이어트 기준 (사무실은 팀을 모아 앉힌다)
+            **team_of(p),
             "state": p["@claude_state"], "at": int(p["@claude_state_at"]) if p["@claude_state_at"].isdigit() else 0,
             "agents": int(p["@claude_agents"]) if p["@claude_agents"].isdigit() else 0,
             "plan": bool(p["@claude_plan"]), "bee": p["bee"],
@@ -578,6 +581,35 @@ def team_call(fn, *a):
         return False, (err.getvalue() or out.getvalue()).strip()
     except (OSError, ValueError, KeyError, TypeError) as e:
         return False, str(e)
+
+
+_TEAMS = {}
+
+
+def team_of(p):
+    """A team role's look in the office, from its project's team (read again every 10 s)
+    사무실에서의 팀 역할 모습. 프로젝트의 팀에서 (10초마다 다시 읽는다)"""
+    rid, sess = p.get("@hivemux-role", ""), p["session_name"]
+    if not rid:
+        return {}
+    hit = _TEAMS.get(sess)
+    if not hit or time.time() - hit[0] > 10:
+        try:
+            folder = teams.folder_of(sess)
+            t = teams.load(teams.team_dir(folder))
+            hit = (time.time(), {"name": teams.label(t), "flow": t.get("flow") or [r["id"] for r in t["role"]],
+                                 "roles": {r["id"]: (teams.label(r), r["lead"], int(r["diet"]["at"]) * 1000, r["diet"]["how"]) for r in t["role"]}})
+        except (OSError, ValueError, KeyError, SystemExit):
+            hit = (time.time(), None)
+        _TEAMS[sess] = hit
+    t = hit[1]
+    if not t or rid not in t["roles"]:
+        return {}
+    name, lead, line, how = t["roles"][rid]
+    return {"role": rid, "label": name + (" ★" if lead else ""), "team": t["name"], "lead": lead,
+            "order": t["flow"].index(rid) if rid in t["flow"] else 99,
+            "ctx": int(p["@claude_ctx"]) if p["@claude_ctx"].isdigit() else 0, "line": line if how != "off" else 0,
+            "dieting": p.get("@hivemux-diet", "")}
 
 
 def letters():

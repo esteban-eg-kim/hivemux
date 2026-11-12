@@ -55,6 +55,11 @@
   question before anyone read it); notes keep unanswered questions word for
   word and a fresh start shows them again; roles write questions to
   `.hivemux/questions.md`, which the team page shows as Questions for you
+- Bee office, teams: a team's roles sit together on one pod in their flow
+  order, lead first, on a teal carpet with the team's name; each role holds
+  its tool (magnifier, clipboard, brush, headset, flag, megaphone, pen) and
+  its name tag shows the role (★ for the lead); a role grows round as its
+  context nears its diet line and says so when it diets
 - Hand-offs sent as a reply (to the sender's address, not its name) are
   put down under the right role
 
