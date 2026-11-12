@@ -227,10 +227,34 @@ def project(session):
         session = os.environ.get("TMUX") and tmux("display", "-p", "#{session_name}").strip()
     if not session:
         die(tr("프로젝트를 정하세요: -s <세션> (tmux 안에서는 지금 세션)", "Name the project: -s <session> (inside tmux: the current one)"))
-    folder = tmux("display", "-p", "-t", f"={session}:", "#{session_path}").strip()
+    folder = folder_of(session)
     if not folder:
         die(tr(f"프로젝트가 없습니다: {session}", f"No such project: {session}"))
     return session, folder
+
+
+def folder_of(session):
+    """The project's folder. Not tmux's session_path: a restored session can keep another folder there (a
+    team landed in another project's folder that way). Pinned once a team is made (@hivemux-folder), else
+    where its Claudes started (@claude_cwd) or its shells are, the first window first.
+    프로젝트 폴더. tmux 의 session_path 가 아니다: 복원된 세션은 거기 다른 폴더를 갖고 있을 수 있다 (그래서
+    팀이 다른 프로젝트 폴더에 만들어졌다). 팀을 만들면 고정하고 (@hivemux-folder), 아니면 Claude 가 시작한
+    곳 (@claude_cwd) 이나 셸이 있는 곳, 첫 창부터."""
+    pinned = tmux("show", "-t", f"={session}:", "-qv", "@hivemux-folder").strip()
+    if pinned and os.path.isdir(pinned):
+        return pinned
+    home, best = os.path.expanduser("~"), None
+    fmt = "\t".join(["#{window_index}", "#{pane_index}", "#{pane_title}", "#{@hivemux-role}", "#{@claude_cwd}", "#{pane_current_path}"])
+    for line in tmux("list-panes", "-s", "-t", f"={session}", "-F", fmt).splitlines():
+        w, pi, title, role, ccwd, cur = (line.split("\t") + [""] * 6)[:6]
+        if title == "hivemux-sidebar" or role or not (w.isdigit() and pi.isdigit()):
+            continue
+        d = ccwd or cur
+        if d and d != home and os.path.isdir(d):
+            key = (0 if ccwd else 1, int(w), int(pi))
+            if best is None or key < best[0]:
+                best = (key, d)
+    return best[1] if best else tmux("display", "-p", "-t", f"={session}:", "#{session_path}").strip()
 
 
 def team_dir(folder):
@@ -508,7 +532,7 @@ def resume_args(target, sid, cwd):
 def record(pane, sid):
     role = tmux("show", "-pqv", "-t", pane, "@hivemux-role").strip()
     tmux("set", "-pu", "-t", pane, "@hivemux-role-at")      # it started (see up) / 시작했다 (up 참고)
-    folder = find_team(tmux("display", "-p", "-t", pane, "#{session_path}").strip())
+    folder = find_team(folder_of(tmux("display", "-p", "-t", pane, "#{session_name}").strip()))
     if role and sid and folder and sessions(folder).get(role) != sid:
         with open(os.path.join(team_dir(folder), "sessions.tsv"), "a") as f:
             f.write(f"{role}\t{sid}\n")
@@ -534,6 +558,7 @@ def use(name, session, force):
     shutil.copytree(os.path.join(src, "roles"), os.path.join(dst, "roles"))
     os.makedirs(os.path.join(dst, "notes"), exist_ok=True)
     exclude(folder)
+    tmux("set", "-t", f"={session}:", "@hivemux-folder", folder)
     print(tr(f"{session} 에 팀을 만들었습니다: {dst}", f"Made the team in {session}: {dst}"))
 
 
@@ -684,6 +709,7 @@ def use_empty(session):
     os.makedirs(os.path.join(dst, "notes"), exist_ok=True)
     _write(folder, {"id": "custom", "name": tr("내 팀", "My team"), "version": 1, "flow": [], "diet": {"at": 120, "how": "renew"}})
     exclude(folder)
+    tmux("set", "-t", f"={session}:", "@hivemux-folder", folder)
 
 
 def apply_plan(session, plan):
@@ -796,7 +822,7 @@ def role_of(pane):
     if not rid:
         return None
     session = tmux("display", "-p", "-t", pane, "#{session_name}").strip()
-    folder = find_team(tmux("display", "-p", "-t", pane, "#{session_path}").strip())
+    folder = find_team(folder_of(tmux("display", "-p", "-t", pane, "#{session_name}").strip()))
     if not folder:
         return None
     team = load(team_dir(folder))
