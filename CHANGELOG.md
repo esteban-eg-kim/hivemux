@@ -32,6 +32,13 @@
   project's box in the sidebar shows the last one for half an hour
   (`✉ Planning → Dev · 2m`), and in the bee office a letter flies from one
   desk to the other and the receiver says who it is from and what
+- Team page, Getting started: it walks through the first steps. Roles
+  stopped at Claude's folder trust question are listed with the folder and
+  one button answers them; then a box sends the lead the team's goal (with
+  example goals from the template), worded so the lead plans and hands the
+  work out (`hivemux team goal "…"` does the same). The team's project
+  folder is now where its Claudes started, not tmux's session path, which a
+  restored session can keep pointing at another project
 
 ## 0.1.53 — 2026-11-11
 

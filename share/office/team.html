@@ -117,6 +117,18 @@ pre.prompt { background: var(--code-bg); color: var(--code-fg); }
 .handoffs li { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line2); }
 .handoffs li:last-child { border-bottom: 0; }
 .handoffs time { font: 12px var(--f-mono); color: var(--muted); min-width: 64px; padding-top: 4px; }
+.guide { display: flex; flex-direction: column; gap: 14px; }
+.guide > summary { cursor: pointer; font-weight: 700; font-size: 16px; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.steps > li { background: var(--soft); border: 1px solid var(--line2); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.steps > li.now { border-color: var(--fg); background: var(--panel); }
+.steps .n { width: 24px; height: 24px; border-radius: 50%; background: var(--btn); color: var(--btn-fg); font-weight: 700; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; }
+.steps .ok { background: var(--done); }
+.goalbox { display: flex; flex-direction: column; gap: 8px; }
+.goalbox textarea { min-height: 70px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--panel); resize: vertical; }
+.starters { display: flex; flex-wrap: wrap; gap: 6px; }
+.starters button { border: 1px dashed var(--line); background: transparent; border-radius: 999px; padding: 4px 10px; font-size: 12px; color: var(--fg2); text-align: left; }
+.starters button:hover { border-color: var(--muted); }
 .saved { font-size: 13px; color: var(--done); font-weight: 600; }
 .state { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 3px 10px; background: var(--soft2); }
 
@@ -207,7 +219,8 @@ async function load() {
   // redraw everything only when the shape changed; otherwise just the states (keeps what is being typed)
   // 모양이 바뀔 때만 다시 그린다. 아니면 상태만 (입력 중인 것을 지킨다)
   const t = team();
-  const sig = [S.project, d.projects.map(p => p.name + p.team).join(','), t ? t.roles.map(r => r.id + r.name + r.model + r.effort + r.lead + r.readonly + r.worktree + r.diet.how + r.diet.at).join('|') : '-', S.sel, S.tab].join('#');
+  const sig = [S.project, d.projects.map(p => p.name + p.team).join(','), t ? t.roles.map(r => r.id + r.name + r.model + r.effort + r.lead + r.readonly + r.worktree + r.diet.how + r.diet.at + r.running + r.trust).join('|') : '-',
+    t ? Math.min(1, (t.handoffs || []).length) : 0, S.sel, S.tab].join('#');
   if (sig !== S.sig) { S.sig = sig; render(); } else states();
 }
 setInterval(load, 2000);
@@ -313,7 +326,8 @@ function drawWizard() {
   $('#wclose').onclick = () => { $('#wizard').hidden = true; };
   $('#wback').onclick = () => { w.step = Math.max(0, w.step - 1); drawWizard(); };
   if ($('#wnext')) $('#wnext').onclick = () => { w.step++; drawWizard(); };
-  const go = start => { const p = plan(); useTemplate('web-app', { roles: p.roles.map(({ why, ...r }) => r), diet_at: p.diet }, start); };
+  const go = start => { const p = plan(); useTemplate('web-app', { roles: p.roles.map(({ why, ...r }) => r), diet_at: p.diet,
+    ...(w.kind === 'content' ? { starters: CONTENT_STARTERS.map(x => tr(...x)) } : {}) }, start); };
   if ($('#wedit')) $('#wedit').onclick = () => go(false);
   if ($('#wstart')) $('#wstart').onclick = () => go(true);
 }
@@ -335,6 +349,7 @@ function renderTeam(m) {
         <button class="btn primary" id="tup" ${t.roles.length && running < t.roles.length ? '' : 'disabled'}>▶ ${running ? tr('나머지 시작', 'Start the rest') : tr('팀 시작', 'Start team')} · ${t.roles.length - running}</button>
       </div>
     </div>
+    ${guide(t, running)}
     ${flow.length ? `<div class="card flow" style="padding:10px 14px"><span class="sub" style="font-size:12px;font-weight:700;margin-right:6px">${tr('흐름', 'Flow')}</span>${flow.map((r, i) => `<span class="step">${icon(r.id, 24)}${esc(r.name)}</span>${i < flow.length - 1 ? ARROW : ''}`).join('')}</div>` : ''}
     <div class="layout">
       <nav class="card roles" aria-label="${tr('역할', 'Roles')}">
@@ -348,6 +363,7 @@ function renderTeam(m) {
       <div class="row between"><h2>${tr('최근 넘김', 'Recent hand-offs')}</h2><code class="sub">.hivemux/handoffs.log</code></div>
       <ol class="handoffs" id="handoffs"></ol>
     </section>`;
+  bindGuide();
   m.querySelectorAll('.roleitem').forEach(b => b.onclick = () => { S.sel = b.dataset.role; S.tab = 'mine'; S.sig = ''; load(); });
   $('#addform').onsubmit = async e => {
     e.preventDefault();
@@ -362,6 +378,47 @@ function renderTeam(m) {
   $('#tsave').onclick = () => ask(tr('내 템플릿으로 저장', 'Save as my template'), tr('다른 프로젝트에서도 이 팀을 고를 수 있어요. 이름은 영문 소문자와 - 로.', 'Pick this team in other projects too. Use lowercase letters and -.'),
     tr('저장', 'Save'), async v => { const r = await post('/team/save', { project: S.project, id: v }); toast(r.say); load(); }, S.project.toLowerCase().replace(/[^a-z0-9-]+/g, '-'));
   drawDetail(); drawTips(); states();
+}
+
+// ── getting started: trust the folder, give the lead a goal, watch / 시작하기: 폴더 확인, 리드에게 목표, 지켜보기 ──
+const CONTENT_STARTERS = [['○○ 주제로 검색에 잘 걸리는 블로그 글 3편을 기획하고 첫 편을 쓰자', 'Plan three search-friendly posts on [topic] and write the first'],
+  ['지난달 글 중 반응이 좋았던 주제로 후속 글을 쓰자', 'Write a follow-up to last month\'s best-read post'],
+  ['우리 서비스를 소개하는 글과 SNS 홍보 문구를 만들자', 'Write a post introducing our service and social posts to go with it']];
+function guide(t, running) {
+  const lead = t.roles.find(r => r.lead) || t.roles[0];
+  if (!lead) return '';
+  const waiting = t.roles.filter(r => r.trust), started = (t.handoffs || []).length > 0;
+  const starters = (t.starters && t.starters.length ? t.starters : t.roles.some(r => r.id === 'writer') ? CONTENT_STARTERS.map(x => tr(...x)) : []);
+  const step1 = !running ? `<li class="now"><span class="row"><span class="n">1</span><b>${tr('팀 시작', 'Start the team')}</b></span>
+      <span class="sub">${tr('위의 ▶ 팀 시작을 누르면 역할마다 창이 열려요.', 'Press ▶ Start team above: each role opens in its own window.')}</span></li>`
+    : waiting.length ? `<li class="now"><span class="row"><span class="n">1</span><b>${tr('폴더 확인', 'Trust the folder')}</b></span>
+      <span class="sub">${tr(`${waiting.map(r => r.name).join(', ')} 이(가) 이 폴더를 믿을지 묻고 있어요. 처음 여는 폴더라서예요.`, `${waiting.map(r => r.name).join(', ')} ask whether to trust this folder (opened for the first time).`)}</span>
+      <code style="word-break:break-all">${esc(D.project.folder)}</code>
+      <button class="btn primary small" id="gtrust">${tr('이 폴더를 믿고 시작', 'Trust it and start')}</button></li>`
+    : `<li><span class="row"><span class="n ok">✓</span><b>${tr('팀이 돌고 있어요', 'The team is running')}</b></span><span class="sub">${tr(`${running}개 역할이 기다리는 중이에요.`, `${running} role(s) ready.`)}</span></li>`;
+  const body = `<ol class="steps">${step1}
+    <li class="${running && !waiting.length && !started ? 'now' : ''}"><span class="row"><span class="n">2</span><b>${tr(`리드(${esc(lead.name)})에게 목표 보내기`, `Give the lead (${esc(lead.name)}) a goal`)}</b></span>
+      <div class="goalbox"><textarea id="goal" placeholder="${tr('무엇을 하고 싶은지 한두 줄로', 'What you want, in a line or two')}">${esc(S.goal || '')}</textarea>
+        ${starters.length ? `<div class="starters">${starters.map((s, i) => `<button type="button" data-start="${i}">${esc(s)}</button>`).join('')}</div>` : ''}
+        <button class="btn primary small" id="ggo" ${running && !waiting.length ? '' : 'disabled'}>${tr(`${esc(lead.name)}에게 보내기`, `Send to ${esc(lead.name)}`)}</button></div>
+      <span class="sub" style="font-size:12px">${tr(`리드(${esc(lead.name)})가 계획을 세우고 일을 나눠 팀원에게 맡겨요. 다른 역할에게 따로 말하지 않아도 돼요. 역할 창에 직접 말해도 돼요.`, `${esc(lead.name)} plans and hands the pieces to the others; no need to talk to each role. You can still talk to any role in its window.`)}</span></li>
+    <li class="${started ? 'now' : ''}"><span class="row"><span class="n">3</span><b>${tr('지켜보기', 'Watch')}</b></span>
+      <span class="sub">${tr('일을 넘기면 사이드바에 ✉ 줄, 벌 사무실에 편지가 날고, 아래 최근 넘김에 쌓여요. 역할이 물으면 "답 기다림"이 되니 그 창에서 답해 주세요. 대화가 커지면 알아서 다이어트해요.', 'Hand-offs show as a ✉ line in the sidebar, a letter in the bee office and the list below. A role that asks shows "Needs you": answer in its window. Big conversations diet on their own.')}</span></li></ol>`;
+  return started ? `<details class="card guide"><summary>${tr('새 목표 보내기 · 시작하기 안내', 'Send a new goal · Getting started')}</summary>${body}</details>`
+    : `<section class="card guide"><h2>${tr('시작하기', 'Getting started')}</h2>${body}</section>`;
+}
+function bindGuide() {
+  const t = team(), starters = t.starters && t.starters.length ? t.starters : t.roles.some(r => r.id === 'writer') ? CONTENT_STARTERS.map(x => tr(...x)) : [];
+  if ($('#goal')) $('#goal').oninput = e => { S.goal = e.target.value; };
+  document.querySelectorAll('[data-start]').forEach(b => b.onclick = () => { S.goal = starters[+b.dataset.start]; $('#goal').value = S.goal; $('#goal').focus(); });
+  if ($('#gtrust')) $('#gtrust').onclick = async () => { const r = await post('/team/trust', { project: S.project }); toast(r.say); S.sig = ''; setTimeout(load, 1500); };
+  if ($('#ggo')) $('#ggo').onclick = async () => {
+    const goal = ($('#goal').value || '').trim();
+    if (!goal) return toast(tr('목표를 적어 주세요', 'Write the goal'));
+    const r = await post('/team/goal', { project: S.project, goal });
+    toast(r.say || (r.ok ? tr('보냈어요', 'Sent') : tr('보내지 못했어요', 'Could not send')));
+    if (r.ok) { S.goal = ''; S.sig = ''; load(); }
+  };
 }
 
 function drawDetail() {

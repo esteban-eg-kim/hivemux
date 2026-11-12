@@ -15,6 +15,8 @@ other by name with Claude Code's messages between sessions.
   hivemux-team resume-args <target> <sid> <cwd>   (resume paths) the role flags for that conversation, if it is a role
                                               (재개하는 곳에서) 그 대화가 역할이면 역할 실행 옵션
   hivemux-team handoff <pane> <to> <summary>  (bin/hivemux-hook, a role's SendMessage) log a hand-off / 넘김을 남긴다
+  hivemux-team goal <text> [-s S]             give the lead the team's goal (it plans and hands work out) / 리드에게 팀 목표
+  hivemux-team trust [-s S]                   answer yes to the folder trust question in the roles waiting on it / 폴더 신뢰 질문에 예
   hivemux-team diet <role> [-s S]             put a role on a diet now (or at its next rest) / 역할을 지금 (또는 다음 쉴 때) 다이어트
   hivemux-team stop <pane> <transcript>       (bin/hivemux-hook, Stop) note the context size; diet a role past its line
                                               (Stop) 컨텍스트 크기를 적고, 기준을 넘은 역할은 다이어트
@@ -469,6 +471,12 @@ def up(session, only=None):
         print(f"  {label(role)}: {what} ({role['model']} · {role['effort']})")
         started += 1
     exclude(folder)
+    if started:
+        lead = next((r for r in team["role"] if r["lead"]), None) or team["role"][0]
+        print(tr(f"다음: 팀 화면(사이드바 프로젝트 메뉴 \"팀…\")에서 목표를 보내거나, hivemux team goal \"…\" -s {session}. "
+                 f"리드({label(lead)})가 계획을 세우고 일을 나눠요. 처음 여는 폴더면 역할마다 폴더 신뢰 확인이 떠요",
+                 f"Next: send the goal from the team page (\"Team…\" in the sidebar's project menu) or hivemux team goal \"…\" -s {session}. "
+                 f"The lead ({label(lead)}) plans and splits the work. A folder opened for the first time asks each role to trust it"))
     return started
 
 
@@ -494,11 +502,13 @@ def status(session):
         roles.append({**{k: r[k] for k in ("id", "model", "effort", "lead", "readonly", "worktree", "owns", "diet", "prompt")},
                       "name": label(r), "session": f"{session}-{r['id']}", "pane": p.get("pane", ""),
                       "running": running, "state": p.get("state", "") if running else ("off" if p else ""),
-                      "ctx": int(p["ctx"]) if p.get("ctx", "").isdigit() else 0, "dieting": p.get("diet", "") if running else ""})
+                      "ctx": int(p["ctx"]) if p.get("ctx", "").isdigit() else 0, "dieting": p.get("diet", "") if running else "",
+                      "trust": bool(running and needs_trust(p["pane"]))})
     return {"project": session, "folder": folder,
             "team": {"id": team.get("id", ""), "name": label(team), "description": label(team, "description"),
                      "flow": team.get("flow") or [r["id"] for r in team["role"]], "diet": team["diet"], "roles": roles,
-                     "handoffs": handoffs(folder, team)}}
+                     "handoffs": handoffs(folder, team),
+                     "starters": (lang() == "en" and team.get("starters_en")) or team.get("starters") or []}}
 
 
 def find_team(cwd):
@@ -727,11 +737,14 @@ def apply_plan(session, plan):
             set_role(session, r["id"], fields)
         else:
             add_role(session, r.get("name") or r.get("id"), r.get("id"), fields, r.get("prompt"))
-    at = plan.get("diet_at")
+    at, starters = plan.get("diet_at"), plan.get("starters")
+    raw = _raw(folder)
     if isinstance(at, int) and 40 <= at <= 800:
-        raw = _raw(folder)
         raw["diet"] = {**(raw.get("diet") or {}), "at": at}
-        _write(folder, raw)
+    if isinstance(starters, list):          # goals that fit the team it made / 만든 팀에 맞는 목표 예시
+        raw["starters"] = [str(x)[:200] for x in starters][:5]
+        raw.pop("starters_en", None)
+    _write(folder, raw)
 
 
 def detail(session):
@@ -942,6 +955,54 @@ def handoffs(folder, team, n=30):
     return out
 
 
+# ── getting started: the folder trust question and the team's goal / 시작하기: 폴더 신뢰 질문과 팀 목표 ──────
+def needs_trust(pane):
+    """Claude asks whether to trust the folder (a folder it never opened) / Claude 가 폴더를 믿을지 묻는다"""
+    screen = tmux("capture-pane", "-p", "-t", pane)
+    return "trust this folder" in screen and "Enter to confirm" in screen
+
+
+def trust(session):
+    """Answer yes to the trust question in each role waiting on it (the team page's button, which shows the
+    folder first) / 신뢰 질문에서 멈춘 역할마다 예로 답한다 (팀 화면 버튼. 폴더를 먼저 보여 준다)"""
+    session, folder = project(session)
+    n = 0
+    for p in panes(session):
+        if p["role"] and not SHELLS.match(p["cmd"]) and needs_trust(p["pane"]):
+            for _ in range(3):              # move the choice to "Yes", check, then confirm / "Yes" 로 옮기고 확인한 뒤 누른다
+                sel = next((l for l in tmux("capture-pane", "-p", "-t", p["pane"]).splitlines() if l.strip().startswith("❯")), "")
+                if "Yes" in sel:
+                    tmux("send-keys", "-t", p["pane"], "Enter")
+                    n += 1
+                    break
+                tmux("send-keys", "-t", p["pane"], "Down")
+                time.sleep(0.2)
+    print(tr(f"{n}개 역할이 {folder} 를 믿고 시작합니다", f"{n} role(s) trust {folder} and start"))
+
+
+def kickoff(session, goal):
+    """Give the lead the team's goal, worded so it plans and hands the work out
+    리드에게 팀 목표를 준다. 계획을 세우고 일을 나눠 맡기도록 다듬어서"""
+    session, folder = project(session)
+    goal = " ".join(str(goal).split())[:600]
+    if not goal:
+        die(tr("목표를 적어 주세요", "Write the goal"))
+    team = load(team_dir(folder))
+    lead = next((r for r in team["role"] if r["lead"]), None) or (team["role"] or [None])[0]
+    p = lead and next((p for p in panes(session) if p["role"] == lead["id"] and not SHELLS.match(p["cmd"])), None)
+    if not p:
+        die(tr("리드가 아직 돌고 있지 않습니다. 먼저 팀을 시작하세요", "The lead is not running. Start the team first"))
+    if needs_trust(p["pane"]):
+        die(tr("리드가 폴더 신뢰 확인을 기다립니다. 먼저 폴더를 확인하세요", "The lead waits on the folder trust question. Answer it first"))
+    if not prompt_free(p["pane"]):
+        die(tr(f"{label(lead)} 의 입력창에 쓰던 글이 있습니다. 비운 뒤 다시 보내세요", f"{label(lead)} has text in its prompt. Clear it, then send again"))
+    type_in(p["pane"], tr(f"팀 목표: {goal} — 너는 리드다. 이 목표로 계획을 세우고, 일을 작게 나눠 팀원에게 메시지로 맡겨라. "
+                          "시작 전에 내가 정해야 할 것이 있으면 한 번에 모아 먼저 물어라.",
+                          f"Team goal: {goal} — You are the lead. Plan for this goal, split the work into small pieces and hand them "
+                          "to teammates by message. If anything needs my decision before starting, ask me first, all at once."))
+    print(tr(f"{label(lead)}에게 보냈습니다", f"Sent to {label(lead)}"))
+
+
 def diet_now(session, rid):
     """The team page's diet button: now if it rests, else at its next rest / 팀 화면의 다이어트 버튼: 쉬면 지금, 아니면 다음 쉴 때"""
     session, folder = project(session)
@@ -1002,6 +1063,10 @@ def main(argv):
         on_start(*args)
     elif cmd == "handoff" and len(args) == 3:
         handoff(*args)
+    elif cmd == "trust":
+        trust(session)
+    elif cmd == "goal" and args:
+        kickoff(session, " ".join(args))
     elif cmd == "diet" and args:
         diet_now(session, args[0])
     else:

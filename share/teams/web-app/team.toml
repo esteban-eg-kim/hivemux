@@ -8,6 +8,9 @@ description_en = "Six roles that take a web or app service from research to laun
 author = "hivemux"
 version = 1
 flow = ["researcher", "planner", "designer", "dev", "qa", "marketer"]
+# goals to start from, shown on the team page / 팀 화면에 보이는 시작 목표 예시
+starters = ["로그인과 장바구니, 결제가 있는 쇼핑몰 MVP 를 만들자", "지금 서비스의 회원가입 흐름에서 이탈이 많다. 원인을 찾고 고치자", "경쟁 서비스와 비교해서 다음 분기에 만들 기능 3개를 정하고 첫 번째를 만들자"]
+starters_en = ["Build a shop MVP with sign-in, a cart and checkout", "Many people drop out of our sign-up flow: find out why and fix it", "Compare us with competitors, pick three features for next quarter and build the first"]
 
 # a role past this many thousand tokens of context, at rest, starts fresh from its notes
 # 컨텍스트가 이 천 토큰을 넘고 쉬면 노트를 남기고 새로 시작한다
