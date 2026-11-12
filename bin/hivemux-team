@@ -741,6 +741,10 @@ def apply_plan(session, plan):
     raw = _raw(folder)
     if isinstance(at, int) and 40 <= at <= 800:
         raw["diet"] = {**(raw.get("diet") or {}), "at": at}
+    for k in ("name", "description"):       # the team it made may not be the template's / 만든 팀이 템플릿과 다를 수 있다
+        if isinstance(plan.get(k), str) and plan[k].strip():
+            raw[k] = plan[k].strip()[:80]
+            raw.pop(k + "_en", None)
     if isinstance(starters, list):          # goals that fit the team it made / 만든 팀에 맞는 목표 예시
         raw["starters"] = [str(x)[:200] for x in starters][:5]
         raw.pop("starters_en", None)

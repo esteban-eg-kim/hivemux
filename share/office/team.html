@@ -327,7 +327,9 @@ function drawWizard() {
   $('#wback').onclick = () => { w.step = Math.max(0, w.step - 1); drawWizard(); };
   if ($('#wnext')) $('#wnext').onclick = () => { w.step++; drawWizard(); };
   const go = start => { const p = plan(); useTemplate('web-app', { roles: p.roles.map(({ why, ...r }) => r), diet_at: p.diet,
-    ...(w.kind === 'content' ? { starters: CONTENT_STARTERS.map(x => tr(...x)) } : {}) }, start); };
+    ...(w.kind === 'content' ? { starters: CONTENT_STARTERS.map(x => tr(...x)), name: tr('콘텐츠 팀', 'Content team'),
+      description: tr('조사하고, 쓰고, 알리는 팀', 'Research, write and promote') }
+      : w.kind === 'app' ? { name: tr('앱 서비스 팀', 'App service team') } : {}) }, start); };
   if ($('#wedit')) $('#wedit').onclick = () => go(false);
   if ($('#wstart')) $('#wstart').onclick = () => go(true);
 }
