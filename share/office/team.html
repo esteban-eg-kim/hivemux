@@ -41,7 +41,13 @@ code, .mono { font-family: var(--f-mono); font-size: 12.5px; }
 .seg > * { border: 0; background: transparent; color: var(--fg2); padding: 7px 13px; border-radius: 7px; font-weight: 600; min-height: 34px;
   text-decoration: none; display: inline-flex; align-items: center; }
 .seg > [aria-pressed="true"], .seg > [aria-current] { background: var(--panel); color: var(--fg); box-shadow: 0 1px 3px rgba(0,0,0,.14); font-weight: 700; }
-select.project { min-height: 38px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); padding: 0 10px; font-weight: 600; }
+/* the project picker: the tabs' height and corners, with its own chevron / 프로젝트 고르기: 탭과 같은 높이와 모서리, 직접 그린 꺾쇠 */
+select.project { -webkit-appearance: none; appearance: none; min-height: 40px; max-width: 280px; border: 1px solid var(--line); border-radius: 9px;
+  background: var(--soft2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%235a6375' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 11px center / 14px;
+  padding: 0 34px 0 13px; font-weight: 700; font-size: 14px; color: var(--fg); cursor: pointer; text-overflow: ellipsis; white-space: nowrap; }
+select.project:hover { background-color: var(--panel); border-color: var(--muted); }
+select.project:focus-visible { outline: 2px solid #2f7fd6; outline-offset: 2px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) select.project { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239aa3b2' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); } }
 
 main { padding: 8px 24px 56px; }
 .wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
@@ -156,8 +162,8 @@ input.teamname:focus { border-color: var(--fg); background: var(--panel); outlin
 <header class="top">
   <div class="bar">
     <span class="brand"><img src="/logo.svg" alt="" width="24" height="24">hivemux</span>
-    <nav class="seg" aria-label="화면"><a href="/" data-t="사무실|Office"></a><span aria-current="page" data-t="팀|Team"></span><a id="toreport" href="/report" data-t="리포트|Report"></a></nav>
-    <label><span class="sr" hidden data-t="프로젝트|Project"></span><select class="project" id="project" aria-label="project"></select></label>
+    <nav class="seg" aria-label="화면"><a href="/" data-t="사무실|Office">사무실</a><span aria-current="page" data-t="팀|Team">팀</span><a id="toreport" href="/report" data-t="리포트|Report">리포트</a></nav>
+    <label><span class="sr" hidden data-t="프로젝트|Project">프로젝트</span><select class="project" id="project" aria-label="project"></select></label>
   </div>
 </header>
 <main><div class="wrap" id="main"></div></main>
@@ -171,6 +177,11 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 let D = null;                       // /team/state
 let L = 'ko';
 const tr = (ko, en) => L === 'ko' ? ko : en;
+
+// the screen's language as last seen, so the tabs never show up blank while the data loads
+// 지난번 화면 언어. 자료를 받는 동안 탭 글자가 비지 않게
+try { L = localStorage.getItem('hivemux-lang') || L; } catch (e) { /* private window / 사생활 보호 창 */ }
+document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = L === 'ko' ? ko : en; });
 const S = { project: new URLSearchParams(location.search).get('project') || '', sel: '', tab: 'mine', edited: {}, wiz: null, sig: '' };
 
 // ── role look: an icon and a color per known role; others get a person / 역할 모습: 아는 역할은 아이콘과 색, 나머지는 사람
@@ -216,6 +227,7 @@ async function load() {
   try { d = await (await fetch('/team/state?project=' + encodeURIComponent(S.project), { cache: 'no-store' })).json(); } catch (e) { return; }
   if (d.nav) { location.href = d.nav; return; }
   D = d; L = d.lang || 'ko'; document.documentElement.lang = L;
+  try { localStorage.setItem('hivemux-lang', L); } catch (e) { /* private window / 사생활 보호 창 */ }
   if (!S.project || !d.projects.some(p => p.name === S.project)) {
     S.project = (d.projects.find(p => p.team) || d.projects[0] || {}).name || '';
     if (S.project && !d.project) return load();

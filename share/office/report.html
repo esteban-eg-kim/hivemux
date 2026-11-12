@@ -30,7 +30,13 @@ code, .mono { font-family: var(--f-mono); font-size: 12.5px; }
 .seg { display: flex; background: var(--soft2); border-radius: 9px; padding: 3px; gap: 2px; }
 .seg > * { color: var(--fg2); padding: 7px 13px; border-radius: 7px; font-weight: 600; min-height: 34px; text-decoration: none; display: inline-flex; align-items: center; }
 .seg > [aria-current] { background: var(--panel); color: var(--fg); box-shadow: 0 1px 3px rgba(0,0,0,.14); font-weight: 700; }
-select.project { min-height: 38px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); padding: 0 10px; font-weight: 600; }
+/* the project picker: the tabs' height and corners, with its own chevron / 프로젝트 고르기: 탭과 같은 높이와 모서리, 직접 그린 꺾쇠 */
+select.project { -webkit-appearance: none; appearance: none; min-height: 40px; max-width: 280px; border: 1px solid var(--line); border-radius: 9px;
+  background: var(--soft2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%235a6375' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 11px center / 14px;
+  padding: 0 34px 0 13px; font-weight: 700; font-size: 14px; color: var(--fg); cursor: pointer; text-overflow: ellipsis; white-space: nowrap; }
+select.project:hover { background-color: var(--panel); border-color: var(--muted); }
+select.project:focus-visible { outline: 2px solid #2f7fd6; outline-offset: 2px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) select.project { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239aa3b2' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); } }
 main { padding: 8px 24px 56px; }
 .wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
 h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -.02em; }
@@ -102,11 +108,11 @@ td { padding: 8px 12px; border-bottom: 1px solid var(--line2); }
 <header class="top">
   <div class="bar">
     <span class="brand"><img src="/logo.svg" alt="" width="24" height="24">hivemux</span>
-    <nav class="seg" aria-label="화면"><a href="/" data-t="사무실|Office"></a><a id="toteam" href="/team" data-t="팀|Team"></a><span aria-current="page" data-t="리포트|Report"></span></nav>
+    <nav class="seg" aria-label="화면"><a href="/" data-t="사무실|Office">사무실</a><a id="toteam" href="/team" data-t="팀|Team">팀</a><span aria-current="page" data-t="리포트|Report">리포트</span></nav>
     <select class="project" id="project" aria-label="project"></select>
   </div>
 </header>
-<main><div class="wrap" id="main"><p class="sub" data-t="불러오는 중…|Loading…"></p></div></main>
+<main><div class="wrap" id="main"><p class="sub" data-t="불러오는 중…|Loading…">불러오는 중…</p></div></main>
 <div id="toast" role="status" hidden></div>
 <script>
 'use strict';
@@ -114,6 +120,11 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 let L = 'ko', R = null, PROJECTS = [];
 const tr = (ko, en) => L === 'ko' ? ko : en;
+
+// the screen's language as last seen, so the tabs never show up blank while the data loads
+// 지난번 화면 언어. 자료를 받는 동안 탭 글자가 비지 않게
+try { L = localStorage.getItem('hivemux-lang') || L; } catch (e) { /* private window / 사생활 보호 창 */ }
+document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = L === 'ko' ? ko : en; });
 const q = new URLSearchParams(location.search);
 const S = { project: q.get('project') || '', date: q.get('date') || '', hover: null, table: false };
 // role colors: checked for color-blind separation and contrast (dataviz validator); each mark is also labelled
@@ -138,6 +149,7 @@ async function post(path, body) { try { return await (await fetch(path, { method
 async function load() {
   const st = await (await fetch('/team/state?project=' + encodeURIComponent(S.project), { cache: 'no-store' })).json();
   L = st.lang || 'ko'; document.documentElement.lang = L;
+  try { localStorage.setItem('hivemux-lang', L); } catch (e) { /* private window / 사생활 보호 창 */ }
   PROJECTS = st.projects.filter(p => p.team);
   if (!PROJECTS.some(p => p.name === S.project)) S.project = (PROJECTS[0] || {}).name || '';
   document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
