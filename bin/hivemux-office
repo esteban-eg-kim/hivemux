@@ -479,13 +479,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
             Handler.last = time.time()
             q = query(self.path)
             return self.send(200, json.dumps(team_state(q.get("project", "")), ensure_ascii=False))
+        if path == "/team/report":
+            q = query(self.path)
+            ok, rep = team_call(teams.report, q.get("project", ""), q.get("date") or None)
+            return self.send(200, json.dumps({"ok": ok, "report": rep if ok else None, "say": "" if ok else rep}, ensure_ascii=False))
         if path == "/team/prompt":
             q = query(self.path)
             ok, text = team_call(teams.final_prompt, q.get("project", ""), q.get("role", ""))
             return self.send(200, json.dumps({"ok": ok, "text": text if ok else ""}, ensure_ascii=False))
         # one page: the office at an angle, or seen from above (/2d opens it that way; the page switches)
         # 한 페이지: 비스듬히 본 사무실, 또는 위에서 본 모습 (/2d 는 그렇게 연다. 페이지에서 서로 바꾼다)
-        page = {"/": "index.html", "/index.html": "index.html", "/2d": "index.html", "/team": "team.html"}.get(path)
+        page = {"/": "index.html", "/index.html": "index.html", "/2d": "index.html", "/team": "team.html", "/report": "report.html"}.get(path)
         if page:
             with open(os.path.join(SHARE, page), "rb") as f:
                 return self.send(200, f.read(), "text/html; charset=utf-8")
@@ -621,6 +625,8 @@ def team_post(action, req):
     elif action in ("up", "down"):
         fn = teams.up if action == "up" else teams.down
         ok, msg = team_call(fn, project, str(req.get("role") or "") or None)
+    elif action == "summary":
+        ok, msg = team_call(teams.summarize, project, str(req.get("date") or "") or None)
     elif action == "goal":
         ok, msg = team_call(teams.kickoff, project, str(req.get("goal", "")))
     elif action == "trust":

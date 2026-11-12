@@ -152,7 +152,7 @@ pre.prompt { background: var(--code-bg); color: var(--code-fg); }
 <header class="top">
   <div class="bar">
     <span class="brand"><img src="/logo.svg" alt="" width="24" height="24">hivemux</span>
-    <nav class="seg" aria-label="화면"><a href="/" data-t="사무실|Office"></a><span aria-current="page" data-t="팀|Team"></span></nav>
+    <nav class="seg" aria-label="화면"><a href="/" data-t="사무실|Office"></a><span aria-current="page" data-t="팀|Team"></span><a id="toreport" href="/report" data-t="리포트|Report"></a></nav>
     <label><span class="sr" hidden data-t="프로젝트|Project"></span><select class="project" id="project" aria-label="project"></select></label>
   </div>
 </header>
@@ -227,6 +227,7 @@ setInterval(load, 2000);
 
 function render() {
   document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
+  $('#toreport').href = '/report?project=' + encodeURIComponent(S.project);
   const sel = $('#project');
   sel.innerHTML = D.projects.map(p => `<option value="${esc(p.name)}"${p.name === S.project ? ' selected' : ''}>${esc(p.name)}${p.team ? ' · ' + tr('팀', 'team') : ''}</option>`).join('');
   const m = $('#main');
@@ -276,7 +277,7 @@ function plan() {
   const w = S.wiz;
   const P = { quality: { lead: ['opus', 'xhigh'], dev: ['opus', 'high'], other: ['sonnet', 'high'], light: ['sonnet', 'medium'], diet: 120 },
     balance: { lead: ['opus', 'high'], dev: ['opus', 'high'], other: ['sonnet', 'high'], light: ['sonnet', 'medium'], diet: 120 },
-    cost: { lead: ['sonnet', 'high'], dev: ['sonnet', 'high'], other: ['sonnet', 'medium'], light: ['haiku', 'medium'], diet: 80 } }[w.prio];
+    cost: { lead: ['sonnet', 'high'], dev: ['sonnet', 'high'], other: ['sonnet', 'medium'], light: ['haiku', 'medium'], diet: 100 } }[w.prio];
   const t = [], add = (id, m, why, extra) => t.push({ id, model: m[0], effort: m[1], why, ...extra });
   const content = w.kind === 'content';
   add('planner', P.lead, tr('리드. 스펙과 완료 기준을 쓰고 일을 나눠요. 막힌 역할이 돌아오는 곳이라 판단력이 가장 중요해요.', 'Lead. Writes specs and acceptance criteria and splits the work; blocked roles come back here, so judgment matters most.'), { lead: true });
@@ -302,7 +303,7 @@ function drawWizard() {
       .map(([v, a, b]) => choice('have', v, a, b, !!w.have[v])).join('')}</div>`;
   if (w.step === 2) body = `<div class="grid">${[['quality', tr('품질 우선', 'Quality first'), 4, tr('리드와 개발에 opus, 리드는 xhigh. 사용량이 가장 많아요.', 'opus for lead and dev, lead at xhigh. Uses the most.')],
     ['balance', tr('균형', 'Balanced'), 3, tr('리드와 개발만 opus, 나머지는 sonnet. 처음이라면 이걸 추천해요.', 'opus only for lead and dev, sonnet for the rest. The pick for a first team.')],
-    ['cost', tr('비용 우선', 'Cost first'), 2, tr('모두 sonnet, 가벼운 역할은 haiku. 다이어트를 일찍(80K) 해요.', 'All sonnet, light roles on haiku, and an earlier diet (80K).')]]
+    ['cost', tr('비용 우선', 'Cost first'), 2, tr('모두 sonnet, 가벼운 역할은 haiku. 다이어트를 조금 일찍(100K) 해요.', 'All sonnet, light roles on haiku, and a slightly earlier diet (100K).')]]
     .map(([v, a, n, b]) => choice('prio', v, a, b, w.prio === v, `<span class="coins" aria-label="${n}/4">${[1, 2, 3, 4].map(i => `<i class="${i <= n ? 'on' : ''}"></i>`).join('')}</span>`)).join('')}</div>`;
   if (w.step === 3) {
     const p = plan(), names = Object.fromEntries((D.templates.find(t => t.id === 'web-app') || { roles: [] }).roles.map(r => [r.id, r.name]));

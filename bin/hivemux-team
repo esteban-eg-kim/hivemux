@@ -17,6 +17,8 @@ other by name with Claude Code's messages between sessions.
   hivemux-team handoff <pane> <to> <summary>  (bin/hivemux-hook, a role's SendMessage) log a hand-off / 넘김을 남긴다
   hivemux-team goal <text> [-s S]             give the lead the team's goal (it plans and hands work out) / 리드에게 팀 목표
   hivemux-team trust [-s S]                   answer yes to the folder trust question in the roles waiting on it / 폴더 신뢰 질문에 예
+  hivemux-team report [<date>] [-s S]         the team's day as JSON (states, hand-offs, diets, files, tokens) / 팀의 하루 (JSON)
+  hivemux-team summarize [<date>] [-s S]      a small model writes the day's story to .hivemux/reports/<date>.md / 하루 이야기
   hivemux-team diet <role> [-s S]             put a role on a diet now (or at its next rest) / 역할을 지금 (또는 다음 쉴 때) 다이어트
   hivemux-team stop <pane> <transcript>       (bin/hivemux-hook, Stop) note the context size; diet a role past its line
                                               (Stop) 컨텍스트 크기를 적고, 기준을 넘은 역할은 다이어트
@@ -449,6 +451,7 @@ def up(session, only=None):
                 print(f"  {label(role)}: " + tr("창을 열지 못했습니다", "could not open a window"))
                 continue
             tmux("set", "-p", "-t", pane, "@hivemux-role", role["id"])
+            tmux("set", "-p", "-t", pane, "@hivemux-teamdir", team_dir(folder))   # the hook logs here / 훅이 여기 기록한다
         else:
             pane = p["pane"]
         if p and offwork(pane):
@@ -536,6 +539,7 @@ def resume_args(target, sid, cwd):
         return ""
     session = tmux("display", "-p", "-t", target, "#{session_name}").strip() or os.path.basename(folder)
     tmux("set", "-p", "-t", target, "@hivemux-role", role_id)
+    tmux("set", "-p", "-t", target, "@hivemux-teamdir", team_dir(folder))
     return shlex.join(flags(session, folder, team, role))
 
 
@@ -543,6 +547,8 @@ def record(pane, sid):
     role = tmux("show", "-pqv", "-t", pane, "@hivemux-role").strip()
     tmux("set", "-pu", "-t", pane, "@hivemux-role-at")      # it started (see up) / 시작했다 (up 참고)
     folder = find_team(folder_of(tmux("display", "-p", "-t", pane, "#{session_name}").strip()))
+    if role and folder:
+        tmux("set", "-p", "-t", pane, "@hivemux-teamdir", team_dir(folder))
     if role and sid and folder and sessions(folder).get(role) != sid:
         with open(os.path.join(team_dir(folder), "sessions.tsv"), "a") as f:
             f.write(f"{role}\t{sid}\n")
@@ -896,8 +902,29 @@ def on_stop(pane, transcript):
         tmux("set", "-pu", "-t", pane, "@hivemux-diet")
         tmux("set", "-pu", "-t", pane, "@hivemux-diet-before")
         return
-    if st == "pending" or (not st and role["diet"]["how"] != "off" and n >= int(role["diet"]["at"]) * 1000):
+    if st == "pending" or (not st and role["diet"]["how"] != "off" and n >= diet_line(folder, role)):
         diet_begin(pane, folder, role, n)
+
+
+def diet_line(folder, role):
+    """Tokens past which the role diets. A fresh start comes back at 45-70K (prompt, CLAUDE.md, notes, files read
+    again), so right after a diet the line moves up: 50K above where it came back to, and for 20 minutes half
+    as much again. Without this a role with a low line dieted every two minutes.
+    역할이 다이어트하는 토큰 기준. 새로 시작해도 45~70K 로 돌아오므로 (지시문, CLAUDE.md, 노트, 다시 읽은 파일)
+    다이어트 직후에는 기준을 올린다: 돌아온 크기보다 50K 위, 20분 동안은 1.5배. 이것 없이는 기준이 낮은
+    역할이 2분마다 다이어트했다."""
+    line = int(role["diet"]["at"]) * 1000
+    try:
+        last = [l.rstrip("\n").split("\t") for l in open(os.path.join(team_dir(folder), "diet.log")) if l.split("\t")[1:2] == [role["id"]]][-1]
+    except (OSError, IndexError):
+        return line
+    if len(last) == 5 and last[0].isdigit() and last[4].isdigit():
+        ago = time.time() - int(last[0])
+        if ago < 3 * 3600:
+            line = max(line, int(last[4]) + 50_000)
+        if ago < 20 * 60:
+            line = max(line, int(role["diet"]["at"]) * 1500)
+    return line
 
 
 def on_start(pane, sid, source):
@@ -925,12 +952,26 @@ def on_start(pane, sid, source):
 # and to @hivemux-letters (the bee office flies a letter from one desk to the other).
 # 역할이 팀원에게 메시지를 보내면 (SendMessage, bin/hivemux-hook 이 본다) 넘김이다: handoffs.log, 프로젝트의
 # @hivemux-handoff (사이드바 한 줄), @hivemux-letters (벌 사무실이 편지를 이 책상에서 저 책상으로 날린다) 에 남긴다.
+def role_by_address(session, team, to):
+    """The role a message went to: by its session name, or (a reply) by the address of its Claude,
+    uds:/…/<pid>.sock, whose parent is the role's pane / 메시지를 받은 역할: 세션 이름으로, 또는 (답장) 그 Claude 의
+    주소 uds:/…/<pid>.sock 로. 그 부모가 역할 칸이다"""
+    r = next((r for r in team["role"] if f"{session}-{r['id']}" == to or r["id"] == to), None)
+    m = re.search(r"/(\d+)\.sock$", to or "")
+    if r or not m:
+        return r
+    out = subprocess.run(["ps", "-o", "ppid=", "-p", m.group(1)], capture_output=True, text=True).stdout.strip()
+    pp = {l.split()[0]: l.split()[1] for l in tmux("list-panes", "-s", "-t", f"={session}", "-F", "#{pane_pid} #{@hivemux-role}").splitlines() if len(l.split()) == 2}
+    rid = pp.get(out)
+    return next((r for r in team["role"] if r["id"] == rid), None)
+
+
 def handoff(pane, to, summary):
     found = role_of(pane)
     if not found:
         return
     session, folder, team, role = found
-    dest = next((r for r in team["role"] if f"{session}-{r['id']}" == to), None)
+    dest = role_by_address(session, team, to)
     dest_pane = next((p["pane"] for p in panes(session) if dest and p["role"] == dest["id"]), "")
     text = " ".join(str(summary).split())[:160]
     now = int(time.time())
@@ -1007,6 +1048,199 @@ def kickoff(session, goal):
     print(tr(f"{label(lead)}에게 보냈습니다", f"Sent to {label(lead)}"))
 
 
+# ── the day's report / 하루 리포트 ─────────────────────────────────────────────────────────────────────
+# Read from the team's logs: states.log and files.log (bin/hivemux-hook), handoffs.log, diet.log, the honey
+# ledger, the roles' conversations (tokens) and their branches (commits). The team page draws it (/report).
+# 팀 기록에서 읽는다: states.log 와 files.log (bin/hivemux-hook), handoffs.log, diet.log, 꿀 장부, 역할 대화 (토큰),
+# 역할 브랜치 (커밋). 팀 화면이 그린다 (/report).
+def _log(folder, name, start, end, parts):
+    out = []
+    try:
+        for line in open(os.path.join(team_dir(folder), name), encoding="utf-8", errors="replace"):
+            p = line.rstrip("\n").split("\t", parts - 1)
+            if len(p) == parts and p[0].isdigit() and start <= int(p[0]) < end:
+                out.append(p)
+    except OSError:
+        pass
+    return out
+
+
+def _transcript(sid):
+    import glob
+    hits = glob.glob(os.path.join(os.path.expanduser("~/.claude/projects"), "*", sid + ".jsonl"))
+    return hits[0] if hits else None
+
+
+def _tokens(sids, start, end):
+    """Tokens the role's requests read and wrote that day, and by which model / 그날 역할의 요청이 읽고 쓴 토큰과 모델"""
+    import datetime
+    total, models, seen = 0, {}, set()
+    for sid in sids:
+        path = _transcript(sid)
+        if not path:
+            continue
+        try:
+            f = open(path, encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        with f:
+            for line in f:
+                if '"usage"' not in line:
+                    continue
+                try:
+                    o = json.loads(line)
+                except ValueError:
+                    continue
+                m = o.get("message") if isinstance(o, dict) else None
+                if not isinstance(m, dict) or m.get("role") != "assistant" or not isinstance(m.get("usage"), dict):
+                    continue
+                if m.get("id") in seen:
+                    continue
+                try:
+                    at = datetime.datetime.fromisoformat(str(o.get("timestamp", "")).replace("Z", "+00:00")).timestamp()
+                except ValueError:
+                    continue
+                if not start <= at < end:
+                    continue
+                seen.add(m.get("id"))
+                u = m["usage"]
+                n = sum(int(u.get(k) or 0) for k in ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens", "output_tokens"))
+                total += n
+                key = re.sub(r"^claude-|-\d.*$", "", str(m.get("model", "")))
+                models[key] = models.get(key, 0) + n
+    return total, models
+
+
+def report(session, date=None):
+    """One day of the team, as data for the report page / 팀의 하루, 리포트 화면용 자료"""
+    import datetime
+    session, folder = project(session)
+    team = load(team_dir(folder))
+    day = datetime.date.fromisoformat(date) if date else datetime.date.today()
+    start = int(datetime.datetime.combine(day, datetime.time()).timestamp())
+    end = start + 86400
+    now = int(time.time())
+    names = {r["id"]: label(r) for r in team["role"]}
+    roles = {r["id"]: {"id": r["id"], "name": label(r), "model": r["model"], "effort": r["effort"], "segs": [], "work": 0,
+                       "files": [], "commits": [], "tokens": 0, "models": {}, "diets": 0, "honey": 0, "handoffs": 0} for r in team["role"]}
+    # states: what each role did when (a state lasts until the next one) / 상태: 다음 상태까지 이어진다
+    by = {}
+    for at, rid, st in _log(folder, "states.log", start - 86400, end, 3):
+        by.setdefault(rid, []).append((int(at), st))
+    for rid, ev in by.items():
+        if rid not in roles:
+            continue
+        ev.sort()
+        for i, (at, st) in enumerate(ev):
+            if st not in ("run", "wait"):
+                continue
+            stop = ev[i + 1][0] if i + 1 < len(ev) else min(now, end)
+            a, b = max(at, start), min(stop, end, at + 4 * 3600)     # a lost end counts four hours at most / 끝을 놓쳐도 최대 4시간
+            if b - a < 20:
+                continue
+            segs = roles[rid]["segs"]
+            if segs and segs[-1]["kind"] == st and a - segs[-1]["end"] < 90:
+                segs[-1]["end"] = b
+            else:
+                segs.append({"start": a, "end": b, "kind": st})
+    for r in roles.values():
+        r["work"] = sum(x["end"] - x["start"] for x in r["segs"] if x["kind"] == "run")
+    hand = []
+    for at, frm, to, text in _log(folder, "handoffs.log", start, end, 4):
+        if to not in names:                 # a reply logged by its address / 주소로 남은 답장
+            r = role_by_address(session, team, to)
+            to = r["id"] if r else to
+            names.setdefault(to, tr("다른 세션", "another session"))
+        hand.append({"at": int(at), "from": frm, "to": to, "fromName": names.get(frm, frm), "toName": names.get(to, to), "text": text})
+        for k in (frm, to):
+            if k in roles:
+                roles[k]["handoffs"] += 1
+    diets = []
+    for at, rid, how, before, after in _log(folder, "diet.log", start, end, 5):
+        diets.append({"at": int(at), "role": rid, "name": names.get(rid, rid), "how": how,
+                      "before": int(before) if before.isdigit() else 0, "after": int(after) if after.isdigit() else 0})
+        if rid in roles:
+            roles[rid]["diets"] += 1
+    outputs, seen = [], set()
+    for at, rid, path in _log(folder, "files.log", start, end, 3):
+        rel = path
+        for base in (worktree_of(folder, {"id": rid}), folder):
+            if path.startswith(base + "/"):
+                rel = os.path.relpath(path, base)
+                break
+        if rid in roles and (rid, rel) not in seen:
+            seen.add((rid, rel))
+            roles[rid]["files"].append(rel)
+            outputs.append({"role": rid, "name": names.get(rid, rid), "path": rel, "at": int(at), "new": not os.path.exists(path) or os.path.getctime(path) >= start})
+    # honey: the bee is "<project>/<window name>", the role's name / 꿀: 벌은 "<프로젝트>/<창 이름>" (역할 이름)
+    win = {}
+    for r in team["role"]:
+        for n in (r.get("name"), r.get("name_en"), r["id"]):
+            if n:
+                win[f"{session}/{n}"] = r["id"]
+    ledger = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "honey.log")
+    try:
+        for line in open(ledger, encoding="utf-8", errors="replace"):
+            p = line.split(" ", 2)
+            if len(p) >= 2 and p[0].isdigit() and start <= int(p[0]) < end and p[1] in win:
+                roles[win[p[1]]]["honey"] += 1
+    except OSError:
+        pass
+    allsids = {}
+    try:
+        for line in open(os.path.join(team_dir(folder), "sessions.tsv")):
+            p = line.rstrip("\n").split("\t")
+            if len(p) >= 2:
+                allsids.setdefault(p[0], []).append(p[1])
+    except OSError:
+        pass
+    for rid, r in roles.items():
+        r["tokens"], r["models"] = _tokens(allsids.get(rid, []), start, end)
+        rr = next(x for x in team["role"] if x["id"] == rid)
+        if rr["worktree"]:
+            g = subprocess.run(["git", "-C", folder, "log", f"team/{rid}", f"--since=@{start}", f"--until=@{end}", "--format=%h\t%ct\t%s"],
+                               capture_output=True, text=True)
+            r["commits"] = [{"hash": a, "at": int(b), "subject": c} for a, b, c in
+                            (l.split("\t", 2) for l in g.stdout.splitlines() if l.count("\t") == 2)]
+    waits = sorted(({"role": rid, "name": r["name"], "start": x["start"], "end": x["end"]} for rid, r in roles.items()
+                    for x in r["segs"] if x["kind"] == "wait"), key=lambda w: w["end"] - w["start"], reverse=True)[:5]
+    try:
+        summary = open(os.path.join(team_dir(folder), "reports", f"{day.isoformat()}.md"), encoding="utf-8").read()
+    except OSError:
+        summary = ""
+    # the day's span: work, hand-offs and diets / 하루의 범위: 일, 넘김, 다이어트
+    times = [x[k] for r in roles.values() for x in r["segs"] for k in ("start", "end")] + [h["at"] for h in hand] + [d["at"] for d in diets]
+    return {"project": session, "folder": folder, "date": day.isoformat(), "team": label(team), "flow": team.get("flow") or list(roles),
+            "start": min(times, default=start + 9 * 3600), "end": max(times, default=start + 18 * 3600),
+            "roles": list(roles.values()), "handoffs": hand, "diets": diets, "outputs": outputs[-40:], "waits": waits, "summary": summary,
+            "today": day == datetime.date.today()}
+
+
+def summarize(session, date=None):
+    """A short story of the day by a small model (asked for on the report page), kept in .hivemux/reports/
+    작은 모델이 쓰는 하루 이야기 (리포트 화면에서 요청), .hivemux/reports/ 에 남긴다"""
+    rep = report(session, date)
+    digest = {"team": rep["team"], "date": rep["date"],
+              "roles": [{"name": r["name"], "worked_minutes": r["work"] // 60, "files": r["files"][:12], "commits": [c["subject"] for c in r["commits"]][:8]} for r in rep["roles"]],
+              "handoffs": [f"{time.strftime('%H:%M', time.localtime(h['at']))} {h['fromName']} -> {h['toName']}: {h['text']}" for h in rep["handoffs"]][:60],
+              "waits": [f"{w['name']} {(w['end'] - w['start']) // 60}min" for w in rep["waits"]]}
+    ask = tr("아래는 한 팀의 하루 기록이다. 하루에 일이 어떻게 흘렀는지 한국어 한 문단(4~6문장, 평서문 '~했습니다')으로 써라. "
+             "역할 이름을 주어로 쓰고, 넘김 순서대로, 막힌 것과 끝낸 것을 담아라. 기록에 없는 것은 쓰지 마라. 문단만 출력하라.\n\n",
+             "Below is one team's day. Write one paragraph (4-6 sentences) on how the work flowed: roles as subjects, in hand-off "
+             "order, with what got stuck and what got done. Nothing that is not in the record. Output the paragraph only.\n\n")
+    claude = shlex.split(claude_cmd())
+    r = subprocess.run(claude + ["-p", "--model", "haiku", ask + json.dumps(digest, ensure_ascii=False)],
+                       capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL, cwd=rep["folder"])
+    text = r.stdout.strip()
+    if r.returncode != 0 or not text:
+        die(tr("요약을 만들지 못했습니다", "Could not write the summary") + (f": {r.stderr.strip()[:200]}" if r.stderr.strip() else ""))
+    d = os.path.join(team_dir(rep["folder"]), "reports")
+    os.makedirs(d, exist_ok=True)
+    with open(os.path.join(d, f"{rep['date']}.md"), "w", encoding="utf-8") as f:
+        f.write(text + "\n")
+    return text
+
+
 def diet_now(session, rid):
     """The team page's diet button: now if it rests, else at its next rest / 팀 화면의 다이어트 버튼: 쉬면 지금, 아니면 다음 쉴 때"""
     session, folder = project(session)
@@ -1071,6 +1305,10 @@ def main(argv):
         trust(session)
     elif cmd == "goal" and args:
         kickoff(session, " ".join(args))
+    elif cmd == "report":
+        print(json.dumps(report(session, args[0] if args else None), ensure_ascii=False))
+    elif cmd == "summarize":
+        print(summarize(session, args[0] if args else None))
     elif cmd == "diet" and args:
         diet_now(session, args[0])
     else:

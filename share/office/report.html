@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hivemux report</title>
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<style>
+/* A team's day (bin/hivemux-office serves it at /report, from bin/hivemux-team report): who did what when, how the
+   work flowed between roles, what waited on you, what got made.
+   팀의 하루 (bin/hivemux-office 가 /report 로 낸다. bin/hivemux-team report 자료): 누가 언제 무엇을 했나, 일이
+   역할 사이에 어떻게 흘렀나, 나를 기다린 것, 만든 것. */
+:root {
+  --bg: #e9edf3; --panel: #ffffff; --soft: #f6f8fb; --soft2: #eef1f5; --line: #d3d9e3; --line2: #e1e6ee; --fg: #1b1f27; --fg2: #3a4252; --muted: #5a6375;
+  --tip-bg: #fff8e6; --tip-line: #f0d998; --tip-fg: #7a4d00; --code-bg: #1b1f27; --code-fg: #e1e6f0; --btn: #1b1f27; --btn-fg: #fff; --bar: #3b82d6;
+  --f-body: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; --f-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #101217; --panel: #1a1d24; --soft: #20242c; --soft2: #262a33; --line: #2b303b; --line2: #2b303b; --fg: #e1e6f0; --fg2: #c3c9d4; --muted: #9aa3b2;
+  --tip-bg: #2a2414; --tip-line: #5b4a1c; --tip-fg: #f5c45a; --code-bg: #0b0d11; --btn: #e1e6f0; --btn-fg: #101217; --bar: #5aa9ff; color-scheme: dark } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--f-body); }
+[hidden] { display: none !important; }
+button, select { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid #2f7fd6; outline-offset: 2px; }
+code, .mono { font-family: var(--f-mono); font-size: 12.5px; }
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; background: color-mix(in srgb, var(--panel) 85%, transparent); border: 1px solid var(--line); border-radius: 12px; padding: 6px 8px; box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+.brand { display: flex; align-items: center; gap: 8px; font: 600 15px var(--f-mono); padding: 0 6px; }
+.seg { display: flex; background: var(--soft2); border-radius: 9px; padding: 3px; gap: 2px; }
+.seg > * { color: var(--fg2); padding: 7px 13px; border-radius: 7px; font-weight: 600; min-height: 34px; text-decoration: none; display: inline-flex; align-items: center; }
+.seg > [aria-current] { background: var(--panel); color: var(--fg); box-shadow: 0 1px 3px rgba(0,0,0,.14); font-weight: 700; }
+select.project { min-height: 38px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); padding: 0 10px; font-weight: 600; }
+main { padding: 8px 24px 56px; }
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -.02em; }
+h2 { margin: 0; font-size: 19px; font-weight: 700; }
+.sub { color: var(--muted); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.between { justify-content: space-between; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); font-weight: 700; color: var(--fg); }
+.btn.primary { background: var(--btn); color: var(--btn-fg); border-color: var(--btn); }
+.btn.small { min-height: 36px; padding: 0 12px; font-size: 13px; }
+.btn.icon { width: 40px; padding: 0; }
+.btn[disabled] { opacity: .45; cursor: default; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 2px; }
+.tile b { font-size: 32px; font-weight: 800; letter-spacing: -.02em; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.tile b small { font-size: 15px; font-weight: 600; color: var(--muted); margin-left: 3px; }
+.tile span { font-size: 13px; color: var(--muted); font-weight: 600; }
+.tile i { font-style: normal; font-size: 12px; color: var(--muted); }
+.story { background: var(--code-bg); color: var(--code-fg); border-radius: 16px; padding: 22px 24px; display: flex; flex-direction: column; gap: 10px; }
+.story p { margin: 0; font-size: 16.5px; line-height: 1.75; }
+.story .k { font-size: 12px; font-weight: 700; color: #f2b632; letter-spacing: .04em; }
+.story .btn { align-self: flex-start; background: transparent; color: var(--code-fg); border-color: #3a4252; }
+.icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 28%; }
+.icon svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--fg2); align-items: center; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.hover { display: flex; align-items: center; gap: 10px; background: var(--soft); border: 1px solid var(--line2); border-radius: 10px; padding: 10px 14px; min-height: 44px; }
+.chart { overflow-x: auto; }
+.lanes { min-width: 860px; display: flex; }
+.lanes .names { width: 112px; flex-shrink: 0; padding-top: 26px; }
+.lanes .names div { height: 52px; display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.plot { flex: 1; position: relative; }
+.plot .hour { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line2); }
+.plot .hl { position: absolute; top: 0; transform: translateX(-50%); font: 11px var(--f-mono); color: var(--muted); }
+.plot .track { position: absolute; left: 0; right: 0; height: 30px; border-radius: 6px; background: var(--soft2); }
+.plot .seg { position: absolute; height: 30px; border-radius: 4px; border: 0; padding: 0; box-shadow: 0 0 0 2px var(--panel); }
+.plot .arrow { position: absolute; width: 14px; transform: translateX(-7px); border: 0; padding: 0; background: transparent; }
+.plot .arrow i { position: absolute; left: 6px; top: 0; bottom: 0; width: 2px; background: var(--fg); opacity: .7; }
+.plot .arrow u { position: absolute; left: 2px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; }
+.plot .arrow s { position: absolute; left: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--fg); }
+.plot .diet { position: absolute; width: 16px; height: 16px; transform: translateX(-8px); border-radius: 50%; background: var(--panel); border: 3px solid var(--fg); padding: 0; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; color: var(--muted); font-size: 13px; font-weight: 600; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+td { padding: 8px 12px; border-bottom: 1px solid var(--line2); }
+.two { display: flex; flex-wrap: wrap; gap: 18px; align-items: stretch; }
+.two > * { flex: 1 1 400px; min-width: 0; }
+.route { display: flex; align-items: center; gap: 10px; }
+.route .who { display: flex; align-items: center; gap: 4px; width: 170px; flex-shrink: 0; font-size: 13px; font-weight: 600; }
+.route .track { flex: 1; height: 14px; background: var(--soft2); border-radius: 4px; position: relative; }
+.route .track i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--bar); border-radius: 0 4px 4px 0; }
+.ask { display: flex; gap: 12px; border: 1px solid var(--tip-line); background: var(--tip-bg); border-radius: 12px; padding: 12px 14px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
+.rc { display: flex; flex-direction: column; gap: 12px; }
+.rc .meter { height: 8px; background: var(--soft2); border-radius: 4px; position: relative; }
+.rc .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; }
+.rc ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; }
+.chips span { background: var(--soft2); border-radius: 6px; padding: 3px 8px; color: var(--fg2); }
+.chips .honey { background: #fbefd2; color: #7a4d00; }
+.outs { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 8px; }
+.outs div { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line2); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+.outs code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.empty { color: var(--muted); padding: 8px 0; }
+#toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--code-bg); color: var(--code-fg); padding: 10px 16px; border-radius: 10px; z-index: 20; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="bar">
+    <span class="brand"><img src="/logo.svg" alt="" width="24" height="24">hivemux</span>
+    <nav class="seg" aria-label="화면"><a href="/" data-t="사무실|Office"></a><a id="toteam" href="/team" data-t="팀|Team"></a><span aria-current="page" data-t="리포트|Report"></span></nav>
+    <select class="project" id="project" aria-label="project"></select>
+  </div>
+</header>
+<main><div class="wrap" id="main"><p class="sub" data-t="불러오는 중…|Loading…"></p></div></main>
+<div id="toast" role="status" hidden></div>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let L = 'ko', R = null, PROJECTS = [];
+const tr = (ko, en) => L === 'ko' ? ko : en;
+const q = new URLSearchParams(location.search);
+const S = { project: q.get('project') || '', date: q.get('date') || '', hover: null, table: false };
+// role colors: checked for color-blind separation and contrast (dataviz validator); each mark is also labelled
+// 역할 색: 색약 구분과 대비를 검사했다 (dataviz 검사기). 모든 표시에 이름도 붙는다
+const COLOR = { dev: '#3b82d6', planner: '#d99a1e', researcher: '#0aa3a6', marketer: '#e06a4a', designer: '#8b6fd6', qa: '#2e9e6a' };
+const EXTRA = ['#5a6375', '#8a6a4a', '#a3557a'];
+const ICON = {
+  researcher: '<circle cx="11" cy="11" r="6"/><path d="M16 16l4.5 4.5"/>', planner: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="M9 11h6M9 15h4"/>',
+  designer: '<path d="M4 20l4-1L19 8l-3-3L5 16z"/><path d="M14 7l3 3"/>', dev: '<path d="M8 7l-5 5 5 5"/><path d="M16 7l5 5-5 5"/><path d="M14 5l-4 14"/>',
+  qa: '<path d="M9 3h6"/><path d="M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3"/><path d="M7.5 15h9"/>', marketer: '<path d="M4 10v4h3l8 4V6L7 10z"/><path d="M18 9.5a3.5 3.5 0 0 1 0 5"/>',
+  writer: '<path d="M4 20h16"/><path d="M6 16l9-9 3 3-9 9H6z"/>', custom: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>' };
+const TONE = { researcher: ['#dff3f2', '#0b6f71'], planner: ['#fbefd2', '#8a5600'], designer: ['#ece6fa', '#5f42a8'], dev: ['#e0ecfa', '#1f62b0'],
+  qa: ['#dcf2e7', '#146f48'], marketer: ['#fbe4dc', '#a63f26'], writer: ['#e8eef6', '#34507a'], custom: ['#e9edf3', '#3a4252'] };
+const icon = (id, n = 28) => { const k = ICON[id] ? id : 'custom', [bg, fg] = TONE[k]; return `<span class="icon" style="width:${n}px;height:${n}px;background:${bg};color:${fg}" aria-hidden="true"><svg width="${Math.round(n * .56)}" height="${Math.round(n * .56)}" viewBox="0 0 24 24">${ICON[k]}</svg></span>`; };
+const ARROW = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+const hm = t => { const d = new Date(t * 1000); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+const dur = s => { const m = Math.round(s / 60); return m < 60 ? tr(`${m}분`, `${m}m`) : tr(`${Math.floor(m / 60)}시간 ${m % 60 ? m % 60 + '분' : ''}`, `${Math.floor(m / 60)}h ${m % 60 ? m % 60 + 'm' : ''}`).trim(); };
+const K = n => n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M' : n >= 1000 ? Math.round(n / 1000) + 'K' : String(n);
+function toast(m) { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => { t.hidden = true; }, 3000); }
+async function post(path, body) { try { return await (await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); } catch (e) { return { ok: false }; } }
+
+async function load() {
+  const st = await (await fetch('/team/state?project=' + encodeURIComponent(S.project), { cache: 'no-store' })).json();
+  L = st.lang || 'ko'; document.documentElement.lang = L;
+  PROJECTS = st.projects.filter(p => p.team);
+  if (!PROJECTS.some(p => p.name === S.project)) S.project = (PROJECTS[0] || {}).name || '';
+  document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
+  $('#project').innerHTML = PROJECTS.map(p => `<option value="${esc(p.name)}"${p.name === S.project ? ' selected' : ''}>${esc(p.name)}</option>`).join('');
+  $('#toteam').href = '/team?project=' + encodeURIComponent(S.project);
+  if (!S.project) { $('#main').innerHTML = `<div class="card"><h1>${tr('팀이 있는 프로젝트가 없어요', 'No project has a team')}</h1><p class="sub">${tr('팀 화면에서 팀을 먼저 만드세요.', 'Make a team on the team page first.')}</p></div>`; return; }
+  const r = await (await fetch(`/team/report?project=${encodeURIComponent(S.project)}${S.date ? '&date=' + S.date : ''}`, { cache: 'no-store' })).json();
+  if (!r.ok) { $('#main').innerHTML = `<div class="card">${esc(r.say || tr('리포트를 만들지 못했어요', 'Could not build the report'))}</div>`; return; }
+  R = r.report; S.date = R.date; draw();
+}
+$('#project').onchange = e => { S.project = e.target.value; S.date = ''; history.replaceState(null, '', '/report?project=' + encodeURIComponent(S.project)); load(); };
+function shiftDay(n) { const d = new Date(S.date + 'T12:00:00'); d.setDate(d.getDate() + n); S.date = d.toISOString().slice(0, 10); history.replaceState(null, '', `/report?project=${encodeURIComponent(S.project)}&date=${S.date}`); load(); }
+
+function color(id) { if (COLOR[id]) return COLOR[id]; const i = R.roles.findIndex(r => r.id === id); return EXTRA[Math.max(0, i) % EXTRA.length]; }
+function draw() {
+  const roles = R.roles, byId = Object.fromEntries(roles.map(r => [r.id, r]));
+  const work = roles.reduce((a, r) => a + r.work, 0), honey = roles.reduce((a, r) => a + r.honey, 0), tok = roles.reduce((a, r) => a + r.tokens, 0);
+  const models = {}; roles.forEach(r => Object.entries(r.models).forEach(([k, v]) => { models[k] = (models[k] || 0) + v; }));
+  const top = roles.slice().sort((a, b) => b.work - a.work)[0];
+  const dd = R.diets.length ? Math.round(R.diets.reduce((a, d) => a + d.before, 0) / R.diets.length / 1000) + 'K → ' + Math.round(R.diets.reduce((a, d) => a + d.after, 0) / R.diets.length / 1000) + 'K' : '';
+  const date = new Date(R.date + 'T12:00:00');
+  const title = L === 'ko' ? `${date.getMonth() + 1}월 ${date.getDate()}일 (${'일월화수목금토'[date.getDay()]}) 팀 리포트` : `${date.toDateString()} — team report`;
+  // the time axis: whole hours around the day's work / 시간 축: 그날 일한 시간을 감싸는 정시
+  // a short day gets finer ticks (10 or 30 minutes) / 짧은 날은 눈금을 촘촘히 (10분이나 30분)
+  const raw = Math.max(R.end - R.start, 1800), step = raw <= 3600 ? 600 : raw <= 3 * 3600 ? 1800 : 3600;
+  const t0 = Math.floor(R.start / step) * step, t1 = Math.max(t0 + 3 * step, Math.ceil(R.end / step) * step), span = t1 - t0;
+  const X = t => ((t - t0) / span * 100).toFixed(2) + '%';
+  const LANE = 52, TOP = 26, lane = Object.fromEntries(roles.map((r, i) => [r.id, i]));
+  const hours = []; for (let t = t0; t <= t1; t += step) hours.push(t);
+  const counts = {}; R.handoffs.forEach(h => { const k = h.from + '>' + h.to; counts[k] = (counts[k] || 0) + 1; });
+  const routes = Object.entries(counts).map(([k, n]) => { const [f, t] = k.split('>'); return { f, t, n }; }).sort((a, b) => b.n - a.n).slice(0, 8);
+  const maxN = Math.max(1, ...routes.map(r => r.n)), maxW = Math.max(1, ...roles.map(r => r.work));
+  const hub = roles.map(r => ({ r, n: R.handoffs.filter(h => h.from === r.id || h.to === r.id).length })).sort((a, b) => b.n - a.n)[0];
+  const story = R.summary ? `<p>${esc(R.summary)}</p>` : R.handoffs.length
+    ? `<p>${R.handoffs.slice(0, 6).map(h => tr(`${hm(h.at)} ${esc(h.fromName)} → ${esc(h.toName)}: ${esc(h.text)}`, `${hm(h.at)} ${esc(h.fromName)} → ${esc(h.toName)}: ${esc(h.text)}`)).join('<br>')}${R.handoffs.length > 6 ? '<br>…' : ''}</p>`
+    : `<p>${tr('아직 이 날의 넘김이 없어요.', 'No hand-offs on this day yet.')}</p>`;
+  $('#main').innerHTML = `
+  <div class="row between" style="align-items:flex-end">
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div class="row"><button class="btn icon" id="prev" aria-label="${tr('전날', 'Previous day')}">‹</button><h1>${esc(title)}</h1><button class="btn icon" id="next" aria-label="${tr('다음 날', 'Next day')}" ${R.today ? 'disabled' : ''}>›</button></div>
+      <span class="sub">${esc(R.team)} · ${hm(R.start)} – ${hm(R.end)} · ${tr(`역할 ${roles.length}명`, `${roles.length} roles`)}</span>
+    </div>
+    <div class="row"><button class="btn" id="md">${tr('Markdown 으로 복사', 'Copy as Markdown')}</button><button class="btn primary" id="print">${tr('PDF 로 저장', 'Save as PDF')}</button></div>
+  </div>
+  <section class="tiles" aria-label="${tr('오늘의 숫자', 'The day in numbers')}">
+    <div class="tile"><span>${tr('함께 일한 시간', 'Time worked')}</span><b>${(work / 3600).toFixed(work < 36000 ? 1 : 0)}<small>${tr('시간', 'h')}</small></b><i>${top && top.work ? tr(`가장 오래: ${esc(top.name)} ${dur(top.work)}`, `Longest: ${esc(top.name)} ${dur(top.work)}`) : tr('기록이 아직 없어요', 'Nothing logged yet')}</i></div>
+    <div class="tile"><span>${tr('넘김', 'Hand-offs')}</span><b>${R.handoffs.length}<small>${tr('번', '')}</small></b><i>${hub && hub.n ? tr(`${esc(hub.r.name)}이(가) ${hub.n}번에 관여`, `${esc(hub.r.name)} in ${hub.n}`) : ''}</i></div>
+    <div class="tile"><span>${tr('끝낸 일', 'Tasks done')}</span><b>${honey}<small>${tr('개', '')}</small></b><i>${tr('꿀 장부 기준', 'From the honey ledger')}</i></div>
+    <div class="tile"><span>${tr('토큰', 'Tokens')}</span><b>${K(tok)}</b><i>${Object.entries(models).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${Math.round(v / Math.max(1, tok) * 100)}%`).join(' · ')}</i></div>
+    <div class="tile"><span>${tr('다이어트', 'Diets')}</span><b>${R.diets.length}<small>${tr('번', '')}</small></b><i>${dd ? tr(`평균 ${dd}`, `Average ${dd}`) : ''}</i></div>
+  </section>
+  <section class="story" aria-label="${tr('오늘의 흐름', 'The flow of the day')}">
+    <span class="k">${tr('오늘의 흐름', 'HOW THE DAY WENT')}</span>${story}
+    <button class="btn small" id="sum">${R.summary ? tr('요약 다시 쓰기', 'Rewrite the summary') : tr('하루 요약 쓰기 (haiku)', 'Write a summary (haiku)')}</button>
+  </section>
+  <section class="card" aria-label="${tr('시간표', 'Timeline')}" style="display:flex;flex-direction:column;gap:14px">
+    <div class="row between"><div><h2>${tr('누가 언제 무엇을 했나', 'Who did what, when')}</h2><span class="sub" style="font-size:13px">${tr('막대는 일한 시간, 화살표는 일을 넘긴 순간이에요', 'Bars are work; arrows are hand-offs')}</span></div>
+      <div class="legend"><span><i style="width:22px;height:12px;border-radius:3px;background:var(--muted)"></i>${tr('일함', 'Working')}</span>
+        <span><i style="width:22px;height:12px;border-radius:3px;border:2px dashed var(--muted)"></i>${tr('답 기다림', 'Needs you')}</span>
+        <span><svg width="12" height="20" viewBox="0 0 12 20" aria-hidden="true"><path d="M6 1v14" stroke="currentColor" stroke-width="2"/><path d="M1 12l5 6 5-6z" fill="currentColor"/></svg>${tr('넘김', 'Hand-off')}</span>
+        <span><i style="width:12px;height:12px;border-radius:50%;border:3px solid var(--fg)"></i>${tr('다이어트', 'Diet')}</span>
+        <button class="btn small" id="tbl" aria-pressed="${S.table}">${S.table ? tr('그림으로 보기', 'Show chart') : tr('표로 보기', 'Show table')}</button></div></div>
+    <div class="hover" role="status" id="hover"><b>${tr('자세히 보기', 'Details')}</b><span class="sub">${tr('막대, 화살표, 동그라미에 마우스를 올리거나 Tab 으로 옮겨 보세요', 'Hover or Tab over a bar, arrow or circle')}</span></div>
+    ${S.table ? `<div class="chart"><table><thead><tr><th>${tr('역할', 'Role')}</th><th>${tr('시간', 'Time')}</th><th>${tr('상태', 'State')}</th></tr></thead><tbody>
+      ${roles.flatMap(r => r.segs.map(s => `<tr><td><b>${esc(r.name)}</b></td><td class="mono">${hm(s.start)}–${hm(s.end)}</td><td>${s.kind === 'run' ? tr('일함', 'Working') : tr('답 기다림', 'Needs you')}</td></tr>`)).join('') || `<tr><td colspan="3" class="empty">${tr('기록이 없어요', 'Nothing logged')}</td></tr>`}
+      ${R.handoffs.map(h => `<tr><td><b>${esc(h.fromName)} → ${esc(h.toName)}</b></td><td class="mono">${hm(h.at)}</td><td>${esc(h.text)}</td></tr>`).join('')}</tbody></table></div>`
+    : `<div class="chart"><div class="lanes">
+      <div class="names">${roles.map(r => `<div>${icon(r.id, 28)}<span>${esc(r.name)}</span></div>`).join('')}</div>
+      <div class="plot" style="height:${TOP + roles.length * LANE}px">
+        ${hours.map(t => `<i class="hour" style="left:${X(t)}"></i><span class="hl" style="left:${X(t)}">${hm(t)}</span>`).join('')}
+        ${roles.map((r, i) => `<i class="track" style="top:${TOP + i * LANE}px"></i>`).join('')}
+        ${roles.flatMap(r => r.segs.map((s, j) => `<button class="seg" data-h="seg|${r.id}|${j}" aria-label="${esc(r.name)} ${hm(s.start)}–${hm(s.end)}" style="left:${X(s.start)};width:${((s.end - s.start) / span * 100).toFixed(2)}%;top:${TOP + lane[r.id] * LANE}px;${s.kind === 'run' ? `background:${color(r.id)}` : `background:var(--panel);border:2px dashed ${color(r.id)}`}"></button>`)).join('')}
+        ${R.handoffs.filter(h => h.from in lane && h.to in lane).map((h, j) => { const a = lane[h.from], b = lane[h.to], down = b > a, y1 = TOP + a * LANE + 15, y2 = TOP + b * LANE + 15, top = Math.min(y1, y2), hh = Math.abs(y2 - y1);
+          return `<button class="arrow" data-h="hand|${j}" aria-label="${hm(h.at)} ${esc(h.fromName)} → ${esc(h.toName)}" style="left:${X(h.at)};top:${top}px;height:${hh}px"><i></i><u style="${down ? `top:${hh - 7}px;border-top:7px solid var(--fg)` : 'top:0;border-bottom:7px solid var(--fg)'}"></u><s style="top:${down ? -4 : hh - 4}px"></s></button>`; }).join('')}
+        ${R.diets.filter(d => d.role in lane).map((d, j) => `<button class="diet" data-h="diet|${j}" aria-label="${esc(d.name)} ${tr('다이어트', 'diet')} ${hm(d.at)}" style="left:${X(d.at)};top:${TOP + lane[d.role] * LANE + 7}px"></button>`).join('')}
+      </div></div></div>`}
+  </section>
+  <div class="two">
+    <section class="card" aria-label="${tr('일이 흐른 길', 'Where the work went')}" style="display:flex;flex-direction:column;gap:12px">
+      <div><h2>${tr('일이 흐른 길', 'Where the work went')}</h2><span class="sub" style="font-size:13px">${tr(`누가 누구에게 몇 번 넘겼나 · 모두 ${R.handoffs.length}번`, `Who handed to whom · ${R.handoffs.length} in all`)}</span></div>
+      ${routes.map(x => `<div class="route"><span class="who">${icon(x.f, 24)}${ARROW}${icon(x.t, 24)}<span>${esc((byId[x.f] || { name: x.f }).name)} → ${esc((byId[x.t] || { name: x.t }).name)}</span></span><span class="track"><i style="width:${x.n / maxN * 100}%"></i></span><b class="mono" style="width:22px;text-align:right">${x.n}</b></div>`).join('') || `<span class="empty">${tr('넘김이 없어요', 'No hand-offs')}</span>`}
+    </section>
+    <section class="card" aria-label="${tr('사람이 볼 것', 'For you')}" style="display:flex;flex-direction:column;gap:10px">
+      <h2>${tr('사람이 볼 것', 'For you')}</h2>
+      ${R.waits.map(w => `<div class="ask">${icon(w.role, 32)}<div><b>${esc(w.name)} · ${hm(w.start)}–${hm(w.end)}</b><br><span class="sub" style="font-size:13px">${tr(`답을 ${dur(w.end - w.start)} 기다렸어요. 자주 막히는 질문이면 지시문이나 CLAUDE.md 에 미리 적어 두세요.`, `Waited ${dur(w.end - w.start)} for you. If it is a usual question, answer it ahead in the prompt or CLAUDE.md.`)}</span></div></div>`).join('') || `<span class="empty">${tr('기다린 일이 없어요', 'Nothing waited on you')}</span>`}
+    </section>
+  </div>
+  <section aria-label="${tr('역할별 하루', 'Each role')}" style="display:flex;flex-direction:column;gap:14px">
+    <h2>${tr('역할별 하루', 'Each role')}</h2>
+    <div class="cards">${roles.map(r => `<article class="card rc">
+      <div class="row">${icon(r.id, 40)}<div style="flex:1;line-height:1.3"><b style="font-size:16px">${esc(r.name)}</b><br><span class="mono sub">${r.model} · ${r.effort}</span></div><b style="font-size:20px">${r.work ? dur(r.work) : '–'}</b></div>
+      <div class="meter" aria-hidden="true"><i style="width:${r.work / maxW * 100}%;background:${color(r.id)}"></i></div>
+      ${r.files.length || r.commits.length ? `<ul>${r.commits.slice(0, 3).map(c => `<li>${esc(c.subject)} <span class="mono sub">${esc(c.hash)}</span></li>`).join('')}${r.files.slice(0, 4).map(f => `<li class="mono">${esc(f)}</li>`).join('')}</ul>` : `<span class="empty">${tr('고친 파일 기록이 없어요', 'No files logged')}</span>`}
+      <div class="chips"><span>${tr('파일', 'Files')} ${r.files.length}</span><span>${tr('커밋', 'Commits')} ${r.commits.length}</span><span>${tr('넘김', 'Hand-offs')} ${r.handoffs}</span><span>${tr('토큰', 'Tokens')} ${K(r.tokens)}</span><span>${tr('다이어트', 'Diets')} ${r.diets}</span><span class="honey">${tr('꿀', 'Honey')} ${r.honey}</span></div>
+    </article>`).join('')}</div>
+  </section>
+  <section class="card" aria-label="${tr('오늘 만든 것', 'Made today')}" style="display:flex;flex-direction:column;gap:12px">
+    <h2>${tr('오늘 만든 것', 'Made today')}</h2>
+    <div class="outs">${R.outputs.slice().reverse().map(o => `<div>${icon(o.role, 26)}<code>${esc(o.path)}</code><span class="sub" style="font-size:12px;white-space:nowrap">${o.new ? tr('새 파일', 'new') : tr('고침', 'edited')} · ${hm(o.at)}</span></div>`).join('') || `<span class="empty">${tr('고친 파일 기록이 없어요', 'No files logged')}</span>`}</div>
+  </section>
+  <footer class="sub" style="font-size:12px">${tr('재료: 역할 상태 기록(states.log), 넘김(handoffs.log), 다이어트(diet.log), 고친 파일(files.log), 꿀 장부, 역할 대화의 토큰, 역할 브랜치의 커밋. 모두 프로젝트의 .hivemux/ 에 있어요.', "From the roles' states (states.log), hand-offs, diets, files changed, the honey ledger, the roles' conversations (tokens) and their branches (commits), all in the project's .hivemux/.")}</footer>`;
+  bind();
+}
+function bind() {
+  $('#prev').onclick = () => shiftDay(-1); $('#next').onclick = () => shiftDay(1);
+  $('#tbl').onclick = () => { S.table = !S.table; draw(); };
+  $('#print').onclick = () => window.print();
+  $('#md').onclick = copyMd;
+  $('#sum').onclick = async e => {
+    e.target.disabled = true; e.target.textContent = tr('쓰는 중… (30초쯤)', 'Writing… (about 30 s)');
+    const r = await post('/team/summary', { project: S.project, date: S.date });
+    if (!r.ok) toast(r.say || tr('요약을 쓰지 못했어요', 'Could not write it'));
+    load();
+  };
+  document.querySelectorAll('[data-h]').forEach(el => {
+    const show = () => {
+      const [kind, a, b] = el.dataset.h.split('|');
+      let title = '', sub = '', col = 'var(--fg)';
+      if (kind === 'seg') { const r = R.roles.find(x => x.id === a), s = r.segs[+b]; title = `${r.name} · ${hm(s.start)}–${hm(s.end)}`; sub = s.kind === 'run' ? tr(`일함 ${dur(s.end - s.start)}`, `working ${dur(s.end - s.start)}`) : tr(`답 기다림 ${dur(s.end - s.start)}`, `needs you ${dur(s.end - s.start)}`); col = color(a); }
+      if (kind === 'hand') { const h = R.handoffs.filter(h => R.roles.some(r => r.id === h.from) && R.roles.some(r => r.id === h.to))[+a]; title = `${hm(h.at)} · ${h.fromName} → ${h.toName}`; sub = h.text; }
+      if (kind === 'diet') { const d = R.diets.filter(d => R.roles.some(r => r.id === d.role))[+a]; title = `${hm(d.at)} · ${d.name} ${tr('다이어트', 'diet')}`; sub = tr(`컨텍스트 ${K(d.before)} → ${K(d.after)}`, `context ${K(d.before)} → ${K(d.after)}`); }
+      $('#hover').innerHTML = `<i style="width:10px;height:10px;border-radius:3px;background:${col}"></i><b>${esc(title)}</b><span class="sub">${esc(sub)}</span>`;
+    };
+    el.addEventListener('mouseenter', show); el.addEventListener('focus', show);
+  });
+}
+function copyMd() {
+  const md = [`# ${R.team} · ${R.date}`, '', R.summary || '', '', `## ${tr('넘김', 'Hand-offs')}`, ...R.handoffs.map(h => `- ${hm(h.at)} ${h.fromName} → ${h.toName}: ${h.text}`), '',
+    `## ${tr('역할별', 'Roles')}`, ...R.roles.map(r => `- ${r.name}: ${tr('일함', 'worked')} ${dur(r.work)}, ${tr('넘김', 'hand-offs')} ${r.handoffs}, ${tr('토큰', 'tokens')} ${K(r.tokens)}, ${tr('꿀', 'honey')} ${r.honey}`), '',
+    `## ${tr('만든 것', 'Made')}`, ...R.outputs.map(o => `- ${o.name}: ${o.path}`)].join('\n');
+  (navigator.clipboard ? navigator.clipboard.writeText(md) : Promise.reject()).then(() => toast(tr('복사했어요', 'Copied')), () => {
+    const t = document.createElement('textarea'); t.value = md; document.body.appendChild(t); t.select();
+    try { document.execCommand('copy'); toast(tr('복사했어요', 'Copied')); } catch (e) { toast(tr('복사하지 못했어요', 'Could not copy')); }
+    t.remove();
+  });
+}
+load();
+setInterval(() => { if (R && R.today && !document.hidden) load(); }, 30000);
+</script>
+</body>
+</html>

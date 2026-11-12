@@ -39,6 +39,19 @@
   work out (`hivemux team goal "…"` does the same). The team's project
   folder is now where its Claudes started, not tmux's session path, which a
   restored session can keep pointing at another project
+- Team report: a page for each day of a team (Report next to Team, or
+  `hivemux team report`): time worked, hand-offs, tasks done, tokens and
+  diets; a timeline of who worked and waited when, with the hand-offs as
+  arrows between roles and the diets as circles; where the work went (who
+  handed to whom); what waited on you; each role's day (files, commits,
+  tokens, honey); what got made. A small model can write the day's story on
+  request (`.hivemux/reports/<date>.md`); Markdown copy and PDF. The hook
+  now logs a role's states and changed files for it
+- Diet: right after a diet the line moves up (50K above where it came
+  back, and half again for 20 minutes), so a role with a low line no longer
+  diets every two minutes; the wizard's cost-first line is 100K
+- Hand-offs sent as a reply (to the sender's address, not its name) are
+  put down under the right role
 
 ## 0.1.53 — 2026-11-11
 
