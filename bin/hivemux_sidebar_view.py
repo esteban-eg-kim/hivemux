@@ -76,7 +76,7 @@ FIELDS = ["pane_id", "session_name", "window_index", "window_name", "@claude_sta
           "@claude_state_at", "@claude_session", "window_id", "pane_active", "pane_last",
           "window_active", "session_attached", "pane_title", "@claude_title", "@claude_name", "pane_current_command",
           "@hivemux-closing", "@claude_wait", "@claude_touched", "@claude_bg", "@claude_offwork", "pane_index",
-          "pane_tty", "pane_width", "pane_height", "@hivemux-rest", "@claude_ctx", "@hivemux-handoff"]
+          "pane_tty", "pane_width", "pane_height", "@hivemux-rest", "@claude_ctx", "@hivemux-handoff", "@hivemux-rolename", "@hivemux-team"]
 # a shell in front means Claude has quit there (its SessionEnd hook comes a second or two later, or never)
 # 칸 앞에 셸이 있으면 그 Claude 는 끝났다 (SessionEnd 훅은 1~2초 늦게 오거나 안 온다)
 SHELLS = {"zsh", "bash", "fish", "sh", "dash", "tcsh", "ksh", "login"}
@@ -354,7 +354,11 @@ LEAD_RE = re.compile(r"^[^\w가-힣]+")
 
 
 def task_name(p):
-    """Task name: name set in the sidebar > terminal title sent by Claude > -n name > window name. / 작업 이름: 사이드바에서 바꾼 이름 > Claude가 보낸 터미널 제목 > -n 이름 > 창 이름."""
+    """Task name: a team role's name (bin/hivemux-team, "★ " for the lead) > name set in the sidebar > terminal title
+    sent by Claude > -n name > window name. / 작업 이름: 팀 역할 이름 (bin/hivemux-team, 리드는 "★ ") > 사이드바에서 바꾼
+    이름 > Claude가 보낸 터미널 제목 > -n 이름 > 창 이름."""
+    if p.get("@hivemux-rolename"):
+        return p["@hivemux-rolename"]
     if p.get("@claude_name"):
         return p["@claude_name"]
     t = LEAD_RE.sub("", p.get("pane_title", "")).strip()
@@ -536,7 +540,15 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
             rows.append(S().put(" ").put(tr(f"Claude 없음 · 창 {n}개", f"no Claude · {n} window" + ("s" if n != 1 else "")),
                                          C["text3"], tile, limit=cw - 1).fill(cw))
         x0, x1 = 1, cw - 1                # card columns inside the box / 상자 안 카드 가로 범위
+        # a team's roles together under its name, the project's other Claudes after them (bin/hivemux-team)
+        # 팀 역할은 팀 이름 아래 한 묶음으로, 프로젝트의 다른 Claude 는 그 뒤에 (bin/hivemux-team)
+        members = sorted(members, key=lambda m: 0 if m[1].get("@hivemux-rolename") else 1)
+        team_name = next((m[1].get("@hivemux-team") for m in members if m[1].get("@hivemux-rolename")), "")
         for mi, (i, p) in enumerate(members):
+            if team_name and (mi == 0 or bool(members[mi - 1][1].get("@hivemux-rolename")) != bool(p.get("@hivemux-rolename"))):
+                label = f"◆ {team_name}" if p.get("@hivemux-rolename") else tr("팀 밖", "outside the team")
+                rows.append(S().put(" ").put(label, C["text2"] if p.get("@hivemux-rolename") else C["text3"], tile,
+                                             bold=bool(p.get("@hivemux-rolename")), limit=cw - 2).fill(cw))
             st = p["@claude_state"] if p["@claude_state"] in STATE_TEXT else "idle"
             sel = p["pane_id"] == current
             card = C["card_sel"] if sel else C["card"]

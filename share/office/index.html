@@ -2087,7 +2087,7 @@ function teamBoard(p, tm) {
   members.forEach((b, i) => {
     const ry = y + 22 * z + i * row + row / 2, st = b.dieting && b.dieting !== 'after' ? 'diet' : b.state;
     circle(x + 10 * z, ry, 3.2 * z, T[b.state] || T.sleep);
-    font(9 * z, 600); c.fillStyle = '#1b1f27'; c.fillText(String(b.label || '').replace(' ★', ''), x + 17 * z, ry);
+    font(9 * z, 600); c.fillStyle = '#1b1f27'; c.fillText(String(b.label || '').replace('★ ', ''), x + 17 * z, ry);
     font(8.5 * z, 400); c.fillStyle = '#4a5263';
     c.fillText(st === 'diet' ? tr('다이어트', 'diet') : tr(...(BOARD_STATE[b.state] || BOARD_STATE.idle)), x + 62 * z, ry);
     if (b.line) {     // context against the line / 기준 대비 컨텍스트

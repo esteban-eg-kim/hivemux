@@ -607,7 +607,7 @@ def team_of(p):
         return {}
     name, lead, line, how = t["roles"][rid]
     ko = (p.get("@hivemux-kickoff") or "").split("\t", 1)
-    return {"role": rid, "label": name + (" ★" if lead else ""), "team": t["name"], "lead": lead,
+    return {"role": rid, "label": ("★ " if lead else "") + name, "team": t["name"], "lead": lead,
             "order": t["flow"].index(rid) if rid in t["flow"] else 99,
             "ctx": int(p["@claude_ctx"]) if p["@claude_ctx"].isdigit() else 0, "line": line if how != "off" else 0,
             "dieting": p.get("@hivemux-diet", ""),
@@ -650,6 +650,8 @@ def team_post(action, req):
     elif action == "role":
         ok, msg = team_call(teams.set_role, project, str(req.get("id", "")), req.get("fields") or {},
                             req.get("text") if isinstance(req.get("text"), str) else None)
+        if ok:
+            team_call(teams.remark, project)          # a new name or lead shows in the sidebar / 새 이름이나 리드가 사이드바에
     elif action == "role/add":
         ok, msg = team_call(teams.add_role, project, str(req.get("name", "")))
     elif action == "role/delete":

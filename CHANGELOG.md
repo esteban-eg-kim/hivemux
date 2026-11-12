@@ -64,6 +64,10 @@
   its state, its context against the diet line); when you send the team a
   goal, the team meets in the meeting room for a moment, the lead at the
   whiteboard saying the goal, then goes back to work
+- Sidebar, teams: a team's roles sit together in the project's box under
+  `◆ <team name>`, the project's other Claudes after them under "outside
+  the team"; a role's card shows its role, with ★ in front for the lead (the
+  bee office's name tags too)
 - Hand-offs sent as a reply (to the sender's address, not its name) are
   put down under the right role
 

@@ -279,6 +279,25 @@ def role_text(team, role):
         return ""
 
 
+def mark(pane, folder, team, role):
+    """What a role pane carries for hivemux (the hook's logs, the sidebar's group and name)
+    역할 칸이 hivemux 를 위해 지니는 것 (훅의 기록, 사이드바의 묶음과 이름)"""
+    tmux("set", "-p", "-t", pane, "@hivemux-role", role["id"])
+    tmux("set", "-p", "-t", pane, "@hivemux-teamdir", team_dir(folder))
+    tmux("set", "-p", "-t", pane, "@hivemux-rolename", ("★ " if role["lead"] else "") + label(role))
+    tmux("set", "-p", "-t", pane, "@hivemux-team", label(team))
+
+
+def remark(session):
+    """After an edit (a name, the lead): the running roles' marks again / 편집 뒤 (이름, 리드): 도는 역할의 표시를 다시"""
+    session, folder = project(session)
+    team = load(team_dir(folder))
+    by = {r["id"]: r for r in team["role"]}
+    for p in panes(session):
+        if p["role"] in by:
+            mark(p["pane"], folder, team, by[p["role"]])
+
+
 def worktree_of(folder, role):
     return os.path.join(team_dir(folder), "worktrees", role["id"])
 
@@ -454,8 +473,7 @@ def up(session, only=None):
             if not pane:
                 print(f"  {label(role)}: " + tr("창을 열지 못했습니다", "could not open a window"))
                 continue
-            tmux("set", "-p", "-t", pane, "@hivemux-role", role["id"])
-            tmux("set", "-p", "-t", pane, "@hivemux-teamdir", team_dir(folder))   # the hook logs here / 훅이 여기 기록한다
+            mark(pane, folder, team, role)
         else:
             pane = p["pane"]
         if p and offwork(pane):
@@ -551,8 +569,7 @@ def resume_args(target, sid, cwd):
     if not role:
         return ""
     session = tmux("display", "-p", "-t", target, "#{session_name}").strip() or os.path.basename(folder)
-    tmux("set", "-p", "-t", target, "@hivemux-role", role_id)
-    tmux("set", "-p", "-t", target, "@hivemux-teamdir", team_dir(folder))
+    mark(target, folder, team, role)
     return shlex.join(flags(session, folder, team, role))
 
 
@@ -561,7 +578,10 @@ def record(pane, sid):
     tmux("set", "-pu", "-t", pane, "@hivemux-role-at")      # it started (see up) / 시작했다 (up 참고)
     folder = find_team(folder_of(tmux("display", "-p", "-t", pane, "#{session_name}").strip()))
     if role and folder:
-        tmux("set", "-p", "-t", pane, "@hivemux-teamdir", team_dir(folder))
+        team = load(team_dir(folder))
+        r = next((x for x in team["role"] if x["id"] == role), None)
+        if r:
+            mark(pane, folder, team, r)
     if role and sid and folder and sessions(folder).get(role) != sid:
         with open(os.path.join(team_dir(folder), "sessions.tsv"), "a") as f:
             f.write(f"{role}\t{sid}\n")
