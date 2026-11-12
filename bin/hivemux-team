@@ -509,6 +509,11 @@ def record(pane, sid):
 
 def use(name, session, force):
     session, folder = project(session)
+    if name == "empty":
+        if os.path.isfile(os.path.join(team_dir(folder), "team.toml")) and not force:
+            die(tr(f"{session} 에는 이미 팀이 있습니다 (바꾸려면 --force)", f"{session} already has a team (--force replaces it)"))
+        use_empty(session)
+        return
     src = next((t["path"] for t in templates() if t["id"] == name), None)
     if not src:
         die(tr(f"템플릿이 없습니다: {name} (hivemux team templates)", f"No such template: {name} (hivemux team templates)"))
@@ -542,6 +547,181 @@ def save(name, session):
         f.write(toml_dumps(team))
     shutil.copytree(os.path.join(src, "roles"), os.path.join(dst, "roles"))
     print(tr(f"내 템플릿으로 저장했습니다: {dst}", f"Saved as your template: {dst}"))
+
+
+# ── editing, for the team page (bin/hivemux-office) / 편집: 팀 화면용 (bin/hivemux-office) ─────────────────
+# team.toml is rewritten as data, so comments in a project's copy do not survive an edit there
+# team.toml 을 데이터로 다시 쓰므로, 프로젝트 복사본에서 고치면 주석은 남지 않는다
+def _raw(folder):
+    with open(os.path.join(team_dir(folder), "team.toml"), encoding="utf-8") as f:
+        return toml_loads(f.read())
+
+
+def _write(folder, raw):
+    path = os.path.join(team_dir(folder), "team.toml")
+    with open(path + ".tmp", "w", encoding="utf-8") as f:
+        f.write(toml_dumps(raw))
+    os.replace(path + ".tmp", path)
+
+
+def prompt_path(folder, role):
+    """The prompt file the editor shows and writes: the English one on an English screen when there is one
+    편집 화면이 보이고 쓰는 지시문 파일: 영어 화면이고 영어 파일이 있으면 그것"""
+    base = os.path.join(team_dir(folder), role.get("prompt") or f"roles/{role['id']}.md")
+    en = re.sub(r"\.md$", ".en.md", base)
+    return en if lang() == "en" and os.path.isfile(en) else base
+
+
+def set_role(session, rid, fields, prompt=None):
+    """Change a role's fields and, when given, its prompt file / 역할의 칸과 (주어지면) 지시문 파일을 바꾼다"""
+    session, folder = project(session)
+    raw = _raw(folder)
+    roles = raw.get("role") or []
+    r = next((x for x in roles if x.get("id") == rid), None)
+    if r is None:
+        raise KeyError(rid)
+    en = lang() == "en"
+    for k, v in (fields or {}).items():
+        if k == "name" and str(v).strip():
+            r["name_en" if en and "name_en" in r else "name"] = str(v).strip()[:40]
+        elif k == "model" and v in MODELS:
+            r[k] = v
+        elif k == "effort" and v in EFFORTS:
+            r[k] = v
+        elif k in ("lead", "readonly", "worktree"):
+            if v:
+                r[k] = True
+            else:
+                r.pop(k, None)
+        elif k == "owns":
+            r[k] = str(v).strip()[:200]
+        elif k == "diet" and isinstance(v, dict):
+            d = dict(r.get("diet") or {})
+            if v.get("how") in ("renew", "compact", "off"):
+                d["how"] = v["how"]
+            if isinstance(v.get("at"), int) and 20 <= v["at"] <= 95:
+                d["at"] = v["at"]
+            r["diet"] = d
+    if (fields or {}).get("lead"):          # one lead / 리드는 하나
+        for x in roles:
+            if x is not r:
+                x.pop("lead", None)
+    _write(folder, raw)
+    if prompt is not None:
+        path = prompt_path(folder, {**r, "prompt": r.get("prompt") or f"roles/{rid}.md"})
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(str(prompt).rstrip() + "\n")
+
+
+NEW_PROMPT = {"ko": "너는 이 팀의 {name} 역할이다. 무엇을 하는지 여기에 적는다.\n\n- 결과는 어디에 남기는지\n- 끝나면 누구에게 넘기는지\n",
+              "en": "You are the team's {name}. Describe what you do here.\n\n- Where results go\n- Who you hand off to when done\n"}
+
+
+def add_role(session, name, rid=None, fields=None, prompt=None):
+    """A new role with a starter prompt; its id comes from the name when that is ASCII, else role<n>
+    새 역할과 기본 지시문. id 는 이름이 영문이면 이름에서, 아니면 role<n>"""
+    session, folder = project(session)
+    raw = _raw(folder)
+    roles = raw.setdefault("role", [])
+    ids = {x.get("id") for x in roles}
+    slug = rid or re.sub(r"[^a-z0-9]+", "-", str(name).lower()).strip("-")[:20]
+    if not re.fullmatch(r"[a-z][a-z0-9_-]{0,23}", slug or "") or slug in ids:
+        n = 1
+        while f"role{n}" in ids:
+            n += 1
+        slug = f"role{n}"
+    r = {"id": slug, "name": str(name).strip()[:40] or slug, "model": "sonnet", "effort": "medium", "prompt": f"roles/{slug}.md"}
+    roles.append(r)
+    if isinstance(raw.get("flow"), list):
+        raw["flow"].append(slug)
+    _write(folder, raw)
+    path = os.path.join(team_dir(folder), "roles", slug + ".md")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(prompt or NEW_PROMPT[lang()].format(name=r["name"]))
+    if fields:
+        set_role(session, slug, fields)
+    return slug
+
+
+def delete_role(session, rid):
+    """Take a role out of the team (its notes stay) / 역할을 팀에서 뺀다 (노트는 남는다)"""
+    session, folder = project(session)
+    raw = _raw(folder)
+    raw["role"] = [x for x in raw.get("role") or [] if x.get("id") != rid]
+    if isinstance(raw.get("flow"), list):
+        raw["flow"] = [x for x in raw["flow"] if x != rid]
+    _write(folder, raw)
+    for suffix in (".md", ".en.md"):
+        try:
+            os.remove(os.path.join(team_dir(folder), "roles", rid + suffix))
+        except OSError:
+            pass
+
+
+def set_order(session, ids):
+    """The flow: the order the roles hand work on / 흐름: 역할이 일을 넘기는 순서"""
+    session, folder = project(session)
+    raw = _raw(folder)
+    have = [x.get("id") for x in raw.get("role") or []]
+    raw["flow"] = [i for i in ids if i in have] + [i for i in have if i not in ids]
+    raw["role"] = sorted(raw.get("role") or [], key=lambda x: raw["flow"].index(x.get("id")))
+    _write(folder, raw)
+
+
+def use_empty(session):
+    session, folder = project(session)
+    dst = team_dir(folder)
+    os.makedirs(os.path.join(dst, "roles"), exist_ok=True)
+    os.makedirs(os.path.join(dst, "notes"), exist_ok=True)
+    _write(folder, {"id": "custom", "name": tr("내 팀", "My team"), "version": 1, "flow": [], "diet": {"at": 60, "how": "renew"}})
+    exclude(folder)
+
+
+def apply_plan(session, plan):
+    """The team wizard's pick on top of a template just copied: drop roles, set models, add new ones
+    방금 복사한 템플릿 위에 팀 추천 위저드가 고른 것을 얹는다: 역할 빼기, 모델 정하기, 새 역할 더하기"""
+    keep = {r.get("id") for r in plan.get("roles") or []}
+    _, folder = project(session)
+    for r in load(team_dir(folder))["role"]:
+        if r["id"] not in keep:
+            delete_role(session, r["id"])
+    have = {r["id"] for r in load(team_dir(folder))["role"]}
+    for r in plan.get("roles") or []:
+        fields = {k: r[k] for k in ("model", "effort", "readonly", "worktree", "lead") if k in r}
+        if r.get("id") in have:
+            set_role(session, r["id"], fields)
+        else:
+            add_role(session, r.get("name") or r.get("id"), r.get("id"), fields, r.get("prompt"))
+    at = plan.get("diet_at")
+    if isinstance(at, int) and 20 <= at <= 95:
+        raw = _raw(folder)
+        raw["diet"] = {**(raw.get("diet") or {}), "at": at}
+        _write(folder, raw)
+
+
+def detail(session):
+    """status() plus each role's prompt text, for the editor / status() 에 역할 지시문을 더한 것 (편집 화면용)"""
+    st = status(session)
+    if st.get("team"):
+        team = load(team_dir(st["folder"]))
+        by = {r["id"]: r for r in team["role"]}
+        for r in st["team"]["roles"]:
+            path = prompt_path(st["folder"], by[r["id"]])
+            try:
+                r["text"] = open(path, encoding="utf-8").read()
+            except OSError:
+                r["text"] = ""
+            r["file"] = os.path.relpath(path, st["folder"])
+    return st
+
+
+def final_prompt(session, rid):
+    session, folder = project(session)
+    team = load(team_dir(folder))
+    role = next((r for r in team["role"] if r["id"] == rid), None)
+    return build_prompt(session, folder, team, role) if role else ""
 
 
 def main(argv):

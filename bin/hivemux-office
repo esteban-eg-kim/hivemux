@@ -15,6 +15,9 @@
                                open it from tmux (sidebar button and menu, prefix B); a first build shows
                                its progress in a popup on <client>
                                tmux 에서 열기 (사이드바 버튼과 메뉴, prefix B). 처음 빌드는 <client> 의 팝업에 진행을 보인다
+  hivemux-office --team <project> [--client <client>]
+                               open it on the team page of that project (sidebar menu "Team…")
+                               그 프로젝트의 팀 화면으로 연다 (사이드바 메뉴 "팀…")
   hivemux-office --build       build the window app now, quietly (hivemux setup runs it in the background)
                                창 앱을 지금 조용히 빌드 (hivemux setup 이 뒤에서 실행)
 
@@ -35,7 +38,7 @@ $XDG_DATA_HOME/hivemux/hive/; without swiftc the page opens in the browser.
 창은 작은 네이티브 앱 (share/office/OfficeWindow.swift)으로, swiftc 로 한 번 빌드해
 $XDG_DATA_HOME/hivemux/hive/ 에 둔다. swiftc 가 없으면 브라우저로 연다.
 """
-import functools, glob, hashlib, http.server, json, os, re, shlex, shutil, signal, socket, stat, subprocess, sys, threading, time, urllib.request
+import functools, glob, hashlib, http.server, json, os, re, shlex, shutil, signal, socket, stat, subprocess, sys, threading, time, urllib.parse, urllib.request
 
 TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -119,6 +122,10 @@ import importlib.machinery, importlib.util
 _spec = importlib.util.spec_from_loader("hivemux_bees", importlib.machinery.SourceFileLoader("hivemux_bees", os.path.join(HERE, "hivemux-bees")))
 bees = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(bees)
+# teams (bin/hivemux-team): the team page reads and edits them / 팀 (bin/hivemux-team): 팀 화면이 읽고 고친다
+_spec = importlib.util.spec_from_loader("hivemux_team", importlib.machinery.SourceFileLoader("hivemux_team", os.path.join(HERE, "hivemux-team")))
+teams = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(teams)
 _ranks = {"size": -1, "day": "", "value": None}
 
 
@@ -437,6 +444,7 @@ class Remotes(threading.Thread):
 class Handler(http.server.BaseHTTPRequestHandler):
     remotes = None
     last = time.time()
+    nav = None          # (path, time): a page to go to, asked by --team while the window is open / --team 이 연 창에 요청한 페이지
 
     def log_message(self, *a):
         pass
@@ -465,10 +473,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == "/state":
             Handler.last = time.time()
             local = snapshot()
-            return self.send(200, json.dumps({"lang": local["lang"], "offices": [local] + Handler.remotes.list()}))
+            return self.send(200, json.dumps({"lang": local["lang"], "offices": [local] + Handler.remotes.list(), "nav": take_nav()}))
+        if path == "/team/state":
+            Handler.last = time.time()
+            q = query(self.path)
+            return self.send(200, json.dumps(team_state(q.get("project", "")), ensure_ascii=False))
+        if path == "/team/prompt":
+            q = query(self.path)
+            ok, text = team_call(teams.final_prompt, q.get("project", ""), q.get("role", ""))
+            return self.send(200, json.dumps({"ok": ok, "text": text if ok else ""}, ensure_ascii=False))
         # one page: the office at an angle, or seen from above (/2d opens it that way; the page switches)
         # 한 페이지: 비스듬히 본 사무실, 또는 위에서 본 모습 (/2d 는 그렇게 연다. 페이지에서 서로 바꾼다)
-        page = {"/": "index.html", "/index.html": "index.html", "/2d": "index.html"}.get(path)
+        page = {"/": "index.html", "/index.html": "index.html", "/2d": "index.html", "/team": "team.html"}.get(path)
         if page:
             with open(os.path.join(SHARE, page), "rb") as f:
                 return self.send(200, f.read(), "text/html; charset=utf-8")
@@ -485,7 +501,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self.send(403, "{}")
         if origin and origin not in (f"http://127.0.0.1:{self.server.server_port}", f"http://localhost:{self.server.server_port}"):
             return self.send(403, "{}")
-        if self.path not in ("/goto", "/shift", "/answer"):
+        if self.path not in ("/goto", "/shift", "/answer", "/nav") and not self.path.startswith("/team/"):
             return self.send(404, "{}")
         try:
             n = int(self.headers.get("Content-Length") or 0)
@@ -494,6 +510,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             req = None
         if not isinstance(req, dict):
             return self.send(400, "{}")
+        if self.path == "/nav":     # hivemux-office --team, while the window is open / 창이 열려 있을 때
+            if str(req.get("path", "")).startswith("/"):
+                Handler.nav = (str(req["path"]), time.time())
+            return self.send(200, "{}")
+        if self.path.startswith("/team/"):
+            return self.send(200, json.dumps(team_post(self.path[6:], req), ensure_ascii=False))
         if self.path == "/shift":   # clock out or in (bin/hivemux-shift), here or on a connected Mac / 퇴근 또는 출근, 여기 또는 붙어 있는 Mac
             what, ssh = req.get("to"), req.get("ssh")
             if what not in ("on", "off"):
@@ -527,6 +549,71 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if ok:
             front_terminal()
         self.send(200, json.dumps({"ok": ok}))
+
+
+def query(path):
+    return {k: v[0] for k, v in urllib.parse.parse_qs(path.partition("?")[2]).items()}
+
+
+def take_nav():
+    """A page the window should go to, once (asked in the last 10 s) / 창이 갈 페이지, 한 번만 (10초 안에 요청된 것)"""
+    nav, Handler.nav = Handler.nav, None
+    return nav[0] if nav and time.time() - nav[1] < 10 else None
+
+
+def team_call(fn, *a):
+    """Call bin/hivemux-team; (ok, result or what it printed) / bin/hivemux-team 호출. (성공, 결과 또는 찍은 글)"""
+    import contextlib, io
+    out, err = io.StringIO(), io.StringIO()
+    try:
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            r = fn(*a)
+        return True, r if r is not None else out.getvalue().strip()
+    except SystemExit:
+        return False, (err.getvalue() or out.getvalue()).strip()
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        return False, str(e)
+
+
+def team_state(project):
+    """The team page's data: projects, templates, and the chosen project's team / 팀 화면 자료: 프로젝트, 템플릿, 고른 프로젝트의 팀"""
+    projects = []
+    for line in tmux("list-sessions", "-F", "#{session_name}\t#{session_path}").splitlines():
+        name, _, folder = line.partition("\t")
+        if name and folder and not (name == "0" and tmux("show", "-gqv", "@hivemux-starting").strip()):
+            projects.append({"name": name, "folder": folder, "team": os.path.isfile(os.path.join(folder, ".hivemux", "team.toml"))})
+    out = {"lang": lang(), "projects": projects, "templates": teams.templates(), "nav": take_nav(), "project": None}
+    if project and any(p["name"] == project for p in projects):
+        ok, st = team_call(teams.detail, project)
+        out["project"] = st if ok else None
+    return out
+
+
+def team_post(action, req):
+    """The team page's edits; every one goes through bin/hivemux-team / 팀 화면의 편집. 모두 bin/hivemux-team 을 거친다"""
+    project = str(req.get("project", ""))
+    if action == "use":
+        tpl = str(req.get("template", ""))
+        ok, msg = team_call(teams.use, tpl, project, bool(req.get("force")))
+        if ok and isinstance(req.get("plan"), dict):
+            ok, msg = team_call(teams.apply_plan, project, req["plan"])
+    elif action == "role":
+        ok, msg = team_call(teams.set_role, project, str(req.get("id", "")), req.get("fields") or {},
+                            req.get("text") if isinstance(req.get("text"), str) else None)
+    elif action == "role/add":
+        ok, msg = team_call(teams.add_role, project, str(req.get("name", "")))
+    elif action == "role/delete":
+        ok, msg = team_call(teams.delete_role, project, str(req.get("id", "")))
+    elif action == "order":
+        ok, msg = team_call(teams.set_order, project, [str(x) for x in req.get("ids") or []])
+    elif action in ("up", "down"):
+        fn = teams.up if action == "up" else teams.down
+        ok, msg = team_call(fn, project, str(req.get("role") or "") or None)
+    elif action == "save":
+        ok, msg = team_call(teams.save, str(req.get("id", "")), project)
+    else:
+        return {"ok": False, "say": "?"}
+    return {"ok": ok, "say": msg if isinstance(msg, str) else "", "id": msg if action == "role/add" and ok else None}
 
 
 def ping(port):
@@ -722,12 +809,15 @@ def build_screen(popup):
     return app
 
 
-def open_window(popup=False):
+def open_window(popup=False, page="/"):
     port = start_server()
-    url = f"http://127.0.0.1:{port}/"
+    url = f"http://127.0.0.1:{port}{page}"
     try:                                        # already open: bring it to the front / 이미 열려 있으면 앞으로
         pid = int(open(WINDOW_PID).read())
         if APP_NAME in subprocess.run(["ps", "-o", "args=", "-p", str(pid)], capture_output=True, text=True).stdout:
+            if page != "/":                     # it goes there at its next poll / 다음 읽기 때 그리로 간다
+                urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{port}/nav", method="POST",
+                                       data=json.dumps({"path": page}).encode()), timeout=2).read()
             os.kill(pid, signal.SIGUSR1)
             return
     except (OSError, ValueError):
@@ -864,6 +954,15 @@ def main(argv):
         print(r.stdout.strip()); sys.exit(r.returncode)
     elif argv[:1] == ["serve"]:
         serve()
+    elif argv[:1] == ["--team"] and len(argv) >= 2:
+        client = argv[3] if argv[2:3] == ["--client"] and len(argv) >= 4 else ""
+        if client and f" {client} " in f" {tmux('show', '-gqv', '@hivemux-remote-clients')} ":
+            # the team files are on this computer; editing them from the other one is for later
+            # 팀 파일은 이 컴퓨터에 있다. 다른 컴퓨터에서 고치는 것은 나중에
+            tmux("display", "-c", client, "-d", "5000", "다른 컴퓨터에서 붙은 화면에서는 아직 팀 화면을 열 수 없습니다. 이 컴퓨터에서 여세요"
+                 if lang() == "ko" else "The team page does not open from a screen attached from another computer yet. Open it on this computer")
+            return
+        open_window(page="/team?project=" + urllib.parse.quote(argv[1]))
     elif argv[:1] == ["--client"]:
         from_tmux(argv[1] if len(argv) > 1 else "")
     elif argv[:1] == ["--popup"]:

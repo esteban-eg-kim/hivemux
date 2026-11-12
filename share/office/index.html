@@ -61,6 +61,11 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
 .brand { display: flex; align-items: center; gap: 8px; font: 600 16px var(--f-mono); }
 .brand svg { width: 26px; height: 26px; }
 .chips { display: flex; gap: 6px; }
+/* to the team page (/team, share/office/team.html) / 팀 화면으로 */
+.teamlink { display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--fg); font-weight: 600; font-size: 13px; text-decoration: none; }
+.teamlink:hover { border-color: var(--muted); }
+.teamlink:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
 .chip b { font: 600 12px var(--f-mono); }
@@ -226,6 +231,7 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
 <div class="app">
   <header class="top glass">
     <div class="brand"><img src="/logo.svg" alt="" width="26" height="26">hivemux</div>
+    <a class="teamlink" href="/team" data-t="팀|Team"></a>
     <div class="chips" id="chips"></div>
   </header>
 
@@ -615,6 +621,7 @@ async function poll() {
   try {
     const r = await fetch('/state', { cache: 'no-store' });
     s = await r.json();
+    if (s.nav) { location.href = s.nav; return; }     // hivemux-office --team asked for a page / 다른 페이지를 요청받음
     if (failures >= 3) toast(tr('hivemux 에 다시 연결됐어요', 'Reconnected to hivemux'));
     failures = 0; $('#lost').hidden = true;
   } catch (e) {

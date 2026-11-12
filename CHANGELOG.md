@@ -10,6 +10,14 @@
   worktree), QA (read-only) and marketing. `team down` clocks the roles out;
   after a reboot, clocking in or a Claude update, a role resumes with its
   flags. `hivemux team save <id>` keeps a project's team as your template
+- Team page: the bee office window has a Team page (the Team link at the top,
+  or "Team…" in the sidebar's project menu). Pick a template, or let a
+  three-question wizard suggest roles, models and effort with the reasons;
+  edit each role (model, effort, worktree, lead, read-only, the folders it
+  owns, diet, its prompt, and a preview of the final prompt), add and delete
+  roles, start and stop the team or one role. Suggestions drawn from how
+  people run teams (a read-only reviewer, sonnet for light roles, one lead,
+  no shared folders) come with a button that applies them
 
 ## 0.1.53 — 2026-11-11
 

@@ -841,6 +841,8 @@ def menu(y, pid=None, sess=None, items=(), homes=()):
         rows[-1:-1] = [(tr("Claude 닫기…", "Close Claude…"), "x", lambda: bg_run(os.path.join(here, "hivemux-close-claude"), pid, client))]
     elif not empty:                     # project name row / 프로젝트 이름 줄
         rows += [(tr("이름 바꾸기…", "Rename…"), "r", lambda: bg_run(os.path.join(here, "hivemux-rename-project"), "prompt", sess, client)),
+                 # the team page of the bee office window (bin/hivemux-team) / 벌 사무실 창의 팀 화면 (bin/hivemux-team)
+                 (tr("팀…", "Team…"), "m", lambda: bg_run(os.path.join(here, "hivemux-office"), "--team", sess, "--client", client)),
                  (tr("프로젝트 닫기…", "Close project…"), "x", lambda: bg_run(os.path.join(here, "hivemux-close-project"), sess, client))]
         # this project's Claudes only; windows and shells stay / 이 프로젝트의 Claude 만. 창과 셸은 그대로
         if any(p["session_name"] == sess and not p["@claude_offwork"] for p in items):

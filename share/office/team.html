@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hivemux team</title>
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<style>
+/* The team page (bin/hivemux-office serves it at /team): pick a template or let the wizard suggest a team, edit the
+   roles, start and stop them. Every change goes to the project's .hivemux/ through bin/hivemux-team at once.
+   팀 화면 (bin/hivemux-office 가 /team 으로 낸다): 템플릿을 고르거나 위저드의 추천을 받고, 역할을 고치고, 시작하고
+   끈다. 바꾸면 바로 bin/hivemux-team 을 거쳐 프로젝트의 .hivemux/ 에 저장된다. */
+:root {
+  --bg: #e9edf3; --panel: #ffffff; --soft: #f6f8fb; --soft2: #eef1f5; --line: #d3d9e3; --line2: #e1e6ee; --fg: #1b1f27; --fg2: #3a4252; --muted: #5a6375;
+  --run: #2f7fd6; --wait: #c77d00; --done: #1d9a64; --sleep: #8b94a5; --alert: #c2412d; --honey: #f2b632;
+  --tip-bg: #fff8e6; --tip-line: #f0d998; --tip-fg: #7a4d00; --code-bg: #1b1f27; --code-fg: #e1e6f0;
+  --btn: #1b1f27; --btn-fg: #ffffff;
+  --f-body: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --f-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #101217; --panel: #1a1d24; --soft: #20242c; --soft2: #262a33; --line: #2b303b; --line2: #2b303b; --fg: #e1e6f0; --fg2: #c3c9d4; --muted: #9aa3b2;
+  --run: #5aa9ff; --wait: #f5a524; --done: #3ecf8e; --sleep: #6b7385; --alert: #ff7a66;
+  --tip-bg: #2a2414; --tip-line: #5b4a1c; --tip-fg: #f5c45a; --code-bg: #0b0d11; --code-fg: #e1e6f0;
+  --btn: #e1e6f0; --btn-fg: #101217; color-scheme: dark } }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.5 var(--f-body); }
+[hidden] { display: none !important; }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
+a { color: var(--run); }
+code, .mono { font-family: var(--f-mono); font-size: 12.5px; }
+
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; background: color-mix(in srgb, var(--panel) 85%, transparent);
+  border: 1px solid var(--line); border-radius: 12px; padding: 6px 8px; box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+.brand { display: flex; align-items: center; gap: 8px; font: 600 15px var(--f-mono); padding: 0 6px; }
+.seg { display: flex; background: var(--soft2); border-radius: 9px; padding: 3px; gap: 2px; }
+.seg > * { border: 0; background: transparent; color: var(--fg2); padding: 7px 13px; border-radius: 7px; font-weight: 600; min-height: 34px;
+  text-decoration: none; display: inline-flex; align-items: center; }
+.seg > [aria-pressed="true"], .seg > [aria-current] { background: var(--panel); color: var(--fg); box-shadow: 0 1px 3px rgba(0,0,0,.14); font-weight: 700; }
+select.project { min-height: 38px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); padding: 0 10px; font-weight: 600; }
+
+main { padding: 8px 24px 56px; }
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+h2 { margin: 0; font-size: 18px; font-weight: 700; }
+.sub { color: var(--muted); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--panel); font-weight: 700; text-decoration: none; color: var(--fg); }
+.btn.primary { background: var(--btn); color: var(--btn-fg); border-color: var(--btn); }
+.btn.danger { color: var(--alert); border-color: color-mix(in srgb, var(--alert) 40%, var(--line)); }
+.btn.small { min-height: 36px; padding: 0 12px; font-size: 13px; }
+.btn[disabled] { opacity: .5; cursor: default; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.between { justify-content: space-between; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px; }
+
+.icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 28%; }
+.icon svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.flow .step { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.arrow { color: var(--sleep); }
+
+.wizband { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; background: var(--code-bg); color: var(--code-fg); border-radius: 16px; padding: 18px 22px; border: 0; text-align: left; width: 100%; }
+.wizband b { color: #fff; font-size: 17px; }
+.wizband .go { margin-left: auto; background: #fff; color: #1b1f27; border-radius: 10px; font-weight: 700; padding: 0 18px; min-height: 44px; display: inline-flex; align-items: center; }
+.tpl { display: flex; flex-direction: column; gap: 14px; }
+.tag { font-size: 12px; font-weight: 700; border-radius: 6px; padding: 2px 8px; background: var(--soft2); color: var(--fg2); white-space: nowrap; }
+.tag.honey { background: #fbefd2; color: #7a4d00; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; }
+.chips span { background: var(--soft2); border-radius: 6px; padding: 3px 8px; color: var(--fg2); }
+.empty { border: 2px dashed var(--line); background: transparent; align-items: center; justify-content: center; text-align: center; min-height: 260px; }
+
+.layout { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+.roles { flex: 1 1 280px; max-width: 360px; min-width: 0; padding: 10px; display: flex; flex-direction: column; gap: 4px; }
+.roleitem { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: var(--panel); border: 1px solid transparent;
+  border-radius: 11px; padding: 8px 10px; min-height: 52px; }
+.roleitem[aria-pressed="true"] { background: var(--soft); border-color: var(--fg); }
+.roleitem .meta { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1.3; }
+.roleitem .meta span { font-size: 12px; color: var(--muted); font-family: var(--f-mono); }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); flex-shrink: 0; }
+.dot.run { background: var(--run); } .dot.wait { background: var(--wait); } .dot.done { background: var(--done); } .dot.idle, .dot.on { background: var(--sleep); }
+.addrow { display: flex; gap: 6px; margin-top: 6px; }
+.addrow input { flex: 1; min-width: 0; min-height: 40px; border: 1px dashed var(--line); border-radius: 10px; padding: 0 10px; background: transparent; }
+.tips { margin-top: 10px; border-top: 1px solid var(--line2); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.tip { background: var(--tip-bg); border: 1px solid var(--tip-line); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.tip button { align-self: flex-start; }
+
+.detail { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+label.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: var(--muted); }
+input.text { min-height: 44px; border: 1px solid var(--line); border-radius: 9px; padding: 0 12px; background: var(--panel); font-size: 15px; font-weight: 600; color: var(--fg); }
+.checks { display: flex; flex-wrap: wrap; gap: 10px; }
+.check { display: flex; align-items: center; gap: 10px; background: var(--soft); border: 1px solid var(--line2); border-radius: 10px; padding: 0 14px; min-height: 52px; flex: 1 1 220px; cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: var(--btn); }
+.check span { display: flex; flex-direction: column; line-height: 1.3; }
+.check small { color: var(--muted); font-size: 12px; }
+.dietrow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: var(--soft); border: 1px solid var(--line2); border-radius: 12px; padding: 10px 14px; }
+.stepper { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.stepper button { width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); font-weight: 700; }
+.tabs { display: flex; gap: 16px; }
+.tabs button { border: 0; background: transparent; font-weight: 700; color: var(--muted); border-bottom: 2px solid transparent; padding: 8px 2px; min-height: 40px; }
+.tabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--fg); }
+textarea.prompt, pre.prompt { width: 100%; min-height: 260px; margin: 0; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; font: 13px/1.75 var(--f-mono);
+  background: var(--soft); color: var(--fg); resize: vertical; white-space: pre-wrap; }
+pre.prompt { background: var(--code-bg); color: var(--code-fg); }
+.note { font-size: 13px; color: var(--tip-fg); background: var(--tip-bg); border: 1px solid var(--tip-line); border-radius: 10px; padding: 8px 12px; }
+.saved { font-size: 13px; color: var(--done); font-weight: 600; }
+.state { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 3px 10px; background: var(--soft2); }
+
+.modal { position: fixed; inset: 0; background: rgba(16,18,23,.45); display: flex; align-items: flex-start; justify-content: center; padding: 6vh 16px; z-index: 10; overflow: auto; }
+.sheet { background: var(--bg); border-radius: 18px; width: min(920px, 100%); padding: 24px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+.choice { text-align: left; background: var(--panel); border: 2px solid var(--line); border-radius: 14px; padding: 16px 18px; min-height: 96px; display: flex; flex-direction: column; gap: 6px; }
+.choice[aria-pressed="true"] { border-color: var(--fg); }
+.choice b { font-size: 16px; }
+.choice span { color: var(--fg2); }
+.dots { display: flex; gap: 6px; }
+.dots i { width: 34px; height: 6px; border-radius: 3px; background: var(--line); }
+.dots i.on { background: var(--fg); }
+.coins { display: flex; gap: 3px; } .coins i { width: 18px; height: 6px; border-radius: 3px; background: var(--soft2); } .coins i.on { background: #e8a13a; }
+.result { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.result > div { display: flex; gap: 14px; padding: 14px 18px; border-bottom: 1px solid var(--line2); }
+.result > div:last-child { border-bottom: 0; }
+#toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--code-bg); color: var(--code-fg); padding: 10px 16px; border-radius: 10px; z-index: 20; max-width: 90vw; white-space: pre-line; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="bar">
+    <span class="brand"><img src="/logo.svg" alt="" width="24" height="24">hivemux</span>
+    <nav class="seg" aria-label="화면"><a href="/" data-t="사무실|Office"></a><span aria-current="page" data-t="팀|Team"></span></nav>
+    <label><span class="sr" hidden data-t="프로젝트|Project"></span><select class="project" id="project" aria-label="project"></select></label>
+  </div>
+</header>
+<main><div class="wrap" id="main"></div></main>
+<div class="modal" id="wizard" hidden><div class="sheet" id="wiz" role="dialog" aria-modal="true"></div></div>
+<div class="modal" id="ask" hidden><div class="sheet" id="askbox" role="dialog" aria-modal="true" style="width: min(480px, 100%)"></div></div>
+<div id="toast" role="status" hidden></div>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let D = null;                       // /team/state
+let L = 'ko';
+const tr = (ko, en) => L === 'ko' ? ko : en;
+const S = { project: new URLSearchParams(location.search).get('project') || '', sel: '', tab: 'mine', edited: {}, wiz: null, sig: '' };
+
+// ── role look: an icon and a color per known role; others get a person / 역할 모습: 아는 역할은 아이콘과 색, 나머지는 사람
+const ICON = {
+  researcher: '<circle cx="11" cy="11" r="6"/><path d="M16 16l4.5 4.5"/>',
+  planner: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="M9 11h6M9 15h4"/>',
+  designer: '<path d="M4 20l4-1L19 8l-3-3L5 16z"/><path d="M14 7l3 3"/>',
+  dev: '<path d="M8 7l-5 5 5 5"/><path d="M16 7l5 5-5 5"/><path d="M14 5l-4 14"/>',
+  qa: '<path d="M9 3h6"/><path d="M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3"/><path d="M7.5 15h9"/>',
+  marketer: '<path d="M4 10v4h3l8 4V6L7 10z"/><path d="M18 9.5a3.5 3.5 0 0 1 0 5"/>',
+  writer: '<path d="M4 20h16"/><path d="M6 16l9-9 3 3-9 9H6z"/>',
+  custom: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'
+};
+const TONE = { researcher: ['#dff3f2', '#0b6f71'], planner: ['#fbefd2', '#8a5600'], designer: ['#ece6fa', '#5f42a8'], dev: ['#e0ecfa', '#1f62b0'],
+  qa: ['#dcf2e7', '#146f48'], marketer: ['#fbe4dc', '#a63f26'], writer: ['#e8eef6', '#34507a'], custom: ['#e9edf3', '#3a4252'] };
+function icon(id, size = 32) {
+  const k = ICON[id] ? id : 'custom', [bg, fg] = TONE[k];
+  return `<span class="icon" style="width:${size}px;height:${size}px;background:${bg};color:${fg}" aria-hidden="true"><svg width="${Math.round(size * .56)}" height="${Math.round(size * .56)}" viewBox="0 0 24 24">${ICON[k]}</svg></span>`;
+}
+const ARROW = '<svg class="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+const MODELS = ['opus', 'sonnet', 'haiku'], EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
+const DIETS = [['renew', '노트로 새로 시작', 'Fresh start from notes'], ['compact', '압축', 'Compact'], ['off', '끔', 'Off']];
+const STATE = { run: ['일함', 'Working'], wait: ['답 기다림', 'Needs you'], done: ['끝남', 'Done'], idle: ['쉼', 'Resting'], off: ['꺼짐', 'Off'], '': ['꺼짐', 'Off'] };
+
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toast.h); toast.h = setTimeout(() => { t.hidden = true; }, 3200);
+}
+async function post(path, body) {
+  try {
+    const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    return await r.json();
+  } catch (e) { return { ok: false, say: tr('hivemux 에 닿지 않았어요', 'Could not reach hivemux') }; }
+}
+const team = () => D && D.project && D.project.team;
+const role = id => team() && team().roles.find(r => r.id === id);
+
+// ── data / 자료 ─────────────────────────────────────────────────────────────────────────────
+async function load() {
+  let d;
+  try { d = await (await fetch('/team/state?project=' + encodeURIComponent(S.project), { cache: 'no-store' })).json(); } catch (e) { return; }
+  if (d.nav) { location.href = d.nav; return; }
+  D = d; L = d.lang || 'ko'; document.documentElement.lang = L;
+  if (!S.project || !d.projects.some(p => p.name === S.project)) {
+    S.project = (d.projects.find(p => p.team) || d.projects[0] || {}).name || '';
+    if (S.project && !d.project) return load();
+  }
+  // redraw everything only when the shape changed; otherwise just the states (keeps what is being typed)
+  // 모양이 바뀔 때만 다시 그린다. 아니면 상태만 (입력 중인 것을 지킨다)
+  const t = team();
+  const sig = [S.project, d.projects.map(p => p.name + p.team).join(','), t ? t.roles.map(r => r.id + r.name + r.model + r.effort + r.lead + r.readonly + r.worktree + r.diet.how + r.diet.at).join('|') : '-', S.sel, S.tab].join('#');
+  if (sig !== S.sig) { S.sig = sig; render(); } else states();
+}
+setInterval(load, 2000);
+
+function render() {
+  document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
+  const sel = $('#project');
+  sel.innerHTML = D.projects.map(p => `<option value="${esc(p.name)}"${p.name === S.project ? ' selected' : ''}>${esc(p.name)}${p.team ? ' · ' + tr('팀', 'team') : ''}</option>`).join('');
+  const m = $('#main');
+  if (!D.projects.length) { m.innerHTML = `<div class="card"><h1>${tr('열린 프로젝트가 없어요', 'No project is open')}</h1><p class="sub">${tr('hm 으로 프로젝트를 연 뒤 다시 오세요.', 'Open a project with hm, then come back.')}</p></div>`; return; }
+  if (!team()) return renderTemplates(m);
+  renderTeam(m);
+}
+$('#project').addEventListener('change', e => { S.project = e.target.value; S.sel = ''; S.sig = ''; history.replaceState(null, '', '/team?project=' + encodeURIComponent(S.project)); load(); });
+
+// ── no team yet: templates and the wizard / 팀이 없을 때: 템플릿과 위저드 ─────────────────────────────
+function renderTemplates(m) {
+  const cards = D.templates.map(t => `
+    <article class="card tpl">
+      <div class="row between"><div><h2>${esc(t.name)}</h2><span class="sub">${esc(t.description || '')}</span></div>
+        <span class="tag ${t.builtin ? 'honey' : ''}">${t.builtin ? tr('기본', 'Built in') : tr('내 템플릿', 'Yours')}</span></div>
+      <div class="flow">${t.flow.map((id, i) => icon(id, 32) + (i < t.flow.length - 1 ? ARROW : '')).join('')}</div>
+      <div class="chips"><span>${t.roles.length}${tr('명', ' roles')}</span><span>${modelsLine(t.roles)}</span></div>
+      <button class="btn primary" data-use="${esc(t.id)}" style="margin-top:auto">${tr('이 팀으로', 'Use this team')}</button>
+    </article>`).join('');
+  m.innerHTML = `
+    <div><h1>${esc(S.project)} ${tr('에 팀을 만들어요', '— make a team')}</h1>
+      <p class="sub" style="margin:4px 0 0">${tr('템플릿은 이 프로젝트의 .hivemux/ 로 복사돼요. 고쳐도 원래 템플릿은 그대로예요.', "The template is copied into this project's .hivemux/. Editing it leaves the template as it was.")}</p></div>
+    <button class="wizband" id="wizgo"><span class="icon" style="width:44px;height:44px;background:#f2b632;color:#23201a" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></span>
+      <span><b>${tr('어떤 팀이 맞을지 모르겠다면', 'Not sure which team fits?')}</b><br>${tr('세 가지 질문에 답하면 역할, 모델, 노력을 이유와 함께 추천해요', 'Answer three questions and get roles, models and effort, with reasons')}</span>
+      <span class="go">${tr('추천 받기', 'Get a suggestion')}</span></button>
+    <div class="grid">${cards}
+      <article class="card tpl empty"><h2>${tr('빈 팀', 'Empty team')}</h2><span class="sub">${tr('역할을 하나씩 직접 만들어요', 'Add roles one by one')}</span>
+        <button class="btn" data-use="empty">${tr('빈 팀으로 시작', 'Start empty')}</button></article></div>`;
+  m.querySelectorAll('[data-use]').forEach(b => b.onclick = () => useTemplate(b.dataset.use));
+  $('#wizgo').onclick = () => openWizard();
+}
+function modelsLine(roles) {
+  const c = {}; roles.forEach(r => { c[r.model] = (c[r.model] || 0) + 1; });
+  return MODELS.filter(k => c[k]).map(k => `${k} ${c[k]}`).join(' · ');
+}
+async function useTemplate(id, plan, start) {
+  const r = await post('/team/use', { project: S.project, template: id, plan, force: !!team() });
+  if (!r.ok) return toast(r.say || tr('만들지 못했어요', 'Could not make it'));
+  if (start) { const u = await post('/team/up', { project: S.project }); toast(u.say || tr('팀을 시작했어요', 'Team started')); }
+  else toast(tr('팀을 만들었어요. 고친 뒤 팀 시작을 누르세요', 'Team made. Edit it, then press Start team'));
+  S.sel = ''; S.sig = ''; $('#wizard').hidden = true; load();
+}
+
+// ── the wizard / 위저드 ──────────────────────────────────────────────────────────────────────
+function openWizard() { S.wiz = { step: 0, kind: 'webapp', have: { idea: true }, prio: 'balance' }; drawWizard(); $('#wizard').hidden = false; }
+function plan() {
+  const w = S.wiz;
+  const P = { quality: { lead: ['opus', 'xhigh'], dev: ['opus', 'high'], other: ['sonnet', 'high'], light: ['sonnet', 'medium'], diet: 60 },
+    balance: { lead: ['opus', 'high'], dev: ['opus', 'high'], other: ['sonnet', 'high'], light: ['sonnet', 'medium'], diet: 60 },
+    cost: { lead: ['sonnet', 'high'], dev: ['sonnet', 'high'], other: ['sonnet', 'medium'], light: ['haiku', 'medium'], diet: 50 } }[w.prio];
+  const t = [], add = (id, m, why, extra) => t.push({ id, model: m[0], effort: m[1], why, ...extra });
+  const content = w.kind === 'content';
+  add('planner', P.lead, tr('리드. 스펙과 완료 기준을 쓰고 일을 나눠요. 막힌 역할이 돌아오는 곳이라 판단력이 가장 중요해요.', 'Lead. Writes specs and acceptance criteria and splits the work; blocked roles come back here, so judgment matters most.'), { lead: true });
+  if (!w.have.spec) add('researcher', P.light, tr('기획 문서가 없어 시장과 경쟁 서비스부터 봐요. 많이 읽는 일은 에이전트에게 맡겨 대화를 가볍게 둬요.', 'No plan yet, so it starts with the market and competitors, handing heavy reading to subagents.'));
+  if (!content && !w.have.design) add('designer', P.other, tr('디자인이 없어 화면 흐름과 상태(빈 화면, 오류)를 먼저 정해요.', 'No design yet: screen flows and states (empty, error) first.'));
+  if (!content) add('dev', P.dev, w.have.code ? tr('코드가 있어 먼저 구조를 읽고 기존 방식을 따라요. 자기 워크트리에서 기능마다 커밋해요.', 'There is code: it reads the structure first and follows it, committing per feature in its own worktree.')
+    : tr('스펙의 완료 기준을 먼저 테스트로 옮기고 구현해요. 자기 워크트리에서 일해요.', 'Turns acceptance criteria into tests first, then builds, in its own worktree.'), { worktree: true });
+  if (!content) add('qa', P.other, tr('만든 역할이 아닌 눈으로 검사해야 객관적이에요. 그래서 읽기 전용이고, 고칠 것은 개발에게 넘겨요.', "Checking with eyes other than the builder's keeps it honest, so it is read-only and hands fixes to dev."), { readonly: true });
+  if (content) add('writer', P.other, tr('조사와 기획을 받아 글을 써요.', 'Writes from the research and the plan.'), { name: tr('작성', 'Writing'), prompt: tr('너는 이 팀의 작성자다. 조사와 기획을 받아 글을 쓴다.\n\n- 초안은 docs/drafts/ 에 쓴다.\n- 사실은 조사 파일의 출처로 확인한다.\n- 끝나면 기획에게 파일 경로를 넘긴다.\n', "You are the team's writer. You write from the research and the plan.\n\n- Drafts go to docs/drafts/.\n- Check facts against the research's sources.\n- When done, send planning the file path.\n") });
+  if (w.kind !== 'app') add('marketer', P.light, tr('출시 문구, SEO, 공지를 맡아요. 할 일이 없을 때는 쉬어서 거의 쓰지 않아요.', 'Launch copy, SEO and announcements; it rests, and costs little, when there is nothing to do.'));
+  return { roles: t, diet: P.diet };
+}
+function drawWizard() {
+  const w = S.wiz, titles = [tr('무엇을 만드나요?', 'What are you building?'), tr('지금 어디까지 있나요?', 'What do you have already?'), tr('무엇이 가장 중요한가요?', 'What matters most?'), tr('이 팀을 추천해요', 'This team fits')];
+  const choice = (key, v, label, desc, on, extra = '') => `<button class="choice" data-k="${key}" data-v="${v}" aria-pressed="${on}">${extra}<b>${label}</b><span>${desc}</span></button>`;
+  let body = '';
+  if (w.step === 0) body = `<div class="grid">${[['webapp', tr('웹 서비스', 'Web service'), tr('브라우저에서 쓰는 서비스. 화면, API, 출시까지', 'A service in the browser: screens, API, launch')],
+    ['app', tr('모바일 앱', 'Mobile app'), tr('iOS·Android 앱', 'An iOS or Android app')], ['both', tr('웹 + 앱', 'Web + app'), tr('같은 서비스를 웹과 앱으로', 'One service on the web and in apps')],
+    ['content', tr('콘텐츠·블로그', 'Content, blog'), tr('조사하고, 쓰고, 알리는 일', 'Research, write, promote')]].map(([v, a, b]) => choice('kind', v, a, b, w.kind === v)).join('')}</div>`;
+  if (w.step === 1) body = `<p class="sub" style="margin:0">${tr('있는 것은 그 역할을 빼거나 가볍게 해요. 여러 개 고를 수 있어요.', 'What you have drops or lightens that role. Pick any.')}</p>
+    <div class="grid">${[['idea', tr('아이디어만 있어요', 'Just an idea'), tr('조사부터 시작', 'Start with research')], ['spec', tr('기획 문서가 있어요', 'A plan or spec'), tr('조사를 빼요', 'No research role')],
+      ['design', tr('디자인이 있어요', 'A design'), tr('디자인 역할을 빼요', 'No design role')], ['code', tr('코드가 있어요', 'Code'), tr('개발이 기존 구조를 먼저 읽어요', 'Dev reads the existing code first')]]
+      .map(([v, a, b]) => choice('have', v, a, b, !!w.have[v])).join('')}</div>`;
+  if (w.step === 2) body = `<div class="grid">${[['quality', tr('품질 우선', 'Quality first'), 4, tr('리드와 개발에 opus, 리드는 xhigh. 사용량이 가장 많아요.', 'opus for lead and dev, lead at xhigh. Uses the most.')],
+    ['balance', tr('균형', 'Balanced'), 3, tr('리드와 개발만 opus, 나머지는 sonnet. 처음이라면 이걸 추천해요.', 'opus only for lead and dev, sonnet for the rest. The pick for a first team.')],
+    ['cost', tr('비용 우선', 'Cost first'), 2, tr('모두 sonnet, 가벼운 역할은 haiku. 다이어트를 일찍(50%) 해요.', 'All sonnet, light roles on haiku, and an earlier diet (50%).')]]
+    .map(([v, a, n, b]) => choice('prio', v, a, b, w.prio === v, `<span class="coins" aria-label="${n}/4">${[1, 2, 3, 4].map(i => `<i class="${i <= n ? 'on' : ''}"></i>`).join('')}</span>`)).join('')}</div>`;
+  if (w.step === 3) {
+    const p = plan(), names = Object.fromEntries((D.templates.find(t => t.id === 'web-app') || { roles: [] }).roles.map(r => [r.id, r.name]));
+    body = `<div class="chips"><span>${p.roles.length}${tr('명', ' roles')}</span><span>${modelsLine(p.roles)}</span><span>${tr('다이어트', 'Diet')} ${p.diet}%</span></div>
+      <div class="result">${p.roles.map(r => `<div>${icon(r.id, 40)}<div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span class="row" style="gap:8px"><b>${esc(r.name || names[r.id] || r.id)}</b><code>${r.model} · ${r.effort}</code>${r.lead ? `<span class="tag honey">${tr('리드', 'lead')}</span>` : ''}${r.readonly ? `<span class="tag">${tr('읽기 전용', 'read-only')}</span>` : ''}${r.worktree ? `<span class="tag">${tr('워크트리', 'worktree')}</span>` : ''}</span><span class="sub" style="font-size:13px">${esc(r.why)}</span></div></div>`).join('')}</div>`;
+  }
+  $('#wiz').innerHTML = `
+    <div class="row between"><div><span class="sub" style="font-size:13px;font-weight:700">${tr('팀 추천', 'Team wizard')} · ${w.step + 1} / 4</span><h1>${titles[w.step]}</h1></div>
+      <div class="row"><div class="dots">${[0, 1, 2, 3].map(i => `<i class="${i <= w.step ? 'on' : ''}"></i>`).join('')}</div><button class="btn small" id="wclose" aria-label="${tr('닫기', 'Close')}">✕</button></div></div>
+    ${body}
+    <div class="row between" style="border-top:1px solid var(--line);padding-top:16px">
+      <button class="btn" id="wback" ${w.step ? '' : 'disabled'}>${tr('이전', 'Back')}</button>
+      ${w.step < 3 ? `<button class="btn primary" id="wnext">${w.step === 2 ? tr('추천 보기', 'See the team') : tr('다음', 'Next')}</button>`
+        : `<div class="row"><button class="btn" id="wedit">${tr('고쳐서 쓰기', 'Edit first')}</button><button class="btn primary" id="wstart">${tr('이 팀으로 시작', 'Start this team')}</button></div>`}
+    </div>`;
+  $('#wiz').querySelectorAll('.choice').forEach(b => b.onclick = () => {
+    const { k, v } = b.dataset;
+    if (k === 'have') w.have[v] = !w.have[v]; else w[k] = v;
+    drawWizard();
+  });
+  $('#wclose').onclick = () => { $('#wizard').hidden = true; };
+  $('#wback').onclick = () => { w.step = Math.max(0, w.step - 1); drawWizard(); };
+  if ($('#wnext')) $('#wnext').onclick = () => { w.step++; drawWizard(); };
+  const go = start => { const p = plan(); useTemplate('web-app', { roles: p.roles.map(({ why, ...r }) => r), diet_at: p.diet }, start); };
+  if ($('#wedit')) $('#wedit').onclick = () => go(false);
+  if ($('#wstart')) $('#wstart').onclick = () => go(true);
+}
+$('#wizard').addEventListener('click', e => { if (e.target.id === 'wizard') $('#wizard').hidden = true; });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('#wizard').hidden = true; $('#ask').hidden = true; } });
+
+// ── a team: header, roles, the chosen role / 팀: 머리, 역할 목록, 고른 역할 ───────────────────────────
+function renderTeam(m) {
+  const t = team();
+  if (!t.roles.some(r => r.id === S.sel)) S.sel = (t.roles[0] || {}).id || '';
+  const running = t.roles.filter(r => r.running).length;
+  const flow = (t.flow || []).map(id => role(id)).filter(Boolean);
+  m.innerHTML = `
+    <div class="row between">
+      <div><h1>${esc(t.name)}</h1><span class="sub"><code>${esc(D.project.folder)}/.hivemux/team.toml</code> · ${tr('고치면 바로 저장돼요', 'Changes save as you go')}</span></div>
+      <div class="row">
+        <button class="btn" id="tsave">${tr('내 템플릿으로 저장', 'Save as my template')}</button>
+        <button class="btn danger" id="tdown" ${running ? '' : 'disabled'}>${tr('팀 끝내기', 'Stop team')}</button>
+        <button class="btn primary" id="tup" ${t.roles.length && running < t.roles.length ? '' : 'disabled'}>▶ ${running ? tr('나머지 시작', 'Start the rest') : tr('팀 시작', 'Start team')} · ${t.roles.length - running}</button>
+      </div>
+    </div>
+    ${flow.length ? `<div class="card flow" style="padding:10px 14px"><span class="sub" style="font-size:12px;font-weight:700;margin-right:6px">${tr('흐름', 'Flow')}</span>${flow.map((r, i) => `<span class="step">${icon(r.id, 24)}${esc(r.name)}</span>${i < flow.length - 1 ? ARROW : ''}`).join('')}</div>` : ''}
+    <div class="layout">
+      <nav class="card roles" aria-label="${tr('역할', 'Roles')}">
+        ${t.roles.map(r => `<button class="roleitem" data-role="${r.id}" aria-pressed="${r.id === S.sel}">${icon(r.id, 32)}<span class="meta"><b>${esc(r.name)}${r.lead ? ` <span class="tag honey">${tr('리드', 'lead')}</span>` : ''}</b><span>${r.model} · ${r.effort}</span></span><i class="dot" data-dot="${r.id}" title=""></i></button>`).join('')}
+        <form class="addrow" id="addform"><input id="addname" placeholder="${tr('새 역할 이름', 'New role name')}" aria-label="${tr('새 역할 이름', 'New role name')}"><button class="btn small">${tr('추가', 'Add')}</button></form>
+        <div class="tips" id="tips"></div>
+      </nav>
+      <section class="card detail" id="detail" aria-label="${tr('역할 설정', 'Role settings')}"></section>
+    </div>`;
+  m.querySelectorAll('.roleitem').forEach(b => b.onclick = () => { S.sel = b.dataset.role; S.tab = 'mine'; S.sig = ''; load(); });
+  $('#addform').onsubmit = async e => {
+    e.preventDefault();
+    const name = $('#addname').value.trim(); if (!name) return;
+    const r = await post('/team/role/add', { project: S.project, name });
+    if (!r.ok) return toast(r.say);
+    S.sel = r.id; S.sig = ''; load();
+  };
+  $('#tup').onclick = async () => { const r = await post('/team/up', { project: S.project }); toast(r.say || tr('시작했어요', 'Started')); load(); };
+  $('#tdown').onclick = () => ask(tr('팀을 끝낼까요?', 'Stop the team?'), tr('역할의 Claude 를 퇴근처럼 꺼요. 일하는 역할은 일을 마친 뒤 꺼지고, 대화는 남아 다시 시작하면 이어져요.', 'Its Claudes clock out: working ones finish first. Conversations stay and continue when you start again.'),
+    tr('끝내기', 'Stop'), async () => { const r = await post('/team/down', { project: S.project }); toast(r.say || tr('끝냈어요', 'Stopped')); load(); });
+  $('#tsave').onclick = () => ask(tr('내 템플릿으로 저장', 'Save as my template'), tr('다른 프로젝트에서도 이 팀을 고를 수 있어요. 이름은 영문 소문자와 - 로.', 'Pick this team in other projects too. Use lowercase letters and -.'),
+    tr('저장', 'Save'), async v => { const r = await post('/team/save', { project: S.project, id: v }); toast(r.say); load(); }, S.project.toLowerCase().replace(/[^a-z0-9-]+/g, '-'));
+  drawDetail(); drawTips(); states();
+}
+
+function drawDetail() {
+  const r = role(S.sel), box = $('#detail');
+  if (!r) { box.innerHTML = `<h2>${tr('역할을 더하세요', 'Add a role')}</h2><p class="sub">${tr('왼쪽 아래에 이름을 적고 추가를 누르세요.', 'Type a name at the bottom left and press Add.')}</p>`; return; }
+  const seg = (key, list, cur) => `<div class="seg" role="group">${list.map(([v, ko, en]) => `<button type="button" data-${key}="${v}" aria-pressed="${v === cur}">${en === undefined ? ko : tr(ko, en)}</button>`).join('')}</div>`;
+  box.innerHTML = `
+    <div class="row">
+      ${icon(r.id, 52)}
+      <label class="field" style="flex:1 1 220px">${tr('이름', 'Name')}<input class="text" id="fname" value="${esc(r.name)}" maxlength="40"></label>
+      <div class="field">${tr('세션 이름 (다른 역할이 이 이름으로 보냄)', 'Session name (others message this)')}<code style="background:var(--soft);border:1px solid var(--line2);border-radius:7px;padding:9px 10px">${esc(r.session)}</code></div>
+      <span class="state" id="rstate"></span>
+    </div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(250px,1fr))">
+      <div class="field">${tr('모델', 'Model')}${seg('model', MODELS.map(x => [x, x]), r.model)}<span style="font-weight:400">${{ opus: tr('가장 똑똑해요. 판단이 많은 역할에', 'Smartest. For roles that decide a lot'), sonnet: tr('빠르고 균형 잡혀요. 대부분의 역할에', 'Fast and balanced. For most roles'), haiku: tr('가장 빠르고 싸요. 정리, 반복 일에', 'Fastest and cheapest. For tidy, repeated work') }[r.model] || ''}</span></div>
+      <div class="field">${tr('노력', 'Effort')}${seg('effort', EFFORTS.map(x => [x, x]), r.effort)}<span style="font-weight:400">${tr('높을수록 깊게 생각하고 토큰을 더 써요', 'Higher thinks deeper and uses more tokens')}</span></div>
+    </div>
+    <div class="checks">
+      <label class="check"><input type="checkbox" data-flag="worktree" ${r.worktree ? 'checked' : ''}><span><b>${tr('자기 워크트리에서 작업', 'Work in its own worktree')}</b><small>${tr('다른 역할과 같은 파일을 덮어쓰지 않게', 'So it never overwrites the others')}</small></span></label>
+      <label class="check"><input type="checkbox" data-flag="lead" ${r.lead ? 'checked' : ''}><span><b>${tr('리드', 'Lead')}</b><small>${tr('막히면 돌아오는 역할. 팀에 하나', 'Where blocked roles come back. One per team')}</small></span></label>
+      <label class="check"><input type="checkbox" data-flag="readonly" ${r.readonly ? 'checked' : ''}><span><b>${tr('읽기 전용', 'Read-only')}</b><small>${tr('파일을 고치지 않고 보고만 (검사 역할에)', 'Looks, never edits (for reviewers)')}</small></span></label>
+    </div>
+    <label class="field">${tr('맡는 폴더', 'Owns')}<input class="text mono" id="fowns" value="${esc(r.owns)}" style="font-size:13px;font-weight:400" placeholder="docs/spec/"></label>
+    <div class="dietrow"><b>${tr('다이어트', 'Diet')}</b>${seg('diet', DIETS, r.diet.how)}
+      <div class="stepper"><span class="sub" style="font-size:13px">${tr('컨텍스트가', 'when context passes')}</span><button type="button" id="dminus" aria-label="-5%">−</button><b class="mono" style="min-width:44px;text-align:center">${r.diet.at}%</b><button type="button" id="dplus" aria-label="+5%">+</button><span class="sub" style="font-size:13px">${tr('넘고 쉬면', 'and it rests')}</span></div></div>
+    ${r.running && S.edited[r.id] ? `<div class="note">${tr('이 역할은 지금 도는 중이에요. 바꾼 설정은 다시 시작할 때 적용돼요.', 'This role is running; the changes apply when it starts again.')}</div>` : ''}
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="row between"><div class="tabs" role="tablist"><button role="tab" id="tmine" aria-selected="${S.tab === 'mine'}">${tr('지시문', 'Prompt')}</button><button role="tab" id="tfull" aria-selected="${S.tab === 'full'}">${tr('최종 미리보기', 'Final preview')}</button></div><code class="sub">${esc(r.file || '')}</code></div>
+      ${S.tab === 'mine' ? `<textarea class="prompt" id="ftext" spellcheck="false">${esc(r.text)}</textarea>` : `<pre class="prompt" id="ffull">${tr('불러오는 중…', 'Loading…')}</pre>`}
+    </div>
+    <div class="row between" style="border-top:1px solid var(--line2);padding-top:14px">
+      <span class="saved" id="saved" aria-live="polite"></span>
+      <div class="row">${r.pane ? `<button class="btn small" id="rgo">${tr('칸으로', 'Go to pane')}</button>` : ''}
+        ${r.running ? `<button class="btn small" id="rstop">${tr('이 역할 끄기', 'Stop this role')}</button>` : `<button class="btn small" id="rstart">${tr('이 역할 시작', 'Start this role')}</button>`}
+        <button class="btn small danger" id="rdel">${tr('역할 삭제', 'Delete role')}</button></div>
+    </div>`;
+  const save = async (fields, text) => {
+    $('#saved').textContent = tr('저장 중…', 'Saving…');
+    const res = await post('/team/role', { project: S.project, id: r.id, fields, text });
+    $('#saved').textContent = res.ok ? tr('저장됨', 'Saved') : (res.say || tr('저장하지 못했어요', 'Could not save'));
+    if (res.ok && r.running) S.edited[r.id] = true;
+    if (res.ok && fields && Object.keys(fields).length) { S.sig = ''; load(); }
+  };
+  box.querySelectorAll('[data-model]').forEach(b => b.onclick = () => save({ model: b.dataset.model }));
+  box.querySelectorAll('[data-effort]').forEach(b => b.onclick = () => save({ effort: b.dataset.effort }));
+  box.querySelectorAll('[data-diet]').forEach(b => b.onclick = () => save({ diet: { how: b.dataset.diet } }));
+  box.querySelectorAll('[data-flag]').forEach(c => c.onchange = () => save({ [c.dataset.flag]: c.checked }));
+  $('#dminus').onclick = () => save({ diet: { at: Math.max(30, r.diet.at - 5) } });
+  $('#dplus').onclick = () => save({ diet: { at: Math.min(90, r.diet.at + 5) } });
+  $('#fname').onchange = e => save({ name: e.target.value });
+  $('#fowns').onchange = e => save({ owns: e.target.value });
+  if ($('#ftext')) $('#ftext').oninput = e => { clearTimeout(save.h); $('#saved').textContent = tr('입력 중…', 'Editing…'); save.h = setTimeout(() => { r.text = e.target.value; save({}, e.target.value); }, 600); };
+  $('#tmine').onclick = () => { S.tab = 'mine'; drawDetail(); };
+  $('#tfull').onclick = async () => {
+    S.tab = 'full'; drawDetail();
+    const res = await (await fetch(`/team/prompt?project=${encodeURIComponent(S.project)}&role=${encodeURIComponent(r.id)}`)).json();
+    if ($('#ffull')) $('#ffull').textContent = res.text || '';
+  };
+  if ($('#rgo')) $('#rgo').onclick = () => post('/goto', { pane: r.pane });
+  if ($('#rstart')) $('#rstart').onclick = async () => { const x = await post('/team/up', { project: S.project, role: r.id }); toast(x.say); load(); };
+  if ($('#rstop')) $('#rstop').onclick = async () => { const x = await post('/team/down', { project: S.project, role: r.id }); toast(x.say); load(); };
+  $('#rdel').onclick = () => ask(tr(`${r.name} 역할을 삭제할까요?`, `Delete the ${r.name} role?`), tr('팀과 지시문 파일에서 빠져요. 노트와 지금 도는 Claude 는 그대로예요.', 'It leaves the team and its prompt file goes. Its notes and a running Claude stay.'),
+    tr('삭제', 'Delete'), async () => { const x = await post('/team/role/delete', { project: S.project, id: r.id }); if (!x.ok) toast(x.say); S.sel = ''; S.sig = ''; load(); });
+}
+
+// ── suggestions from what people found works (the research board) / 제안: 사람들이 효과를 본 방식에서 ─────────
+function drawTips() {
+  const t = team(), roles = t.roles, tips = [];
+  const fix = (id, fields) => async () => { await post('/team/role', { project: S.project, id, fields }); S.sig = ''; load(); };
+  if (roles.length >= 7) tips.push([tr(`역할이 ${roles.length}개예요. 처음에는 3~5명이 좋아요. 사용량은 팀 크기에 비례해요.`, `${roles.length} roles. Start with 3 to 5: usage grows with team size.`), null]);
+  const opus = roles.filter(r => r.model === 'opus').length;
+  roles.filter(r => (r.id === 'researcher' || r.id === 'marketer') && r.model === 'opus').forEach(r =>
+    tips.push([tr(`${r.name} 에 opus 를 쓰고 있어요 (opus ${opus}개). 판단이 적은 역할이라 sonnet 이면 충분해요.`, `${r.name} uses opus (${opus} in all). It decides little; sonnet is enough.`), [tr('sonnet 으로 바꾸기', 'Use sonnet'), fix(r.id, { model: 'sonnet' })]]));
+  if (opus >= 4) tips.push([tr(`opus 가 ${opus}개라 사용량이 커요. 판단이 많은 리드와 개발에만 두는 걸 추천해요.`, `${opus} roles on opus uses a lot. Keep it for the lead and dev.`), null]);
+  const lead = roles.find(r => r.lead);
+  if (roles.length > 1 && !lead) { const p = roles.find(r => r.id === 'planner') || roles[0]; tips.push([tr('리드가 없어요. 막힌 역할이 돌아올 곳이 필요해요.', 'No lead: blocked roles need somewhere to go.'), [tr(`${p.name} 을 리드로`, `Make ${p.name} lead`), fix(p.id, { lead: true })]]); }
+  roles.filter(r => r.id === 'qa' && !r.readonly).forEach(r => tips.push([tr('QA 가 파일을 고칠 수 있어요. 검사하는 역할이 고치기까지 하면 객관성이 떨어져요.', 'QA can edit files. A reviewer that also fixes is less objective.'), [tr('읽기 전용으로', 'Make read-only'), fix(r.id, { readonly: true })]]));
+  roles.filter(r => r.id === 'dev' && !r.worktree).forEach(r => tips.push([tr('개발이 프로젝트 폴더에서 바로 일해요. 다른 역할과 같은 파일을 덮어쓸 수 있어요.', 'Dev works right in the project folder and may overwrite the others.'), [tr('워크트리 쓰기', 'Use a worktree'), fix(r.id, { worktree: true })]]));
+  roles.filter(r => r.diet.how === 'off').forEach(r => tips.push([tr(`${r.name} 의 다이어트가 꺼져 있어요. 대화가 커질수록 매 요청이 비싸져요.`, `${r.name} has the diet off; every request costs more as the conversation grows.`), [tr('70% 에서 새로 시작', 'Fresh start at 70%'), fix(r.id, { diet: { how: 'renew', at: 70 } })]]));
+  const owns = {};
+  roles.forEach(r => (r.owns || '').split(',').map(x => x.trim()).filter(Boolean).forEach(o => { (owns[o] = owns[o] || []).push(r.name); }));
+  Object.entries(owns).filter(([, n]) => n.length > 1).forEach(([o, n]) => tips.push([tr(`${n.join(', ')} 가 같은 곳(${o})을 맡아요. 서로 덮어쓸 수 있어요.`, `${n.join(', ')} own the same place (${o}) and may overwrite each other.`), null]));
+  const box = $('#tips');
+  box.innerHTML = `<b style="font-size:13px">${tr('제안', 'Suggestions')} ${tips.length || ''}</b>` + (tips.length ? tips.map(([say, act], i) => `<div class="tip"><span>${esc(say)}</span>${act ? `<button class="btn small" data-tip="${i}">${esc(act[0])}</button>` : ''}</div>`).join('')
+    : `<span class="saved">${tr('지금 구성에는 제안이 없어요', 'Nothing to suggest for this team')}</span>`);
+  box.querySelectorAll('[data-tip]').forEach(b => b.onclick = tips[+b.dataset.tip][1][1]);
+}
+
+// running states, patched in place every poll / 도는 상태: 읽을 때마다 그 자리만 고친다
+function states() {
+  const t = team(); if (!t) return;
+  t.roles.forEach(r => {
+    const d = document.querySelector(`[data-dot="${r.id}"]`);
+    const k = r.running ? (r.state || 'idle') : '';
+    if (d) { d.className = 'dot ' + k; d.title = tr(...(STATE[k] || STATE[''])); }
+    if (r.id === S.sel && $('#rstate')) { $('#rstate').innerHTML = `<i class="dot ${k}"></i>${tr(...(STATE[k] || STATE['']))}`; }
+  });
+}
+
+// a small in-page dialog (the window app shows no confirm or prompt) / 페이지 안의 작은 대화상자 (창 앱은 confirm, prompt 를 보이지 않는다)
+function ask(title, text, okLabel, onOk, value) {
+  $('#askbox').innerHTML = `<h2>${esc(title)}</h2><p class="sub" style="margin:0">${esc(text)}</p>${value !== undefined ? `<input class="text" id="askv" value="${esc(value)}">` : ''}
+    <div class="row" style="justify-content:flex-end"><button class="btn" id="askno">${tr('취소', 'Cancel')}</button><button class="btn primary" id="askok">${esc(okLabel)}</button></div>`;
+  $('#ask').hidden = false;
+  ($('#askv') || $('#askok')).focus();
+  $('#askno').onclick = () => { $('#ask').hidden = true; };
+  $('#askok').onclick = () => { $('#ask').hidden = true; onOk($('#askv') ? $('#askv').value.trim() : undefined); };
+}
+
+// /team?project=…&wizard=1 opens the wizard right away / 위저드를 바로 연다
+load().then(() => { if (new URLSearchParams(location.search).get('wizard') && D && !team()) openWizard(); });
+</script>
+</body>
+</html>
