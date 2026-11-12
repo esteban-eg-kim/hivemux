@@ -76,7 +76,10 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
 @keyframes chip { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--wait) 25%, transparent); } }
 
 .floor { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--panel); }
-#map { display: block; width: 100%; cursor: default; }
+#map { position: relative; display: block; width: 100%; cursor: default; }
+/* the 3D scene under the page's canvas, which then carries only names, tags and bubbles / 페이지 캔버스 아래의 3D 장면. 그때 캔버스엔 이름, 이름표, 말풍선만 */
+#gl { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+#gl[hidden] { display: none; }
 #map.hand { cursor: pointer; }
 .view { position: absolute; right: 12px; top: 12px; z-index: 6; display: flex; gap: 6px; align-items: center; padding: 5px; transition: right .25s; }
 .view .sep { width: 1px; height: 20px; background: var(--line); margin: 0 3px; }
@@ -271,6 +274,13 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
       </div>
     </fieldset>
     <fieldset>
+      <legend data-t="그림|Drawing"></legend>
+      <div class="seg">
+        <label><input type="radio" name="look" id="look-3d" value="3d"><span data-t="입체 (3D)|Solid (3D)"></span></label>
+        <label><input type="radio" name="look" id="look-flat" value="flat"><span data-t="그림 (가볍게)|Drawn (lighter)"></span></label>
+      </div>
+    </fieldset>
+    <fieldset>
       <legend data-t="세션 목록|Session list"></legend>
       <div class="seg">
         <label><input type="radio" name="side" id="side-right" value="right"><span data-t="오른쪽|Right"></span></label>
@@ -284,6 +294,7 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
   </form>
 
   <div class="floor" id="floor">
+    <canvas id="gl" hidden aria-hidden="true"></canvas>
     <canvas id="map" role="img"></canvas>
     <div class="view glass" id="view">
       <button type="button" id="v-2d" class="v-mode">2D</button>
@@ -355,7 +366,7 @@ function applyLang() {
     'Bee office. One bee per Claude session moves between its desk, the meeting room, the lounge and the question window in the boss room.'));
 }
 
-const settings = { pop: 'front', privacy: 'all', sound: 'off', sky: 'auto', side: 'right' };
+const settings = { pop: 'front', privacy: 'all', sound: 'off', sky: 'auto', side: 'right', look: '3d' };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('office-settings') || '{}')); } catch (e) {}
 const saveSettings = () => { try { localStorage.setItem('office-settings', JSON.stringify(settings)); } catch (e) {} };
 
@@ -2549,6 +2560,25 @@ function drawFrame(now) {
     place();
     for (const b of [...bees.values(), ...crew.values()]) step(b, dt);
     const roof = roofFor(cam.zoom), globe = globeFor(cam.zoom);
+    // in 3D (share/office/office3d.js) the scene is drawn under this canvas, which keeps the words on top; the
+    // roof, the planet and the plan are drawn here as before / 3D 에선 이 캔버스 아래에 장면을 그리고, 이 캔버스엔 글자만
+    // 남는다. 지붕, 행성, 평면도는 전처럼 여기서 그린다
+    const solid = settings.look !== 'flat' && window.OFFICE3D && OFFICE3D.ok && globe === 0 && flat() === 0;
+    if (solid) {
+      LIGHT = skyNow().light; T.win = mixc(T['m-window'], T['o-lamp'], Math.max(0, 1 - LIGHT * 1.3));
+      c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, cv.width, cv.height); c.restore();
+      OFFICE3D.render(t, dt, roof);
+      c.textBaseline = 'top';
+      if (roof < .5) {
+        for (const b of bees.values()) if (!b.popped && !b.inside) badge(b);
+        labels(); drawEffects(t, dt); drawTags(t);
+        [...bees.values(), ...helpers.values(), ...crew.values()].forEach(drawBubble);
+        drawLetters(); drawWaitBubbles(t);
+      }
+      if (pop) drawPopBee(t);
+      return;
+    }
+    if (window.OFFICE3D) OFFICE3D.hide();
     drawSky(t);
     c.textBaseline = 'top';
     if (globe < 1) {
@@ -3013,7 +3043,7 @@ function toast(msg) {
 const panel = $('#settings'), gear = $('#gear');
 gear.addEventListener('click', () => { panel.hidden = !panel.hidden; gear.setAttribute('aria-expanded', String(!panel.hidden)); });
 document.addEventListener('click', e => { if (!panel.hidden && !panel.contains(e.target) && !gear.contains(e.target)) { panel.hidden = true; gear.setAttribute('aria-expanded', 'false'); } });
-for (const k of ['pop', 'privacy', 'sound', 'sky', 'side']) { const r = panel.querySelector(`input[name="${k}"][value="${settings[k]}"]`); if (r) r.checked = true; }
+for (const k of ['pop', 'privacy', 'sound', 'sky', 'side', 'look']) { const r = panel.querySelector(`input[name="${k}"][value="${settings[k]}"]`); if (r) r.checked = true; }
 panel.addEventListener('submit', e => e.preventDefault());
 panel.addEventListener('change', e => {
   if (e.target.id === 'top') return tell({ top: e.target.checked });
@@ -3137,5 +3167,7 @@ if (matchMedia('(display-mode: standalone)').matches && window.BroadcastChannel)
 poll();
 requestAnimationFrame(frame);
 </script>
+<script type="importmap">{ "imports": { "three": "/vendor/three.module.min.js", "three/addons/": "/vendor/addons/" } }</script>
+<script type="module" src="/office3d.js"></script>
 </body>
 </html>
