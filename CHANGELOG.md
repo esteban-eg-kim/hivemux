@@ -27,6 +27,11 @@
   is typed while you are typing in its prompt. The team page shows each
   role's context against its line and has a Diet now button; diets go to
   `.hivemux/diet.log`
+- Hand-offs: when a team role messages a teammate, hivemux logs it
+  (`.hivemux/handoffs.log`). The team page lists recent hand-offs, the
+  project's box in the sidebar shows the last one for half an hour
+  (`✉ Planning → Dev · 2m`), and in the bee office a letter flies from one
+  desk to the other and the receiver says who it is from and what
 
 ## 0.1.53 — 2026-11-11
 

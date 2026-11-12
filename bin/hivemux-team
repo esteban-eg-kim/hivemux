@@ -14,6 +14,7 @@ other by name with Claude Code's messages between sessions.
   hivemux-team save <id> [-s S]               keep this project's team as your template / 이 프로젝트의 팀을 내 템플릿으로
   hivemux-team resume-args <target> <sid> <cwd>   (resume paths) the role flags for that conversation, if it is a role
                                               (재개하는 곳에서) 그 대화가 역할이면 역할 실행 옵션
+  hivemux-team handoff <pane> <to> <summary>  (bin/hivemux-hook, a role's SendMessage) log a hand-off / 넘김을 남긴다
   hivemux-team diet <role> [-s S]             put a role on a diet now (or at its next rest) / 역할을 지금 (또는 다음 쉴 때) 다이어트
   hivemux-team stop <pane> <transcript>       (bin/hivemux-hook, Stop) note the context size; diet a role past its line
                                               (Stop) 컨텍스트 크기를 적고, 기준을 넘은 역할은 다이어트
@@ -472,7 +473,8 @@ def status(session):
                       "ctx": int(p["ctx"]) if p.get("ctx", "").isdigit() else 0, "dieting": p.get("diet", "") if running else ""})
     return {"project": session, "folder": folder,
             "team": {"id": team.get("id", ""), "name": label(team), "description": label(team, "description"),
-                     "flow": team.get("flow") or [r["id"] for r in team["role"]], "diet": team["diet"], "roles": roles}}
+                     "flow": team.get("flow") or [r["id"] for r in team["role"]], "diet": team["diet"], "roles": roles,
+                     "handoffs": handoffs(folder, team)}}
 
 
 def find_team(cwd):
@@ -874,6 +876,46 @@ def on_start(pane, sid, source):
         tmux("set", "-p", "-t", pane, "@hivemux-diet", "after")
 
 
+# ── hand-offs / 넘김 ───────────────────────────────────────────────────────────────────────────────────
+# A role messaging a teammate (SendMessage, seen by bin/hivemux-hook) is a hand-off: it goes to
+# .hivemux/handoffs.log ("<epoch> <from> <to> <summary>"), to the project's @hivemux-handoff (the sidebar's line)
+# and to @hivemux-letters (the bee office flies a letter from one desk to the other).
+# 역할이 팀원에게 메시지를 보내면 (SendMessage, bin/hivemux-hook 이 본다) 넘김이다: handoffs.log, 프로젝트의
+# @hivemux-handoff (사이드바 한 줄), @hivemux-letters (벌 사무실이 편지를 이 책상에서 저 책상으로 날린다) 에 남긴다.
+def handoff(pane, to, summary):
+    found = role_of(pane)
+    if not found:
+        return
+    session, folder, team, role = found
+    dest = next((r for r in team["role"] if f"{session}-{r['id']}" == to), None)
+    dest_pane = next((p["pane"] for p in panes(session) if dest and p["role"] == dest["id"]), "")
+    text = " ".join(str(summary).split())[:160]
+    now = int(time.time())
+    with open(os.path.join(team_dir(folder), "handoffs.log"), "a") as f:
+        f.write(f"{now}\t{role['id']}\t{dest['id'] if dest else to}\t{text}\n")
+    to_name = label(dest) if dest else to
+    tmux("set", "-t", f"={session}:", "@hivemux-handoff", f"{now}\t{label(role)}\t{to_name}\t{text}")
+    old = [l for l in tmux("show", "-gqv", "@hivemux-letters").split("\n") if l.count("\t") == 5]
+    letters = (old + [f"{now}\t{pane}\t{dest_pane}\t{label(role)}\t{to_name}\t{text}"])[-8:]
+    tmux("set", "-g", "@hivemux-letters", "\n".join(letters))
+
+
+def handoffs(folder, team, n=30):
+    """The last hand-offs of a project, newest first, with the roles' names / 프로젝트의 최근 넘김, 최신부터"""
+    names = {r["id"]: label(r) for r in team["role"]}
+    try:
+        lines = open(os.path.join(team_dir(folder), "handoffs.log"), encoding="utf-8").read().splitlines()[-n:]
+    except OSError:
+        return []
+    out = []
+    for line in reversed(lines):
+        p = line.split("\t", 3)
+        if len(p) == 4 and p[0].isdigit():
+            out.append({"at": int(p[0]), "from": p[1], "to": p[2], "fromName": names.get(p[1], p[1]),
+                        "toName": names.get(p[2], p[2]), "text": p[3]})
+    return out
+
+
 def diet_now(session, rid):
     """The team page's diet button: now if it rests, else at its next rest / 팀 화면의 다이어트 버튼: 쉬면 지금, 아니면 다음 쉴 때"""
     session, folder = project(session)
@@ -932,6 +974,8 @@ def main(argv):
         on_stop(*args)
     elif cmd == "start" and len(args) == 3:
         on_start(*args)
+    elif cmd == "handoff" and len(args) == 3:
+        handoff(*args)
     elif cmd == "diet" and args:
         diet_now(session, args[0])
     else:

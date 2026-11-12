@@ -76,7 +76,7 @@ FIELDS = ["pane_id", "session_name", "window_index", "window_name", "@claude_sta
           "@claude_state_at", "@claude_session", "window_id", "pane_active", "pane_last",
           "window_active", "session_attached", "pane_title", "@claude_title", "@claude_name", "pane_current_command",
           "@hivemux-closing", "@claude_wait", "@claude_touched", "@claude_bg", "@claude_offwork", "pane_index",
-          "pane_tty", "pane_width", "pane_height", "@hivemux-rest", "@claude_ctx"]
+          "pane_tty", "pane_width", "pane_height", "@hivemux-rest", "@claude_ctx", "@hivemux-handoff"]
 # a shell in front means Claude has quit there (its SessionEnd hook comes a second or two later, or never)
 # 칸 앞에 셸이 있으면 그 Claude 는 끝났다 (SessionEnd 훅은 1~2초 늦게 오거나 안 온다)
 SHELLS = {"zsh", "bash", "fish", "sh", "dash", "tcsh", "ksh", "login"}
@@ -600,6 +600,12 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
             for r in lns:
                 cards[len(rows)] = p["pane_id"]
                 rows.append(r)
+        # the team's last hand-off, for half an hour (bin/hivemux-team) / 팀의 마지막 넘김, 30분 동안
+        ho = (members[0][1].get("@hivemux-handoff", "") if members else "").split("\t", 3)
+        if len(ho) == 4 and ho[0].isdigit() and now - int(ho[0]) < 1800:
+            t = age(ho[0], now)
+            r = S().put(" ").put(f"✉ {ho[1]} → {ho[2]}", C["text2"], tile, limit=cw - width(t) - 3)
+            rows.append(r.fill(cw - 1 - width(t), tile).put(t, C["text3"], tile).fill(cw))
         return rows, cards
 
     def build():

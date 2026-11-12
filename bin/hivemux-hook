@@ -178,6 +178,13 @@ case "$event" in
     ;;
   PostToolUse|PostToolUseFailure)
     case "$(field tool_name)" in Agent|Task) agents -1 ;; Bash) pwd_ ;; Edit|Write|MultiEdit|NotebookEdit) [ "$event" = PostToolUse ] && touched ;; esac
+    # a team role messaging a teammate: a hand-off (bin/hivemux-team) / 팀 역할이 팀원에게 보냄: 넘김
+    if [ "$event" = PostToolUse ] && [ "$(field tool_name)" = SendMessage ] &&
+       [ -n "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @hivemux-role 2>/dev/null)" ]; then
+      to="$(printf '%s' "$input" | "$JQ" -r '.tool_input.to // .tool_input.recipient // empty' 2>/dev/null)"
+      sum="$(printf '%s' "$input" | "$JQ" -r '.tool_input.summary // .tool_input.message // empty' 2>/dev/null)"
+      [ -n "$to" ] && ( "$(dirname "$0")/hivemux-team" handoff "$TMUX_PANE" "$to" "$sum" >/dev/null 2>&1 & )
+    fi
     mode_
     working
     ;;

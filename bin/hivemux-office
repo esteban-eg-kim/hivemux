@@ -217,6 +217,7 @@ def snapshot():
     # 가는 중이라 세션 목록에서 뺀다
     # (also one Claude or one project clocked out by itself, while the rest work on)
     # (혼자 퇴근한 Claude 하나나 프로젝트 하나도. 나머지는 계속 일한다)
+    out["letters"] = letters()
     out["shift"] = sh = shift({p["bee"] for p in items if p["@claude_state"] in ("run", "wait")})
     home = set(sh["home"])
     out["sessions"] = [x for x in out["sessions"] if x["bee"] not in home]
@@ -573,6 +574,17 @@ def team_call(fn, *a):
         return False, (err.getvalue() or out.getvalue()).strip()
     except (OSError, ValueError, KeyError, TypeError) as e:
         return False, str(e)
+
+
+def letters():
+    """Hand-offs of the last minute (bin/hivemux-team): the page flies a letter between the two bees
+    지난 1분의 넘김 (bin/hivemux-team): 페이지가 두 벌 사이로 편지를 날린다"""
+    out, now = [], time.time()
+    for line in tmux("show", "-gqv", "@hivemux-letters").splitlines():
+        p = line.split("\t", 5)
+        if len(p) == 6 and p[0].isdigit() and now - int(p[0]) < 60:
+            out.append({"at": int(p[0]), "from": p[1], "to": p[2], "fromName": p[3], "toName": p[4], "text": p[5]})
+    return out
 
 
 def team_state(project):

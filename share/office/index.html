@@ -660,6 +660,7 @@ function ingest(list) {
   LAY = layout(list);
   if (prev !== LAY.sig) resize();
   placeVillage(); updateShiftBtn();
+  setTimeout(() => takeLetters(list), 0);     // once the bees below exist / 아래에서 벌이 생긴 뒤
   const seen = new Set();
   list.forEach((o, oi) => o.sessions.forEach(s => {
     const key = `${o.ssh || ''}|${s.pane}`;
@@ -864,6 +865,44 @@ function whereOf(b) {
   if (b.state === 'done') return tr('자리에서 꿀 들고 자랑하는 중', 'showing off a jar of honey');
   if (b.deliver) return tr('벌집에 꿀 채우러 가는 중', 'taking the honey to the comb');
   return b.spot && b.arrived ? tr(...SPOT_LABEL[b.spot.kind]) : tr('라운지로 가는 중', 'heading to the lounge');
+}
+
+/* ---------- hand-offs: a letter flies from one desk to the other (bin/hivemux-team) ---------- */
+/* ---------- 넘김: 편지가 이 책상에서 저 책상으로 날아간다 (bin/hivemux-team) ---------- */
+const letters = [], lettersSeen = new Set();
+function takeLetters(list) {
+  for (const o of list) for (const l of o.letters || []) {
+    const id = `${o.ssh || ''}|${l.at}|${l.from}`;
+    if (lettersSeen.has(id)) continue;
+    lettersSeen.add(id);
+    const from = bees.get(`${o.ssh || ''}|${l.from}`), to = bees.get(`${o.ssh || ''}|${l.to}`);
+    if (!from || !to || Date.now() / 1000 - l.at > 20) continue;      // only new ones / 새것만
+    letters.push({ from, to, start: performance.now(), l });
+    say(from, tr(`${l.toName}에게 보냄`, `to ${l.toName}`), 1800);
+  }
+}
+function drawLetters() {
+  const now = performance.now(), z = textZoom();
+  for (let i = letters.length - 1; i >= 0; i--) {
+    const L = letters[i], u = reduced ? 1 : Math.min(1, (now - L.start) / 2400);
+    if (u >= 1) {
+      letters.splice(i, 1);
+      const t = L.l.text.length > 34 ? L.l.text.slice(0, 33) + '…' : L.l.text;
+      say(L.to, `${L.l.fromName}: ${t}`, 5000);
+      continue;
+    }
+    const a = P(L.from.x, L.from.y), b = P(L.to.x, L.to.y), e = u < .5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+    const lift = 70 * BEE + Math.sin(Math.PI * e) * Math.max(40, Math.hypot(b.x - a.x, b.y - a.y) * .35);
+    const x = a.x + (b.x - a.x) * e, y = a.y + (b.y - a.y) * e - lift;
+    for (let k = 1; k <= 4; k++) {     // a faint trail / 옅은 자취
+      const v = Math.max(0, e - k * .035), tx = a.x + (b.x - a.x) * v, ty = a.y + (b.y - a.y) * v - (70 * BEE + Math.sin(Math.PI * v) * Math.max(40, Math.hypot(b.x - a.x, b.y - a.y) * .35));
+      c.globalAlpha = .25 - k * .05; c.fillStyle = T.honey || '#f2b632'; c.beginPath(); c.arc(tx, ty, 2.2 * z, 0, Math.PI * 2); c.fill();
+    }
+    c.globalAlpha = 1;
+    const w = 18 * z, h = 12 * z;
+    fillRR(x - w / 2, y - h / 2, w, h, 2, T.panel); c.strokeStyle = T.fg; c.lineWidth = 1.2; rr(x - w / 2, y - h / 2, w, h, 2); c.stroke();
+    c.beginPath(); c.moveTo(x - w / 2, y - h / 2); c.lineTo(x, y + h * .1); c.lineTo(x + w / 2, y - h / 2); c.stroke();
+  }
 }
 
 /* ---------- speech ---------- */
@@ -2325,6 +2364,7 @@ function drawFrame(now) {
       drawEffects(t, dt);
       drawTags(t);
       [...bees.values(), ...helpers.values(), ...crew.values()].forEach(drawBubble);
+      drawLetters();
       drawWaitBubbles(t);
     }
     if (pop) drawPopBee(t);
