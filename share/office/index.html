@@ -286,7 +286,7 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
     <fieldset>
       <legend data-t="사무실 꾸밈|Office look"></legend>
       <div class="seg">
-        <label><input type="radio" name="decor" id="decor-modern" value="modern"><span data-t="모던 캠퍼스|Modern campus"></span></label>
+        <label><input type="radio" name="decor" id="decor-modern" value="modern"><span data-t="둥근 캠퍼스|Round campus"></span></label>
         <label><input type="radio" name="decor" id="decor-classic" value="classic"><span data-t="기본|Classic"></span></label>
       </div>
     </fieldset>
@@ -425,15 +425,17 @@ const D = (x, y) => { const [rx, ry] = turn(x, y); return rx + ry; };   // depth
 const toward = (dx, dy) => (dx * COS - dy * SIN) + (dx * SIN + dy * COS) > 0;
 const sideOf = (dx, dy) => (dx * COS - dy * SIN) - (dx * SIN + dy * COS) >= 0 ? 1 : -1;
 /* Two floor plans. Classic: the work area in the back corner, the meeting and boss rooms behind glass to its
-   right, the cafe, lounge, ping-pong and garden in front; it grows downward. Campus (the 3D office in the modern
-   look, share/office/office3d.js): a ring round a garden courtyard, like a campus headquarters: pods with long
-   tables along the back and down both sides, the boss and meeting rooms as glass rooms on the right, the lobby
-   and elevator on the left, the cafe, lounge and ping-pong along the front; it grows down both sides. Bees,
-   routes and spots read the plan in use (usePlan), so the same office logic runs on either.
+   right, the cafe, lounge, ping-pong and garden in front; it grows downward. Park (the 3D office in the modern
+   look, share/office/office3d.js): a round ring of curved glass round a courtyard with a pond and fruit trees,
+   like a park headquarters: pods of four round pill-shaped oak tables set along the ring, the boss and meeting
+   rooms as glass rooms in it, the elevator core and lobby on the west, the cafe on the south, a lounge and
+   ping-pong. Bees, routes (round rooms and the pond) and spots read the plan in use (usePlan), so the same
+   office logic runs on either.
    배치 두 가지. 기본: 안쪽 구석에 작업 공간, 그 오른쪽 유리 너머 회의실과 사장실, 앞쪽에 카페, 라운지, 탁구, 정원.
-   아래로 자란다. 캠퍼스 (모던 꾸밈의 3D 사무실, share/office/office3d.js): 정원 안뜰을 두른 링, 캠퍼스 사옥처럼.
-   뒤쪽과 양옆에 긴 테이블의 포드, 오른쪽에 유리방인 사장실과 회의실, 왼쪽에 로비와 엘리베이터, 앞쪽에 카페,
-   라운지, 탁구. 양옆으로 자란다. 벌, 동선, 자리는 쓰는 배치를 읽으므로 (usePlan) 같은 사무실 로직이 둘 다에서 돈다. */
+   아래로 자란다. 파크 (모던 꾸밈의 3D 사무실, share/office/office3d.js): 연못과 과일나무가 있는 안뜰을 두른 둥근
+   곡면 유리 링, 파크 사옥처럼. 링을 따라 놓인 알약 모양 오크 테이블의 4인 포드, 링 안의 유리방인 사장실과 회의실,
+   서쪽의 엘리베이터 코어와 로비, 남쪽의 카페, 라운지와 탁구. 벌, 동선 (방과 연못을 돌아서), 자리는 쓰는 배치를
+   읽으므로 (usePlan) 같은 사무실 로직이 둘 다에서 돈다. */
 let GX = 26;
 let LAY = null;
 const ROOMS = { meet: { name: ['회의실', 'Meeting room'] }, boss: { name: ['사장실', 'Boss room'] } };
@@ -458,17 +460,19 @@ const SPOT_DEF = [
   ['plant', 22.3, 8.9, 0], ['plant', 24.4, 11.4, 0],
   ['idle', 21.8, 12.9, 0], ['idle', 23.4, 13.6, 0], ['idle', 25, 14.3, 0], ['idle', 17.4, 13.4, 0], ['idle', 19.2, 14.2, 0], ['idle', 15.6, 14.4, 0],
 ];
-// campus: the cafe and stools along the left of the front, chats and tables by them, the sofa against the front
-// wall facing the courtyard, ping-pong on the right, trees to water and benches in the courtyard
-// 캠퍼스: 앞쪽 왼편에 카페와 스툴, 그 옆에 수다 자리와 탁자, 앞벽에 붙어 안뜰을 보는 소파, 오른편 탁구, 안뜰의 물 줄 나무와 벤치
-const SPOT_CAMPUS = [
-  ['sofa', 11.6, 22.25, 1], ['sofa', 12.8, 22.25, 1], ['sofa', 14, 22.25, 1], ['sofa', 15.2, 22.25, 1],
-  ['coffee', 2.45, 17.9, 1], ['coffee', 2.45, 19.1, 1], ['coffee', 2.45, 20.3, 1],
-  ['chat', 4.3, 18.5, 1], ['chat', 5.9, 18.5, 1],
-  ['idle', 4.3, 21, 1], ['idle', 5.9, 21, 1], ['idle', 8.3, 22.4, 1], ['idle', 18, 22.3, 1],
-  ['pong', 20.95, 19.7, 1], ['pong', 24.65, 19.7, 1],
-  ['plant', 10.3, 9.6, 0], ['plant', 19.7, 14.5, 1],
-  ['idle', 12.6, 9.6, 0], ['idle', 13.4, 9.6, 0], ['idle', 16.6, 9.6, 0], ['idle', 15, 12.4, 1], ['idle', 26.8, 21.6, 1], ['idle', 27.6, 18.6, 1],
+// park (round the centre C): the bar stools in the cafe, chats and seats at its long table, two sofas facing in
+// the lounge, ping-pong, benches round the pond, fruit trees to water. A spot may say where it looks
+// 파크 (가운데 C 둘레): 카페의 바 스툴, 긴 테이블의 수다와 자리, 라운지의 마주 보는 소파 둘, 탁구, 연못가 벤치,
+// 물 줄 과일나무. 자리는 바라볼 곳을 가질 수 있다
+const PARK_C = { x: 16, y: 16 }, PARK_R = 15.5, PARK_IN = 6.5;
+const SPOT_PARK = [
+  ['sofa', 6.8, 22.9, 0, [0, 1]], ['sofa', 8.2, 22.9, 0, [0, 1]], ['sofa', 6.8, 25.5, 0, [0, -1]], ['sofa', 8.2, 25.5, 0, [0, -1]],
+  ['coffee', 13.3, 25.05, 0, [0, -1]], ['coffee', 14.7, 25.05, 0, [0, -1]], ['coffee', 16.1, 25.05, 0, [0, -1]],
+  ['chat', 13.1, 26.35, 0], ['chat', 13.1, 28.05, 0],
+  ['idle', 16.4, 26.35, 0, [0, 1]], ['idle', 17.9, 28.05, 0, [0, -1]], ['idle', 19.3, 26.35, 0, [0, 1]],
+  ['pong', 21.05, 25.8, 0], ['pong', 24.75, 25.8, 0],
+  ['plant', 12.7, 13.9, 0, [1, -.6]], ['plant', 19.9, 12.9, 0, [-.4, -1]],
+  ...[150, 210, 260, 320].map(d => { const a = d * Math.PI / 180; return ['idle', 16 + Math.cos(a) * 4.7, 16 + Math.sin(a) * 4.7, 0, [-Math.cos(a), -Math.sin(a)]]; }),
 ];
 const SPOTS = [];
 const SPOT_LABEL = { sofa: ['소파에서 낮잠', 'napping on the sofa'], coffee: ['커피 마시는 중', 'having coffee'], pong: ['탁구 치는 중', 'playing ping-pong'],
@@ -592,29 +596,30 @@ const PLANS = {
     mill: (k, j) => ({ x: 8 + k % 7, y: 13.6 + LAY.LOFF + (j % 2) * .7 }),
     labels: L => [[ROOMS.meet.name, 16.3, 5.7, 6, 2], [ROOMS.boss.name, 22.3, 5.7, 6, 2], [['카페', 'Cafe'], .2, 15.2 + L, 8, 4], [['라운지', 'Lounge'], 7.6, 15.2 + L, 8, 4], [['정원', 'Garden'], 22.3, 15.2 + L, 8, 4]],
   },
-  campus: {
-    GX: 30, fitGY: Infinity, plaqueEnd: () => 6.8,
-    boss: { x0: 23, x1: 30, y0: 0, y1: 6.5, in: { x: 23.6, y: 5 }, out: { x: 22.4, y: 5 } },
-    meet: { x0: 23, x1: 30, y0: 6.5, y1: 13.5, in: { x: 23.6, y: 12 }, out: { x: 22.4, y: 12 } },
-    meetC: { x: 26.5, y: 10 }, stand: [{ x: 23.8, y: 7.2 }, { x: 29.3, y: 7.2 }, { x: 29.3, y: 12.8 }, { x: 24.9, y: 13 }, { x: 28, y: 13 }, { x: 23.9, y: 8.6 }],
-    board: { x: 29.25, y: 10 }, boardLook: [1, 0], comb: { x: 25.1, y: .85 }, combU: 24.3, shelfX: 24.3,
-    block: { x0: 22.85, y1: 13.65 }, corner: { x: 22.6, y: 13.95 },
-    q: i => i < 6 ? { x: 26.3 + (i % 2) * .8, y: 3.75 + Math.floor(i / 2) * .65 } : { x: 22.2 - ((i - 6) % 4) * .7, y: 7 + Math.floor((i - 6) / 4) * .7 },
-    entry: () => ({ x: .5, y: 10 }),
-    // three pods along the back, then down the left (under the lobby) and the right (under the rooms) in turn
-    // 뒤쪽에 셋, 그다음 왼편 (로비 아래) 과 오른편 (방 아래) 으로 번갈아
-    podAt: i => i < 3 ? { x: 1 + i * 7, y: 1.2 } : (i - 3) % 2 === 0 ? { x: 1, y: 12.4 + Math.floor((i - 3) / 2) * 4.2 } : { x: 23.5, y: 14.2 + Math.floor((i - 3) / 2) * 4.2 },
-    size: n => { const L = Math.ceil(Math.max(0, n - 3) / 2), R = Math.floor(Math.max(0, n - 3) / 2), end = Math.max(13.5, 12.4 + L * 4.2, 14.2 + R * 4.2);
-      const GY = Math.max(24, Math.ceil(end + 8.5)); return { rows: 0, LOFF: GY - 24, GY, WORK_D: 0 }; },
-    spots: SPOT_CAMPUS, sofaLook: [0, -1], plantLook: s => [s.x < 15 ? -1 : 1, s.y < 12 ? -.6 : 0],
-    mill: (k, j) => ({ x: 10 + k % 10, y: 11.2 + LAY.LOFF / 2 + (j % 2) * .7 }),
-    labels: L => [[ROOMS.boss.name, 23.3, 6.2, 6, 2], [ROOMS.meet.name, 23.3, 13.2, 6, 2], [['로비', 'Lobby'], .3, 12, 8, 4], [['카페', 'Cafe'], .2, 23.6 + L, 8, 4],
-      [['라운지', 'Lounge'], 10.8, 23.6 + L, 8, 4], [['안뜰', 'Courtyard'], 9, 15 + L, 8, 4]],
+  park: {
+    GX: 32, fitGY: Infinity, plaqueEnd: () => 99, ring: true,
+    boss: { x0: 21.1, x1: 26.1, y0: 4.76, y1: 9.16, in: { x: 22.9, y: 8.5 }, out: { x: 22.9, y: 9.9 } },
+    meet: { x0: 24.84, x1: 29.84, y0: 10.25, y1: 15.25, in: { x: 25.5, y: 14.1 }, out: { x: 24.2, y: 14.1 } },
+    meetC: { x: 27.6, y: 12.95 }, stand: [{ x: 25.3, y: 10.85 }, { x: 29.4, y: 10.85 }, { x: 29.4, y: 14.9 }, { x: 28.5, y: 14.95 }, { x: 25.4, y: 12.9 }, { x: 26.5, y: 15 }],
+    board: { x: 25.7, y: 10.85 }, boardLook: [0, -1], comb: { x: 23, y: 5.6 }, combU: 1.2, shelfX: 22.3, shelfY: 4.84,
+    // what bees walk round: the rooms, the pond, the elevator core / 벌이 돌아가는 것: 방, 연못, 엘리베이터 코어
+    walls: [[21.1, 4.76, 26.1, 9.16], [24.84, 10.25, 29.84, 15.25], [16.5, 16.3, 19.1, 18.9], [1.5, 12, 3, 20]],
+    q: i => i < 4 ? { x: 24.4 + (i % 2) * .8, y: 7.7 + Math.floor(i / 2) * .6 } : { x: 22.2 - ((i - 4) % 4) * .7, y: 10.1 + Math.floor((i - 4) / 4) * .7 },
+    entry: () => ({ x: 3.5, y: 16 }),
+    // pods round the ring: the outer row, then the inner one, then out in the courtyard / 링을 따라 포드: 바깥 줄, 안쪽 줄, 그다음 안뜰
+    podAt: i => { const R = [[-82, 12.2], [-114, 12.2], [-146, 12.2], [14, 12.2], [-125, 8.6], [-86, 8.6], [30, 8.6]], C = PARK_C;
+      if (i < R.length) { const a = R[i][0] * Math.PI / 180; return { cx: C.x + Math.cos(a) * R[i][1], cy: C.y + Math.sin(a) * R[i][1], a }; }
+      const k = i - R.length, a = (-150 + (k % 3) * 70) * Math.PI / 180, r = 2.6 + Math.floor(k / 3) * .2; return { cx: C.x + Math.cos(a) * r, cy: C.y + Math.sin(a) * r, a: a + Math.PI / 2 }; },
+    size: () => ({ rows: 0, LOFF: 0, GY: 32, WORK_D: 0 }),
+    spots: SPOT_PARK, sofaLook: [0, 1], plantLook: () => [1, 0],
+    mill: (k, j) => { const a = k * .63 + (j % 2) * .3; return { x: PARK_C.x + Math.cos(a) * 5.3, y: PARK_C.y + Math.sin(a) * 5.3 }; },
+    labels: () => [[ROOMS.boss.name, 21.3, 9.7, 6, 2], [ROOMS.meet.name, 25, 15.8, 6, 2], [['로비', 'Lobby'], 3.4, 20.2, 8, 4], [['카페', 'Cafe'], 11.6, 29.6, 8, 4],
+      [['라운지', 'Lounge'], 5.2, 27.2, 8, 4], [['안뜰', 'Courtyard'], 12.4, 20.4, 8, 4]],
   },
 };
 let PLANX = PLANS.classic;
-// the campus needs the 3D office in the modern look / 캠퍼스는 모던 꾸밈의 3D 사무실에서
-const campusOn = () => settings.look !== 'flat' && settings.decor !== 'classic' && !!(window.OFFICE3D && OFFICE3D.ok);
+// the park needs the 3D office in the modern look / 파크는 모던 꾸밈의 3D 사무실에서
+const parkOn = () => settings.look !== 'flat' && settings.decor !== 'classic' && !!(window.OFFICE3D && OFFICE3D.ok);
 function usePlan(name) {
   const P2 = PLANS[name];
   if (PLANX === P2 && SPOTS.length) return;
@@ -623,12 +628,12 @@ function usePlan(name) {
   Object.assign(MEET_C, P2.meetC); MEET_CHAIRS.splice(0, 9, ...ring(MEET_C, 1.75)); MEET_STAND.splice(0, 9, ...P2.stand);
   Object.assign(BOARD_SPOT, P2.board); Object.assign(COMB_SPOT, P2.comb);
   Object.assign(BLOCK, P2.block); Object.assign(CORNER, P2.corner);
-  if (typeof COMB !== 'undefined') { COMB.u0 = P2.combU; SHELF.x = P2.shelfX; }
+  if (typeof COMB !== 'undefined') { COMB.u0 = P2.combU; SHELF.x = P2.shelfX; SHELF.y = P2.shelfY ?? .12; }
   for (const b of bees.values()) { if (b.spot) b.spot.occ = null; b.spot = null; }
-  SPOTS.splice(0, SPOTS.length, ...P2.spots.map(([kind, x, y, shift]) => ({ kind, x0: x, y0: y, shift, x, y, occ: null })));
+  SPOTS.splice(0, SPOTS.length, ...P2.spots.map(([kind, x, y, shift, look]) => ({ kind, x0: x, y0: y, shift, x, y, look, occ: null })));
 }
 function layout(offices) {
-  usePlan(campusOn() ? 'campus' : 'classic');
+  usePlan(parkOn() ? 'park' : 'classic');
   // pods of four for the sessions that are not resting, each office's pods one after another, two to a row
   // 쉬지 않는 세션만큼 4인용 섬. Mac 마다 섬이 이어지고 한 줄에 둘
   // (a working team gets pods of its own / 일하는 팀은 자기 섬을 따로 받는다)
@@ -643,14 +648,28 @@ function layout(offices) {
   const desks = [];
   pods.forEach((p, i) => {
     Object.assign(p, podAt(i));
+    if (PLANX.ring) {   // a pod set along the ring: its table runs along it (t), seats on both sides (n, outward)
+      // 링을 따라 놓인 포드: 테이블은 링 방향 (t), 자리는 양쪽 (n, 바깥쪽)
+      const n = [Math.cos(p.a), Math.sin(p.a)], t = [-n[1], n[0]], at = (j, r) => ({ x: p.cx + t[0] * j + n[0] * r, y: p.cy + t[1] * j + n[1] * r });
+      Object.assign(p, { x: p.cx - 2.8, y: p.cy - 1.5 });
+      for (let k = 0; k < 4; k++) {
+        const s2 = k < 2 ? 1 : -1, j = k % 2 ? 1.3 : -1.3, seat = at(j, s2 * 1.25), out = [n[0] * s2, n[1] * s2];
+        desks.push({ id: `${p.oi}:${p.n}:${k}`, oi: p.oi, far: s2 > 0, ...at(j, s2 * .45), seat, look: [-out[0], -out[1]], ang: p.a, side: s2,
+          help: [[-.6, .45], [.6, .45], [0, .85]].map(([dj, dr]) => ({ dx: t[0] * dj + out[0] * dr, dy: t[1] * dj + out[1] * dr })),
+          brag: { x: seat.x + t[0] * .6, y: seat.y + t[1] * .6 } });
+      }
+      return;
+    }
     for (let k = 0; k < 4; k++) {
       const far = k < 2, x = p.x + 1.5 + (k % 2) * 2.6;   // far row faces this way / 먼 줄은 이쪽을 본다
-      desks.push({ id: `${p.oi}:${p.n}:${k}`, oi: p.oi, far, x, y: far ? p.y + 1.05 : p.y + 1.95, seat: { x, y: far ? p.y + .3 : p.y + 2.7 } });
+      const seat = { x, y: far ? p.y + .3 : p.y + 2.7 };
+      desks.push({ id: `${p.oi}:${p.n}:${k}`, oi: p.oi, far, x, y: far ? p.y + 1.05 : p.y + 1.95, seat, look: [0, far ? 1 : -1],
+        help: far ? HELP_FAR : HELP_NEAR, brag: { x: seat.x + .6, y: seat.y + (far ? -.1 : .1) } });
     }
   });
   SPOTS.forEach(s => { s.x = s.x0; s.y = s.y0 + (s.shift ? LOFF : 0); });
-  return { pods, desks, byId: new Map(desks.map(d => [d.id, d])), rows, LOFF, GY, WORK_D, plan: PLANX === PLANS.campus ? 'campus' : 'classic',
-    sig: `${PLANX === PLANS.campus ? 'c' : ''}${rows}|${GY}|${pods.map(p => p.oi).join()}`, names: offices.map(o => o.host) };
+  return { pods, desks, byId: new Map(desks.map(d => [d.id, d])), rows, LOFF, GY, WORK_D, plan: PLANX === PLANS.park ? 'park' : 'classic',
+    sig: `${PLANX === PLANS.park ? 'p' : ''}${rows}|${GY}|${pods.map(p => p.oi).join()}`, names: offices.map(o => o.host) };
 }
 function roomOf(x, y) { return Object.values(ROOMS).find(r => x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1) || null; }
 // classic: each room's door is the gap in its glass front from door + .1 to door + 1. Bees go through a door
@@ -680,11 +699,27 @@ function routeIn(from, to) {
   // outside the rooms, go round their corner rather than through the glass / 방 밖에서는 유리를 뚫지 않고 모서리를 돈다
   const out = [];
   let prev = from;
+  if (PLANX.walls) { for (const q of pts) { out.push(...round(prev, q)); prev = q; } return out; }
   for (const q of pts) {
     if (!roomOf(prev.x, prev.y) && !roomOf(q.x, q.y) && crossesBlock(prev, q)) out.push({ ...CORNER });
     out.push(q); prev = q;
   }
   return out;
+}
+
+// park: the straight way from p to q, or round the corners of what is in the way (a room left or entered is not
+// in the way) / 파크: p 에서 q 로 곧장, 막히면 그 모서리를 돌아서 (나오거나 들어가는 방은 막는 것이 아니다)
+function round(p, q) {
+  const skip = new Set([roomOf(p.x, p.y), roomOf(q.x, q.y)].filter(Boolean).map(r => `${r.x0},${r.y0}`));
+  const walls = PLANX.walls.filter(w => !skip.has(`${w[0]},${w[1]}`));
+  const hits = (a, b) => walls.some(([x0, y0, x1, y1]) => { for (let i = 1; i < 24; i++) { const x = a.x + (b.x - a.x) * i / 24, y = a.y + (b.y - a.y) * i / 24; if (x > x0 - .15 && x < x1 + .15 && y > y0 - .15 && y < y1 + .15) return true; } return false; });
+  if (!hits(p, q)) return [q];
+  const corners = walls.flatMap(([x0, y0, x1, y1]) => [[x0 - .45, y0 - .45], [x1 + .45, y0 - .45], [x1 + .45, y1 + .45], [x0 - .45, y1 + .45]]).map(([x, y]) => ({ x, y }));
+  const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  let best = null, bestLen = Infinity;
+  for (const c of corners) if (!hits(p, c) && !hits(c, q)) { const l = d(p, c) + d(c, q); if (l < bestLen) { bestLen = l; best = [c, q]; } }
+  if (!best) for (const c of corners) for (const e of corners) if (c !== e && !hits(p, c) && !hits(c, e) && !hits(e, q)) { const l = d(p, c) + d(c, e) + d(e, q); if (l < bestLen) { bestLen = l; best = [c, e, q]; } }
+  return best || [q];
 }
 
 /* ---------- live data ---------- */
@@ -970,7 +1005,7 @@ function plan() {
     const meeting = planners.includes(b), s = b.desk.seat;
     for (let i = 0; i < Math.min(3, b.agents); i++) {
       const k = `${b.key}|${i}`; alive.add(k);
-      const o = (b.desk.far ? HELP_FAR : HELP_NEAR)[i];
+      const o = b.desk.help[i];
       const p = meeting ? seats[Math.min(seat++, seats.length - 1)] : { x: s.x + o.dx, y: s.y + o.dy };
       if (!helpers.has(k)) helpers.set(k, { mini: true, host: b, born: performance.now() + i * 350, phase: Math.random() * 9 });
       Object.assign(helpers.get(k), { x: p.x, y: p.y, pose: meeting ? 'meet' : 'help', look: meeting ? [MEET_C.x - p.x, MEET_C.y - p.y] : [s.x - p.x, s.y - p.y] });
@@ -990,7 +1025,7 @@ function plan() {
     if (meet.includes(b)) setTarget(b, 'meet', b.meetSeat);
     else if (b.state === 'run') b.plan || !b.desk ? setTarget(b, 'meet', b.plan ? b.meetSeat : MEET_STAND[0]) : setTarget(b, 'desk', b.desk.seat);
     else if (b.state === 'wait') setTarget(b, 'q', qSpot(waits.indexOf(b)), true);
-    else if (b.state === 'done') setTarget(b, 'brag', b.desk ? { x: b.desk.seat.x + .6, y: b.desk.seat.y + (b.desk.far ? -.1 : .1) } : COMB_SPOT);
+    else if (b.state === 'done') setTarget(b, 'brag', b.desk ? b.desk.brag : COMB_SPOT);
     else if (b.deliver) setTarget(b, 'comb', COMB_SPOT);
     else {
       if (!b.spot || Date.now() > b.spotUntil) freeSpot(b);
@@ -2647,7 +2682,7 @@ function drawFrame(now) {
     // in 3D (share/office/office3d.js) the scene is drawn under this canvas, which keeps the words on top; the
     // roof, the planet and the plan are drawn here as before / 3D 에선 이 캔버스 아래에 장면을 그리고, 이 캔버스엔 글자만
     // 남는다. 지붕, 행성, 평면도는 전처럼 여기서 그린다
-    const solid = settings.look !== 'flat' && window.OFFICE3D && OFFICE3D.ok && globe === 0 && (flat() === 0 || LAY.plan === 'campus');
+    const solid = settings.look !== 'flat' && window.OFFICE3D && OFFICE3D.ok && globe === 0 && (flat() === 0 || LAY.plan === 'park');
     if (solid) {
       LIGHT = skyNow().light; T.win = mixc(T['m-window'], T['o-lamp'], Math.max(0, 1 - LIGHT * 1.3));
       c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, cv.width, cv.height); c.restore();
@@ -2748,7 +2783,7 @@ function settle(b) {
   if (b.key2 === 'home') { b.inside = true; b.atPub = false; return; }
   if (b.key2 === 'pub') { b.inside = true; b.atPub = true; return; }
   if (b.key2 === 'eve' && b.eve && b.eve.spot) { b.look = b.eve.spot.look; return; }
-  if (b.key2 === 'desk' && b.desk) b.look = [0, b.desk.far ? 1 : -1];
+  if (b.key2 === 'desk' && b.desk) b.look = b.desk.look;
   if (b.key2 === 'meet') b.look = b.atBoard ? PLANX.boardLook : at(MEET_C);
   if (b.npc && b.key2 === 'out') crew.delete(b.key);
   if (b.key2 === 'bye') { bees.delete(b.key); return; }   // gone down the elevator / 엘리베이터로 내려갔다
@@ -2756,7 +2791,7 @@ function settle(b) {
   if (b.key2 === 'comb') { b.look = [0, -1]; b.deliver = false; say(b, tr('꿀 저장 완료!', 'Honey stored!')); plan(); }
   if (b.key2 === 'lounge' && b.spot) {
     const k = b.spot.kind, mate = SPOTS.find(q => q.kind === k && q !== b.spot);
-    b.look = (k === 'pong' || k === 'chat') && mate ? at(mate) : k === 'coffee' ? [-1, 0] : k === 'sofa' ? PLANX.sofaLook : k === 'plant' ? PLANX.plantLook(b.spot) : null;
+    b.look = b.spot.look ? b.spot.look : (k === 'pong' || k === 'chat') && mate ? at(mate) : k === 'coffee' ? [-1, 0] : k === 'sofa' ? PLANX.sofaLook : k === 'plant' ? PLANX.plantLook(b.spot) : null;
   }
   if (b.look) b.face = sideOf(...b.look);
 }
