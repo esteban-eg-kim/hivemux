@@ -287,6 +287,17 @@ def mark(pane, folder, team, role):
     tmux("set", "-p", "-t", pane, "@hivemux-teamdir", team_dir(folder))
     tmux("set", "-p", "-t", pane, "@hivemux-rolename", ("★ " if role["lead"] else "") + label(role))
     tmux("set", "-p", "-t", pane, "@hivemux-team", label(team))
+    tmux("set", "-p", "-t", pane, "@hivemux-roleorder", str(role_rank(team, role)))
+
+
+def role_rank(team, role):
+    """Where a role is listed: the lead first, then the flow / 역할을 보이는 순서: 리드 먼저, 그다음 흐름"""
+    flow = team.get("flow") or [r["id"] for r in team["role"]]
+    return 0 if role["lead"] else 1 + (flow.index(role["id"]) if role["id"] in flow else len(flow))
+
+
+def ranked(team):
+    return sorted(team["role"], key=lambda r: role_rank(team, r))
 
 
 def remark(session):
@@ -522,7 +533,7 @@ def status(session):
     team = load(path)
     have = {p["role"]: p for p in panes(session) if p["role"]}
     roles = []
-    for r in team["role"]:
+    for r in ranked(team):
         p = have.get(r["id"]) or {}
         running = bool(p) and not SHELLS.match(p.get("cmd", ""))
         roles.append({**{k: r[k] for k in ("id", "model", "effort", "lead", "readonly", "worktree", "owns", "diet", "prompt")},
@@ -1206,7 +1217,7 @@ def report(session, date=None):
     now = int(time.time())
     names = {r["id"]: label(r) for r in team["role"]}
     roles = {r["id"]: {"id": r["id"], "name": label(r), "model": r["model"], "effort": r["effort"], "segs": [], "work": 0,
-                       "files": [], "commits": [], "tokens": 0, "models": {}, "diets": 0, "honey": 0, "handoffs": 0} for r in team["role"]}
+                       "files": [], "commits": [], "tokens": 0, "models": {}, "diets": 0, "honey": 0, "handoffs": 0} for r in ranked(team)}
     # states: what each role did when (a state lasts until the next one) / 상태: 다음 상태까지 이어진다
     by = {}
     for at, rid, st in _log(folder, "states.log", start - 86400, end, 3):

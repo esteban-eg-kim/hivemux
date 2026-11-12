@@ -76,7 +76,7 @@ FIELDS = ["pane_id", "session_name", "window_index", "window_name", "@claude_sta
           "@claude_state_at", "@claude_session", "window_id", "pane_active", "pane_last",
           "window_active", "session_attached", "pane_title", "@claude_title", "@claude_name", "pane_current_command",
           "@hivemux-closing", "@claude_wait", "@claude_touched", "@claude_bg", "@claude_offwork", "pane_index",
-          "pane_tty", "pane_width", "pane_height", "@hivemux-rest", "@claude_ctx", "@hivemux-handoff", "@hivemux-rolename", "@hivemux-team"]
+          "pane_tty", "pane_width", "pane_height", "@hivemux-rest", "@claude_ctx", "@hivemux-handoff", "@hivemux-rolename", "@hivemux-team", "@hivemux-roleorder"]
 # a shell in front means Claude has quit there (its SessionEnd hook comes a second or two later, or never)
 # 칸 앞에 셸이 있으면 그 Claude 는 끝났다 (SessionEnd 훅은 1~2초 늦게 오거나 안 온다)
 SHELLS = {"zsh", "bash", "fish", "sh", "dash", "tcsh", "ksh", "login"}
@@ -542,7 +542,9 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
         x0, x1 = 1, cw - 1                # card columns inside the box / 상자 안 카드 가로 범위
         # a team's roles together under its name, the project's other Claudes after them (bin/hivemux-team)
         # 팀 역할은 팀 이름 아래 한 묶음으로, 프로젝트의 다른 Claude 는 그 뒤에 (bin/hivemux-team)
-        members = sorted(members, key=lambda m: 0 if m[1].get("@hivemux-rolename") else 1)
+        # (the lead first, then the flow) / (리드 먼저, 그다음 흐름)
+        rank = lambda p: int(p.get("@hivemux-roleorder")) if str(p.get("@hivemux-roleorder", "")).isdigit() else 99
+        members = sorted(members, key=lambda m: (0, rank(m[1])) if m[1].get("@hivemux-rolename") else (1, 0))
         team_name = next((m[1].get("@hivemux-team") for m in members if m[1].get("@hivemux-rolename")), "")
         for mi, (i, p) in enumerate(members):
             if team_name and (mi == 0 or bool(members[mi - 1][1].get("@hivemux-rolename")) != bool(p.get("@hivemux-rolename"))):
