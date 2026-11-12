@@ -1875,10 +1875,10 @@ function yardItems() {
   }]);
   for (const [x, y, s] of [[-4, -3, 1.2], [-5.2, 5, 1], [-3.5, 14, 1.3], [5, -4.5, 1.1], [13, -5.2, 1.3], [21, -4, 1], [GX + 4, 2, 1.2], [GX + 5, 9, 1], [GX + 3.5, GY + 4, 1.3],
     [18, GY + 4.5, 1.1], [6, GY + 5, 1.2], [-4.5, GY + 3.5, 1]]) tree(x, y, s);
-  for (const [x, y] of [[-2.2, 7.8 + LOFF], [-2.2, 11 + LOFF], [11.4, GY + 1.6], [14.4, GY + 4.6]]) lamp(x, y);
+  for (const [x, y] of [[-2.2, pathY() - 1.4], [-2.2, pathY() + 1.8], [11.4, GY + 1.6], [14.4, GY + 4.6]]) lamp(x, y);
   hive(GX + 2.6, 12.6); hive(GX + 2.6, 14.2);
   for (const [x, y] of [[-3, 2], [GX + 3, 5.5], [9, -2.6], [3, GY + 3], [GX + 4.5, GY + 1.5]]) bed(x, y);
-  items.push([-3.6, 12.6 + LOFF, () => { box(-4.4, 12.4 + LOFF, 1.6, .45, 8, night(T['m-desk'])); }]);
+  items.push([-3.6, pathY() + 3.4, () => { box(-4.4, pathY() + 3.2, 1.6, .45, 8, night(T['m-desk'])); }]);
   for (const e of houses()) items.push([e.h.x + e.h.w / 2, e.h.y + e.h.d / 2, () => house(e)]);
   if (houses().length) {
     const pb = PUB(); items.push([pb.x + pb.w / 2, pb.y + pb.d / 2, () => pub(pb)]);
@@ -2216,8 +2216,10 @@ function drawYard(t) {
     c.beginPath(); river.forEach((p, i) => i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y));
     c.lineWidth = w; c.lineJoin = 'round'; c.lineCap = 'round'; c.strokeStyle = col; c.stroke();
   }
-  floorRect(-1, -1, GX + 2, GY + 2, night(T['o-path']));
-  floorRect(-E, 8.6 + LOFF, E, 1.2, night(T['o-path']));
+  if (LAY.plan === 'park') {   // a round plaza round the ring / 링을 두른 둥근 광장
+    const C = PARK_C, r = PARK_R + 1.4; poly(Array.from({ length: 72 }, (_, i) => P(C.x + Math.cos(i / 72 * Math.PI * 2) * r, C.y + Math.sin(i / 72 * Math.PI * 2) * r)), night(T['o-path']));
+  } else floorRect(-1, -1, GX + 2, GY + 2, night(T['o-path']));
+  floorRect(-E, pathY() - .6, E, 1.2, night(T['o-path']));
   if (houses().length) {   // the village path and its lanes / 마을 큰길과 골목
     const vx = villageEnd(), py = pathY(); floorRect(vx, py - .6, -E - vx, 1.2, night(T['o-path']));
     for (let k = 0; k < VILL.blocks; k++) floorRect(LANE(k) - .45, py - 8.8, .9, 17.6, night(T['o-path']));
@@ -2661,6 +2663,20 @@ function frame(now) {
   // the next frame comes even if this one throws / 이번 프레임이 실패해도 다음 프레임은 온다
   try { drawFrame(now); } catch (e) { console.error(e); } finally { requestAnimationFrame(frame); }
 }
+// the yard and the village fade out as the planet comes in, so nothing is left floating in space: drawn on a
+// canvas of their own, then laid on at that strength / 행성이 나타나는 만큼 마당과 마을이 사라져 우주에 떠 있는 것이
+// 없게: 따로 된 캔버스에 그린 뒤 그만큼의 진하기로 얹는다
+const fadeCv = document.createElement('canvas');
+function faded(alpha, draw) {
+  if (alpha >= 1) return draw();
+  if (alpha <= 0) return;
+  if (fadeCv.width !== cv.width || fadeCv.height !== cv.height) { fadeCv.width = cv.width; fadeCv.height = cv.height; }
+  const f = fadeCv.getContext('2d'), keep = c;
+  f.setTransform(1, 0, 0, 1, 0, 0); f.clearRect(0, 0, fadeCv.width, fadeCv.height); f.setTransform(keep.getTransform());
+  c = f;
+  try { draw(); } finally { c = keep; }
+  c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = alpha; c.drawImage(fadeCv, 0, 0); c.restore();
+}
 function drawFrame(now) {
   if (LAY && now - last < frameGap(now) - 4) return;
   const dt = Math.min(.1, (now - last) / 1000); last = now;
@@ -2701,7 +2717,7 @@ function drawFrame(now) {
     drawSky(t);
     c.textBaseline = 'top';
     if (globe < 1) {
-      drawYard(t);
+      faded(clamp01(1 - globe * 2.2), () => drawYard(t));
       if (roof < 1) {   // the office inside / 사무실 안
         drawFloor(); drawBackWalls(t);
         buildScene(t);
@@ -2717,7 +2733,7 @@ function drawFrame(now) {
         }
       }
       if (roof > 0) { c.globalAlpha = roof; drawRoof(t); c.globalAlpha = 1; }
-      yardFront.sort((a, b) => D(a[0], a[1]) - D(b[0], b[1])).forEach(i => i[2]());
+      faded(clamp01(1 - globe * 2.2), () => yardFront.sort((a, b) => D(a[0], a[1]) - D(b[0], b[1])).forEach(i => i[2]()));
     }
     if (globe > 0) {   // the tiny planet fades in over the roof / 작은 행성이 지붕 위로 서서히
       c.globalAlpha = globe;
