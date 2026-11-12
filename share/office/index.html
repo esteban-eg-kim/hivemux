@@ -2740,7 +2740,39 @@ function drawFrame(now) {
 // the building from outside: walls all round, a flat roof with an eave, skylights, a vent, a hive and
 // the Mac's name painted on it; windows glow at night
 // 바깥에서 본 건물: 사방 벽, 처마가 있는 평지붕, 천창, 환기구, 벌통, 지붕에 칠한 Mac 이름. 밤엔 창문이 켜진다
+// the park from outside: curved glass walls, a ring of roof with solar panels round the open courtyard, the name
+// 바깥에서 본 파크: 곡면 유리벽, 열린 안뜰을 두른 링 지붕과 태양광 패널, 이름
+function drawParkRoof() {
+  const C = PARK_C, RO = PARK_R, RI = PARK_IN, H = WALL, top = H + 8, N = 72;
+  const ring = (r, z) => Array.from({ length: N }, (_, i) => { const a = i / N * Math.PI * 2; return P(C.x + Math.cos(a) * r, C.y + Math.sin(a) * r, z); });
+  const seg = (r, i, z0, z1) => { const a0 = i / N * Math.PI * 2, a1 = (i + 1) / N * Math.PI * 2; return [P(C.x + Math.cos(a0) * r, C.y + Math.sin(a0) * r, z0), P(C.x + Math.cos(a1) * r, C.y + Math.sin(a1) * r, z0), P(C.x + Math.cos(a1) * r, C.y + Math.sin(a1) * r, z1), P(C.x + Math.cos(a0) * r, C.y + Math.sin(a0) * r, z1)]; };
+  const mid = i => (i + .5) / N * Math.PI * 2;
+  // the courtyard, then the far side of its glass seen from inside / 안뜰, 그다음 안에서 보이는 안뜰 유리의 먼 쪽
+  poly(ring(RI, 0), night('#a9c98e'));
+  for (let i = 0; i < N; i++) if (toward(-Math.cos(mid(i)), -Math.sin(mid(i))) === false) poly(seg(RI, i, 0, top), shade(night(mixc(T['m-window'], '#ffffff', .4)), .1));
+  // the outer glass facing us, its windows lit at night / 이쪽을 보는 바깥 유리. 밤엔 창이 켜진다
+  for (let i = 0; i < N; i++) if (toward(Math.cos(mid(i)), Math.sin(mid(i)))) {
+    poly(seg(RO, i, 0, H), sideOf(Math.cos(mid(i)), Math.sin(mid(i))) < 0 ? shade(night(mixc(T['m-window'], '#ffffff', .3)), .05) : night(mixc(T['m-window'], '#ffffff', .45)));
+    if (LIGHT < .6) poly(seg(RO, i, 18, 50).map(p => ({ x: p.x, y: p.y })), `rgba(255, 214, 140, ${(.6 - LIGHT) * .9})`);
+    poly(seg(RO + .4, i, H, top), night('#d8d7d2'));
+  }
+  // the roof: a ring (even-odd), a band of solar panels / 지붕: 링 (짝홀 채우기), 태양광 패널 띠
+  const fillRing = (r0, r1, z, col) => { c.beginPath(); ring(r1, z).forEach((p, i) => i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)); c.closePath(); ring(r0, z).reverse().forEach((p, i) => i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)); c.closePath(); c.fillStyle = col; c.fill('evenodd'); };
+  fillRing(RI - .2, RO + .4, top, night('#efeee9'));
+  fillRing(RI + 1.2, RO - 1.2, top, night('#2b3b58'));
+  c.strokeStyle = night('#efeee9'); c.lineWidth = 1.5;
+  for (let i = 0; i < 48; i++) { const a = i / 48 * Math.PI * 2, p0 = P(C.x + Math.cos(a) * (RI + 1.2), C.y + Math.sin(a) * (RI + 1.2), top), p1 = P(C.x + Math.cos(a) * (RO - 1.2), C.y + Math.sin(a) * (RO - 1.2), top); c.beginPath(); c.moveTo(p0.x, p0.y); c.lineTo(p1.x, p1.y); c.stroke(); }
+  { const rm = (RI + RO) / 2, pts = ring(rm, top); c.beginPath(); pts.forEach((p, i) => i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)); c.closePath(); c.stroke(); }
+  // the name over the courtyard, reading across the screen / 안뜰 위의 이름, 화면 가로로
+  const o = P(C.x, C.y, top), n = [...bees.values()].filter(b => b.state === 'run').length;
+  const k = Math.max(1, .55 / scale);   // readable from far out / 멀리서도 읽히게
+  c.save(); c.textAlign = 'center'; c.textBaseline = 'middle'; font(28 * k, 800); c.fillStyle = 'rgba(255, 255, 255, .92)'; c.strokeStyle = 'rgba(30, 40, 60, .35)'; c.lineWidth = 4 * k;
+  const name = clipText(offices[0] ? offices[0].host : 'hivemux', 400 * k); c.strokeText(name, o.x, o.y - 10 * k); c.fillText(name, o.x, o.y - 10 * k);
+  font(16 * k, 700); const sub = tr(`${n}마리 일하는 중`, `${n} working`); c.strokeText(sub, o.x, o.y + 16 * k); c.fillText(sub, o.x, o.y + 16 * k);
+  c.restore(); c.textAlign = 'left'; c.textBaseline = 'top';
+}
 function drawRoof(t) {
+  if (LAY.plan === 'park') return drawParkRoof();
   const { GY } = LAY, H = WALL;
   box(0, 0, GX, GY, H, T['m-wallface']);
   for (const [a, b, n] of [[[0, GY], [GX, GY], [0, -1]], [[GX, 0], [GX, GY], [-1, 0]], [[0, 0], [GX, 0], [0, 1]], [[0, 0], [0, GY], [1, 0]]]) {

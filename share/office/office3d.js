@@ -65,11 +65,15 @@ function colOf(c, base = '#ffffff') {
 const LIT = new Set();
 let INSIDE = false;
 const lit = m => { if (m.map) { m.emissiveMap = m.map; m.needsUpdate = true; } LIT.add(m); return m; };
+// bees keep their colours bright whatever the light: a glow of their own, a little gloss / 벌은 빛과 상관없이 색이 선명하다: 스스로 조금 빛나고, 살짝 윤이 난다
+let BEEING = false;
+const BEE_GLOW = .38;
 function mat(color, o = {}) {
-  const op = o.op ?? 1, k = `${color}|${op}|${o.em || ''}|${o.rough ?? .78}|${o.side ? 1 : 0}|${o.flat ? 1 : 0}|${INSIDE && !o.em ? 1 : 0}`;
+  const op = o.op ?? 1, k = `${color}|${op}|${o.em || ''}|${o.rough ?? .78}|${o.side ? 1 : 0}|${o.flat ? 1 : 0}|${INSIDE && !o.em ? 1 : 0}|${BEEING ? 1 : 0}`;
   if (!mats.has(k)) {
-    const m = new THREE.MeshStandardMaterial({ color: colOf(color), roughness: o.rough ?? .78, metalness: 0, transparent: op < 1, opacity: op,
+    const m = new THREE.MeshStandardMaterial({ color: colOf(color), roughness: BEEING ? .45 : o.rough ?? .78, metalness: 0, transparent: op < 1, opacity: op,
       emissive: o.em ? colOf(o.em) : 0x000000, depthWrite: op >= 1, side: o.side ? THREE.DoubleSide : THREE.FrontSide, flatShading: !!o.flat });
+    if (BEEING && !o.em) { m.userData.bee = true; m.emissive.copy(m.color).multiplyScalar(BEE_GLOW); }
     mats.set(k, INSIDE && !o.em ? lit(m) : m);
   }
   return mats.get(k);
@@ -81,7 +85,7 @@ function officeLights() {
   const k = settings.lights === 'off' ? 0 : clamp01((.95 - LIGHT) / .6);
   if (Math.abs(k - litK) < .01) return;
   litK = k;
-  for (const m of LIT) m.emissive.copy(m.map ? WARM : m.color).multiplyScalar(k * (m.map ? .55 : .6));
+  for (const m of LIT) m.emissive.copy(m.map ? WARM : m.color).multiplyScalar(m.userData.bee ? Math.max(BEE_GLOW, k * .6) : k * (m.map ? .55 : .6));
 }
 const geo = (k, make) => { if (!geos.has(k)) geos.set(k, make()); return geos.get(k); };
 function mesh(g, gm, color, x, y, z, o = {}) {
@@ -825,8 +829,8 @@ function buildOutside() {
 // ── bees / 벌 ────────────────────────────────────────────────────────────────────────────────
 const BEE_S = .55;   // about as tall as the page's bee / 페이지의 벌만 한 키
 function makeBee(mini) {
-  INSIDE = true;
-  try { return makeBeeIn(mini); } finally { INSIDE = false; }
+  INSIDE = true; BEEING = true;
+  try { return makeBeeIn(mini); } finally { INSIDE = false; BEEING = false; }
 }
 function makeBeeIn(mini) {
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
