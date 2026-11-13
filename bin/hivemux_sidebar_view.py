@@ -935,14 +935,23 @@ def menu_run(i):
 def draw_menu(lines, w, h):
     """Draw MENU over the rendered Line objects; MENU["at"] maps screen rows to items
     렌더한 줄 위에 MENU 를 그린다. MENU["at"] 은 화면 줄 -> 항목 번호"""
-    rows = MENU["rows"]
+    # (number, row) shown: taller than the sidebar, the separators go first, then the rows past its bottom
+    # (it ran off the screen and the sidebar crashed: sidebar-errors.log)
+    # (번호, 항목) 보일 것: 사이드바보다 길면 구분선부터 빼고, 그래도 길면 아래쪽을 자른다
+    # (화면 밖으로 넘어가 사이드바가 죽었다: sidebar-errors.log)
+    shown = list(enumerate(MENU["rows"]))
+    if len(shown) + 2 > h:
+        shown = [(i, r) for i, r in shown if r is not None]
+    shown = shown[:max(0, h - 2)]
     bw = max(16, w - 3)                   # box: columns 1 .. w-3 (the last column is the grip) / 상자: 1 ~ w-3 열 (끝 칸은 핸들)
-    bh = len(rows) + 2
+    bh = len(shown) + 2
     top = MENU["y"] + 1 if MENU["y"] + 1 + bh <= h else max(0, MENU["y"] - bh)
     edge, box, hi = (86, 94, 110), C["card_hi"], C["drop"]
     MENU["at"] = {}
 
     def row(y, build):
+        if not 0 <= y < len(lines):
+            return
         ln = Line(w, C["bg"]).put(" ")
         build(ln)
         ln.fill(w - 1)
@@ -954,8 +963,8 @@ def draw_menu(lines, w, h):
     title = fit(MENU["title"], bw - 6).rstrip()
     row(top, lambda ln: ln.put("╭─ ", edge, box).put(title, C["text"], box, True)
         .put(" " + "─" * max(0, bw - 5 - width(title)), edge, box).put("╮", edge, box))
-    for i, r in enumerate(rows):
-        y = top + 1 + i
+    for n, (i, r) in enumerate(shown):
+        y = top + 1 + n
         if r is None:
             row(y, lambda ln: ln.put("├" + "─" * (bw - 2) + "┤", edge, box))
             continue
@@ -1787,7 +1796,13 @@ def main():
         crash = isinstance(sys.exc_info()[1], Exception)
         out.write("\x1b[?1003l\x1b[?1000l\x1b[?1002l\x1b[?1006l" + ("" if crash else "\x1b[?7h\x1b[?25h\x1b[?1049l\x1b[0m"))
         out.flush()
-        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        # a signal can cut it short (EINTR, sidebar-errors.log): once more / 신호가 끊을 수 있다 (EINTR): 한 번 더
+        for _ in range(3):
+            try:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old)
+                break
+            except termios.error:
+                pass
 
 
 CRASH_LOG = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "sidebar-errors.log")

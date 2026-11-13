@@ -278,12 +278,10 @@ def running_dir(pid):
     return m.group(1) if m else ""
 
 
-def restart():
-    """Mark the Claudes on another account than their project's now and let the watcher restart them, even on a
-    screen (you just chose this), also those stopped by a rate limit; returns how many
-    프로젝트의 지금 계정과 다른 계정으로 도는 Claude 를 표시하고 watch 가 다시 시작하게 한다. 화면에 보여도 (방금
-    고른 것이므로), 한도에 걸려 멈춘 것도. 몇 개인지 돌려준다"""
-    n = 0
+def movers(g, proj):
+    """[(pane, project)]: the Claudes running on another account than (g, proj) gives their project
+    [(칸, 프로젝트)]: (g, proj) 가 그 프로젝트에 정하는 것과 다른 계정으로 도는 Claude"""
+    out = []
     for ln in tmux("list-panes", "-a", "-F", "#{pane_id}\t#{pane_pid}\t#{session_name}\t#{@claude_session}").splitlines():
         pane, shell, sess, sid = (ln.split("\t") + ["", "", "", ""])[:4]
         if not sid:
@@ -291,11 +289,36 @@ def restart():
         pid = claude_pid(shell)
         if not pid:
             continue
-        want = resolve(sess)
+        want = proj.get(sess, g)
         want_dir = "" if want == "default" else config_dir(want)
         if os.path.normpath(running_dir(pid) or HOME_DIR) != os.path.normpath(want_dir or HOME_DIR):
-            tmux("set", "-p", "-t", pane, "@claude_restart_pending", "now")
-            n += 1
+            out.append((pane, sess))
+    return out
+
+
+def choice(name, session=None):
+    """(g, proj) after choosing name, not saved / name 을 고른 뒤의 (g, proj). 저장하지 않는다"""
+    g, proj = chosen()
+    proj = dict(proj)
+    if session:
+        if name == "all":
+            proj.pop(session, None)
+        else:
+            proj[session] = name
+    else:
+        g = name
+    return g, proj
+
+
+def restart():
+    """Mark the Claudes on another account than their project's now and let the watcher restart them, even on a
+    screen (you just chose this), also those stopped by a rate limit; returns how many
+    프로젝트의 지금 계정과 다른 계정으로 도는 Claude 를 표시하고 watch 가 다시 시작하게 한다. 화면에 보여도 (방금
+    고른 것이므로), 한도에 걸려 멈춘 것도. 몇 개인지 돌려준다"""
+    moved = movers(*chosen())
+    for pane, _ in moved:
+        tmux("set", "-p", "-t", pane, "@claude_restart_pending", "now")
+    n = len(moved)
     if n:
         subprocess.Popen([os.path.join(HERE, "hivemux-claude-update"), "watch"], stdin=subprocess.DEVNULL,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
@@ -304,21 +327,13 @@ def restart():
 
 def use(name, session=None):
     """Choose an account and restart the Claudes it moves; returns how many / 계정을 고르고 옮겨 갈 Claude 를 다시 시작한다"""
-    g, proj = chosen()
     if name != "all" and name != "default" and name not in names():
         raise SystemExit(tr(f"'{name}' 계정이 없습니다. hivemux account add {name}", f"No account '{name}'. hivemux account add {name}"))
+    if name == "all" and not session:
+        raise SystemExit("all: -s <project>")
     if name not in ("default", "all"):
         prepare(name)
-    if session:
-        if name == "all":
-            proj.pop(session, None)
-        else:
-            proj[session] = name
-    else:
-        if name == "all":
-            raise SystemExit("all: -s <project>")
-        g = name
-    save(g, proj)
+    save(*choice(name, session))
     env()
     return restart()
 
@@ -387,6 +402,11 @@ def draw(out, rows, sel, here, session, proj, typing, asking, msg, cols, lines):
     buf.append(f"\x1b[{lines - 1};1H{fg((44, 48, 57))}  " + "─" * (cols - 4) + "\r\n")
     if msg:
         hint = msg
+    elif isinstance(asking, tuple):     # (account, Claudes it restarts, their projects) / (계정, 다시 시작할 Claude 수, 그 프로젝트)
+        _, n, ps = asking
+        where = ", ".join(ps[:3]) + (tr(f" 외 {len(ps) - 3}개", f" and {len(ps) - 3} more") if len(ps) > 3 else "")
+        hint = (f"{fg(ACC)}{tr(f'Claude {n}개({where})가 같은 대화로 다시 시작됩니다. 바꾸시겠습니까?', f'{n} Claude(s) ({where}) restart in the same conversation. Switch?')}"
+                f"  {fg(TEXT)}y{fg(T3)} / n")
     elif asking:
         hint = f"{fg(BAD)}{tr(f'{asking} 계정에서 로그아웃하고 삭제하시겠습니까?', f'Log out of {asking} and remove it?')}  {fg(TEXT)}y{fg(T3)} / n"
     elif typing is not None:
@@ -425,6 +445,12 @@ def ui(session):
                 # keys one by one: several can come in one read / 키를 하나씩: 한 번에 여러 개가 올 수 있다
                 keys = re.findall(r"\x1b\[[0-9;]*[A-Za-z~]|\x1bO[A-Z]|[\s\S]", os.read(fd, 64).decode(errors="ignore"))
             ch = keys.pop(0)
+            if isinstance(asking, tuple):
+                key, asking = asking[0], None
+                if ch in ("y", "Y", "\r", "\n"):
+                    switched(out, use(key, session), lines)
+                    return
+                continue
             if asking:
                 if ch in ("y", "Y"):
                     n = remove(asking)
@@ -475,18 +501,27 @@ def ui(session):
                     if not login(key):
                         msg = f"{fg(BAD)}{tr('로그인하지 못했습니다.', 'Login did not finish.')}"
                         continue
-                n = use(key, session)
-                out.write(f"\x1b[{lines};1H\x1b[2K  {fg(OK)}" + (
-                    tr(f"✓ 바꿨습니다. Claude {n}개를 같은 대화로 다시 시작합니다 (일하는 중이면 끝난 뒤).",
-                       f"✓ Switched. Restarting {n} Claude(s) in the same conversation (busy ones once done).") if n
-                    else tr("✓ 바꿨습니다.", "✓ Switched.")) + RST)
-                out.flush()
-                time.sleep(1.6)
+                # first say how many Claudes restart: switching all projects restarted every one of them
+                # 먼저 몇 개가 다시 시작되는지 묻는다: 모든 프로젝트를 바꾸면 전부 다시 시작했다
+                moved = movers(*choice(key, session))
+                if moved:
+                    asking = (key, len(moved), sorted({s for _, s in moved}))
+                    continue
+                switched(out, use(key, session), lines)
                 return
     finally:
         out.write(RST + "\x1b[2J")
         out.flush()
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
+def switched(out, n, lines):
+    out.write(f"\x1b[{lines};1H\x1b[2K  {fg(OK)}" + (
+        tr(f"✓ 바꿨습니다. Claude {n}개를 같은 대화로 다시 시작합니다 (일하는 중이면 끝난 뒤).",
+           f"✓ Switched. Restarting {n} Claude(s) in the same conversation (busy ones once done).") if n
+        else tr("✓ 바꿨습니다.", "✓ Switched.")) + RST)
+    out.flush()
+    time.sleep(1.6)
 
 
 def popup(client, session):

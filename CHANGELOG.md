@@ -27,6 +27,11 @@
   shell ran. Servers and watchers still do not count
 - Bee office window: the Dock icon is drawn inside macOS's icon grid, so it
   is as big as the other apps' icons instead of larger
+- Sidebar: a menu taller than the sidebar (a short window) no longer crashes
+  it; the separators go first, then the rows that do not fit. Leaving the
+  sidebar no longer fails when a signal cuts the terminal restore short
+- Switch account: the picker first says how many Claudes, in which
+  projects, will restart in the same conversation, and asks before it does
 
 ## 0.1.55 — 2026-11-13
 
