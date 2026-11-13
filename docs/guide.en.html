@@ -298,7 +298,7 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
     <a class="win" href="#font">4:Font</a>
     <a class="win" href="#phone">5:Phone</a>
     <a class="win" href="#remote">6:Remote</a>
-    <a class="win" href="#team">7:Teams</a>
+    <a class="win" href="#accounts">7:Accounts</a>
     <a class="win" href="#fix">8:Troubleshooting</a>
     <a class="win" href="#how">9:How it works</a>
     <a class="win" href="#files">10:Files</a>
@@ -696,25 +696,22 @@ hivemux connect me@work-mac.local</pre></div>
   <div class="note">Two screens on the same project share it: switching windows on one moves the other. The size follows the screen that got the keyboard focus last. While a remote screen looks at a window, the sidebar animation and the status line spinner stop (each frame would go over the network and slow typing).</div>
 </section>
 
-<section id="team">
-  <span class="label">7 · Teams</span>
-  <h2>A team of Claudes with roles</h2>
-  <p>A few Claudes with roles in one project (research, planning, design, dev, QA, marketing), each in its own window, handing work to each other by name with Claude Code's messages between sessions. The lead plans and splits the work. After a reboot each role comes back in the same conversation, with its model and prompt.</p>
+<section id="accounts">
+  <span class="label">7 · Claude accounts</span>
+  <h2>More than one Claude account</h2>
+  <p>When one Claude account reaches its usage limit, log in to another and switch to it. Every Claude carries on in the same conversation.</p>
   <div class="cols">
-    <div class="card"><h3>Make one</h3><p>Right-click a project's name in the sidebar → <b>Team…</b>, or the <b>Team</b> link at the top of the bee office. Pick a template, answer the wizard's three questions for a team with the reasons for each role, or start empty.</p></div>
-    <div class="card"><h3>Edit it</h3><p>Per role: model, effort, its own worktree, lead, read-only, the folders it owns, the diet line, the prompt. A running role picks up changes when it starts again. Suggestions point out the usual mistakes (a reviewer that edits, opus on a light role, no lead) with a button that fixes them.</p></div>
-    <div class="card"><h3>Start it</h3><p>▶ Start team → trust the folder (one button) → send the lead a goal. The lead hands the work out, so you need not talk to each role. Questions a role asks you gather under <b>Questions for you</b>.</p></div>
-    <div class="card"><h3>Diet</h3><p>Each answer notes the context in tokens (resting cards show <code>142K</code>). A role past its line (120K by default) and at rest writes its notes, clears, and goes on from them. Never while you type in its prompt, or right after it asked you something.</p></div>
-    <div class="card"><h3>Where it shows</h3><p>Sidebar: grouped under <code>◆ team name</code>, the lead starred, the last hand-off as <code>✉ Planning → Dev</code>. Bee office: the team's pod and board, each role's tool, letters at hand-offs, a meeting at a new goal.</p></div>
-    <div class="card"><h3>Report</h3><p><b>Report</b> on the team page: the day's timeline (working, waiting, hand-off arrows, diets), where the work went, what waited on you, each role's day, what got made. On request, haiku writes the day's story.</p></div>
+    <div class="card"><h3>Add one</h3><p>Right-click the sidebar → <b>Switch account…</b> → <b>Add account…</b>, give it a name and log in in the browser once.</p></div>
+    <div class="card"><h3>Switch</h3><p>Pick it in the same popup. It first says how many Claudes, in which projects, will restart, and asks. They restart on the new account in the same conversation: at once when at rest or stopped by the limit, after the turn when working.</p></div>
+    <div class="card"><h3>One project</h3><p>Right-click a project's name → <b>Account for this project…</b> gives that project its own account; "Same as all projects" undoes it.</p></div>
+    <div class="card"><h3>Where you are</h3><p>The status line shows <code>◉ work</code> when the account in use is not the default one.</p></div>
+    <div class="card"><h3>What is shared</h3><p>An added account is its own Claude config folder (<code>~/.local/share/hivemux/accounts/&lt;name&gt;</code>, <code>CLAUDE_CONFIG_DIR</code>): only the login is its own. Settings, hooks, conversations, memory, skills, plugins and the running sessions are shared with <code>~/.claude</code>.</p></div>
+    <div class="card"><h3>Artifacts</h3><p>An artifact opens only for the account that published it. Right-click → <b>Artifacts…</b> lists every one your Claudes published with its account. <b>View copy</b> opens the copy kept here; <b>Copy republish request</b> asks a Claude on the account in use to publish it again.</p></div>
   </div>
-  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cmt"># in the project</span>
-hivemux team use web-app        <span class="cmt"># the template into .hivemux/</span>
-hivemux team up                 <span class="cmt"># a window per role</span>
-hivemux team goal "Build a shop MVP with sign-in and checkout"
-hivemux team report             <span class="cmt"># today (JSON)</span>
-hivemux team down               <span class="cmt"># stop (conversations stay)</span></pre></div>
-  <p>Files live in the project's <code>.hivemux/</code>: <code>team.toml</code>, <code>roles/</code>, <code>notes/</code>, <code>questions.md</code> and the logs (<code>handoffs.log</code>, <code>diet.log</code>, <code>states.log</code>, <code>files.log</code>). Your templates: <code>~/.config/hivemux/teams/</code>.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre>hivemux account add work        <span class="cmt"># log in once (browser)</span>
+hivemux account use work        <span class="cmt"># every project</span>
+hivemux account use work -s api <span class="cmt"># one project (all: as every project)</span>
+hivemux account list            <span class="cmt"># accounts, emails, projects</span></pre></div>
 </section>
 
 <section id="fix">
@@ -883,8 +880,6 @@ hivemux uninstall</pre></div>
   </ul>
   <p>When you update, running <code>hivemux setup</code> again registers any hooks the new version adds, reloads the running tmux and restarts the sidebars. Your sessions keep running. Claude sessions started before the update use the new hooks once restarted.</p>
   <p><b>Updating Claude Code</b>: a running Claude keeps its old version until it starts again. Right-click → <b>Update Claude</b> (or <code>hivemux update-claude</code>) first shows the installed and the latest version (Homebrew's for a Homebrew install). Up to date, it says so and stops; with a newer one it says how many Claudes will restart and asks (<kbd>y</kbd>) before it updates Claude Code (with brew if it came from Homebrew, otherwise <code>claude update</code>) and restarts each pane's Claude that still runs an old version. It opens with <code>claude --resume</code> as after a reboot, so the conversation is the same, and a finished task you have not seen stays that way. A Claude that is working, waiting for you, or in a window on a screen (you might be typing) is left alone and restarts once it is done and off screen. Already up to date, it still restarts any Claude on an older version.</p>
-  <p><b>More than one Claude account</b>: right-click → <b>Switch account</b> (or <code>hivemux account</code>) adds another account with one browser login; after that you only pick it. On a project name, <b>Account for this project</b> gives that project its own account, and "Same as all projects" undoes it. An added account has its own Claude config folder (<code>~/.local/share/hivemux/accounts/&lt;name&gt;</code>, <code>CLAUDE_CONFIG_DIR</code>): only the login is its own, and settings, conversations, skills, plugins and history are shared with <code>~/.claude</code>. So when you switch, each Claude on another account restarts on the new one in the same conversation, right away even on screen or stopped by a usage limit; one at work restarts once it is done. The status line shows ◉ and the account when it is not the default one.</p>
-  <p><b>Artifacts</b>: an artifact opens only when logged in to the account that published it. Right-click → <b>Artifacts</b> (the bee office's Artifacts tab) lists every artifact your Claudes published with the account it belongs to. It reads the conversation transcripts (<code>~/.claude/projects</code>), so what was published before this feature is there too. While a published file is still on disk a copy is kept in <code>~/.local/share/hivemux/artifacts/</code>, so one of another account opens with <b>View copy</b>. <b>Copy republish request</b> puts a request (title, file, old link) on the clipboard to paste to a Claude on the account in use.</p>
   <h3>Other terminals</h3>
   <p>The terminal you already use can also open every window inside tmux with the sidebar, the way Ghostty does. Leave out the name to pick the terminal you are in. Run from one of them, <code>hivemux setup</code> offers it too (default no). <code>hivemux doctor</code> lists the terminals that are on, and <code>hivemux uninstall</code> removes them all.</p>
   <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cmt"># ghostty, iterm, wezterm, kitty, alacritty, terminal (Terminal.app); on Linux ghostty, wezterm, kitty, alacritty</span>
@@ -915,7 +910,6 @@ hivemux terminal iterm --off</pre></div>
     <div><code>hivemux-ports</code>, <code>hivemux-ports-ui</code><span>Forward the other computer's dev server ports here while connected, and the port list popup</span></div>
     <div><code>hivemux-office</code><span>The bee office window and the local web server it reads (share/office)</span></div>
     <div><code>hivemux-paste</code><span>Ctrl+V in a Claude pane on a remote screen: paste the image or the files copied in Finder on the connecting computer's clipboard</span></div>
-    <div><code>hivemux-team</code><span><code>hivemux team</code>: a team of Claudes with roles. Copies a template (share/teams) into the project's <code>.hivemux/</code>, opens a window per role, and puts the role flags back when one resumes</span></div>
     <div><code>hivemux-wake</code><span>Send a remote request (paste, office, open) to the connecting computer, after ending the waits left by dropped connections</span></div>
     <div><code>hivemux-shift</code><span>Clock out and in: stop every Claude, or one Claude or one project (overtime first), bring them back in the same conversations (<code>shift</code>, <code>offwork.tsv</code>, <code>shift.log</code>)</span></div>
     <div><code>hivemux-bees</code><span>The roster and the honey ledger: hiring, leaving, rehiring, houses, the ranking (<code>bees.json</code>, <code>honey.log</code>)</span></div>

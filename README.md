@@ -8,7 +8,9 @@ hivemux adds a sidebar to every tmux window that lists every Claude Code session
 in every tmux session: what it is working on, whether it is running, waiting for
 your approval, or done, and for how long. Press `Option+3` to jump to the third
 one, or `Option+0` to jump to whichever has waited longest. Close the terminal or
-reboot and everything comes back, with each Claude resumed in its pane. It runs on
+reboot and everything comes back, with each Claude resumed in its pane. When a
+Claude account hits its usage limit, switch every project (or just one) to
+another account and each Claude carries on in the same conversation. It runs on
 macOS and Linux (on Linux, `Option` is `Alt`).
 
 <p align="center">
@@ -32,15 +34,19 @@ macOS and Linux (on Linux, `Option` is `Alt`).
   look at it.
 - **Bee office.** Every Claude session as a bee in a little office: watch who
   works, who waits for you, and who is done at a glance. See [The bee office](#the-bee-office).
-- **Teams.** Claudes with roles in one project (planning, dev, QA…), each in
-  its own window, handing work to each other, with a lead, a diet that keeps
-  their context small, and a report of the day. See [Teams](#teams).
+- **More than one Claude account.** Hit a usage limit? Log in to another
+  account once and switch to it, for every project or for one; each Claude
+  restarts on it in the same conversation, and the status line shows
+  `◉ <account>`. A list of every artifact your Claudes published says which
+  account it belongs to. See [More than one Claude account](#more-than-one-claude-account).
 - **Why it waits, and answer from the office.** A waiting card says what it
   waits for: an approval (with Claude's own one-line description of the
   command, or the file), a plan, a question, or an error; a finished one says
   how many files the turn changed, and one whose turn ended with background
-  agents still at work says "2 agents running" until it really finishes. In
-  the bee office, click the waiting bee's bubble and press the answer there.
+  work still going says so until it really finishes ("2 agents running",
+  "waiting on 1 shell" for a build or a data import; a dev server does not
+  count). A resting card shows how much context the Claude carries (`142K`).
+  In the bee office, click the waiting bee's bubble and press the answer there.
 - **Clock out, clock in.** Stop every Claude for the night and bring them all
   back in the morning, in the same conversations, while the bees go home to a
   village and walk back to work.
@@ -62,14 +68,6 @@ macOS and Linux (on Linux, `Option` is `Alt`).
   brew if it came from Homebrew; up to date, it just says so), then restarts each
   pane's Claude on the new version in the same conversation. One that is working,
   waiting for you, or on a screen restarts later, once it is done and off screen.
-- **More than one Claude account.** Hit a usage limit? Right-click → Switch
-  account… (or `hivemux account add <name>`, `hivemux account use <name>`) logs
-  in to another account once and switches to it; a project name's menu gives
-  that project its own account. Settings, conversations and skills are shared,
-  so each Claude restarts on the new account in the same conversation.
-  Right-click → Artifacts… lists every artifact your Claudes published with
-  the account it belongs to; one of another account opens from a copy kept
-  here, or you copy a request to publish it again under the account in use.
 - **Projects.** `hm ~/code/api` opens one tmux session per folder with a named
   Claude window and a shell window.
 - **Open paths Claude mentions.** `Option+O` lists file paths from the pane's
@@ -106,7 +104,15 @@ The 🐝 button at the top of the sidebar (or `prefix B`, the right-click menu,
   on the wall in a frame.
 - Turn, tilt and zoom with the mouse (a turn pivots on the point you pressed),
   or switch to **2D** for the same office seen from straight above. Zoom far out
-  and the office sits on a tiny planet.
+  and the office sits on a tiny planet. The office is a round campus round a
+  courtyard; Settings (⚙) → Office look → Classic brings back the rectangular
+  office, Drawing → Drawn (lighter) draws it flat for slower computers, and the
+  💡 button (Office lights) keeps it bright after dark.
+- A bee's name tag shows the name you gave its session (`hivemux` rename or
+  Claude's `/rename`); bees with none show the project, numbered `api #1`,
+  `api #2` among themselves.
+- The **Artifacts** link at the top lists every artifact your Claudes
+  published (see [Artifacts](#artifacts)).
 - Computers connected with `hivemux connect` get desks of their own, on a
   carpet of their color with a name plaque on the wall.
 - Without the Swift compiler for the window app (always so on Linux), it opens
@@ -169,63 +175,46 @@ window for ten minutes) or its project is leaving: the bee holds up a box of
 its things and walks out by the elevator saying goodbye. The same name coming
 back is rehired, into the same house.
 
-## Teams
+## More than one Claude account
 
-A team is a few Claudes with roles in one project, say research, planning,
-design, dev, QA and marketing, each in its own window. They hand work to each
-other by name with Claude Code's messages between sessions; one of them, the
-lead, plans and splits the work. It suits a project that goes on for days: the
-roles survive a reboot and come back in the same conversations.
+When one Claude account reaches its usage limit, log in to another and switch
+to it; every Claude carries on in the same conversation.
 
-**Make one.** Right-click a project's name in the sidebar → **Team…** (or the
-Team link at the top of the bee office). Pick a template, answer the wizard's
-three questions (what you build, what you have, what matters most) for a team
-with the reasons for each role, or start empty. In a terminal:
-`hivemux team use web-app`.
+- **Add an account.** Right-click the sidebar → **Switch account…** →
+  **Add account…**, give it a name (`work`), and log in in the browser once
+  (or `hivemux account add work`).
+- **Switch.** Pick it in the same popup (`hivemux account use work`). It first
+  says how many Claudes, in which projects, will restart, and asks. Those
+  restart on the new account in the same conversation (`claude --resume`):
+  at once when at rest or stopped by the usage limit, after the turn when
+  working. New windows start on it too.
+- **One project.** Right-click a project's name → **Account for this
+  project…** gives that project its own account (`hivemux account use work -s
+  api`); "Same as all projects" undoes it.
+- **Where you are.** The status line shows `◉ work` when the account in use
+  is not the default one. `hivemux account list` shows every account, its
+  email and the projects on it.
 
-**Edit it** on the same page: each role's model, effort, its own worktree, lead,
-read-only, the folders it owns, its diet line and its prompt (with a preview of
-the full prompt it gets). Suggestions drawn from how people run teams (a
-read-only reviewer, sonnet for light roles, one lead, no shared folders) come
-with a button that applies them. Rename the team at the top; **Save as my
-template** keeps it for other projects.
+An added account is a Claude config folder of its own
+(`~/.local/share/hivemux/accounts/<name>`, used through `CLAUDE_CONFIG_DIR`):
+only the login is its own. Settings, hooks, conversations, memory, skills,
+plugins and the list of running sessions are shared with `~/.claude`, so a
+conversation goes on under any account and Claudes on different accounts still
+message each other. `default` is the login in `~/.claude`. `hivemux account
+remove <name>` logs out and removes it.
 
-**Start it** with ▶ Start team (`hivemux team up`). Getting started walks
-through the rest: a folder Claude has not opened asks each role to trust it
-(one button answers them, showing the folder); then write the goal for the lead,
-or pick an example, and send it (`hivemux team goal "…"`). The lead plans and
-hands the pieces out; you do not need to talk to each role, though you can.
+### Artifacts
 
-**While it works**
+An artifact (a claude.ai page a Claude published) opens only for the account
+that published it. Right-click → **Artifacts…** (or the Artifacts link in the
+bee office) lists every artifact your Claudes published, newest first, with
+the account it belongs to, read from the conversation transcripts, so the ones
+from before you added accounts are there too. For one of another account:
 
-- In the sidebar the team's cards sit together under `◆ <team name>`, the lead
-  first with a ★; the last hand-off shows as `✉ Planning → Dev · 2m`.
-- In the bee office the team gets a pod of its own, on a teal carpet with its
-  name and a board of who does what. Each role holds its tool, a letter flies
-  between desks at a hand-off, and a new goal gathers the team in the meeting
-  room for a moment.
-- Questions a role asks you go to `.hivemux/questions.md` and show on the team
-  page as **Questions for you**.
-- **Diet.** After each answer hivemux notes how many tokens of context a Claude
-  has (resting cards show it, e.g. `142K`): every request reads all of it
-  again. A role past its line (120K by default) and at rest updates its notes,
-  clears, and carries on from them under the same name, so the others keep
-  messaging it. It never does so while you type in its prompt or right after
-  it asked you something.
-- **Report.** The Report page shows a team's day: time worked, hand-offs,
-  tasks done, tokens and diets; a timeline of who worked and waited when, with
-  hand-offs as arrows between roles; who handed to whom; what waited on you;
-  each role's day; what got made. A small model writes the day's story when you
-  ask. Copy it as Markdown or save it as PDF.
-
-**Stop it** with Stop team (`hivemux team down`): the roles clock out, working
-ones once done, and come back in the same conversations next time.
-
-Everything lives in the project's `.hivemux/`: `team.toml` and `roles/` (the
-template's copy; commit them if you like), `notes/` (each role's notes),
-`questions.md`, and the logs the report reads (`handoffs.log`, `diet.log`,
-`states.log`, `files.log`). A template is just a folder of `team.toml` and
-`roles/`; yours are in `~/.config/hivemux/teams/`.
+- **View copy** opens the copy hivemux keeps of the published file
+  (`~/.local/share/hivemux/artifacts/`, taken while the file is still there).
+- **Copy republish request** puts a request on the clipboard (title, file, old
+  link) to paste to a Claude on the account in use.
 
 ## Requirements
 
@@ -326,7 +315,7 @@ curl -fsSL https://hivemux.dev/install.sh | bash   # git install: same command
 may add hooks), reloads the running tmux and restarts the sidebars, so you keep
 working in the same sessions. Claude sessions started before the update pick up
 new hooks once restarted. Claude Code itself: right-click → Update Claude
-(`hivemux update-claude`). `hivemux version` shows the installed version; see
+(`hivemux update-claude`, `--yes` to skip the question). `hivemux version` shows the installed version; see
 [CHANGELOG.md](CHANGELOG.md) for what changed.
 
 ## Quick start
@@ -347,7 +336,7 @@ new hooks once restarted. Claude Code itself: right-click → Update Claude
 | `Option+1` … `9` | jump to that Claude (any session) |
 | `Option+0` / `prefix Space` | oldest waiting Claude, else oldest unseen finished one |
 | click card / project name | jump · double click a card: rename. A project whose Claude windows are all closed stays listed ("no Claude") until you close it |
-| right click | menu. On a task: go to, rename, move up/down, clock this Claude out, close Claude, new Claude, new project. On a project name: rename, close project, account for this project, clock this project out / in, new Claude, new project. On empty space: new project, clock everyone out / in. Every menu ends with Open path…, Ports…, Bee office, Artifacts…, Update Claude…, Switch account…, Connect to… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes |
+| right click | menu. On a task: go to, rename, move up/down, clock this Claude out, close Claude, new Claude, new project. On a clocked-out (dimmed) card: clock in, go to, close Claude. On a project name: rename, close project, account for this project, clock this project out / in, new Claude, new project. On empty space: new project. Every menu ends with Open path…, Ports…, Bee office, Artifacts…, (on empty space: Clock everyone out / in…), Update Claude…, Switch account…, Connect to… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes. A popup that asks starts on Cancel, so `Enter` alone never confirms |
 | menu → Close Claude | asks, then closes that Claude: its pane, or its window when nothing else is in it; a project's last window keeps its shell. Not resumed again, like `/exit`; `claude --resume` still continues the conversation |
 | menu → New project | folder browser in the middle: `Enter` starts the selected folder (like `hm`), `→` / `←` in and out, type to filter, `Ctrl+N` new folder |
 | menu → Settings | language (한국어 / English), animation, notifications, sidebar width, editor for Open path, this computer's name (shown in the bee office and on remote screens); applied at once and saved |
@@ -438,7 +427,8 @@ need hivemux 0.1.26 or later. On a Linux laptop the image comes from `wl-paste`
 Files work the same way: copy a PDF (or any file) in Finder with `⌘C`, press
 `Ctrl+V` in the remote Claude pane, and the file goes over under its own name
 with its path pasted for Claude to read. Several at once, no folders, up to
-100 MB in all; both computers need 0.1.52 or later.
+100 MB in all; from 5 MB the status line there shows the progress
+(`📎 report.pdf and 2 more… 45%`). Both computers need 0.1.52 or later.
 
 <p align="center">
   <img src="docs/img/remote-paste-en.png" alt="The MacBook's clipboard screenshot in the remote Claude as [Image #1]" width="880">
@@ -491,6 +481,7 @@ with its path pasted for Claude to read. Several at once, no folders, up to
 | Claude Code hooks | write session id and state onto the tmux pane (`hivemux-hook`) |
 | sidebar | reads that state every second and draws the board (`hivemux-sidebar-view`) |
 | bee office | a small local server (`hivemux-office`) serves the office page to its window; `hivemux-bees` keeps the roster and the honey ledger, `hivemux-shift` clocks out and in |
+| accounts | `hivemux-claude` starts Claude on the project's account; `hivemux-account` adds and switches them, `hivemux-artifacts` reads the artifacts from the transcripts |
 
 On restore, `hivemux-panes` maps saved panes to Claude session ids and types
 `claude --resume <id>` in each. Sessions you ended with `/exit` are not resumed,
@@ -507,10 +498,14 @@ hivemux-sidebar respawn                # restart every sidebar
 touch ~/tmux_no_auto_restore           # skip restore on next launch
 ```
 
+A sidebar that hits an error starts again in the same pane and writes what
+happened to `~/.local/share/hivemux/sidebar-errors.log`; include it when you
+report a bug.
+
 On Linux, `tmux 3.2: need 3.3 or newer` means the distribution's tmux is too old
 (Ubuntu 22.04): use Ubuntu 24.04+, Debian 12+, Fedora or Arch.
 
-More in the illustrated guide: [`docs/guide.en.html`](docs/guide.en.html) ([한국어](docs/guide.html)); download it and open it in a browser.
+More in the docs at [hivemux.dev/docs](https://hivemux.dev/docs/), or the illustrated guide: [`docs/guide.en.html`](docs/guide.en.html) ([한국어](docs/guide.html)); download it and open it in a browser.
 
 ## Uninstall
 
