@@ -6,8 +6,10 @@
   sidebar read tmux and checked the screens of running panes (80-100 ms with
   a few at work) on the same loop that draws, so the animation stopped that
   long; that now runs on its own thread, as do the status line's spinner and
-  board updates. In a test with five running panes the longest pause between
-  frames went from 227 ms to 46 ms
+  board updates. Drawing the frames of the other windows' resting sidebars
+  (up to 0.7 s) also left the loop, which now keeps a steady 30 frames a
+  second; on a busy screen the longest pause between frames went from about
+  a second to under 50 ms
 - Team assistant: "Build the team with AI" on the team page opens a chat
   that answers questions about the team (how many developers, which model and
   why, how to use less) from the project's README and files and the team as

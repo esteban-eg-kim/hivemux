@@ -32,6 +32,12 @@ KO = _is_ko()
 def tr(ko, en):
     return ko if KO else en
 ME = os.environ.get("TMUX_PANE", "")
+FRAME_LOG = os.environ.get("HIVEMUX_DEBUG_FRAMES", "")   # debugging the animation's pace: when each frame went out / 애니메이션 속도 확인용: 프레임마다 나간 시각
+# render() reads and sets a few globals (the scroll, the buttons' places); the sidebar draws its own frame on the
+# main thread and the resting sidebars' frames on a writer thread, so one render at a time
+# render() 는 몇몇 전역 (스크롤, 버튼 자리) 을 읽고 쓴다. 자기 화면은 주 스레드에서, 쉬는 사이드바 화면은 쓰기
+# 스레드에서 그리니 한 번에 하나만
+RENDER_LOCK = threading.Lock()
 # a popup of this tmux server is open (bin/hivemux-rename, -open, -settings, hm --ask) / 이 tmux 서버의 팝업이 열려 있다
 PAUSE = "/tmp/hivemux-pause-%d-%s" % (os.getuid(), subprocess.run([TMUX, "display", "-p", "#{pid}"], capture_output=True, text=True).stdout.strip())
 ORDER_FILE = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "session-order")
@@ -1195,39 +1201,41 @@ def paint_resting(painted, scroll):
     if not live or min(live, key=lambda i: int(i[1:])) != ME:
         painted.clear()
         return
-    keep = SCROLL, SCROLL_TO, OFFICE_BTN, SHIFT_BTN
     now = time.time()
-    try:
-        for p in side:
-            pid = p["pane_id"]
-            v = view(PANES, pid) if p["@hivemux-rest"] == "1" else None
-            if not v:
-                painted.pop(pid, None)
-                continue
-            items, current, _, cur_sess, sessions, homes = v
-            size = int(p["pane_width"]), int(p["pane_height"])
-            sig = repr(([{k: x for k, x in q.items() if k not in AGES} for q in items],
-                        current, cur_sess, sessions, homes, scroll))
-            old = painted.get(pid)
-            if old and old[0] == size and old[2] == sig and now - old[3] < 15:
-                continue
-            SCROLL, SCROLL_TO = scroll, None       # as it will start when woken / 깨어날 때처럼
-            lines, _ = render(items, current, *size, cur_sess, sessions, homes)
-            # the rows that changed, but all of them every 15 seconds: rows it took as unchanged may not be
-            # what the pane shows (the sidebar drew there itself while awake)
-            # 바뀐 줄만, 단 15초마다 모두: 안 바뀌었다고 본 줄이 칸에 보이는 것과 다를 수 있다 (깨어 있던
-            # 사이드바가 직접 그렸다)
-            if old and old[0] == size and now - old[3] < 15:
-                frame = "".join(f"\x1b[{i + 1};1H{ln}" for i, ln in enumerate(lines) if i >= len(old[1]) or old[1][i] != ln)
-            else:
-                frame = "\x1b[H" + "\r\n".join(lines)
-            painted[pid] = size, lines, sig, now
-            if not frame:
-                continue
-            if not write_all(p["pane_tty"], (frame + "\x1b[0m\x1b[H").encode()):
-                painted.pop(pid, None)         # draw it whole next time / 다음에 통째로 그린다
-    finally:
-        SCROLL, SCROLL_TO, OFFICE_BTN, SHIFT_BTN = keep
+    for p in side:
+        time.sleep(.003)     # on the writer thread: let the visible sidebar's frames through between panes / 쓰기 스레드에서: 칸 사이마다 보이는 사이드바의 프레임을 먼저 보낸다
+        pid = p["pane_id"]
+        v = view(PANES, pid) if p["@hivemux-rest"] == "1" else None
+        if not v:
+            painted.pop(pid, None)
+            continue
+        items, current, _, cur_sess, sessions, homes = v
+        size = int(p["pane_width"]), int(p["pane_height"])
+        sig = repr(([{k: x for k, x in q.items() if k not in AGES} for q in items],
+                    current, cur_sess, sessions, homes, scroll))
+        old = painted.get(pid)
+        if old and old[0] == size and old[2] == sig and now - old[3] < 15:
+            continue
+        with RENDER_LOCK:
+            keep = SCROLL, SCROLL_TO, OFFICE_BTN, SHIFT_BTN
+            try:
+                SCROLL, SCROLL_TO = scroll, None       # as it will start when woken / 깨어날 때처럼
+                lines, _ = render(items, current, *size, cur_sess, sessions, homes)
+            finally:
+                SCROLL, SCROLL_TO, OFFICE_BTN, SHIFT_BTN = keep
+        # the rows that changed, but all of them every 15 seconds: rows it took as unchanged may not be
+        # what the pane shows (the sidebar drew there itself while awake)
+        # 바뀐 줄만, 단 15초마다 모두: 안 바뀌었다고 본 줄이 칸에 보이는 것과 다를 수 있다 (깨어 있던
+        # 사이드바가 직접 그렸다)
+        if old and old[0] == size and now - old[3] < 15:
+            frame = "".join(f"\x1b[{i + 1};1H{ln}" for i, ln in enumerate(lines) if i >= len(old[1]) or old[1][i] != ln)
+        else:
+            frame = "\x1b[H" + "\r\n".join(lines)
+        painted[pid] = size, lines, sig, now
+        if not frame:
+            continue
+        if not write_all(p["pane_tty"], (frame + "\x1b[0m\x1b[H").encode()):
+            painted.pop(pid, None)         # draw it whole next time / 다음에 통째로 그린다
 
 
 def main():
@@ -1476,7 +1484,8 @@ def main():
             if visible or prev is None or woke or polled:
                 woke = polled = False
                 w, h = os.get_terminal_size()
-                lines, (targets, heads) = render(items, current, w, h, cur_sess, sessions, homes)
+                with RENDER_LOCK:
+                    lines, (targets, heads) = render(items, current, w, h, cur_sess, sessions, homes)
                 # Draw only rows that changed since the last frame; a full redraw only on
                 # the first frame or a resize. Cuts what tmux has to parse by ~10x.
                 # 직전 프레임과 달라진 줄만 그린다. 첫 프레임과 크기 변경 때만 전체를 그린다.
@@ -1491,18 +1500,22 @@ def main():
                 if frame:
                     out.write(frame + "\x1b[0m")
                     out.flush()
+                    if FRAME_LOG:
+                        with open(FRAME_LOG, "a") as dbg:
+                            dbg.write(f"{time.time():.4f} {len(frame)}\n")
                 prev, prev_size = lines, (w, h)
             # after this one's own frame, which must not wait for them / 자기 화면을 그린 뒤에 (그 화면이 기다리지 않게)
-            if paint:
+            if paint:      # on the writer thread: drawing every resting sidebar takes up to a second / 쓰기 스레드에서: 쉬는 사이드바를 모두 그리는 데 1초 가까이 걸린다
                 paint = False
-                paint_resting(painted, int(shared) if shared.isdigit() else 0)
+                later.put(lambda sc=int(shared) if shared.isdigit() else 0: paint_resting(painted, sc))
             if PENDING:
                 act, PENDING = PENDING, None
                 act()
             hidden_at = None if visible else (hidden_at or time.time())
             if hidden_at and time.time() - hidden_at >= REST and not (MENU or DRAG or scrolled):
                 w, h = os.get_terminal_size()
-                lines, _ = render(items, current, w, h, cur_sess, sessions, homes)
+                with RENDER_LOCK:
+                    lines, _ = render(items, current, w, h, cur_sess, sessions, homes)
                 out.write("\x1b[H" + "\r\n".join(lines) + "\x1b[0m\x1b[?1000l\x1b[?1002l\x1b[?1006l\x1b[H")
                 out.flush()
                 termios.tcsetattr(fd, termios.TCSADRAIN, old)
@@ -1511,7 +1524,8 @@ def main():
                 signal.signal(signal.SIGUSR2, signal.SIG_DFL)
                 sh = "/bin/dash" if os.path.exists("/bin/dash") else "/bin/sh"
                 os.execv(sh, [sh, "-c", REST_SH, os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-sidebar-view"), TMUX])
-            wait_s = TICK if animating else 1.0
+            # a steady pace: the time this frame took comes off the wait / 일정한 속도: 이번 프레임에 든 시간을 기다림에서 뺀다
+            wait_s = max(.004, TICK - (time.time() - nowf)) if animating else 1.0
             if visible and board_blink:          # wake for the next blink step / 다음 깜빡임에 맞춰 깬다
                 wait_s = min(wait_s, 0.5 - (time.time() % 0.5) + 0.01)
             if scrolled:
