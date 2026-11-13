@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.55 — 2026-11-13
 
 - Teams: a read-only role (QA, review) can write its notes, the questions
   file, its reports (.hivemux/work/<role>/) and what it owns. It used to run
