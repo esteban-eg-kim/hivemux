@@ -215,6 +215,7 @@ const tr = (ko, en) => L === 'ko' ? ko : en;
 // 지난번 화면 언어. 자료를 받는 동안 탭 글자가 비지 않게
 try { L = localStorage.getItem('hivemux-lang') || L; } catch (e) { /* private window / 사생활 보호 창 */ }
 document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = L === 'ko' ? ko : en; });
+const FULL = {};                     // role -> its last final preview / 역할 -> 마지막 최종 미리보기
 const S = { project: new URLSearchParams(location.search).get('project') || '', sel: '', tab: 'mine', edited: {}, wiz: null, sig: '' };
 
 // ── role look: an icon and a color per known role; others get a person / 역할 모습: 아는 역할은 아이콘과 색, 나머지는 사람
@@ -590,7 +591,7 @@ function drawDetail() {
     ${r.running && S.edited[r.id] ? `<div class="note">${tr('이 역할은 현재 실행 중입니다. 변경한 설정은 다시 시작할 때 적용됩니다.', 'This role is running; changes take effect when it restarts.')}</div>` : ''}
     <div style="display:flex;flex-direction:column;gap:8px">
       <div class="row between"><div class="tabs" role="tablist"><button role="tab" id="tmine" aria-selected="${S.tab === 'mine'}">${tr('지시문', 'Prompt')}</button><button role="tab" id="tfull" aria-selected="${S.tab === 'full'}">${tr('최종 미리보기', 'Final preview')}</button></div><code class="sub">${esc(r.file || '')}</code></div>
-      ${S.tab === 'mine' ? `<textarea class="prompt" id="ftext" spellcheck="false">${esc(r.text)}</textarea>` : `<pre class="prompt" id="ffull">${tr('불러오는 중…', 'Loading…')}</pre>`}
+      ${S.tab === 'mine' ? `<textarea class="prompt" id="ftext" spellcheck="false">${esc(r.text)}</textarea>` : `<pre class="prompt" id="ffull">${esc(FULL[r.id] ?? tr('불러오는 중…', 'Loading…'))}</pre>`}
     </div>
     <div class="row between" style="border-top:1px solid var(--line2);padding-top:14px">
       <span class="saved" id="saved" aria-live="polite"></span>
@@ -616,11 +617,14 @@ function drawDetail() {
   $('#fowns').onchange = e => save({ owns: e.target.value });
   if ($('#ftext')) $('#ftext').oninput = e => { clearTimeout(save.h); $('#saved').textContent = tr('입력 중…', 'Editing…'); save.h = setTimeout(() => { r.text = e.target.value; save({}, e.target.value); }, 600); };
   $('#tmine').onclick = () => { S.tab = 'mine'; drawDetail(); };
-  $('#tfull').onclick = async () => {
-    S.tab = 'full'; drawDetail();
-    const res = await (await fetch(`/team/prompt?project=${encodeURIComponent(S.project)}&role=${encodeURIComponent(r.id)}`)).json();
-    if ($('#ffull')) $('#ffull').textContent = res.text || '';
-  };
+  $('#tfull').onclick = () => { S.tab = 'full'; delete FULL[r.id]; drawDetail(); };
+  // the final preview: fetched on every draw of that tab (the page redraws every few seconds), shown from the last
+  // one meanwhile, so it neither sticks on "Loading…" nor goes stale after an edit
+  // 최종 미리보기: 그 탭을 그릴 때마다 가져온다 (화면은 몇 초마다 다시 그린다). 그동안은 마지막 것을 보여 줘서
+  // "불러오는 중…" 에 머물지도, 고친 뒤 낡지도 않는다
+  if (S.tab === 'full') fetch(`/team/prompt?project=${encodeURIComponent(S.project)}&role=${encodeURIComponent(r.id)}`, { cache: 'no-store' })
+    .then(x => x.json()).then(res => { FULL[r.id] = res.ok ? res.text || '' : (res.say || tr('미리보기를 불러오지 못했습니다', 'Could not load the preview.')); if ($('#ffull')) $('#ffull').textContent = FULL[r.id]; })
+    .catch(() => { if ($('#ffull')) $('#ffull').textContent = tr('미리보기를 불러오지 못했습니다', 'Could not load the preview.'); });
   if ($('#rgo')) $('#rgo').onclick = () => post('/goto', { pane: r.pane });
   if ($('#rstart')) $('#rstart').onclick = async () => { const x = await post('/team/up', { project: S.project, role: r.id }); toast(x.say); load(); };
   if ($('#rstop')) $('#rstop').onclick = async () => { const x = await post('/team/down', { project: S.project, role: r.id }); toast(x.say); load(); };
