@@ -7,6 +7,9 @@
   as it zooms; the role names stay in place. The report no longer goes back
   before the day the team began. Its wording, in Korean and English, is now
   formal
+- Team page: its wording, in Korean and English, is now formal too. In the
+  report the details box keeps a fixed height of two lines (the title on one,
+  longer text cut), so the timeline below no longer jumps as it changes
 - Sidebar: "waiting on 1 shell" no longer stays for good when that
   background shell (a server, say) is stopped by hand; no hook comes then, so
   the sidebar now sees the shell count gone from Claude's footer and marks it

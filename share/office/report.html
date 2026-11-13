@@ -64,7 +64,12 @@ h2 { margin: 0; font-size: 19px; font-weight: 700; }
 .icon svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--fg2); align-items: center; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
-.hover { display: flex; align-items: center; gap: 10px; background: var(--soft); border: 1px solid var(--line2); border-radius: 10px; padding: 10px 14px; min-height: 44px; }
+.hover { display: flex; align-items: center; gap: 10px; background: var(--soft); border: 1px solid var(--line2); border-radius: 10px; padding: 0 14px; height: 64px; box-sizing: border-box; overflow: hidden; }
+/* always two lines high, so the chart below never moves; the title on one line, the text cut after two
+   항상 두 줄 높이라 아래 그래프가 움직이지 않는다. 제목은 한 줄, 설명은 두 줄 뒤에 자른다 */
+.hover > i { flex-shrink: 0; }
+.hover > b { flex-shrink: 0; white-space: nowrap; }
+.hover > .sub { min-width: 0; line-height: 1.45; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .chart { overflow-x: auto; }
 .lanes { min-width: 860px; display: flex; }
 .lanes .names { width: 112px; flex-shrink: 0; padding-top: 26px; position: sticky; left: 0; z-index: 3; background: var(--panel); }
@@ -311,7 +316,7 @@ function bind() {
       if (kind === 'seg') { const r = R.roles.find(x => x.id === a), s = r.segs[+b]; title = `${r.name} · ${hm(s.start)}–${hm(s.end)}`; sub = s.kind === 'run' ? tr(`작업 ${dur(s.end - s.start)}`, `Working ${dur(s.end - s.start)}`) : tr(`응답 대기 ${dur(s.end - s.start)}`, `Awaiting response ${dur(s.end - s.start)}`); col = color(a); }
       if (kind === 'hand') { const h = R.handoffs.filter(h => R.roles.some(r => r.id === h.from) && R.roles.some(r => r.id === h.to))[+a]; title = `${hm(h.at)} · ${h.fromName} → ${h.toName}`; sub = h.text; }
       if (kind === 'diet') { const d = R.diets.filter(d => R.roles.some(r => r.id === d.role))[+a]; title = `${hm(d.at)} · ${d.name} ${tr('다이어트', 'diet')}`; sub = tr(`컨텍스트 ${K(d.before)} → ${K(d.after)}`, `Context ${K(d.before)} → ${K(d.after)}`); }
-      $('#hover').innerHTML = `<i style="width:10px;height:10px;border-radius:3px;background:${col}"></i><b>${esc(title)}</b><span class="sub">${esc(sub)}</span>`;
+      $('#hover').innerHTML = `<i style="width:10px;height:10px;border-radius:3px;background:${col}"></i><b>${esc(title)}</b><span class="sub" title="${esc(sub)}">${esc(sub)}</span>`;
     };
     el.addEventListener('mouseenter', show); el.addEventListener('focus', show);
   });
