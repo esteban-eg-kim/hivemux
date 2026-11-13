@@ -1045,7 +1045,7 @@ def clear_interrupted(items, runs, now):
     Claude 에서 Esc 로 멈추면 훅이 오지 않아 (Stop 없음) 계속 "작업 중"으로 보였다.
     작업 중에는 Claude 맨 아랫줄 끝에 "esc to interrupt" 가 (좁은 칸에서는 진행 줄이) 있다. 세 번 연속 없으면 (다시 그리는 중이나
     입력 직후 첫 화면 전이 아님) 멈춘 것이니 대기로 바꾼다. 다음 훅(새 입력, 도구)이 다시 정한다."""
-    for pid in [k for k in runs if not any(p["pane_id"] == k and p["@claude_state"] == "run" for p in items)]:
+    for pid in [k for k in runs if not k.startswith("bg:") and not any(p["pane_id"] == k and p["@claude_state"] == "run" for p in items)]:
         del runs[pid]
     for p in items:
         if p["@claude_state"] == "run" and p.get("@claude_bg"):
