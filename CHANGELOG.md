@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.56 — 2026-11-13
 
 - Claude accounts: log in to more than one Claude account and switch between
   them, for all projects or for one project (right-click → Switch account…,
