@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Open path: a path followed straight by a Korean particle ("…/impl/에
+  있습니다", "report.png를") is found; when a path is not there, up to four
+  trailing non-ASCII letters are dropped and it is looked up again
 - Sidebar: the working animation no longer stutters. Every second the
   sidebar read tmux and checked the screens of running panes (80-100 ms with
   a few at work) on the same loop that draws, so the animation stopped that

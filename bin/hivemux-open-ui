@@ -178,6 +178,18 @@ def candidates(pane):
                         full, raw, ln, col = f, j.group(1).rstrip(".:"), j.group(2), j.group(3)
                         break
             full = full or resolve(raw)
+            # Korean writes a particle right after a word, a path too: "…/impl/에 있습니다", "report.png를": when
+            # the path is not found, drop up to four trailing letters that are not ASCII and look again
+            # 한국어는 조사를 낱말 (경로도) 바로 뒤에 붙인다: "…/impl/에 있습니다", "report.png를". 경로가 없으면
+            # 끝의 ASCII 가 아닌 글자를 네 개까지 떼고 다시 본다
+            if not full:
+                for k in range(1, 5):
+                    if len(raw) <= k or raw[-k].isascii():
+                        break
+                    cut = raw[:-k].rstrip(".:")
+                    if cut and (f := resolve(cut)):
+                        full, raw = f, cut
+                        break
             if not full or full in ("/", os.path.expanduser("~")):
                 continue
             # skip the working directory shown in the shell prompt (and its parents)
