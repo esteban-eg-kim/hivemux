@@ -18,6 +18,8 @@
   hivemux-office --team <project> [--client <client>]
                                open it on the team page of that project (sidebar menu "Team…")
                                그 프로젝트의 팀 화면으로 연다 (사이드바 메뉴 "팀…")
+  hivemux-office --artifacts    open it on the list of artifacts your Claudes published (sidebar menu "Artifacts…")
+                               Claude 가 게시한 아티팩트 목록으로 연다 (사이드바 메뉴 "아티팩트…")
   hivemux-office --build       build the window app now, quietly (hivemux setup runs it in the background)
                                창 앱을 지금 조용히 빌드 (hivemux setup 이 뒤에서 실행)
 
@@ -126,6 +128,35 @@ _spec.loader.exec_module(bees)
 _spec = importlib.util.spec_from_loader("hivemux_team", importlib.machinery.SourceFileLoader("hivemux_team", os.path.join(HERE, "hivemux-team")))
 teams = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(teams)
+# the artifacts your Claudes published (bin/hivemux-artifacts): the artifacts page / 게시한 아티팩트 (bin/hivemux-artifacts): 아티팩트 화면
+_spec = importlib.util.spec_from_loader("hivemux_artifacts", importlib.machinery.SourceFileLoader("hivemux_artifacts", os.path.join(HERE, "hivemux-artifacts")))
+artifacts = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(artifacts)
+ARTIFACTS_LOCK = threading.Lock()     # one reader of the transcripts at a time / 기록을 읽는 것은 한 번에 하나
+ARTIFACT_ID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+
+
+def artifact_post(action, req, port):
+    """open (the page on claude.ai, or the copy kept here) or copy the request to publish it again
+    열기 (claude.ai 의 페이지, 또는 여기 남긴 사본), 또는 다시 게시 요청을 복사"""
+    aid = str(req.get("id", ""))
+    if not ARTIFACT_ID.match(aid):
+        return {"ok": False}
+    with ARTIFACTS_LOCK:
+        it = next((x for x in artifacts.listing() if x["id"] == aid), None)
+    if not it:
+        return {"ok": False}
+    if action == "open":
+        url = it["url"] if req.get("what") != "copy" else f"http://127.0.0.1:{port}/artifacts/copy/{aid}"
+        if req.get("what") == "copy" and not it["copy"]:
+            return {"ok": False}
+        subprocess.run([os.path.join(HERE, "hivemux-os"), "open", url], stdin=subprocess.DEVNULL, capture_output=True)
+        return {"ok": True}
+    if action == "prompt":
+        text = artifacts.prompt(aid, lang() == "ko")
+        subprocess.run([os.path.join(HERE, "hivemux-os"), "copy"], input=text.encode(), capture_output=True)
+        return {"ok": True, "text": text}
+    return {"ok": False}
 _ranks = {"size": -1, "day": "", "value": None}
 
 
@@ -486,13 +517,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
             q = query(self.path)
             ok, rep = team_call(teams.report, q.get("project", ""), q.get("date") or None)
             return self.send(200, json.dumps({"ok": ok, "report": rep if ok else None, "say": "" if ok else rep}, ensure_ascii=False))
+        if path == "/artifacts/list":
+            Handler.last = time.time()
+            with ARTIFACTS_LOCK:
+                items = artifacts.listing()
+            return self.send(200, json.dumps({"lang": lang(), "items": items, "current": artifacts.current_email()}, ensure_ascii=False))
+        if path.startswith("/artifacts/copy/"):     # the copy kept here (bin/hivemux-artifacts) / 여기 남긴 사본
+            aid = path[len("/artifacts/copy/"):]
+            full = artifacts.copy_path(aid)
+            if not ARTIFACT_ID.match(aid) or not os.path.isfile(full):
+                return self.send(404, "{}")
+            with open(full, "rb") as f:
+                return self.send(200, f.read(), "text/html; charset=utf-8")
         if path == "/team/prompt":
             q = query(self.path)
             ok, text = team_call(teams.final_prompt, q.get("project", ""), q.get("role", ""))
             return self.send(200, json.dumps({"ok": ok, "text": text if ok else ""}, ensure_ascii=False))
         # one page: the office at an angle, or seen from above (/2d opens it that way; the page switches)
         # 한 페이지: 비스듬히 본 사무실, 또는 위에서 본 모습 (/2d 는 그렇게 연다. 페이지에서 서로 바꾼다)
-        page = {"/": "index.html", "/index.html": "index.html", "/2d": "index.html", "/team": "team.html", "/report": "report.html"}.get(path)
+        page = {"/": "index.html", "/index.html": "index.html", "/2d": "index.html", "/team": "team.html", "/report": "report.html", "/artifacts": "artifacts.html"}.get(path)
         if page:
             with open(os.path.join(SHARE, page), "rb") as f:
                 return self.send(200, f.read(), "text/html; charset=utf-8")
@@ -519,7 +562,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self.send(403, "{}")
         if origin and origin not in (f"http://127.0.0.1:{self.server.server_port}", f"http://localhost:{self.server.server_port}"):
             return self.send(403, "{}")
-        if self.path not in ("/goto", "/shift", "/answer", "/nav") and not self.path.startswith("/team/"):
+        if self.path not in ("/goto", "/shift", "/answer", "/nav", "/artifacts/open", "/artifacts/prompt") and not self.path.startswith("/team/"):
             return self.send(404, "{}")
         try:
             n = int(self.headers.get("Content-Length") or 0)
@@ -534,6 +577,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self.send(200, "{}")
         if self.path.startswith("/team/"):
             return self.send(200, json.dumps(team_post(self.path[6:], req), ensure_ascii=False))
+        if self.path.startswith("/artifacts/"):
+            return self.send(200, json.dumps(artifact_post(self.path[11:], req, self.server.server_port), ensure_ascii=False))
         if self.path == "/shift":   # clock out or in (bin/hivemux-shift), here or on a connected Mac / 퇴근 또는 출근, 여기 또는 붙어 있는 Mac
             what, ssh = req.get("to"), req.get("ssh")
             if what not in ("on", "off"):
@@ -1042,6 +1087,8 @@ def main(argv):
                  if lang() == "ko" else "The team page does not open from a screen attached from another computer yet. Open it on this computer")
             return
         open_window(page="/team?project=" + urllib.parse.quote(argv[1]))
+    elif argv[:1] == ["--artifacts"]:     # sidebar menu "Artifacts…" / 사이드바 메뉴 "아티팩트…"
+        open_window(page="/artifacts")
     elif argv[:1] == ["--client"]:
         from_tmux(argv[1] if len(argv) > 1 else "")
     elif argv[:1] == ["--popup"]:

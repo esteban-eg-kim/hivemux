@@ -11,6 +11,13 @@
   conversation, also one on screen or stopped by a usage limit; one at work
   restarts once it is done. The status line shows the account when it is not
   the default one
+- Artifacts: a list of every artifact your Claudes published, with the
+  account it belongs to (right-click → Artifacts…, or the bee office's
+  Artifacts tab). An artifact opens only for the account that published it,
+  so one of another account opens from a copy hivemux keeps of the published
+  file, or a click copies a request to publish it again under the account in
+  use. The list is read from the conversation transcripts, so it includes
+  what was published before this version
 
 ## 0.1.55 — 2026-11-13
 

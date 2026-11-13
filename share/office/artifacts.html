@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hivemux artifacts</title>
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<style>
+/* The artifacts page (bin/hivemux-office serves it at /artifacts): every artifact your Claudes published, read from the
+   transcripts by bin/hivemux-artifacts, with the account it belongs to. One of another account opens from the copy
+   kept here, or a click copies a request to publish it again under the account in use.
+   아티팩트 화면 (bin/hivemux-office 가 /artifacts 로 낸다): Claude 가 게시한 아티팩트 전부. bin/hivemux-artifacts 가
+   대화 기록에서 읽고, 어느 계정의 것인지 함께 보인다. 다른 계정의 것은 여기 남긴 사본으로 열거나, 지금 계정으로
+   다시 게시해 달라는 요청을 복사한다. */
+:root {
+  --bg: #e9edf3; --panel: #ffffff; --soft: #f6f8fb; --soft2: #eef1f5; --line: #d3d9e3; --fg: #1b1f27; --fg2: #3a4252; --muted: #5a6375;
+  --run: #2f7fd6; --done: #1d9a64; --wait: #a86a00; --code-bg: #1b1f27; --code-fg: #e1e6f0; --btn: #1b1f27; --btn-fg: #ffffff;
+  --f-body: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --f-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #101217; --panel: #1a1d24; --soft: #20242c; --soft2: #262a33; --line: #2b303b; --fg: #e1e6f0; --fg2: #c3c9d4; --muted: #9aa3b2;
+  --run: #5aa9ff; --done: #3ecf8e; --wait: #f5a524; --code-bg: #0b0d11; --code-fg: #e1e6f0; --btn: #e1e6f0; --btn-fg: #101217; color-scheme: dark } }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.5 var(--f-body); }
+[hidden] { display: none !important; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
+
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; background: color-mix(in srgb, var(--panel) 85%, transparent);
+  border: 1px solid var(--line); border-radius: 12px; padding: 6px 8px; box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+.brand { display: flex; align-items: center; gap: 8px; font: 600 15px var(--f-mono); padding: 0 6px; }
+.seg { display: flex; background: var(--soft2); border-radius: 9px; padding: 3px; gap: 2px; }
+.seg > * { border: 0; background: transparent; color: var(--fg2); padding: 7px 13px; border-radius: 7px; font-weight: 600; min-height: 34px;
+  text-decoration: none; display: inline-flex; align-items: center; }
+.seg > [aria-current], .seg > [aria-pressed="true"] { background: var(--panel); color: var(--fg); box-shadow: 0 1px 3px rgba(0,0,0,.14); font-weight: 700; }
+
+main { padding: 8px 24px 56px; }
+.wrap { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+.sub { color: var(--muted); margin: 4px 0 0; max-width: 72ch; }
+.tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.search { flex: 1 1 260px; min-height: 40px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); padding: 0 12px; }
+.seg.acc { flex-wrap: wrap; }
+.seg.acc button { gap: 6px; }
+.seg.acc .n { color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.list { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; align-items: center; padding: 14px 18px; border-top: 1px solid var(--line); }
+.item:first-child { border-top: 0; }
+.title { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: 12.5px; }
+.who { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.who.here .dot { background: var(--done); }
+.who.other .dot { background: var(--wait); }
+.who.other { color: var(--wait); font-weight: 600; }
+.acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.btn { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 0 12px; border-radius: 9px;
+  border: 1px solid var(--line); background: var(--panel); font-weight: 700; font-size: 13px; color: var(--fg); white-space: nowrap; }
+.btn.primary { background: var(--btn); color: var(--btn-fg); border-color: var(--btn); }
+.btn:hover { border-color: var(--muted); }
+.none { color: var(--muted); font-size: 12.5px; align-self: center; }
+.empty { padding: 40px 18px; text-align: center; color: var(--muted); }
+#toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--code-bg); color: var(--code-fg);
+  padding: 10px 16px; border-radius: 10px; z-index: 20; max-width: 90vw; white-space: pre-line; }
+@media (max-width: 640px) {
+  main { padding: 8px 16px 48px; }
+  .item { grid-template-columns: 1fr; }
+  .acts { justify-content: flex-start; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="bar">
+    <span class="brand"><img src="/logo.svg" alt="" width="24" height="24">hivemux</span>
+    <nav class="seg" aria-label="화면"><a href="/" data-t="사무실|Office">사무실</a><span aria-current="page" data-t="아티팩트|Artifacts">아티팩트</span></nav>
+  </div>
+</header>
+<main><div class="wrap">
+  <div>
+    <h1 data-t="아티팩트|Artifacts">아티팩트</h1>
+    <p class="sub" data-t="아티팩트는 게시한 계정으로 로그인해야 열립니다. 다른 계정의 것은 여기 남긴 사본으로 보시거나, 지금 계정으로 다시 게시해 달라는 요청을 복사해 Claude 에게 붙여 넣으십시오.|An artifact opens only when logged in to the account that published it. View one of another account from the copy kept here, or copy a request to publish it again under the account in use and paste it to Claude."></p>
+  </div>
+  <div class="tools">
+    <input class="search" id="q" type="search" autocomplete="off">
+    <div class="seg acc" id="accs" role="group"></div>
+  </div>
+  <div class="list" id="list" aria-live="polite"><div class="empty" data-t="대화 기록을 읽는 중입니다…|Reading the transcripts…"></div></div>
+</div></main>
+<div id="toast" role="status" hidden></div>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let L = 'ko', D = null, ACC = '';
+const tr = (ko, en) => L === 'ko' ? ko : en;
+
+function texts() {
+  document.documentElement.lang = L;
+  for (const el of document.querySelectorAll('[data-t]')) { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); }
+  $('#q').placeholder = tr('제목, 프로젝트, 계정으로 찾기', 'Search by title, project or account');
+  $('#q').setAttribute('aria-label', $('#q').placeholder);
+  $('#accs').setAttribute('aria-label', tr('계정', 'Account'));
+}
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toast.h); toast.h = setTimeout(() => { t.hidden = true; }, 3600);
+}
+async function post(path, body) {
+  try {
+    const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    return await r.json();
+  } catch (e) { return { ok: false }; }
+}
+function when(iso) {
+  const d = new Date(iso); if (isNaN(d)) return '';
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function accLabel(it) {
+  if (!it.email) return tr('알 수 없는 계정', 'Unknown account');
+  return it.account && it.account !== 'default' ? `${it.email} · ${it.account}` : it.email;
+}
+
+function draw() {
+  if (!D) return;
+  const q = $('#q').value.trim().toLowerCase();
+  // account filter: all, then each email by count / 계정 거르기: 전체, 그다음 이메일별 (많은 순)
+  const counts = {};
+  for (const it of D.items) counts[it.email] = (counts[it.email] || 0) + 1;
+  const emails = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+  $('#accs').innerHTML = [['', tr('전체', 'All'), D.items.length], ...emails.map(e => [e, e || tr('알 수 없음', 'Unknown'), counts[e]])]
+    .map(([k, label, n]) => `<button type="button" data-acc="${esc(k)}" aria-pressed="${k === ACC}">${esc(label)} <span class="n">${n}</span></button>`).join('');
+  const items = D.items.filter(it => (!ACC || it.email === ACC) &&
+    (!q || [it.title, it.project, it.email, it.account].some(v => String(v || '').toLowerCase().includes(q))));
+  if (!items.length) {
+    $('#list').innerHTML = `<div class="empty">${esc(D.items.length ? tr('찾는 아티팩트가 없습니다.', 'No artifact matches.') : tr('아직 게시한 아티팩트가 없습니다.', 'No artifacts published yet.'))}</div>`;
+    return;
+  }
+  $('#list').innerHTML = items.map(it => {
+    const here = it.email && it.email === D.current;
+    const cls = !it.email ? '' : here ? 'here' : 'other';
+    const acts = [`<button class="btn${here ? ' primary' : ''}" type="button" data-open="${esc(it.id)}">${esc(tr('열기', 'Open'))}</button>`];
+    if (it.copy) acts.push(`<button class="btn" type="button" data-copy="${esc(it.id)}">${esc(tr('사본 보기', 'View copy'))}</button>`);
+    if (!here && (it.copy || it.file)) acts.push(`<button class="btn${it.email ? ' primary' : ''}" type="button" data-again="${esc(it.id)}">${esc(tr('다시 게시 요청 복사', 'Copy republish request'))}</button>`);
+    if (!it.copy && !it.file) acts.push(`<span class="none">${esc(tr('남은 파일이 없습니다', 'No file left'))}</span>`);
+    return `<div class="item">
+      <div style="min-width:0">
+        <div class="title" title="${esc(it.title)}">${esc(it.title)}</div>
+        <div class="meta">
+          <span class="who ${cls}"><span class="dot" aria-hidden="true"></span>${esc(accLabel(it))}${here ? esc(tr(' (지금 계정)', ' (in use)')) : ''}</span>
+          ${it.project ? `<span>${esc(it.project)}</span>` : ''}
+          <span>${esc(when(it.at))}</span>
+          ${it.version > 1 ? `<span>${esc(tr(`버전 ${it.version}`, `version ${it.version}`))}</span>` : ''}
+        </div>
+      </div>
+      <div class="acts">${acts.join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+async function load() {
+  try { D = await (await fetch('/artifacts/list', { cache: 'no-store' })).json(); }
+  catch (e) { $('#list').innerHTML = `<div class="empty">${esc(tr('hivemux 에 연결할 수 없습니다.', 'Could not connect to hivemux.'))}</div>`; return; }
+  if (D.lang && D.lang !== L) { L = D.lang; texts(); }
+  draw();
+}
+
+$('#accs').addEventListener('click', e => { const b = e.target.closest('[data-acc]'); if (b) { ACC = b.dataset.acc; draw(); } });
+$('#q').addEventListener('input', draw);
+$('#list').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.open || b.dataset.copy) {
+    const r = await post('/artifacts/open', { id: b.dataset.open || b.dataset.copy, what: b.dataset.copy ? 'copy' : 'url' });
+    if (!r.ok) toast(tr('열지 못했습니다.', 'Could not open it.'));
+    else if (b.dataset.open) {
+      const it = D.items.find(x => x.id === b.dataset.open);
+      if (it && it.email && it.email !== D.current) toast(tr(`이 아티팩트는 ${it.email} 계정의 것입니다. 브라우저가 그 계정으로 로그인되어 있어야 열립니다.`, `This artifact belongs to ${it.email}. It opens only when the browser is logged in to that account.`));
+    }
+  } else if (b.dataset.again) {
+    const r = await post('/artifacts/prompt', { id: b.dataset.again });
+    toast(r.ok ? tr('요청 문구를 복사했습니다. 지금 계정의 Claude 에 붙여 넣으십시오.', 'Request copied. Paste it to a Claude on the account in use.') : tr('복사하지 못했습니다.', 'Could not copy it.'));
+  }
+});
+texts();
+load();
+// the list again when the window comes back to the front / 창이 다시 앞에 오면 목록을 다시
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+</script>
+</body>
+</html>

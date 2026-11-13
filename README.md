@@ -67,6 +67,9 @@ macOS and Linux (on Linux, `Option` is `Alt`).
   in to another account once and switches to it; a project name's menu gives
   that project its own account. Settings, conversations and skills are shared,
   so each Claude restarts on the new account in the same conversation.
+  Right-click → Artifacts… lists every artifact your Claudes published with
+  the account it belongs to; one of another account opens from a copy kept
+  here, or you copy a request to publish it again under the account in use.
 - **Projects.** `hm ~/code/api` opens one tmux session per folder with a named
   Claude window and a shell window.
 - **Open paths Claude mentions.** `Option+O` lists file paths from the pane's
@@ -344,7 +347,7 @@ new hooks once restarted. Claude Code itself: right-click → Update Claude
 | `Option+1` … `9` | jump to that Claude (any session) |
 | `Option+0` / `prefix Space` | oldest waiting Claude, else oldest unseen finished one |
 | click card / project name | jump · double click a card: rename. A project whose Claude windows are all closed stays listed ("no Claude") until you close it |
-| right click | menu. On a task: go to, rename, move up/down, clock this Claude out, close Claude, new Claude, new project. On a project name: rename, close project, account for this project, clock this project out / in, new Claude, new project. On empty space: new project, clock everyone out / in. Every menu ends with Open path…, Ports…, Bee office, Update Claude…, Switch account…, Connect to… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes |
+| right click | menu. On a task: go to, rename, move up/down, clock this Claude out, close Claude, new Claude, new project. On a project name: rename, close project, account for this project, clock this project out / in, new Claude, new project. On empty space: new project, clock everyone out / in. Every menu ends with Open path…, Ports…, Bee office, Artifacts…, Update Claude…, Switch account…, Connect to… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes |
 | menu → Close Claude | asks, then closes that Claude: its pane, or its window when nothing else is in it; a project's last window keeps its shell. Not resumed again, like `/exit`; `claude --resume` still continues the conversation |
 | menu → New project | folder browser in the middle: `Enter` starts the selected folder (like `hm`), `→` / `←` in and out, type to filter, `Ctrl+N` new folder |
 | menu → Settings | language (한국어 / English), animation, notifications, sidebar width, editor for Open path, this computer's name (shown in the bee office and on remote screens); applied at once and saved |

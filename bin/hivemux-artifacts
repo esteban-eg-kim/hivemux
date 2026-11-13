@@ -1,0 +1,203 @@
+#!/usr/bin/env python3
+"""The artifacts your Claudes published (claude.ai pages), with the account each belongs to and a copy kept here.
+Claude 가 게시한 아티팩트(claude.ai 페이지) 목록. 어느 계정의 것인지와, 여기 남긴 사본과 함께.
+
+  hivemux-artifacts list [--json]      read new transcript lines, then list (newest first) / 새 기록을 읽고 목록 (최신순)
+  hivemux-artifacts prompt <id>        the request to publish it again under the account in use / 지금 계정으로 다시 게시해 달라는 요청
+
+An artifact opens only for the account that published it. Every publish is in the conversation's transcript
+(~/.claude/projects/*/*.jsonl, shared by all accounts, bin/hivemux-account): its result has the url, file and title,
+and the transcript also carries the logged-in email ("The user's email address is ..."). This reads the lines
+added since last time (offsets in $XDG_DATA_HOME/hivemux/artifacts/index.json) and copies each published file to
+$XDG_DATA_HOME/hivemux/artifacts/<id>.html while it is still there (scratchpad files go at a reboot).
+아티팩트는 게시한 계정에서만 열린다. 게시할 때마다 대화 기록(~/.claude/projects/*/*.jsonl, 모든 계정이 함께 씀,
+bin/hivemux-account)에 결과(주소, 파일, 제목)가 남고, 기록에는 로그인한 이메일도 있다. 지난번 뒤로 늘어난 줄만
+읽고 (위치는 $XDG_DATA_HOME/hivemux/artifacts/index.json), 게시한 파일이 아직 있으면
+$XDG_DATA_HOME/hivemux/artifacts/<id>.html 로 복사해 둔다 (scratchpad 파일은 재부팅하면 사라진다).
+"""
+import json, os, re, shutil, subprocess, sys, time
+
+DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "artifacts")
+INDEX = os.path.join(DATA, "index.json")
+PROJECTS = os.path.expanduser("~/.claude/projects")
+EMAIL = re.compile(rb"email address is ([^\s\\\"<>]+@[A-Za-z0-9.-]+[A-Za-z])")
+
+
+def load():
+    try:
+        with open(INDEX) as f:
+            d = json.load(f)
+        if isinstance(d, dict) and d.get("v") == 1:
+            return d
+    except (OSError, ValueError):
+        pass
+    return {"v": 1, "files": {}, "items": {}}
+
+
+def save(d):
+    os.makedirs(DATA, exist_ok=True)
+    tmp = f"{INDEX}.{os.getpid()}.tmp"
+    with open(tmp, "w") as f:
+        json.dump(d, f, ensure_ascii=False)
+    os.replace(tmp, INDEX)
+
+
+def transcripts():
+    for root, _, files in os.walk(PROJECTS):
+        for n in files:
+            if n.endswith(".jsonl"):
+                yield os.path.join(root, n)
+
+
+def found(d, rec, email):
+    """One publish result: keep the newest of each artifact / 게시 결과 하나: 아티팩트마다 가장 새것을 남긴다"""
+    r = rec.get("toolUseResult")
+    if not (isinstance(r, dict) and r.get("artifact_id") and str(r.get("url", "")).startswith("https://")):
+        return
+    at = rec.get("timestamp") or ""
+    it = d["items"].get(r["artifact_id"])
+    if it and it.get("at", "") > at:
+        return
+    first = it.get("first", at) if it else at
+    d["items"][r["artifact_id"]] = {
+        "id": r["artifact_id"], "url": r["url"], "title": r.get("title") or os.path.basename(r.get("path") or "") or r["url"],
+        "path": r.get("path") or "", "version": r.get("seq") or 1, "email": email or (it or {}).get("email", ""),
+        "cwd": rec.get("cwd") or "", "session": rec.get("sessionId") or "", "at": at, "first": first}
+
+
+def scan(d):
+    """Read what the transcripts gained since last time / 지난번 뒤로 기록에 늘어난 것을 읽는다"""
+    seen = set()
+    for path in transcripts():
+        seen.add(path)
+        try:
+            size = os.path.getsize(path)
+        except OSError:
+            continue
+        st = d["files"].get(path) or {"off": 0, "email": ""}
+        if size < st["off"]:            # rewritten: from the start / 새로 쓰였다: 처음부터
+            st = {"off": 0, "email": ""}
+        if size == st["off"]:
+            d["files"][path] = st
+            continue
+        with open(path, "rb") as f:
+            f.seek(st["off"])
+            chunk = f.read(size - st["off"])
+        end = chunk.rfind(b"\n") + 1      # whole lines only; the rest next time / 온전한 줄만, 나머지는 다음에
+        email = st["email"]
+        for ln in chunk[:end].split(b"\n"):
+            m = EMAIL.findall(ln)
+            if m:
+                email = m[-1].decode()
+            if b'"artifact_id"' in ln and b'"toolUseResult"' in ln:
+                try:
+                    found(d, json.loads(ln), email)
+                except ValueError:
+                    pass
+        d["files"][path] = {"off": st["off"] + end, "email": email}
+    for gone in set(d["files"]) - seen:
+        del d["files"][gone]
+
+
+def copy_path(aid):
+    return os.path.join(DATA, f"{aid}.html")
+
+
+def keep_copies(d):
+    """Copy each published file while it is there, again when it changed / 게시한 파일이 있으면 복사, 바뀌었으면 다시"""
+    for it in d["items"].values():
+        src, dst = it.get("path"), copy_path(it["id"])
+        if not src or not os.path.isfile(src):
+            continue
+        try:
+            if not os.path.exists(dst) or os.path.getmtime(src) > os.path.getmtime(dst):
+                shutil.copy2(src, dst)
+        except OSError:
+            pass
+
+
+def accounts():
+    """{email: hivemux account name} (bin/hivemux-account) / 이메일별 hivemux 계정 이름"""
+    out = {}
+    base = os.path.join(os.path.dirname(DATA), "accounts")
+    for name, path in [("default", os.path.expanduser("~/.claude.json"))] + [
+            (n, os.path.join(base, n, ".claude.json")) for n in (os.listdir(base) if os.path.isdir(base) else [])]:
+        try:
+            with open(path) as f:
+                e = (json.load(f).get("oauthAccount") or {}).get("emailAddress")
+        except (OSError, ValueError):
+            e = None
+        if e:
+            out.setdefault(e, name)
+    return out
+
+
+def current_email():
+    """The email of the account chosen for all projects (bin/hivemux-account) / 모든 프로젝트에 고른 계정의 이메일"""
+    base = os.path.dirname(DATA)
+    try:
+        name = open(os.path.join(base, "account")).read().strip()
+    except OSError:
+        name = ""
+    path = (os.path.join(base, "accounts", name, ".claude.json") if name and name != "default"
+            else os.path.expanduser("~/.claude.json"))
+    try:
+        with open(path) as f:
+            return (json.load(f).get("oauthAccount") or {}).get("emailAddress", "")
+    except (OSError, ValueError):
+        return ""
+
+
+def listing():
+    d = load()
+    scan(d)
+    keep_copies(d)
+    save(d)
+    acc = accounts()
+    items = sorted(d["items"].values(), key=lambda it: it["at"], reverse=True)
+    for it in items:
+        it["account"] = acc.get(it["email"], "")
+        it["copy"] = os.path.exists(copy_path(it["id"]))
+        it["file"] = bool(it["path"]) and os.path.isfile(it["path"])
+        it["project"] = os.path.basename(it["cwd"].rstrip("/")) if it["cwd"] else ""
+    return items
+
+
+def prompt(aid, ko=True):
+    it = next((x for x in listing() if x["id"] == aid), None)
+    if not it:
+        return None
+    src = it["path"] if it["file"] else (copy_path(aid) if it["copy"] else "")
+    if ko:
+        return (f"아래 HTML 파일을 지금 로그인한 계정의 새 아티팩트로 게시해 주십시오. 예전 아티팩트는 다른 계정({it['email'] or '알 수 없음'})의 것이라 열리지 않습니다.\n"
+                f"- 제목: {it['title']}\n- 파일: {src}\n- 예전 주소: {it['url']}\n"
+                "파일이 작업 폴더나 scratchpad 밖에 있어 게시할 수 없으면 scratchpad 로 복사한 뒤 게시하고, 새 주소를 알려 주십시오.")
+    return (f"Please publish the HTML file below as a new artifact under the account logged in now. The old one belongs to another account "
+            f"({it['email'] or 'unknown'}) and does not open here.\n- Title: {it['title']}\n- File: {src}\n- Old link: {it['url']}\n"
+            "If the file is outside the working folder and the scratchpad, copy it to the scratchpad first, publish it, and tell me the new link.")
+
+
+def main(argv):
+    cmd = argv[0] if argv else "list"
+    if cmd == "list":
+        items = listing()
+        if "--json" in argv:
+            print(json.dumps(items, ensure_ascii=False))
+            return
+        for it in items:
+            print(f"{it['at'][:16].replace('T', ' ')}  {it['email'] or '?':<26} {it['title']}\n    {it['url']}"
+                  + (f"\n    {copy_path(it['id'])}" if it["copy"] else ""))
+    elif cmd == "prompt" and len(argv) > 1:
+        # HIVEMUX_LANG > tmux @hivemux-lang (hivemux setup) > LANG, as the other helpers / 다른 도우미들처럼
+        v = os.environ.get("HIVEMUX_LANG") or subprocess.run(["tmux", "show", "-gqv", "@hivemux-lang"], capture_output=True, text=True).stdout.strip()
+        p = prompt(argv[1], (v or os.environ.get("LANG", "")).startswith("ko"))
+        if p is None:
+            sys.exit(1)
+        print(p)
+    else:
+        print(__doc__.split("\n\n")[1], file=sys.stderr)
+        sys.exit(2)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
