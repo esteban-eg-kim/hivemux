@@ -18,6 +18,14 @@
   file, or a click copies a request to publish it again under the account in
   use. The list is read from the conversation transcripts, so it includes
   what was published before this version
+- Sidebar: a Claude whose background shell (a build, a data import) still
+  runs keeps saying "waiting on 1 shell" until the shell ends. The shells
+  are now counted from the processes under each Claude every 3 seconds, not
+  read off its screen; a turn that ended without counting them (one started
+  by a message from another session) showed the task as idle while the
+  shell ran. Servers and watchers still do not count
+- Bee office window: the Dock icon is drawn inside macOS's icon grid, so it
+  is as big as the other apps' icons instead of larger
 
 ## 0.1.55 — 2026-11-13
 

@@ -85,7 +85,7 @@ FIELDS = ["pane_id", "session_name", "window_index", "window_name", "@claude_sta
           "@claude_state_at", "@claude_session", "window_id", "pane_active", "pane_last",
           "window_active", "session_attached", "pane_title", "@claude_title", "@claude_name", "pane_current_command",
           "@hivemux-closing", "@claude_wait", "@claude_touched", "@claude_bg", "@claude_offwork", "pane_index",
-          "pane_tty", "pane_width", "pane_height", "@hivemux-rest", "@claude_ctx", "@hivemux-handoff", "@hivemux-rolename", "@hivemux-team", "@hivemux-roleorder"]
+          "pane_tty", "pane_width", "pane_height", "@hivemux-rest", "@claude_ctx", "@hivemux-handoff", "@hivemux-rolename", "@hivemux-team", "@hivemux-roleorder", "pane_pid"]
 # a shell in front means Claude has quit there (its SessionEnd hook comes a second or two later, or never)
 # 칸 앞에 셸이 있으면 그 Claude 는 끝났다 (SessionEnd 훅은 1~2초 늦게 오거나 안 온다)
 SHELLS = {"zsh", "bash", "fish", "sh", "dash", "tcsh", "ksh", "login"}
@@ -984,8 +984,6 @@ DIALOG_RE = re.compile(r"(?i)\besc to cancel\b")   # footer of Claude's approval
 BUSY_RE = re.compile(r"(?i)\besc to interrupt\b")  # footer while Claude is working / Claude 가 작업 중일 때의 아랫줄
 # Claude's progress line ("✻ Finagling… (10s · ↓ 89 tokens)"): kept when a narrow pane cuts the footer
 # Claude 의 진행 줄 ("✻ Finagling… (10s · ↓ 89 tokens)"): 좁은 칸에서 아랫줄이 잘려도 남는다
-# Claude's footer while background shells run ("· 1 shell · ↓ to manage") / 배경 셸이 도는 동안 Claude 아랫줄
-BGSHELL_RE = re.compile(r"(?i)\b\d+ (?:background )?(?:shells?|bash)\b")
 SPIN_RE = re.compile(r"(?i)^\s*[^\s\w❯⏺⎿│>]\s+\w[^…]*…\s*\((\d|esc\b)")
 
 
@@ -1059,11 +1057,11 @@ def clear_interrupted(items, runs, now):
     Claude 에서 Esc 로 멈추면 훅이 오지 않아 (Stop 없음) 계속 "작업 중"으로 보였다.
     작업 중에는 Claude 맨 아랫줄 끝에 "esc to interrupt" 가 (좁은 칸에서는 진행 줄이) 있다. 세 번 연속 없으면 (다시 그리는 중이나
     입력 직후 첫 화면 전이 아님) 멈춘 것이니 대기로 바꾼다. 다음 훅(새 입력, 도구)이 다시 정한다."""
-    for pid in [k for k in runs if not k.startswith("bg:") and not any(p["pane_id"] == k and p["@claude_state"] == "run" for p in items)]:
+    for pid in [k for k in runs if not k.startswith("bg") and not any(p["pane_id"] == k and p["@claude_state"] == "run" for p in items)]:
         del runs[pid]
+    track_bg_shells(items, runs, now)
     for p in items:
         if p["@claude_state"] == "run" and p.get("@claude_bg"):
-            clear_bg_shells(p, runs, now)
             continue                    # background agents at work while Claude itself waits / Claude 는 쉬어도 배경 에이전트가 일한다
         if p["@claude_state"] != "run":
             continue
@@ -1084,32 +1082,87 @@ def clear_interrupted(items, runs, now):
         set_state(p, "idle", now)
 
 
-def clear_bg_shells(p, runs, now):
-    """The turn ended with a background shell running (a server, a build), so the pane says "waiting on 1
-    shell". When that shell ends because someone stopped it, no hook comes and the line stayed for good.
-    While shells run Claude's footer counts them ("1 shell"); when it is gone on three polls in a row, the
-    wait is over: done, as if the last Stop had found no shell. Background agents keep their own count.
-    턴이 배경 셸 (서버, 빌드) 이 도는 채로 끝나 "셸 1개 기다리는 중" 이 된다. 누가 그 셸을 끄면 훅이 오지 않아
-    그 줄이 계속 남았다. 셸이 도는 동안 Claude 아랫줄에 수가 있다 ("1 shell"). 세 번 연속 없으면 기다림은
-    끝났다: 마지막 Stop 이 셸을 못 본 것처럼 끝남으로. 배경 에이전트는 따로 센다."""
-    agents, shells = ([int(x) for x in p["@claude_bg"].split() if x.isdigit()] + [0, 0])[:2]
-    pid, key = p["pane_id"], "bg:" + p["pane_id"]
-    if agents or not shells:
-        runs.pop(key, None)
+# A server or a watcher runs for good: not something Claude waits on (the same list as the Stop hook in bin/hivemux-hook)
+# 서버나 감시는 계속 돈다: Claude 가 기다리는 것이 아니다 (bin/hivemux-hook 의 Stop 과 같은 목록)
+SERVER_RE = re.compile(r"(^|[\s;&|(/:])((npm|pnpm|yarn|bun)( run| workspace [^ ]+)?( [a-z0-9:_-]+)? (dev|start|serve|preview|watch|local)"
+                       r"|vite|next (dev|start)|nuxt dev|astro dev|webpack|http[.]server|uvicorn|gunicorn|flask run|rails (s|server)|bootRun"
+                       r"|docker[- ]compose up|tail -f|nodemon|live-server|serve|jupyter|ngrok|cloudflared|caddy run|php -S|hugo server"
+                       r"|mkdocs serve|wrangler dev|redis-server|postgres|mongod)([\s;&|)]|$)|--watch", re.I)
+# a Bash call of Claude Code: its shell sources the snapshot of your shell first / Claude Code 의 Bash 호출: 셸이 먼저 내 셸의 스냅숏을 읽는다
+SNAPSHOT = "/shell-snapshots/snapshot-"
+
+
+def shell_command(args):
+    """The command in a Bash call's shell: "... && eval '<command>' < /dev/null && pwd -P ..." / Bash 호출 셸 안의 명령"""
+    cmd = args.split(" && eval '", 1)[-1]
+    cmd = cmd.rsplit("' < /dev/null", 1)[0]
+    return cmd.replace("'\\''", "'")
+
+
+def bg_shells(items):
+    """{pane: (shells, shells that are not servers)}: the shells a pane's Claude runs, from one ps
+    {칸: (셸 수, 서버가 아닌 셸 수)}: 칸의 Claude 가 돌리는 셸. ps 한 번으로"""
+    kids = {}
+    for ln in subprocess.run(["ps", "-ax", "-o", "pid=,ppid=,comm=,args="], capture_output=True, text=True).stdout.splitlines():
+        f = ln.split(None, 3)
+        if len(f) >= 3:
+            kids.setdefault(f[1], []).append((f[0], f[2], f[3] if len(f) > 3 else ""))
+    out = {}
+    for p in items:
+        if not p.get("@claude_session") or not p.get("pane_pid"):
+            continue
+        # Claude: the pane shell's child, or its grandchild / Claude: 칸 셸의 자식, 또는 손자
+        claude = next((pid for pid, comm, _ in kids.get(p["pane_pid"], []) if re.search(r"(^|/)(claude|node)$", comm)), None) or next(
+            (pid for k, _, _ in kids.get(p["pane_pid"], []) for pid, comm, _ in kids.get(k, []) if re.search(r"(^|/)(claude|node)$", comm)), None)
+        if not claude:
+            continue
+        sh = [a for _, _, a in kids.get(claude, []) if SNAPSHOT in a]
+        out[p["pane_id"]] = (len(sh), len([a for a in sh if not SERVER_RE.search(shell_command(a))]))
+    return out
+
+
+def track_bg_shells(items, runs, now):
+    """Background shells (a build, a data import) are Claude's work too: the pane says "waiting on 1 shell" until
+    they end. The Stop hook counts them when the turn ends, but a later turn (a message from another session) could
+    end without them, and when one ended because someone stopped it no hook came. So the shells under each pane's
+    Claude are counted here (every 3 s, ps): a pane at rest with a shell that is not a server goes back to waiting on
+    it; one waiting is done when none is left on two checks in a row. Background agents keep their own count.
+    배경 셸 (빌드, 데이터 가져오기) 도 Claude 의 일이다: 끝날 때까지 "셸 1개 기다리는 중". Stop 훅이 턴 끝에 세지만,
+    다음 턴 (다른 세션의 메시지) 이 셸 없이 끝나기도 했고, 누가 셸을 끄면 훅이 오지 않았다. 그래서 여기서 칸마다
+    Claude 아래의 셸을 센다 (3초마다, ps): 쉬는 칸에 서버 아닌 셸이 있으면 다시 그 셸을 기다리고, 기다리던 칸은
+    두 번 연속 셸이 없으면 끝난다. 배경 에이전트는 따로 센다."""
+    if now - runs.get("bg@", 0) < 3:
         return
-    if tmux("display", "-p", "-t", pid, "#{pane_in_mode}").strip() == "1":
-        return                          # scrolled back / 스크롤 중
-    tail = [ln for ln in tmux("capture-pane", "-p", "-t", pid).splitlines() if ln.strip()][-6:]
-    if not tail or any(BGSHELL_RE.search(ln) for ln in tail):
-        runs[key] = 0
-        return
-    runs[key] = runs.get(key, 0) + 1
-    if runs[key] < 3:
-        return
-    del runs[key]
-    tmux("set", "-pu", "-t", pid, "@claude_bg")
-    p["@claude_bg"] = ""
-    set_state(p, "done", now)
+    runs["bg@"] = now
+    live = bg_shells(items)
+    for p in items:
+        pid, key = p["pane_id"], "bg:" + p["pane_id"]
+        if pid not in live or p.get("@claude_offwork"):
+            continue
+        n_all, n_work = live[pid]
+        agents, shells = ([int(x) for x in p.get("@claude_bg", "").split() if x.isdigit()] + [0, 0])[:2]
+        st = p["@claude_state"]
+        if st == "run" and p.get("@claude_bg"):
+            if agents or not shells:
+                runs.pop(key, None)
+                continue
+            if n_all:                   # (a server counts here when Claude said it waits for it) / (Claude 가 기다린다고 한 서버도 센다)
+                runs.pop(key, None)
+                if n_all != shells:
+                    tmux("set", "-p", "-t", pid, "@claude_bg", f"0 {n_all}")
+                    p["@claude_bg"] = f"0 {n_all}"
+                continue
+            runs[key] = runs.get(key, 0) + 1
+            if runs[key] < 2:
+                continue
+            del runs[key]
+            tmux("set", "-pu", "-t", pid, "@claude_bg")
+            p["@claude_bg"] = ""
+            set_state(p, "done", now)
+        elif st in ("done", "idle") and n_work:
+            tmux("set", "-p", "-t", pid, "@claude_bg", f"0 {n_work}")
+            p["@claude_bg"] = f"0 {n_work}"
+            set_state(p, "run", now)
 
 
 NOTIFY_GAP = 10      # seconds before the same pane may notify the same state again / 같은 칸이 같은 상태로 다시 알리기까지 초
