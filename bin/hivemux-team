@@ -37,10 +37,10 @@ In a project it is copied to <project>/.hivemux/, which also keeps:
   sessions.tsv        "<role> <session id>" as conversations start / 대화가 시작될 때마다
   worktrees/<role>/   a role with worktree = true works there, on branch team/<role> / worktree = true 인 역할의 작업 위치
 A role's Claude is `claude -n <project>-<role> --model … --effort … --append-system-prompt-file run/<role>.md`
-(readonly: without Edit and Write), in a window named after the role. Its conversation is named <project>-<role>,
+(readonly: writes only its notes, questions and reports), in a window named after the role. Its conversation is named <project>-<role>,
 the name the others message it by. After a reboot or an update hivemux resumes it with the same flags
 (resume-args), since `claude --resume` alone would drop them.
-역할의 Claude 는 역할 이름의 창에서 위 명령으로 돈다 (readonly: Edit, Write 없이). 대화 이름 <프로젝트>-<역할> 이
+역할의 Claude 는 역할 이름의 창에서 위 명령으로 돈다 (readonly: 노트, 질문, 보고서만 쓴다). 대화 이름 <프로젝트>-<역할> 이
 다른 역할이 메시지를 보내는 이름이다. 재부팅이나 업데이트 뒤에도 같은 옵션으로 재개한다 (resume-args).
 `claude --resume` 만으로는 옵션이 빠지기 때문이다.
 """
@@ -53,7 +53,6 @@ MINE = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.
 SHELLS = re.compile(r"^-?(zsh|bash|fish|sh|dash|tcsh|ksh|login)$")
 MODELS = ("opus", "sonnet", "haiku")
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
-READONLY_TOOLS = "Edit,Write,NotebookEdit"
 
 
 def tmux(*a):
@@ -360,7 +359,8 @@ def build_prompt(session, folder, team, role):
         lines.append(f"사용자에게 물을 것은 {os.path.join(team_dir(folder), 'questions.md')} 에 '## {label(role)} · <시각> (답을 기다림)' 제목 아래 번호를 붙여 적고 (원문 그대로) 답변에도 보여라. "
                      "답이 오면 그 질문 아래에 답을 적고 제목의 (답을 기다림) 을 (답변함) 으로 바꾼다. 대화가 비워져도 질문을 잃지 않게 하려는 것이다.")
         if role["readonly"]:
-            lines.append("너는 읽기 전용 역할이다. 파일을 고치지 않고, 고칠 것은 맡은 역할에게 넘긴다.")
+            lines.append(f"너는 읽기 전용 역할이다. 프로젝트 파일은 고치지 않고, 고칠 것은 맡은 역할에게 넘긴다. "
+                         f"쓸 수 있는 곳은 노트, 질문 파일, 보고서용 {work_dir(folder, role)}/ (그리고 맡는 곳) 뿐이다.")
         if role["worktree"]:
             lines.append(f"너는 자기 워크트리 {worktree_of(folder, role)} 에서 브랜치 team/{role['id']} 로 일한다.")
         lines += ["", "## 노트",
@@ -374,7 +374,8 @@ def build_prompt(session, folder, team, role):
         lines.append(f"Questions for the user go to {os.path.join(team_dir(folder), 'questions.md')} under a heading '## {label(role)} · <time> (waiting for an answer)', numbered, word for word, and in your answer too. "
                      "When the answer comes, write it under the question and change the heading's (waiting for an answer) to (answered), so a cleared conversation never loses a question.")
         if role["readonly"]:
-            lines.append("You are a read-only role: do not change files; hand what needs fixing to the role that owns it.")
+            lines.append(f"You are a read-only role: do not change the project's files; hand what needs fixing to the role that owns it. "
+                         f"You may write only your notes, the questions file and, for reports, {work_dir(folder, role)}/ (and what you own).")
         if role["worktree"]:
             lines.append(f"You work in your own worktree {worktree_of(folder, role)}, on branch team/{role['id']}.")
         lines += ["", "## Notes",
@@ -397,8 +398,10 @@ def flags(session, folder, team, role):
     if role["effort"] in EFFORTS:
         out += ["--effort", role["effort"]]
     out += ["--append-system-prompt-file", path]
-    if role["readonly"]:
-        out += ["--disallowedTools", READONLY_TOOLS]
+    # read-only is not without Edit and Write: its notes, questions and reports must be written, so where it
+    # writes is checked instead (may_write, from bin/hivemux-hook's PreToolUse)
+    # 읽기 전용이라고 Edit, Write 가 없지는 않다: 노트, 질문, 보고서는 써야 하니 대신 쓰는 곳을 본다
+    # (may_write, bin/hivemux-hook 의 PreToolUse 에서)
     return out
 
 
@@ -1088,6 +1091,36 @@ def notes_path(folder, rid):
     return os.path.join(team_dir(folder), "notes", rid + ".md")
 
 
+def work_dir(folder, role):
+    """A role's own folder for what it keeps (a read-only role's reports) / 역할이 남길 것을 두는 자기 폴더 (읽기 전용 역할의 보고서)"""
+    return os.path.join(team_dir(folder), "work", role["id"])
+
+
+def may_write(pane, path):
+    """bin/hivemux-hook, PreToolUse of a file edit in a role's window: a read-only role may write its notes,
+    the questions, its work folder and what it owns, nothing else of the project. Prints the hook's decision
+    (allow / deny with the reason) as JSON; nothing for a role that is not read-only
+    역할 창의 파일 편집 PreToolUse: 읽기 전용 역할은 노트, 질문, 자기 작업 폴더, 맡는 곳만 쓴다. 프로젝트의
+    나머지는 안 된다. 훅의 결정 (허용 / 이유와 함께 거부) 을 JSON 으로 찍는다. 읽기 전용이 아니면 아무것도 안 찍는다"""
+    found = role_of(pane)
+    if not found or not found[3]["readonly"] or not path:
+        return
+    session, folder, team, role = found
+    cwd = tmux("show", "-pqv", "-t", pane, "@claude_pwd").strip() or folder
+    real = os.path.realpath(os.path.join(cwd, os.path.expanduser(path)))
+    ok = [notes_path(folder, role["id"]), os.path.join(team_dir(folder), "questions.md")]
+    dirs = [work_dir(folder, role)] + [os.path.join(folder, o.strip()) for o in str(role.get("owns") or "").split(",") if o.strip()]
+    inside = lambda d: real == os.path.realpath(d) or real.startswith(os.path.realpath(d).rstrip("/") + "/")
+    allow = any(real == os.path.realpath(f) for f in ok) or any(inside(d) for d in dirs)
+    if allow:
+        os.makedirs(os.path.dirname(real), exist_ok=True)
+    why = tr(f"{label(role)} 은(는) 읽기 전용 역할입니다. 프로젝트 파일은 고치지 않고 맡은 역할에게 넘기십시오. 쓸 수 있는 곳: 노트, 질문 파일, {work_dir(folder, role)}/",
+             f"{label(role)} is a read-only role. Do not change the project's files; hand fixes to the role that owns them. It may write: its notes, the questions file, {work_dir(folder, role)}/")
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow" if allow else "deny",
+                                             "permissionDecisionReason": tr("역할의 노트와 보고서", "the role's notes and reports") if allow else why}},
+                     ensure_ascii=False))
+
+
 def role_of(pane):
     """(session, folder, team, role) of a role pane, else None / 역할 칸이면 (세션, 폴더, 팀, 역할)"""
     rid = tmux("show", "-pqv", "-t", pane, "@hivemux-role").strip()
@@ -1733,6 +1766,8 @@ def main(argv):
         handoff(*args)
     elif cmd == "prompted" and len(args) == 1:
         on_prompt(*args)
+    elif cmd == "may-write" and len(args) == 2:
+        may_write(*args)
     elif cmd == "rename" and args:
         rename_team(session, " ".join(args))
     elif cmd == "trust":

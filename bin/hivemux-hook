@@ -212,6 +212,16 @@ case "$event" in
       Agent|Task) agents +1; working ;;
       *) working ;;
     esac
+    # a team role writing a file: a read-only one may write only its notes, questions and reports; the decision
+    # goes back to Claude on stdout (bin/hivemux-team)
+    # 팀 역할이 파일을 씀: 읽기 전용이면 노트, 질문, 보고서만. 결정은 stdout 으로 Claude 에게 (bin/hivemux-team)
+    case "$(field tool_name)" in
+      Edit|Write|MultiEdit|NotebookEdit)
+        if [ -n "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @hivemux-role 2>/dev/null)" ]; then
+          target="$(printf '%s' "$input" | "$JQ" -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null)"
+          "$(dirname "$0")/hivemux-team" may-write "$TMUX_PANE" "$target" 2>/dev/null
+        fi ;;
+    esac
     ;;
   PermissionRequest)
     # Fires when the approval dialog opens (the Notification below comes later)
