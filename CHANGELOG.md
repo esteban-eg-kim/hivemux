@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Sidebar: one that a signal ends (TERM, HUP while its pane stays, INT) now
+  writes so to `sidebar-errors.log`; it used to go and come back with no
+  trace. A resting sidebar no longer ends on Ctrl+C
+
 - Bee office: bees with no resting spot left no longer stand on each other.
   They used to go round the courtyard (or along the lounge) by their number,
   which came back to the same place every 10 bees (14 in the classic office),

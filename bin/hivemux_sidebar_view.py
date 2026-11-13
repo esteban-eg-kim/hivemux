@@ -71,7 +71,14 @@ GRIP = f"/tmp/hivemux-grip-{os.getuid()}"     # grip is being dragged (created b
 # 트랩은 "$@" 를 넘긴다: 함수의 $1 은 따로라서 그냥 `trap wake` 는 tmux 대신 "" 를 실행했다. 깨어난 사이드바에
 # 표시가 남아 paint_resting 이 보이는 사이드바를 하나도 살아 있다고 보지 않았고, 쉬는 화면이 낡았다
 # (옮겨 간 창에서 대기 카드가 잠깐 작업 중으로 보였다)
-REST_SH = """trap '' USR1
+# $2: the log. A key (Ctrl+C) does not end it; TERM, or HUP while its pane stays (closing a window sends HUP
+# too), is written down: a sidebar that went away and came back left no trace before
+# $2: 기록 파일. 키 (Ctrl+C) 로는 끝나지 않는다. TERM, 또는 칸이 남아 있는데 온 HUP (창을 닫아도 HUP 이 온다)
+# 은 적어 둔다: 사이드바가 사라졌다 다시 생겨도 전에는 흔적이 없었다
+REST_SH = """trap '' USR1 INT QUIT
+ended() { printf '%s %s\\n  the resting sidebar ended (%s)\\n\\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$TMUX_PANE" "$3" >> "$2"; exit 1; }
+trap 'ended "$@" TERM' TERM
+trap '"$1" list-panes -t "$TMUX_PANE" >/dev/null 2>&1 && ended "$@" HUP; exit 1' HUP
 wake() { trap '' USR2; "$1" set -pu -t "$TMUX_PANE" @hivemux-rest; export HIVEMUX_SIDEBAR_RESUMED=1; exec "$0"; }
 trap 'wake "$@"' USR2
 "$1" set -p -t "$TMUX_PANE" @hivemux-rest 1
@@ -1614,7 +1621,7 @@ def main():
                 # 셸은 무시된 채로 받은 신호를 잡지 못한다 (실행 파일이 SIGUSR2 를 무시한다)
                 signal.signal(signal.SIGUSR2, signal.SIG_DFL)
                 sh = "/bin/dash" if os.path.exists("/bin/dash") else "/bin/sh"
-                os.execv(sh, [sh, "-c", REST_SH, os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-sidebar-view"), TMUX])
+                os.execv(sh, [sh, "-c", REST_SH, os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-sidebar-view"), TMUX, CRASH_LOG])
             # a steady pace: the time this frame took comes off the wait / 일정한 속도: 이번 프레임에 든 시간을 기다림에서 뺀다
             wait_s = max(.004, TICK - (time.time() - nowf)) if animating else 1.0
             if visible and board_blink:          # wake for the next blink step / 다음 깜빡임에 맞춰 깬다
@@ -1845,9 +1852,22 @@ if __name__ == "__main__":
         print(task_name(p) if len(p) == len(FIELDS) else "")
         sys.exit(0)
     STARTED = time.time()
+
+    def ended(sig, _):
+        """A signal ends the sidebar (no error, so nothing was written): note it, unless it is the HUP of a closed
+        pane / 신호로 끝남 (오류가 아니라 아무것도 남지 않았다): 적어 둔다. 닫힌 칸의 HUP 은 빼고"""
+        if sig != signal.SIGHUP or tmux("display", "-p", "-t", ME, "#{pane_id}").strip():
+            try:
+                with open(CRASH_LOG, "a") as f:
+                    f.write(time.strftime("%Y-%m-%d %H:%M:%S ") + ME + f"\n  ended by {signal.Signals(sig).name}\n\n")
+            except OSError:
+                pass
+        raise SystemExit(0)
+    signal.signal(signal.SIGTERM, ended)
+    signal.signal(signal.SIGHUP, ended)
     try:
         main()
     except KeyboardInterrupt:
-        pass
+        ended(signal.SIGINT, None)
     except Exception:
         restart()
