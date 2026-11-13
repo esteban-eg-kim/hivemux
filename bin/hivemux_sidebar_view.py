@@ -970,6 +970,8 @@ DIALOG_RE = re.compile(r"(?i)\besc to cancel\b")   # footer of Claude's approval
 BUSY_RE = re.compile(r"(?i)\besc to interrupt\b")  # footer while Claude is working / Claude 가 작업 중일 때의 아랫줄
 # Claude's progress line ("✻ Finagling… (10s · ↓ 89 tokens)"): kept when a narrow pane cuts the footer
 # Claude 의 진행 줄 ("✻ Finagling… (10s · ↓ 89 tokens)"): 좁은 칸에서 아랫줄이 잘려도 남는다
+# Claude's footer while background shells run ("· 1 shell · ↓ to manage") / 배경 셸이 도는 동안 Claude 아랫줄
+BGSHELL_RE = re.compile(r"(?i)\b\d+ (?:background )?(?:shells?|bash)\b")
 SPIN_RE = re.compile(r"(?i)^\s*[^\s\w❯⏺⎿│>]\s+\w[^…]*…\s*\((\d|esc\b)")
 
 
@@ -1046,8 +1048,11 @@ def clear_interrupted(items, runs, now):
     for pid in [k for k in runs if not any(p["pane_id"] == k and p["@claude_state"] == "run" for p in items)]:
         del runs[pid]
     for p in items:
-        if p["@claude_state"] != "run" or p.get("@claude_bg"):
+        if p["@claude_state"] == "run" and p.get("@claude_bg"):
+            clear_bg_shells(p, runs, now)
             continue                    # background agents at work while Claude itself waits / Claude 는 쉬어도 배경 에이전트가 일한다
+        if p["@claude_state"] != "run":
+            continue
         pid, at = p["pane_id"], p["@claude_state_at"]
         if tmux("display", "-p", "-t", pid, "#{pane_in_mode}").strip() == "1":
             continue                    # scrolled back: the screen is not Claude's now / 스크롤 중: 지금 화면이 아니다
@@ -1063,6 +1068,34 @@ def clear_interrupted(items, runs, now):
             continue
         del runs[pid]
         set_state(p, "idle", now)
+
+
+def clear_bg_shells(p, runs, now):
+    """The turn ended with a background shell running (a server, a build), so the pane says "waiting on 1
+    shell". When that shell ends because someone stopped it, no hook comes and the line stayed for good.
+    While shells run Claude's footer counts them ("1 shell"); when it is gone on three polls in a row, the
+    wait is over: done, as if the last Stop had found no shell. Background agents keep their own count.
+    턴이 배경 셸 (서버, 빌드) 이 도는 채로 끝나 "셸 1개 기다리는 중" 이 된다. 누가 그 셸을 끄면 훅이 오지 않아
+    그 줄이 계속 남았다. 셸이 도는 동안 Claude 아랫줄에 수가 있다 ("1 shell"). 세 번 연속 없으면 기다림은
+    끝났다: 마지막 Stop 이 셸을 못 본 것처럼 끝남으로. 배경 에이전트는 따로 센다."""
+    agents, shells = ([int(x) for x in p["@claude_bg"].split() if x.isdigit()] + [0, 0])[:2]
+    pid, key = p["pane_id"], "bg:" + p["pane_id"]
+    if agents or not shells:
+        runs.pop(key, None)
+        return
+    if tmux("display", "-p", "-t", pid, "#{pane_in_mode}").strip() == "1":
+        return                          # scrolled back / 스크롤 중
+    tail = [ln for ln in tmux("capture-pane", "-p", "-t", pid).splitlines() if ln.strip()][-6:]
+    if not tail or any(BGSHELL_RE.search(ln) for ln in tail):
+        runs[key] = 0
+        return
+    runs[key] = runs.get(key, 0) + 1
+    if runs[key] < 3:
+        return
+    del runs[key]
+    tmux("set", "-pu", "-t", pid, "@claude_bg")
+    p["@claude_bg"] = ""
+    set_state(p, "done", now)
 
 
 NOTIFY_GAP = 10      # seconds before the same pane may notify the same state again / 같은 칸이 같은 상태로 다시 알리기까지 초

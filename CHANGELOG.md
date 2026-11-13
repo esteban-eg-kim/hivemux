@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Sidebar: "waiting on 1 shell" no longer stays for good when that
+  background shell (a server, say) is stopped by hand; no hook comes then, so
+  the sidebar now sees the shell count gone from Claude's footer and marks it
+  done
 - Bee office in 3D: the floor, walls, furniture, bees, yard, village and roof
   are now solid (three.js, bundled), with light and shadows that follow the
   time of day; names, tags, bubbles and team boards stay on top as before.
