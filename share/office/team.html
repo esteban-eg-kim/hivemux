@@ -113,6 +113,32 @@ input.text { min-height: 44px; border: 1px solid var(--line); border-radius: 9px
 textarea.prompt, pre.prompt { width: 100%; min-height: 260px; margin: 0; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; font: 13px/1.75 var(--f-mono);
   background: var(--soft); color: var(--fg); resize: vertical; white-space: pre-wrap; }
 pre.prompt { background: var(--code-bg); color: var(--code-fg); }
+/* the team assistant: a panel on the right, out of the page that redraws / 팀 도우미: 오른쪽 패널, 다시 그리는 본문 밖 */
+.aifab { position: fixed; right: 20px; bottom: 20px; z-index: 30; display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 18px;
+  border-radius: 999px; border: 0; background: #23201a; color: #fff; font: 700 14px var(--f-body); box-shadow: 0 8px 24px rgba(0,0,0,.18); cursor: pointer; }
+.aifab svg { color: #f2b632; }
+.aipanel { position: fixed; right: 16px; top: 84px; bottom: 16px; width: min(460px, calc(100vw - 32px)); z-index: 31; display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 16px 48px rgba(0,0,0,.18); overflow: hidden; }
+.aipanel header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line2); }
+.aipanel header b { font-size: 15px; }
+.ailog { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.aimsg { max-width: 92%; padding: 10px 13px; border-radius: 12px; font-size: 14px; line-height: 1.65; white-space: normal; overflow-wrap: anywhere; }
+.aimsg.user { align-self: flex-end; background: #23201a; color: #fff; border-bottom-right-radius: 4px; }
+.aimsg.bot { align-self: flex-start; background: var(--soft, #f3f5f8); border: 1px solid var(--line2); border-bottom-left-radius: 4px; }
+.aimsg code { font: 12.5px var(--f-mono); background: rgba(0,0,0,.06); padding: 1px 4px; border-radius: 4px; }
+.aimsg ul { margin: 4px 0; padding-left: 18px; }
+.aiplan { align-self: stretch; border: 1px solid var(--tip-line); background: var(--tip-bg); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.aiplan .ch { display: flex; gap: 8px; align-items: baseline; }
+.aiplan .ch i { font-style: normal; font-weight: 700; font-size: 11px; padding: 1px 6px; border-radius: 6px; flex-shrink: 0; }
+.aiplan .add i { background: #dcf2e7; color: #146f48; } .aiplan .del i { background: #fbe4dc; color: #a63f26; } .aiplan .mod i { background: #e8eef6; color: #34507a; }
+.aichips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 10px; }
+.aichips button { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 6px 11px; font: 12.5px var(--f-body); color: var(--fg); cursor: pointer; }
+.aiform { display: flex; gap: 8px; padding: 12px 16px 16px; border-top: 1px solid var(--line2); }
+.aiform textarea { flex: 1; resize: none; min-height: 44px; max-height: 140px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: 14px var(--f-body); background: var(--panel); color: var(--fg); }
+.aidots { display: inline-flex; gap: 4px; } .aidots i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: aidot 1s infinite ease-in-out; }
+.aidots i:nth-child(2) { animation-delay: .15s; } .aidots i:nth-child(3) { animation-delay: .3s; }
+@keyframes aidot { 50% { opacity: .25; transform: translateY(-2px); } }
+@media print { .aifab, .aipanel { display: none; } }
 .note { font-size: 13px; color: var(--tip-fg); background: var(--tip-bg); border: 1px solid var(--tip-line); border-radius: 10px; padding: 8px 12px; }
 .ctxbar { height: 8px; border-radius: 5px; background: var(--soft2); position: relative; overflow: hidden; }
 .ctxbar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: #4caf7d; }
@@ -170,6 +196,13 @@ input.teamname:focus { border-color: var(--fg); background: var(--panel); outlin
 <div class="modal" id="wizard" hidden><div class="sheet" id="wiz" role="dialog" aria-modal="true"></div></div>
 <div class="modal" id="ask" hidden><div class="sheet" id="askbox" role="dialog" aria-modal="true" style="width: min(480px, 100%)"></div></div>
 <div id="toast" role="status" hidden></div>
+<button class="aifab" id="aifab" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg><span id="aifabt"></span></button>
+<aside class="aipanel" id="aipanel" hidden aria-labelledby="aititle">
+  <header><b id="aititle"></b><button class="btn small" id="aiclose" type="button"></button></header>
+  <div class="ailog" id="ailog" aria-live="polite"></div>
+  <div class="aichips" id="aichips"></div>
+  <form class="aiform" id="aiform"><textarea id="aiinput" rows="1"></textarea><button class="btn primary" id="aisend" type="submit"></button></form>
+</aside>
 <script>
 'use strict';
 const $ = s => document.querySelector(s);
@@ -248,9 +281,79 @@ function render() {
   sel.innerHTML = D.projects.map(p => `<option value="${esc(p.name)}"${p.name === S.project ? ' selected' : ''}>${esc(p.name)}${p.team ? ' · ' + tr('팀', 'team') : ''}</option>`).join('');
   const m = $('#main');
   if (!D.projects.length) { m.innerHTML = `<div class="card"><h1>${tr('열린 프로젝트가 없습니다', 'No project is open.')}</h1><p class="sub">${tr('hm 으로 프로젝트를 연 뒤 다시 시도하십시오.', 'Open a project with hm, then try again.')}</p></div>`; return; }
+  aiDraw();
   if (!team()) return renderTemplates(m);
   renderTeam(m);
 }
+// ── the team assistant: questions about the team, answered from the project, with changes to apply ─────────
+// ── 팀 도우미: 프로젝트를 근거로 팀에 관한 질문에 답하고, 적용할 수 있는 변경을 낸다 ─────────────────────────────
+const AI = { open: false, msgs: [], busy: false, project: '' };
+function aiText(t) {   // a little Markdown: bold, code, bullets, paragraphs / 간단한 Markdown: 굵게, 코드, 목록, 문단
+  const inline = x => esc(x).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>');
+  const out = []; let list = [];
+  const flush = () => { if (list.length) { out.push(`<ul>${list.map(x => `<li>${inline(x)}</li>`).join('')}</ul>`); list = []; } };
+  for (const line of String(t).split('\n')) {
+    const m = /^\s*[-*]\s+(.*)$/.exec(line);
+    if (m) { list.push(m[1]); continue; }
+    flush(); if (line.trim()) out.push(`<div>${inline(line)}</div>`); else if (out.length) out.push('<div style="height:6px"></div>');
+  }
+  flush(); return out.join('');
+}
+function aiDiff(plan) {   // what the proposed team changes / 제안된 팀이 바꾸는 것
+  const now = team() ? team().roles : [], rows = [], ids = new Set(plan.roles.map(r => r.id));
+  for (const r of plan.roles) {
+    const o = now.find(x => x.id === r.id);
+    const flags = x => [x.model, x.effort, x.lead ? tr('리드', 'lead') : '', x.readonly ? tr('읽기 전용', 'read-only') : '', x.worktree ? tr('워크트리', 'worktree') : ''].filter(Boolean).join(' · ');
+    if (!o) rows.push(['add', tr('추가', 'Add'), `${esc(r.name)} — ${flags(r)}${r.like ? tr(` (지시문: ${esc((now.find(x => x.id === r.like) || { name: r.like }).name)} 기반)`, ` (prompt based on ${esc((now.find(x => x.id === r.like) || { name: r.like }).name)})`) : ''}`]);
+    else if (flags(o) !== flags(r) || o.name !== r.name) rows.push(['mod', tr('변경', 'Change'), `${esc(o.name)}${o.name !== r.name ? ' → ' + esc(r.name) : ''}: ${flags(o)} → ${flags(r)}`]);
+  }
+  for (const o of now) if (!ids.has(o.id)) rows.push(['del', tr('삭제', 'Remove'), esc(o.name)]);
+  if (plan.diet_at && team() && team().diet && team().diet.at !== plan.diet_at) rows.push(['mod', tr('변경', 'Change'), tr(`다이어트 기준: ${team().diet.at}K → ${plan.diet_at}K`, `Diet threshold: ${team().diet.at}K → ${plan.diet_at}K`)]);
+  if (!team()) rows.unshift(['add', tr('템플릿', 'Template'), esc(plan.template === 'empty' ? tr('빈 팀', 'Empty team') : ((D.templates || []).find(t => t.id === plan.template) || { name: plan.template }).name)]);
+  return rows;
+}
+function aiDraw() {
+  $('#aifabt').textContent = tr('AI 와 팀 구성', 'Build the team with AI');
+  $('#aititle').textContent = tr('팀 구성 도우미', 'Team assistant');
+  $('#aiclose').textContent = tr('닫기', 'Close');
+  $('#aisend').textContent = tr('보내기', 'Send');
+  $('#aiinput').placeholder = tr('예: 이 프로젝트에 개발은 몇 명이 필요합니까?', 'e.g. How many developers does this project need?');
+  $('#aipanel').hidden = !AI.open; $('#aifab').hidden = AI.open || !D || !D.projects.length;
+  const intro = `<div class="aimsg bot">${tr('프로젝트의 README 와 파일 구성, 현재 팀을 바탕으로 팀 구성에 관한 질문에 답합니다. 구성 변경을 제안하면 바뀌는 내용을 확인한 뒤 바로 적용할 수 있습니다.', "Questions about the team are answered from the project's README and files and the team as it stands. A proposed change can be reviewed and applied right away.")}</div>`;
+  $('#ailog').innerHTML = intro + AI.msgs.map((m, i) => m.role === 'user' ? `<div class="aimsg user">${esc(m.text)}</div>`
+    : `<div class="aimsg bot">${aiText(m.text)}</div>${m.plan ? `<div class="aiplan"><b>${tr('제안된 구성', 'Proposed team')}</b>
+      ${aiDiff(m.plan).map(([k, l, t]) => `<div class="ch ${k}"><i>${l}</i><span>${t}</span></div>`).join('') || `<span class="sub">${tr('현재 구성과 같습니다', 'Same as the current team')}</span>`}
+      <button class="btn primary small" data-aiapply="${i}" ${m.applied ? 'disabled' : ''}>${m.applied ? tr('적용했습니다', 'Applied') : tr('이 구성 적용', 'Apply this team')}</button></div>` : ''}`).join('')
+    + (AI.busy ? `<div class="aimsg bot"><span class="aidots"><i></i><i></i><i></i></span> <span class="sub">${tr('검토 중입니다 (15~40초)', 'Reviewing (15 to 40 seconds)')}</span></div>` : '');
+  const chips = team() ? [tr('현재 구성에서 개선할 점이 있습니까?', 'Is there anything to improve in this team?'), tr('개발은 몇 명이 필요합니까?', 'How many developers are needed?'), tr('역할별로 어떤 모델이 좋고, 이유는 무엇입니까?', 'Which model suits each role, and why?'), tr('사용량을 줄이는 구성은 무엇입니까?', 'How can the team use less?')]
+    : [tr('이 프로젝트에 맞는 팀을 제안해 주십시오', 'Please propose a team for this project'), tr('개발은 몇 명이 필요합니까?', 'How many developers are needed?'), tr('사용량을 아끼는 구성은 무엇입니까?', 'What team keeps usage low?')];
+  $('#aichips').innerHTML = AI.msgs.length > 1 ? '' : chips.map(c => `<button type="button">${esc(c)}</button>`).join('');
+  $('#aichips').querySelectorAll('button').forEach(b => { b.onclick = () => aiAsk(b.textContent); });
+  $('#ailog').querySelectorAll('[data-aiapply]').forEach(b => { b.onclick = () => aiApply(+b.dataset.aiapply); });
+  $('#aisend').disabled = AI.busy;
+  const log = $('#ailog'); log.scrollTop = log.scrollHeight;
+}
+async function aiAsk(text) {
+  text = String(text || '').trim(); if (!text || AI.busy) return;
+  if (AI.project !== S.project) { AI.project = S.project; AI.msgs = []; }
+  AI.msgs.push({ role: 'user', text }); AI.busy = true; $('#aiinput').value = ''; aiDraw();
+  const r = await post('/team/assist', { project: S.project, messages: AI.msgs.map(m => ({ role: m.role, text: m.text })) });
+  AI.busy = false;
+  AI.msgs.push(r.ok ? { role: 'bot', text: r.text || '', plan: r.plan || null } : { role: 'bot', text: r.say || tr('도우미가 답하지 못했습니다', 'The assistant could not answer.') });
+  aiDraw();
+}
+async function aiApply(i) {
+  const m = AI.msgs[i]; if (!m || !m.plan || m.applied) return;
+  const r = await post('/team/assist/apply', { project: S.project, plan: m.plan });
+  if (!r.ok) return toast(r.say || tr('적용하지 못했습니다', 'Could not apply it.'));
+  m.applied = true; toast(tr('구성을 적용했습니다. 실행 중인 역할은 다시 시작할 때 반영됩니다', 'Applied. Running roles pick it up when they restart.'));
+  S.sig = ''; aiDraw(); load();
+}
+$('#aifab').onclick = () => { AI.open = true; if (AI.project !== S.project) { AI.project = S.project; AI.msgs = []; } aiDraw(); $('#aiinput').focus(); };
+$('#aiclose').onclick = () => { AI.open = false; aiDraw(); };
+$('#aiform').onsubmit = e => { e.preventDefault(); aiAsk($('#aiinput').value); };
+$('#aiinput').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); aiAsk($('#aiinput').value); } };
+$('#aiinput').oninput = e => { e.target.style.height = 'auto'; e.target.style.height = Math.min(140, e.target.scrollHeight) + 'px'; };
 $('#project').addEventListener('change', e => { S.project = e.target.value; S.sel = ''; S.sig = ''; history.replaceState(null, '', '/team?project=' + encodeURIComponent(S.project)); load(); });
 
 // ── no team yet: templates and the wizard / 팀이 없을 때: 템플릿과 위저드 ─────────────────────────────
@@ -265,7 +368,7 @@ function renderTemplates(m) {
     </article>`).join('');
   m.innerHTML = `
     <div><h1>${esc(S.project)} ${tr('에 팀을 구성합니다', '— create a team')}</h1>
-      <p class="sub" style="margin:4px 0 0">${tr('템플릿은 이 프로젝트의 .hivemux/ 로 복사돼요. 고쳐도 원래 템플릿은 그대로예요.', "The template is copied into this project's .hivemux/. Editing it leaves the template as it was.")}</p></div>
+      <p class="sub" style="margin:4px 0 0">${tr('템플릿은 이 프로젝트의 .hivemux/ 로 복사됩니다. 수정해도 원래 템플릿은 그대로 유지됩니다.', "The template is copied into this project's .hivemux/. Editing it leaves the template as it was.")}</p></div>
     <button class="wizband" id="wizgo"><span class="icon" style="width:44px;height:44px;background:#f2b632;color:#23201a" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></span>
       <span><b>${tr('적합한 팀 구성이 확실하지 않은 경우', 'Not sure which team fits?')}</b><br>${tr('세 가지 질문에 답하시면 역할, 모델, 노력 수준을 근거와 함께 추천합니다', 'Answer three questions to receive recommended roles, models and effort levels, with reasons.')}</span>
       <span class="go">${tr('추천 받기', 'Get a recommendation')}</span></button>
@@ -301,7 +404,7 @@ function plan() {
   if (!content && !w.have.design) add('designer', P.other, tr('디자인이 없으므로 화면 흐름과 상태(빈 화면, 오류)를 먼저 정의합니다.', 'With no design yet, it defines screen flows and states (empty, error) first.'));
   if (!content) add('dev', P.dev, w.have.code ? tr('기존 코드가 있으므로 구조를 먼저 파악하고 기존 방식을 따릅니다. 자체 워크트리에서 기능 단위로 커밋합니다.', 'Existing code is present: it studies the structure first, follows it, and commits per feature in its own worktree.')
     : tr('스펙의 완료 기준을 먼저 테스트로 작성한 뒤 구현합니다. 자체 워크트리에서 작업합니다.', 'Writes the acceptance criteria as tests first, then implements, in its own worktree.'), { worktree: true });
-  if (!content) add('qa', P.other, tr('만든 역할이 아닌 눈으로 검사해야 객관적이에요. 그래서 읽기 전용이고, 고칠 것은 개발에게 넘겨요.', "Checking with eyes other than the builder's keeps it honest, so it is read-only and hands fixes to dev."), { readonly: true });
+  if (!content) add('qa', P.other, tr('만든 역할이 아닌 다른 역할이 검사해야 객관적입니다. 따라서 읽기 전용이며, 수정 사항은 개발에게 전달합니다.', "A role other than the builder checks the work for objectivity, so it is read-only and passes fixes to dev."), { readonly: true });
   if (content) add('writer', P.other, tr('조사와 기획 내용을 바탕으로 글을 작성합니다.', 'Writes based on the research and the plan.'), { name: tr('작성', 'Writing'), prompt: tr('너는 이 팀의 작성자다. 조사와 기획을 받아 글을 쓴다.\n\n- 초안은 docs/drafts/ 에 쓴다.\n- 사실은 조사 파일의 출처로 확인한다.\n- 끝나면 기획에게 파일 경로를 넘긴다.\n', "You are the team's writer. You write from the research and the plan.\n\n- Drafts go to docs/drafts/.\n- Check facts against the research's sources.\n- When done, send planning the file path.\n") });
   if (w.kind !== 'app') add('marketer', P.light, tr('출시 문구, SEO, 공지를 담당합니다. 할 일이 없을 때는 대기하므로 사용량이 적습니다.', 'Handles launch copy, SEO and announcements; it stays idle, at little cost, when there is nothing to do.'));
   return { roles: t, diet: P.diet };

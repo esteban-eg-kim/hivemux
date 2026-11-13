@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Team assistant: "Build the team with AI" on the team page opens a chat
+  that answers questions about the team (how many developers, which model and
+  why, how to use less) from the project's README and files and the team as
+  it stands. When it proposes a change, the panel lists what would be added,
+  changed or removed and applies it in one click (on a template when there is
+  no team yet; a new role can take after an existing role's prompt)
 - Teams: a reply sent to a Claude by its address (uds:/…/<pid>.sock) now
   reads as its role even after that Claude is gone: each role's Claude is
   noted when it starts (.hivemux/pids.tsv), and old logs read through that

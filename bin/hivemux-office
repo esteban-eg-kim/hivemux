@@ -681,6 +681,11 @@ def team_post(action, req):
         ok, msg = team_call(teams.trust, project)
     elif action == "diet":
         ok, msg = team_call(teams.diet_now, project, str(req.get("id", "")))
+    elif action == "assist":
+        ok, msg = team_call(teams.assist, project, [m for m in (req.get("messages") or []) if isinstance(m, dict)][-12:])
+        return {"ok": ok, "say": msg if isinstance(msg, str) else "", **(msg if ok and isinstance(msg, dict) else {})}
+    elif action == "assist/apply":
+        ok, msg = team_call(teams.assist_apply, project, req.get("plan") or {})
     elif action == "question/done":
         ok, msg = team_call(teams.question_done, project, int(req.get("index", -1)))
     elif action == "save":
