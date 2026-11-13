@@ -1,0 +1,517 @@
+#!/usr/bin/env python3
+"""Claude accounts: log in to more than one and switch between them, for all projects or for one project.
+Claude 계정: 여러 계정에 로그인해 두고 바꿔 쓴다. 모든 프로젝트에, 또는 프로젝트 하나에.
+
+  hivemux-account list [--json]                  the accounts and who uses which / 계정과 쓰는 곳
+  hivemux-account add <name>                     log in to another account (opens the browser) / 다른 계정에 로그인 (브라우저)
+  hivemux-account use <name|default>             the account for all projects / 모든 프로젝트의 계정
+  hivemux-account use <name|default|all> -s <project>   this project's own account; all = as for all projects
+                                                 이 프로젝트만의 계정. all = 모든 프로젝트 설정을 따른다
+  hivemux-account remove <name>                  log out and forget it / 로그아웃하고 지운다
+  hivemux-account current [-s <project>]         the account a project uses / 프로젝트가 쓰는 계정
+  hivemux-account env                            (tmux start) set tmux's environment again / (tmux 시작) tmux 환경을 다시 맞춘다
+  hivemux-account --popup <client> [-s <project>]  the picker in a popup (sidebar menu) / 고르는 팝업 (사이드바 메뉴)
+
+"default" is the login in ~/.claude. Another account is its own Claude config dir, $XDG_DATA_HOME/hivemux/accounts/<name>,
+used through CLAUDE_CONFIG_DIR; it has its own login and links the rest of ~/.claude (settings, conversations,
+skills, plugins, history), so a conversation goes on under any account and artifacts are not involved.
+The choice is in $XDG_DATA_HOME/hivemux/account (all projects) and account-projects (<project>\\t<name>), read by
+bin/hivemux-claude each time Claude starts. Switching restarts the Claudes now on another account in the same
+conversation (bin/hivemux-claude-update watch), once they are not working or waiting for an answer.
+"default" 는 ~/.claude 의 로그인이다. 다른 계정은 자기 Claude 설정 폴더 $XDG_DATA_HOME/hivemux/accounts/<이름> 이고,
+CLAUDE_CONFIG_DIR 로 쓴다. 로그인만 따로이고 나머지(설정, 대화, 스킬, 플러그인, 기록)는 ~/.claude 를 링크해서, 대화는
+어느 계정으로든 이어진다. 고른 것은 $XDG_DATA_HOME/hivemux/account (모든 프로젝트) 와 account-projects
+(<프로젝트>\\t<이름>) 에 있고, Claude 가 시작할 때마다 bin/hivemux-claude 가 읽는다. 바꾸면 다른 계정으로 도는 Claude 를
+같은 대화로 다시 시작한다 (bin/hivemux-claude-update watch). 일하거나 답을 기다리는 중이면 끝난 뒤에.
+"""
+import json, os, re, shlex, shutil, subprocess, sys, termios, time, tty, unicodedata
+
+HERE = os.path.dirname(os.path.realpath(__file__))
+os.environ["PATH"] = os.environ.get("PATH", "") + ":/opt/homebrew/bin:/usr/local/bin:" + os.path.expanduser("~/.local/bin")
+TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
+DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux")
+ACCOUNTS = os.path.join(DATA, "accounts")
+GLOBAL = os.path.join(DATA, "account")
+PROJECTS = os.path.join(DATA, "account-projects")
+HOME_DIR = os.path.expanduser("~/.claude")
+HOME_JSON = os.path.expanduser("~/.claude.json")
+NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$")
+# ~/.claude entries that belong to one login or one running Claude; the rest are linked
+# ~/.claude 에서 로그인 하나나 실행 중인 Claude 하나의 것. 나머지는 링크한다
+PRIVATE = re.compile(r"^(\.credentials\.json|\.DS_Store|\.last-cleanup|sessions|session-env|daemon.*|jobs|shell-snapshots"
+                     r"|cache|backups|channels|statsig|telemetry|mcp-needs-auth-cache\.json|ide)$")
+# ~/.claude.json keys that belong to the login or are caches of it; the rest (trusted folders, MCP servers,
+# onboarding) is copied so the new account does not ask everything again
+# ~/.claude.json 에서 로그인의 것이거나 그 캐시인 키. 나머지(신뢰한 폴더, MCP 서버, 첫 안내)는 복사해서 새 계정이 다시 묻지 않게
+LOGIN_KEYS = re.compile(r"^(oauthAccount|userID|groveChoiceSeenAt|summonSidKey|claudeAiMcpEverConnected|s1mAccessCache)$"
+                        r"|[Cc]ache|^cached|^passes|^metricsStatus|^remoteControl|^replBridge|^apiCreditLink")
+
+
+def tmux(*a):
+    return subprocess.run([TMUX, *a], capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout
+
+
+def tr(ko, en):
+    v = os.environ.get("HIVEMUX_LANG") or tmux("show", "-gqv", "@hivemux-lang").strip()
+    return ko if (v or os.environ.get("LANG", "")).startswith("ko") else en
+
+
+def config_dir(name):
+    return os.path.join(ACCOUNTS, name)
+
+
+def names():
+    """The accounts besides default, in name order / default 말고 계정들, 이름순"""
+    try:
+        return sorted(n for n in os.listdir(ACCOUNTS) if NAME_RE.match(n) and os.path.isdir(config_dir(n)))
+    except OSError:
+        return []
+
+
+def read_json(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def write_atomic(path, text):
+    tmp = f"{path}.{os.getpid()}.tmp"
+    with open(tmp, "w") as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+
+def who(name):
+    """{email, plan} of the account's login ({} when not logged in) / 그 계정 로그인의 이메일, 요금제 (로그인 전이면 {})"""
+    acc = read_json(HOME_JSON if name == "default" else os.path.join(config_dir(name), ".claude.json")).get("oauthAccount") or {}
+    return {"email": acc.get("emailAddress", ""), "plan": acc.get("planDisplayName") or acc.get("billingType") or ""} if acc else {}
+
+
+def chosen():
+    """(the account for all projects, {project: account}) / (모든 프로젝트의 계정, {프로젝트: 계정})"""
+    try:
+        g = open(GLOBAL).read().strip()
+    except OSError:
+        g = ""
+    known = {"default", *names()}
+    proj = {}
+    try:
+        for ln in open(PROJECTS):
+            s, _, n = ln.rstrip("\n").partition("\t")
+            if s and n in known:
+                proj[s] = n
+    except OSError:
+        pass
+    return (g if g in known else "default"), proj
+
+
+def save(g, proj):
+    os.makedirs(DATA, exist_ok=True)
+    write_atomic(GLOBAL, g + "\n")
+    write_atomic(PROJECTS, "".join(f"{s}\t{n}\n" for s, n in sorted(proj.items())))
+
+
+def resolve(session):
+    g, proj = chosen()
+    return proj.get(session, g)
+
+
+# ── an account's config dir / 계정의 설정 폴더 ──
+
+def link_shared(d):
+    """Link what is not the login's from ~/.claude, also entries that appeared there since
+    ~/.claude 에서 로그인의 것이 아닌 것을 링크한다. 그 뒤에 생긴 것도"""
+    try:
+        entries = os.listdir(HOME_DIR)
+    except OSError:
+        return
+    for e in entries:
+        dst = os.path.join(d, e)
+        if PRIVATE.match(e) or os.path.lexists(dst):
+            continue
+        os.symlink(os.path.join(HOME_DIR, e), dst)
+
+
+def sync_config(d):
+    """Copy the non-login keys of ~/.claude.json the account lacks, and folders trusted since
+    ~/.claude.json 에서 로그인 아닌 키 중 계정에 없는 것과, 그 뒤에 신뢰한 폴더를 복사한다"""
+    src = read_json(HOME_JSON)
+    if not src:
+        return
+    path = os.path.join(d, ".claude.json")
+    cur = read_json(path)
+    changed = not os.path.exists(path)
+    for k, v in src.items():
+        if LOGIN_KEYS.search(k):
+            continue
+        if k not in cur:
+            cur[k], changed = v, True
+        elif k == "projects" and isinstance(v, dict) and isinstance(cur[k], dict):
+            for p, pv in v.items():
+                if p not in cur[k]:
+                    cur[k][p], changed = pv, True
+    if changed:
+        write_atomic(path, json.dumps(cur, indent=2, ensure_ascii=False))
+
+
+def prepare(name):
+    d = config_dir(name)
+    os.makedirs(d, exist_ok=True)
+    link_shared(d)
+    sync_config(d)
+    return d
+
+
+def login(name):
+    """Log the account in, in this terminal (the browser opens) / 이 터미널에서 계정에 로그인 (브라우저가 열린다)"""
+    d = prepare(name)
+    env = dict(os.environ, CLAUDE_CONFIG_DIR=d)
+    print(tr(f"'{name}' 계정으로 로그인합니다. 브라우저에서 로그인을 마쳐 주십시오.",
+             f"Logging in as '{name}'. Please finish logging in in the browser."), flush=True)
+    subprocess.run(["claude", "auth", "login"], env=env)
+    return bool(who(name))
+
+
+# ── tmux and running Claudes / tmux 와 실행 중인 Claude ──
+
+def env():
+    """Set tmux's environment from the choice: new windows start Claude on their project's account, and the resume
+    paths go through bin/hivemux-claude. The status line shows the account when it is not default.
+    고른 것대로 tmux 환경을 맞춘다: 새 창은 그 프로젝트의 계정으로 Claude 를 시작하고, 재개하는 곳은
+    bin/hivemux-claude 를 거친다. 기본 계정이 아니면 상태줄에 계정을 보인다."""
+    g, proj = chosen()
+    if names():
+        tmux("set-environment", "-g", "HIVEMUX_CLAUDE", os.path.join(HERE, "hivemux-claude"))
+    else:
+        tmux("set-environment", "-gu", "HIVEMUX_CLAUDE")
+    if g == "default":
+        tmux("set-environment", "-gu", "CLAUDE_CONFIG_DIR")
+        tmux("set", "-gu", "@hivemux-account")
+    else:
+        tmux("set-environment", "-g", "CLAUDE_CONFIG_DIR", config_dir(g))
+        tmux("set", "-g", "@hivemux-account", g)
+    for s in tmux("list-sessions", "-F", "#{session_name}").splitlines():
+        n = proj.get(s)
+        if n is None:
+            tmux("set-environment", "-u", "-t", f"={s}", "CLAUDE_CONFIG_DIR")
+            tmux("set", "-u", "-t", f"={s}:", "@hivemux-account")
+        else:
+            if n == "default":      # removed, so it is not taken from the global one / 지워 둔다. 전역 것을 받지 않게
+                tmux("set-environment", "-r", "-t", f"={s}", "CLAUDE_CONFIG_DIR")
+            else:
+                tmux("set-environment", "-t", f"={s}", "CLAUDE_CONFIG_DIR", config_dir(n))
+            tmux("set", "-t", f"={s}:", "@hivemux-account", "" if n == "default" else n)
+    for c in tmux("list-clients", "-F", "#{client_name}").splitlines():
+        tmux("refresh-client", "-t", c, "-S")
+
+
+def claude_pid(shell_pid):
+    """The Claude under a pane's shell: its child, or a grandchild (a shell the profile starts again)
+    칸 셸 아래의 Claude: 자식, 또는 손자 (프로필이 셸을 한 번 더 띄운 경우)"""
+    kids = {}
+    for ln in subprocess.run(["ps", "-ax", "-o", "pid=,ppid=,comm="], capture_output=True, text=True).stdout.splitlines():
+        p = ln.split(None, 2)
+        if len(p) == 3:
+            kids.setdefault(p[1], []).append((p[0], p[2]))
+    level = [shell_pid]
+    for _ in range(2):
+        level_next = []
+        for pp in level:
+            for pid, comm in kids.get(pp, []):
+                if re.search(r"(^|/)(claude|node)$", comm):
+                    return pid
+                level_next.append(pid)
+        level = level_next
+    return None
+
+
+def running_dir(pid):
+    """The CLAUDE_CONFIG_DIR a process runs with ("" = ~/.claude) / 프로세스의 CLAUDE_CONFIG_DIR ("" = ~/.claude)"""
+    try:
+        with open(f"/proc/{pid}/environ", "rb") as f:
+            for kv in f.read().split(b"\0"):
+                if kv.startswith(b"CLAUDE_CONFIG_DIR="):
+                    return kv.split(b"=", 1)[1].decode()
+            return ""
+    except OSError:
+        pass
+    out = subprocess.run(["ps", "-E", "-ww", "-o", "command=", "-p", pid], capture_output=True, text=True).stdout
+    m = re.search(r"(?:^|\s)CLAUDE_CONFIG_DIR=(\S+)", out)
+    return m.group(1) if m else ""
+
+
+def restart():
+    """Mark the Claudes on another account than their project's now and let the watcher restart them, even on a
+    screen (you just chose this), also those stopped by a rate limit; returns how many
+    프로젝트의 지금 계정과 다른 계정으로 도는 Claude 를 표시하고 watch 가 다시 시작하게 한다. 화면에 보여도 (방금
+    고른 것이므로), 한도에 걸려 멈춘 것도. 몇 개인지 돌려준다"""
+    n = 0
+    for ln in tmux("list-panes", "-a", "-F", "#{pane_id}\t#{pane_pid}\t#{session_name}\t#{@claude_session}").splitlines():
+        pane, shell, sess, sid = (ln.split("\t") + ["", "", "", ""])[:4]
+        if not sid:
+            continue
+        pid = claude_pid(shell)
+        if not pid:
+            continue
+        want = resolve(sess)
+        want_dir = "" if want == "default" else config_dir(want)
+        if os.path.normpath(running_dir(pid) or HOME_DIR) != os.path.normpath(want_dir or HOME_DIR):
+            tmux("set", "-p", "-t", pane, "@claude_restart_pending", "now")
+            n += 1
+    if n:
+        subprocess.Popen([os.path.join(HERE, "hivemux-claude-update"), "watch"], stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    return n
+
+
+def use(name, session=None):
+    """Choose an account and restart the Claudes it moves; returns how many / 계정을 고르고 옮겨 갈 Claude 를 다시 시작한다"""
+    g, proj = chosen()
+    if name != "all" and name != "default" and name not in names():
+        raise SystemExit(tr(f"'{name}' 계정이 없습니다. hivemux account add {name}", f"No account '{name}'. hivemux account add {name}"))
+    if name not in ("default", "all"):
+        prepare(name)
+    if session:
+        if name == "all":
+            proj.pop(session, None)
+        else:
+            proj[session] = name
+    else:
+        if name == "all":
+            raise SystemExit("all: -s <project>")
+        g = name
+    save(g, proj)
+    env()
+    return restart()
+
+
+def remove(name):
+    if name not in names():
+        raise SystemExit(tr(f"'{name}' 계정이 없습니다.", f"No account '{name}'."))
+    g, proj = chosen()
+    d = config_dir(name)
+    subprocess.run(["claude", "auth", "logout"], env=dict(os.environ, CLAUDE_CONFIG_DIR=d),
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+    shutil.rmtree(d)        # the links go, not what they point at / 링크만 지워지고 가리키는 것은 남는다
+    save("default" if g == name else g, {s: n for s, n in proj.items() if n != name})
+    env()
+    return restart()
+
+
+def listing():
+    g, proj = chosen()
+    out = []
+    for n in ["default", *names()]:
+        out.append({"name": n, **who(n), "all": n == g, "projects": sorted(s for s, v in proj.items() if v == n)})
+    return out
+
+
+# ── the popup / 팝업 ──
+
+TEXT, T2, T3 = (230, 233, 239), (154, 163, 178), (98, 106, 120)
+ACC, OK, BAD, SEL_BG, BG = (90, 169, 255), (62, 207, 142), (240, 98, 98), (42, 47, 58), (30, 33, 40)
+
+
+def fg(c): return "\x1b[38;2;%d;%d;%dm" % c
+def bg(c): return "\x1b[48;2;%d;%d;%dm" % c
+RST, BOLD = "\x1b[0m", "\x1b[1m"
+
+
+def width(s):
+    return sum(0 if unicodedata.combining(c) else 2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
+
+
+def label(n):
+    return tr("기본 계정", "Default account") if n == "default" else n
+
+
+def draw(out, rows, sel, here, session, proj, typing, asking, msg, cols, lines):
+    buf = ["\x1b[H\x1b[2J", bg(BG), "\r\n"]
+    head = (tr(f"프로젝트 {session} 에서 사용할 계정을 선택하십시오.", f"Choose the account for project {session}.") if session
+            else tr("모든 프로젝트에서 사용할 계정을 선택하십시오.", "Choose the account for all projects."))
+    buf.append(f"  {fg(T2)}{head}\r\n\r\n")
+    for i, (key, name, sub) in enumerate(rows):
+        mark = "●" if key == here else ("+" if key == "+" else "○")
+        mc = OK if key == here else T3
+        extra = f"  {sub}" if sub else ""
+        if not session and key in names() + ["default"]:
+            ps = [s for s, v in proj.items() if v == key]
+            if ps:
+                extra += tr(f"  · 프로젝트 {len(ps)}개", f"  · {len(ps)} project(s)")
+        raw = f" ▌ {mark} {name}{extra}"
+        if i == sel:
+            buf.append(f"{bg(SEL_BG)}{fg(ACC)} ▌ {fg(mc)}{mark} {fg(TEXT)}{BOLD}{name}{RST}{bg(SEL_BG)}{fg(T3)}{extra}"
+                       + " " * max(0, cols - 2 - width(raw)) + RST + bg(BG) + "\r\n")
+        else:
+            buf.append(f"{bg(BG)}   {fg(mc)}{mark} {fg(TEXT)}{name}{fg(T3)}{extra}\r\n")
+    if typing is not None:
+        buf.append(f"\r\n  {fg(T2)}{tr('계정 이름 (영문, 숫자, . _ -)', 'Account name (letters, digits, . _ -)')}: {fg(TEXT)}{typing}█\r\n")
+    buf.append(f"\x1b[{lines - 1};1H{fg((44, 48, 57))}  " + "─" * (cols - 4) + "\r\n")
+    if msg:
+        hint = msg
+    elif asking:
+        hint = f"{fg(BAD)}{tr(f'{asking} 계정에서 로그아웃하고 삭제하시겠습니까?', f'Log out of {asking} and remove it?')}  {fg(TEXT)}y{fg(T3)} / n"
+    elif typing is not None:
+        hint = f"{fg(TEXT)}Enter{fg(T3)} {tr('로그인', 'log in')}   {fg(TEXT)}Esc{fg(T3)} {tr('취소', 'cancel')}"
+    else:
+        hint = (f"{fg(TEXT)}Enter{fg(T3)} {tr('사용', 'use')}   {fg(TEXT)}d{fg(T3)} {tr('삭제', 'remove')}   "
+                f"{fg(TEXT)}Esc{fg(T3)} {tr('닫기', 'close')}")
+    buf.append("  " + hint + RST)
+    out.write("".join(buf))
+    out.flush()
+
+
+def ui(session):
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    out = sys.stdout
+    sel, msg, typing, asking, keys = None, "", None, None, []
+    try:
+        while True:
+            tty.setraw(fd)
+            g, proj = chosen()
+            here = proj.get(session, "all") if session else g
+            rows = ([("all", tr(f"모든 프로젝트 설정을 따릅니다 (지금: {label(g)})", f"Same as all projects (now: {label(g)})"), "")]
+                    if session else [])
+            for a in ["default", *names()]:
+                w = who(a)
+                rows.append((a, label(a), w.get("email") or tr("로그인되어 있지 않습니다", "Not logged in")))
+            rows.append(("+", tr("계정 추가…", "Add account…"), ""))
+            if sel is None:
+                sel = next((i for i, r in enumerate(rows) if r[0] == here), 0)
+            sel = max(0, min(sel, len(rows) - 1))
+            cols, lines = os.get_terminal_size()
+            if not keys:
+                draw(out, rows, sel, here, session, proj, typing, asking, msg, cols, lines)
+                msg = ""
+                # keys one by one: several can come in one read / 키를 하나씩: 한 번에 여러 개가 올 수 있다
+                keys = re.findall(r"\x1b\[[0-9;]*[A-Za-z~]|\x1bO[A-Z]|[\s\S]", os.read(fd, 64).decode(errors="ignore"))
+            ch = keys.pop(0)
+            if asking:
+                if ch in ("y", "Y"):
+                    n = remove(asking)
+                    msg = f"{fg(OK)}{tr(f'{asking} 계정을 삭제했습니다.', f'Removed {asking}.')}" + (
+                        tr(f" Claude {n}개를 다시 시작합니다.", f" Restarting {n} Claude(s).") if n else "")
+                asking = None
+                continue
+            if typing is not None:
+                if ch in ("\x1b", "\x03"):
+                    typing = None
+                elif ch in ("\x7f", "\b"):
+                    typing = typing[:-1]
+                elif ch in ("\r", "\n"):
+                    name = typing.strip()
+                    if not NAME_RE.match(name) or name in ("default", "all") or name in names():
+                        msg = f"{fg(BAD)}{tr('사용할 수 없는 이름입니다.', 'That name cannot be used.')}"
+                        continue
+                    typing = None
+                    termios.tcsetattr(fd, termios.TCSADRAIN, old)
+                    out.write(RST + "\x1b[H\x1b[2J")
+                    out.flush()
+                    if login(name):
+                        msg = f"{fg(OK)}{tr(f'{name} 계정을 추가했습니다. Enter 를 누르면 사용합니다.', f'Added {name}. Press Enter to use it.')}"
+                        sel = ["default", *names()].index(name) + (1 if session else 0)
+                    else:
+                        shutil.rmtree(config_dir(name), ignore_errors=True)
+                        msg = f"{fg(BAD)}{tr('로그인하지 못했습니다.', 'Login did not finish.')}"
+                elif ch.isprintable():
+                    typing = (typing + ch)[:32]
+                continue
+            if ch in ("\x1b", "\x03", "q"):
+                return
+            if ch in ("\x1b[A", "\x10", "\x1bOA", "k"):
+                sel -= 1
+            elif ch in ("\x1b[B", "\x0e", "\x1bOB", "j"):
+                sel += 1
+            elif ch == "d" and rows[sel][0] in names():
+                asking = rows[sel][0]
+            elif ch in ("\r", "\n"):
+                key = rows[sel][0]
+                if key == "+":
+                    typing = ""
+                    continue
+                if key != "all" and not who(key):      # not logged in yet: log in first / 아직 로그인 전: 먼저 로그인
+                    termios.tcsetattr(fd, termios.TCSADRAIN, old)
+                    out.write(RST + "\x1b[H\x1b[2J")
+                    out.flush()
+                    if not login(key):
+                        msg = f"{fg(BAD)}{tr('로그인하지 못했습니다.', 'Login did not finish.')}"
+                        continue
+                n = use(key, session)
+                out.write(f"\x1b[{lines};1H\x1b[2K  {fg(OK)}" + (
+                    tr(f"✓ 바꿨습니다. Claude {n}개를 같은 대화로 다시 시작합니다 (일하는 중이면 끝난 뒤).",
+                       f"✓ Switched. Restarting {n} Claude(s) in the same conversation (busy ones once done).") if n
+                    else tr("✓ 바꿨습니다.", "✓ Switched.")) + RST)
+                out.flush()
+                time.sleep(1.6)
+                return
+    finally:
+        out.write(RST + "\x1b[2J")
+        out.flush()
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
+def popup(client, session):
+    pause = f"/tmp/hivemux-pause-{os.getuid()}-{tmux('display', '-p', '#{pid}').strip()}"   # per tmux server / tmux 서버마다
+    open(pause, "w").close()
+    try:
+        title = tr("계정", "Account") if not session else tr(f"{session} 의 계정", f"Account for {session}")
+        cmd = shlex.join([os.path.realpath(__file__), "--ui"] + ([session] if session else []))
+        subprocess.run([os.path.join(HERE, "hivemux-modal"), client, "-E", "-w", "78", "-h", "18", "-b", "rounded",
+                        "-T", f"#[fg=#e6e9ef,bold] {title} ", "-S", "fg=#5aa9ff", "-s", "bg=#1e2128", cmd],
+                       stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    finally:
+        try:
+            os.unlink(pause)
+        except OSError:
+            pass
+
+
+def main(argv):
+    session = None
+    if "-s" in argv:
+        i = argv.index("-s")
+        session = argv[i + 1] if i + 1 < len(argv) else None
+        argv = argv[:i] + argv[i + 2:]
+    cmd = argv[0] if argv else "list"
+    if cmd == "list":
+        rows = listing()
+        if "--json" in argv:
+            print(json.dumps(rows, ensure_ascii=False))
+            return
+        for r in rows:
+            print(("* " if r["all"] else "  ") + r["name"].ljust(16) + (r.get("email") or tr("(로그인 안 됨)", "(not logged in)"))
+                  + (f"   [{', '.join(r['projects'])}]" if r["projects"] else ""))
+    elif cmd == "add" and len(argv) > 1:
+        name = argv[1]
+        if not NAME_RE.match(name) or name in ("default", "all"):
+            raise SystemExit(tr("사용할 수 없는 이름입니다.", "That name cannot be used."))
+        if not login(name):
+            shutil.rmtree(config_dir(name), ignore_errors=True)
+            raise SystemExit(tr("로그인하지 못했습니다.", "Login did not finish."))
+        env()
+        print(tr(f"{name} 계정을 추가했습니다: hivemux account use {name}", f"Added {name}: hivemux account use {name}"))
+    elif cmd == "use" and len(argv) > 1:
+        n = use(argv[1], session)
+        if n:
+            print(tr(f"Claude {n}개를 같은 대화로 다시 시작합니다 (일하는 중이면 끝난 뒤).",
+                     f"Restarting {n} Claude(s) in the same conversation (busy ones once done)."))
+    elif cmd == "remove" and len(argv) > 1:
+        remove(argv[1])
+    elif cmd == "current":
+        print(resolve(session) if session else chosen()[0])
+    elif cmd == "env":
+        env()
+    elif cmd == "--popup" and len(argv) > 1:
+        popup(argv[1], session)
+    elif cmd == "--ui":
+        ui(argv[1] if len(argv) > 1 else None)
+    else:
+        print(__doc__.split("\n\n")[1])
+        sys.exit(2)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

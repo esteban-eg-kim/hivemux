@@ -47,6 +47,9 @@ Usage:
                        busy ones once they are done)
   hivemux team templates | use <template> | up | down | status   a team of Claudes with roles in this project
                        (planner, dev, QA...), each in its own window, handing work to each other by name
+  hivemux account list | add <name> | use <name> [-s <project>] | remove <name>
+                       more than one Claude login: switch all projects or one project to another account
+                       (its Claudes restart in the same conversation)
   hivemux version
   hm [dir] [name]      open (or jump to) a project: one tmux session per folder
 
@@ -502,6 +505,7 @@ case "${1:-help}" in
   office) shift; exec "$HM_BIN/hivemux-office" "$@" ;;
   update-claude) shift; exec "$HM_BIN/hivemux-claude-update" "$@" ;;
   team) shift; exec "$HM_BIN/hivemux-team" "$@" ;;
+  account) shift; exec "$HM_BIN/hivemux-account" "$@" ;;
   version|-v|--version) echo "hivemux $VERSION" ;;
   help|-h|--help) usage ;;
   *) usage; exit 2 ;;

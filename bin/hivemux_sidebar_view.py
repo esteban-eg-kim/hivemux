@@ -876,7 +876,9 @@ def menu(y, pid=None, sess=None, items=(), homes=()):
         rows += [(tr("이름 바꾸기…", "Rename…"), "r", lambda: bg_run(os.path.join(here, "hivemux-rename-project"), "prompt", sess, client)),
                  # the team page of the bee office window (bin/hivemux-team) / 벌 사무실 창의 팀 화면 (bin/hivemux-team)
                  (tr("팀…", "Team…"), "m", lambda: bg_run(os.path.join(here, "hivemux-office"), "--team", sess, "--client", client)),
-                 (tr("프로젝트 닫기…", "Close project…"), "x", lambda: bg_run(os.path.join(here, "hivemux-close-project"), sess, client))]
+                 (tr("프로젝트 닫기…", "Close project…"), "x", lambda: bg_run(os.path.join(here, "hivemux-close-project"), sess, client)),
+                 # this project on its own Claude account (bin/hivemux-account) / 이 프로젝트만 다른 Claude 계정으로 (bin/hivemux-account)
+                 (tr("이 프로젝트 계정…", "Account for this project…"), "e", lambda: bg_run(os.path.join(here, "hivemux-account"), "--popup", client, "-s", sess))]
         # this project's Claudes only; windows and shells stay / 이 프로젝트의 Claude 만. 창과 셸은 그대로
         if any(p["session_name"] == sess and not p["@claude_offwork"] for p in items):
             rows.append((tr("이 프로젝트 퇴근…", "Clock this project out…"), "h", lambda: bg_run(shift, "--popup", "off", client, "--project", sess)))
@@ -896,6 +898,7 @@ def menu(y, pid=None, sess=None, items=(), homes=()):
     if empty and not clocked_out() and items:
         rows.append((tr("모두 퇴근하기…", "Clock everyone out…"), "h", lambda: bg_run(shift, "--popup", "off", client)))
     rows += [(tr("Claude 업데이트…", "Update Claude…"), "u", lambda: bg_run(os.path.join(here, "hivemux-claude-update"), "--popup", client)),
+             (tr("계정 전환…", "Switch account…"), "a", lambda: bg_run(os.path.join(here, "hivemux-account"), "--popup", client)),
              None, (tr("원격 연결…", "Connect to…"), "c", lambda: bg_run(os.path.join(here, "hivemux-connect"), "--pick", client)),
              (tr("설정…", "Settings…"), "s", lambda: bg_run(os.path.join(here, "hivemux-settings"), client))]
     # card: the task name; project name row: the project; empty space: "New"

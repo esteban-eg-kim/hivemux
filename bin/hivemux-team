@@ -944,7 +944,8 @@ def assist(session, messages):
     try:
         # the question on stdin: the tool list option takes every word after it / 질문은 stdin 으로: 도구 목록 옵션은 뒤의 낱말을 모두 가져간다
         r = subprocess.run(shlex.split(claude_cmd()) + ["-p", "--model", "sonnet", "--no-session-persistence", "--disallowedTools=Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch"],
-                           input=ask, capture_output=True, text=True, timeout=240, cwd=folder)
+                           input=ask, capture_output=True, text=True, timeout=240, cwd=folder,
+                           env=dict(os.environ, HIVEMUX_ACCOUNT_SESSION=session))   # its account (bin/hivemux-claude) / 그 프로젝트의 계정
     except subprocess.TimeoutExpired:
         die(tr("도우미의 답이 너무 오래 걸립니다. 다시 시도하십시오", "The assistant took too long. Please try again."))
     text = (r.stdout or "").strip()
@@ -1693,7 +1694,8 @@ def summarize(session, date=None):
              "order, with what got stuck and what got done. Nothing that is not in the record. Output the paragraph only.\n\n")
     claude = shlex.split(claude_cmd())
     r = subprocess.run(claude + ["-p", "--model", "haiku", ask + json.dumps(digest, ensure_ascii=False)],
-                       capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL, cwd=rep["folder"])
+                       capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL, cwd=rep["folder"],
+                       env=dict(os.environ, HIVEMUX_ACCOUNT_SESSION=session))
     text = r.stdout.strip()
     if r.returncode != 0 or not text:
         die(tr("요약을 만들지 못했습니다", "Could not write the summary") + (f": {r.stderr.strip()[:200]}" if r.stderr.strip() else ""))

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Claude accounts: log in to more than one Claude account and switch between
+  them, for all projects or for one project (right-click → Switch account…,
+  on a project name → Account for this project…, or `hivemux account`). Each
+  other account is its own Claude config folder that shares settings,
+  conversations, skills and history with ~/.claude, so only the login
+  differs. Switching restarts the Claudes now on another account in the same
+  conversation, also one on screen or stopped by a usage limit; one at work
+  restarts once it is done. The status line shows the account when it is not
+  the default one
+
 ## 0.1.55 — 2026-11-13
 
 - Teams: a read-only role (QA, review) can write its notes, the questions

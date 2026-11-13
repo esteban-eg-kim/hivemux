@@ -88,8 +88,14 @@ restart() {
     resume "$pane" "$sid" "$cwd"; log "resume $pane -> $sid (was stopped)"; return 0
   fi
   st="$(t show -pqv -t "$pane" @claude_state)"; at="$(t show -pqv -t "$pane" @claude_state_at)"
-  case "$st" in run|wait) return 1 ;; esac
-  t list-clients -F '#{window_id}' | grep -qxF "$(t display -p -t "$pane" '#{window_id}')" && return 1
+  # "now" (a switch of account, bin/hivemux-account): also on a screen, and also stopped by an API error (a rate limit)
+  # "now" (계정 전환, bin/hivemux-account): 화면에 보여도, API 오류(요청 한도)로 멈췄어도
+  if [ "$(t show -pqv -t "$pane" @claude_restart_pending)" = now ]; then
+    case "$st" in run) return 1 ;; wait) [[ "$(t show -pqv -t "$pane" @claude_wait)" == error* ]] || return 1 ;; esac
+  else
+    case "$st" in run|wait) return 1 ;; esac
+    t list-clients -F '#{window_id}' | grep -qxF "$(t display -p -t "$pane" '#{window_id}')" && return 1
+  fi
   [ "$st" = done ] && t set -p -t "$pane" @claude_restore "$st $at"
   kill -TERM "$pid" 2>/dev/null
   for i in $(seq 50); do
@@ -106,7 +112,9 @@ restart() {
 }
 
 resume() { # resume <pane> <session id> <cwd>
-  local cwd="$3" role
+  local cwd="$3" role claude_cmd
+  # read now: switching account (bin/hivemux-account) sets it while this watcher runs / 지금 읽는다: 계정 전환이 도중에 정한다
+  claude_cmd="$(t show-environment -g HIVEMUX_CLAUDE | sed -n 's/^HIVEMUX_CLAUDE=//p')"; claude_cmd="${HIVEMUX_CLAUDE:-${claude_cmd:-claude}}"
   t set -pu -t "$1" @claude_restart_pending
   [ -d "$cwd" ] || cwd=""
   # a team role (bin/hivemux-team) comes back with its model, effort and prompt / 팀 역할은 모델, 노력, 지시문과 함께 돌아온다
