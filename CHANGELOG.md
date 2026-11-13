@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Teams: a read-only role (QA, review) can write its notes, the questions
+  file, its reports (.hivemux/work/<role>/) and what it owns. It used to run
+  without Edit and Write at all, so it could not keep its notes; now hivemux
+  checks where it writes and refuses only the rest of the project, saying why
+
 ## 0.1.54 — 2026-11-13
 
 - Open path: a path followed straight by a Korean particle ("…/impl/에
