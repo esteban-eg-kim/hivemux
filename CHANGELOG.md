@@ -7,7 +7,8 @@
   on a project name → Account for this project…, or `hivemux account`). Each
   other account is its own Claude config folder that shares settings,
   conversations, skills and history with ~/.claude, so only the login
-  differs. Switching restarts the Claudes now on another account in the same
+  differs (running sessions are listed together too, so Claudes on
+  different accounts still see each other and message). Switching restarts the Claudes now on another account in the same
   conversation, also one on screen or stopped by a usage limit; one at work
   restarts once it is done. The status line shows the account when it is not
   the default one

@@ -38,7 +38,7 @@ HOME_JSON = os.path.expanduser("~/.claude.json")
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$")
 # ~/.claude entries that belong to one login or one running Claude; the rest are linked
 # ~/.claude 에서 로그인 하나나 실행 중인 Claude 하나의 것. 나머지는 링크한다
-PRIVATE = re.compile(r"^(\.credentials\.json|\.DS_Store|\.last-cleanup|sessions|session-env|daemon.*|jobs|shell-snapshots"
+PRIVATE = re.compile(r"^(\.credentials\.json|\.DS_Store|\.last-cleanup|session-env|daemon.*|jobs|shell-snapshots"
                      r"|cache|backups|channels|statsig|telemetry|mcp-needs-auth-cache\.json|ide)$")
 # ~/.claude.json keys that belong to the login or are caches of it; the rest (trusted folders, MCP servers,
 # onboarding) is copied so the new account does not ask everything again
@@ -120,6 +120,38 @@ def resolve(session):
 
 # ── an account's config dir / 계정의 설정 폴더 ──
 
+# kept apart by an earlier version, now shared: the running sessions (one file each), so Claudes on different
+# accounts see each other to send messages / 예전 버전은 따로 두었고 이제 함께 쓴다: 실행 중인 세션 명부 (세션마다
+# 파일 하나). 그래야 다른 계정의 Claude 끼리 서로 보고 메시지를 보낸다
+JOIN = ("sessions",)
+
+
+def join_dir(d, e):
+    """Move a dir of the account's own into ~/.claude's and link it there; live sessions keep writing to the same path
+    계정만의 폴더를 ~/.claude 쪽으로 옮기고 링크한다. 실행 중인 세션은 같은 경로에 계속 쓴다"""
+    own, home = os.path.join(d, e), os.path.join(HOME_DIR, e)
+    if os.path.islink(own) or not os.path.isdir(own):
+        return
+    os.makedirs(home, exist_ok=True)
+    for _ in range(3):                  # a session may add a file meanwhile / 그 사이 세션이 파일을 더할 수 있다
+        for f in os.listdir(own):
+            if not os.path.lexists(os.path.join(home, f)):
+                os.replace(os.path.join(own, f), os.path.join(home, f))
+            else:
+                os.unlink(os.path.join(own, f))
+        tmp = f"{own}.{os.getpid()}"
+        try:
+            os.rename(own, tmp)
+        except OSError:
+            continue
+        os.symlink(home, own)
+        for f in os.listdir(tmp):       # written in the moment between / 그 짧은 사이에 쓰인 것
+            if not os.path.lexists(os.path.join(home, f)):
+                os.replace(os.path.join(tmp, f), os.path.join(home, f))
+        shutil.rmtree(tmp, ignore_errors=True)
+        return
+
+
 def link_shared(d):
     """Link what is not the login's from ~/.claude, also entries that appeared there since
     ~/.claude 에서 로그인의 것이 아닌 것을 링크한다. 그 뒤에 생긴 것도"""
@@ -129,6 +161,8 @@ def link_shared(d):
         return
     for e in entries:
         dst = os.path.join(d, e)
+        if e in JOIN:
+            join_dir(d, e)
         if PRIVATE.match(e) or os.path.lexists(dst):
             continue
         os.symlink(os.path.join(HOME_DIR, e), dst)
@@ -182,6 +216,8 @@ def env():
     고른 것대로 tmux 환경을 맞춘다: 새 창은 그 프로젝트의 계정으로 Claude 를 시작하고, 재개하는 곳은
     bin/hivemux-claude 를 거친다. 기본 계정이 아니면 상태줄에 계정을 보인다."""
     g, proj = chosen()
+    for n in names():                   # what a newer version shares, and new entries of ~/.claude / 새 버전이 함께 쓰는 것, ~/.claude 에 새로 생긴 것
+        link_shared(config_dir(n))
     if names():
         tmux("set-environment", "-g", "HIVEMUX_CLAUDE", os.path.join(HERE, "hivemux-claude"))
     else:
