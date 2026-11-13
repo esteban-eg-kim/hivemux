@@ -10,6 +10,10 @@
   (up to 0.7 s) also left the loop, which now keeps a steady 30 frames a
   second; on a busy screen the longest pause between frames went from about
   a second to under 50 ms
+- Sidebar: switching to another window no longer freezes its animation for
+  a moment. A sidebar woken into a window now draws its first frame from the
+  panes and settings alone (about 150 ms from waking, was 350-750 ms) and
+  does the rest of its first poll, and the project badges, right after
 - Team assistant: "Build the team with AI" on the team page opens a chat
   that answers questions about the team (how many developers, which model and
   why, how to use less) from the project's README and files and the team as

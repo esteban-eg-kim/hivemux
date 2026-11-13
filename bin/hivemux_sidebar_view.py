@@ -32,7 +32,10 @@ KO = _is_ko()
 def tr(ko, en):
     return ko if KO else en
 ME = os.environ.get("TMUX_PANE", "")
-FRAME_LOG = os.environ.get("HIVEMUX_DEBUG_FRAMES", "")   # debugging the animation's pace: when each frame went out / 애니메이션 속도 확인용: 프레임마다 나간 시각
+FRAME_LOG = os.environ.get("HIVEMUX_DEBUG_FRAMES", "")
+if FRAME_LOG:
+    with open(FRAME_LOG, "a") as _dbg:
+        _dbg.write(f"{time.time():.4f} start\n")   # debugging the animation's pace: when each frame went out / 애니메이션 속도 확인용: 프레임마다 나간 시각
 # render() reads and sets a few globals (the scroll, the buttons' places); the sidebar draws its own frame on the
 # main thread and the resting sidebars' frames on a writer thread, so one render at a time
 # render() 는 몇몇 전역 (스크롤, 버튼 자리) 을 읽고 쓴다. 자기 화면은 주 스레드에서, 쉬는 사이드바 화면은 쓰기
@@ -1348,6 +1351,26 @@ def main():
                        snap[2] and tmux("show", "-gqv", "@hivemux-notify").strip() != "off")
         return got
 
+    def quick_poll():
+        """The first poll, woken into a window: just the panes and the settings, two tmux calls, so its first
+        frame comes at once (the full poll, with the screen checks, follows on the poller); None when a screen
+        from another Mac is attached, which needs the full one
+        첫 읽기 (창에 들어와 깨어남): 칸과 설정만, tmux 두 번. 그래서 첫 화면이 바로 나온다 (화면 확인이 든
+        전체 읽기는 poller 가 뒤이어). 다른 Mac 의 화면이 붙어 있으면 전체 읽기가 필요해 None"""
+        nonlocal shared
+        got = {"snap": snapshot()}
+        if got["snap"] is None:
+            return got
+        anim, rest, fps, scroll, remote = (tmux("display", "-p", "#{@hivemux-anim}\t#{@hivemux-sidebar-rest}\t#{@hivemux-fps}\t#{@hivemux-scroll}\t#{@hivemux-remote-clients}")
+                                           .rstrip("\n").split("\t") + [""] * 5)[:5]
+        if remote.strip():
+            return None
+        shared = scroll.strip()
+        got.update(scroll=int(shared) if shared.isdigit() else None, shared=shared, anim=anim.strip() != "off",
+                   rest=(float(rest) or float("inf")) if rest.strip().isdigit() else 2.0, remote_on=False, remote_here=None,
+                   tick=1 / max(5, min(60, int(fps))) if fps.strip().isdigit() else 1 / 30)
+        return got
+
     box, box_lock, want = [None], threading.Lock(), threading.Event()
 
     def poller():
@@ -1395,7 +1418,8 @@ def main():
             # 읽기는 자기 스레드에서 돈다 (아래 poller): tmux 호출과 작업 중인 칸 화면 확인에 80~100ms 가 들어,
             # 여기서 하면 매초 그만큼 애니메이션이 멈췄다
             if snap is None:
-                got = poll_once(None)
+                got = quick_poll() or poll_once(None)
+                want.set()          # the rest of the poll (the screen checks) right after the first frame / 나머지 읽기 (화면 확인) 는 첫 화면 바로 뒤에
             else:
                 if last_poll == 0:
                     last_poll = nowf
@@ -1460,8 +1484,8 @@ def main():
                 # 호출판 (board 참고). 바뀔 때만 모든 화면의 상태줄을 다시 그린다
                 # the project badge, as wide as the sidebar (see badges) / 사이드바 폭의 프로젝트 이름표 (badges 참고)
                 key = (os.get_terminal_size()[0] + 1, tuple(s for s, _, _ in sessions))
-                if key != last_badge:
-                    badges(*key)
+                if key != last_badge:   # one tmux call a project: on the writer thread / 프로젝트마다 tmux 호출: 쓰기 스레드에서
+                    later.put(lambda key=key: badges(*key))
                     last_badge = key
                 # it blinks like the sidebar animates: not with animation off, nor while a screen from
                 # another Mac is attached (every blink would go over the network)
