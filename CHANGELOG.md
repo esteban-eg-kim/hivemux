@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.54 — 2026-11-13
 
 - Open path: a path followed straight by a Korean particle ("…/impl/에
   있습니다", "report.png를") is found; when a path is not there, up to four
