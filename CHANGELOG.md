@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Sidebar: the working animation no longer stutters. Every second the
+  sidebar read tmux and checked the screens of running panes (80-100 ms with
+  a few at work) on the same loop that draws, so the animation stopped that
+  long; that now runs on its own thread, as do the status line's spinner and
+  board updates. In a test with five running panes the longest pause between
+  frames went from 227 ms to 46 ms
 - Team assistant: "Build the team with AI" on the team page opens a chat
   that answers questions about the team (how many developers, which model and
   why, how to use less) from the project's README and files and the team as

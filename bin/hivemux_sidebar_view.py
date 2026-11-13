@@ -10,7 +10,7 @@ bin/hivemux-sidebar 가 각 창 왼쪽 칸에서 실행한다.
 - click or press 1-9 to jump; double/right click to rename; q or Esc returns focus
   클릭하거나 1-9 를 누르면 이동, 더블/오른쪽 클릭은 이름 바꾸기, q 나 Esc 는 원래 칸으로
 """
-import functools, math, os, re, shlex, socket, select, shutil, signal, subprocess, sys, termios, time, tty, unicodedata
+import functools, math, os, queue, re, shlex, socket, select, shutil, signal, subprocess, sys, termios, threading, time, tty, unicodedata
 
 # Ignore the redraw signal (SIGUSR1) first, so it cannot kill us before the handler is installed
 # 바로 다시 그리기 신호(SIGUSR1)를 처리기 등록 전에 받아도 종료되지 않게 먼저 무시한다
@@ -1286,54 +1286,122 @@ def main():
     scrolled = 0.0                   # when the wheel last turned here / 여기서 휠을 마지막으로 굴린 시각
     board_blink = False
     REMOTE_ON = False
+
+    def poll_once(scroll_now):
+        """One poll: the panes, the settings, and the checks that read panes' screens (on the poller thread)
+        한 번 읽기: 칸, 설정, 칸 화면을 읽는 확인들 (poller 스레드에서)"""
+        nonlocal shared
+        nowf = time.time()
+        got = {"snap": snapshot()}
+        if got["snap"] is None:
+            return got
+        scroll = None
+        v = tmux("show", "-gqv", "@hivemux-scroll").strip()
+        if v != shared:
+            shared = v
+            if v.isdigit() and not scroll_now:
+                scroll = int(v)
+        got["scroll"], got["shared"] = scroll, shared
+        anim = tmux("show", "-gqv", "@hivemux-anim").strip() != "off"
+        rest = tmux("show", "-gqv", "@hivemux-sidebar-rest").strip()
+        got["rest"] = (float(rest) or float("inf")) if rest.isdigit() else 2.0
+        # a screen attached from another Mac (bin/hivemux-attach): every animation frame and
+        # status line spinner step would go over the network and make its typing lag, so keep
+        # them still while it looks at this window (the spinner: while it is attached at all)
+        # 다른 Mac 에서 붙은 화면 (bin/hivemux-attach): 애니메이션 프레임과 상태줄 스피너가 모두
+        # 네트워크로 가서 입력이 느려지므로, 그 화면이 이 창을 보는 동안 멈춘다 (스피너는 붙어 있는 동안)
+        # only screens still attached count: a detach the hook missed leaves its name behind
+        # 지금 붙어 있는 화면만 센다: 훅이 놓친 분리는 이름을 남긴다
+        remote = set(tmux("show", "-gqv", "@hivemux-remote-clients").split())
+        clients = [l.split(" ", 1) for l in tmux("list-clients", "-F", "#{client_name} #{window_id}").splitlines() if " " in l]
+        remote_on, remote_here = any(c in remote for c, _ in clients), None
+        if remote_on:
+            mine = tmux("display", "-p", "-t", ME, "#{window_id}").strip()
+            here = [c for c, w in clients if c in remote and w == mine]
+            if here:
+                anim = False
+                # the Mac's name when hivemux connect told it (bin/hivemux-attach) / hivemux connect 가 알려 줬으면 그 Mac 이름
+                macs = dict(l.split(" ", 1) for l in tmux("show", "-gqv", "@hivemux-remote-from").splitlines() if " " in l)
+                remote_here = next((macs[c] for c in here if c in macs), "")
+                # the name it goes by there (Settings, sent by its hivemux-ports) / 그 Mac 에서 정한 이름 (설정, 그 Mac 의 hivemux-ports 가 보냄)
+                if remote_here:
+                    remote_here = tmux("show", "-gqv", f"@hivemux-name-{remote_here}").strip() or remote_here
+        got["anim"], got["remote_on"], got["remote_here"] = anim, remote_on, remote_here
+        # @hivemux-fps: animation frames per second (default 30; lower saves CPU)
+        # @hivemux-fps: 초당 애니메이션 프레임 (기본 30, 낮추면 CPU 절약)
+        fps = tmux("show", "-gqv", "@hivemux-fps").strip()
+        got["tick"] = 1 / max(5, min(60, int(fps))) if fps.isdigit() else 1 / 30
+        snap = got["snap"]
+        if snap[2]:
+            clear_answered(snap[0], waits, nowf)
+            clear_interrupted(snap[0], runs, nowf)
+            clear_quit(quits)
+        notify_changes(snap[0], seen, sent, nowf,
+                       snap[2] and tmux("show", "-gqv", "@hivemux-notify").strip() != "off")
+        return got
+
+    box, box_lock, want = [None], threading.Lock(), threading.Event()
+
+    def poller():
+        """Polls every second, or at once when asked (a wake, a click), and wakes the loop to draw
+        매초, 또는 부르면 바로 (깨움, 클릭) 읽고, 그리라고 루프를 깨운다"""
+        while True:
+            want.wait(1.0)
+            want.clear()
+            try:
+                got = poll_once(scrolled)
+            except Exception:           # keep polling; the loop keeps the last state / 계속 읽는다. 루프는 마지막 상태를 쓴다
+                try:
+                    import traceback
+                    with open(CRASH_LOG, "a") as f:
+                        f.write(f"--- {time.strftime('%Y-%m-%d %H:%M:%S')} poller {ME}\n{traceback.format_exc()}")
+                except OSError:
+                    pass
+                continue
+            with box_lock:
+                box[0] = got
+            try:
+                os.write(WAKE_W, b"p")
+            except OSError:
+                pass
+    threading.Thread(target=poller, daemon=True).start()
+    # the status line's spinner and board are set and redrawn by tmux calls (5 ms each, several times a second):
+    # done in order on a thread of their own, so a frame never waits for them
+    # 상태줄의 스피너와 호출판은 tmux 호출로 정하고 다시 그린다 (한 번에 5ms, 초에 여러 번): 자기 스레드에서 차례로
+    # 해서 프레임이 기다리지 않게 한다
+    later = queue.Queue()
+
+    def writer():
+        while True:
+            fn = later.get()
+            try:
+                fn()
+            except Exception:
+                pass
+    threading.Thread(target=writer, daemon=True).start()
     try:
         while True:
             nowf = time.time()
-            if snap is None or nowf - last_poll >= 1.0:
-                snap = snapshot()
-                last_poll = nowf
+            # the poll runs on its own thread (poller below): its tmux calls and the screen checks of running
+            # panes take 80-100 ms, and done here they stopped the animation for that long every second
+            # 읽기는 자기 스레드에서 돈다 (아래 poller): tmux 호출과 작업 중인 칸 화면 확인에 80~100ms 가 들어,
+            # 여기서 하면 매초 그만큼 애니메이션이 멈췄다
+            if snap is None:
+                got = poll_once(None)
+            else:
+                if last_poll == 0:
+                    last_poll = nowf
+                    want.set()
+                with box_lock:
+                    got, box[0] = box[0], None
+            if got is not None:
+                snap = got["snap"]
                 if snap is None:
                     break
-                v = tmux("show", "-gqv", "@hivemux-scroll").strip()
-                if v != shared:
-                    shared = v
-                    if v.isdigit() and not scrolled:
-                        SCROLL = int(v)
-                ANIM = tmux("show", "-gqv", "@hivemux-anim").strip() != "off"
-                rest = tmux("show", "-gqv", "@hivemux-sidebar-rest").strip()
-                REST = (float(rest) or float("inf")) if rest.isdigit() else 2.0
-                # a screen attached from another Mac (bin/hivemux-attach): every animation frame and
-                # status line spinner step would go over the network and make its typing lag, so keep
-                # them still while it looks at this window (the spinner: while it is attached at all)
-                # 다른 Mac 에서 붙은 화면 (bin/hivemux-attach): 애니메이션 프레임과 상태줄 스피너가 모두
-                # 네트워크로 가서 입력이 느려지므로, 그 화면이 이 창을 보는 동안 멈춘다 (스피너는 붙어 있는 동안)
-                # only screens still attached count: a detach the hook missed leaves its name behind
-                # 지금 붙어 있는 화면만 센다: 훅이 놓친 분리는 이름을 남긴다
-                remote = set(tmux("show", "-gqv", "@hivemux-remote-clients").split())
-                clients = [l.split(" ", 1) for l in tmux("list-clients", "-F", "#{client_name} #{window_id}").splitlines() if " " in l]
-                REMOTE_ON = any(c in remote for c, _ in clients)
-                REMOTE_HERE = None
-                if REMOTE_ON:
-                    mine = tmux("display", "-p", "-t", ME, "#{window_id}").strip()
-                    here = [c for c, w in clients if c in remote and w == mine]
-                    if here:
-                        ANIM = False
-                        # the Mac's name when hivemux connect told it (bin/hivemux-attach) / hivemux connect 가 알려 줬으면 그 Mac 이름
-                        macs = dict(l.split(" ", 1) for l in tmux("show", "-gqv", "@hivemux-remote-from").splitlines() if " " in l)
-                        REMOTE_HERE = next((macs[c] for c in here if c in macs), "")
-                        # the name it goes by there (Settings, sent by its hivemux-ports) / 그 Mac 에서 정한 이름 (설정, 그 Mac 의 hivemux-ports 가 보냄)
-                        if REMOTE_HERE:
-                            REMOTE_HERE = tmux("show", "-gqv", f"@hivemux-name-{REMOTE_HERE}").strip() or REMOTE_HERE
-                # @hivemux-fps: animation frames per second (default 30; lower saves CPU)
-                # @hivemux-fps: 초당 애니메이션 프레임 (기본 30, 낮추면 CPU 절약)
-                fps = tmux("show", "-gqv", "@hivemux-fps").strip()
-                TICK = 1 / max(5, min(60, int(fps))) if fps.isdigit() else 1 / 30
-                if snap[2]:
-                    clear_answered(snap[0], waits, nowf)
-                    clear_interrupted(snap[0], runs, nowf)
-                    clear_quit(quits)
-                notify_changes(snap[0], seen, sent, nowf,
-                               snap[2] and tmux("show", "-gqv", "@hivemux-notify").strip() != "off")
+                shared = got["shared"]
+                if got["scroll"] is not None and not scrolled:   # another sidebar scrolled / 다른 사이드바가 스크롤함
+                    SCROLL = got["scroll"]
+                ANIM, REST, REMOTE_ON, REMOTE_HERE, TICK = got["anim"], got["rest"], got["remote_on"], got["remote_here"], got["tick"]
                 paint, polled = snap[2], True
                 # woken from a rest: draw everything once more, in case a frame for the rest landed after the first
                 # 쉬다 깨어남: 쉬는 동안의 화면이 첫 화면 뒤에 왔을 수도 있어서 한 번 더 모두 그린다
@@ -1363,11 +1431,8 @@ def main():
                 # 프레임 수와 상관없이 초당 6번: tmux 상태줄을 초당 30번 다시 그리지 않게
                 spin = SPIN[int(NOW_T * 6) % len(SPIN)] if animating and not REMOTE_ON and any(p["@claude_state"] == "run" for p in items) else ""
                 if spin != last_spin:
-                    if spin:
-                        tmux("set", "-g", "@claude_spin", spin)
-                    else:
-                        tmux("set", "-gu", "@claude_spin")
-                    tmux("refresh-client", "-S")
+                    later.put(lambda spin=spin: (tmux("set", "-g", "@claude_spin", spin) if spin else tmux("set", "-gu", "@claude_spin"),
+                                                 tmux("refresh-client", "-S")))
                     last_spin = spin
                 # a finished task you are looking at becomes "seen": on the screen that has the keyboard
                 # focus, not one that is only attached (another Ghostty window, another Mac), where it
@@ -1396,10 +1461,12 @@ def main():
                 # (깜빡일 때마다 네트워크로 간다)
                 b, board_blink = board(items, NOW_T, ANIM and not REMOTE_ON)
                 if b != last_board:
-                    if b != tmux("show", "-gqv", "@hivemux-board").rstrip("\n"):
-                        tmux("set", "-g", "@hivemux-board", b)
-                        for c in tmux("list-clients", "-F", "#{client_name}").split():
-                            tmux("refresh-client", "-S", "-t", c)
+                    def put_board(b=b):
+                        if b != tmux("show", "-gqv", "@hivemux-board").rstrip("\n"):
+                            tmux("set", "-g", "@hivemux-board", b)
+                            for c in tmux("list-clients", "-F", "#{client_name}").split():
+                                tmux("refresh-client", "-S", "-t", c)
+                    later.put(put_board)
                     last_board = b
             # draw while visible; a hidden sidebar draws its first frame, when woken (a project closed, a state
             # changed) and after each poll, only the rows that changed: what changed with no hook waking it
@@ -1457,10 +1524,11 @@ def main():
             r, _, _ = select.select([fd, WAKE_R], [], [], wait_s)
             if WAKE_R in r:
                 try:
-                    os.read(WAKE_R, 512)
+                    got_bytes = os.read(WAKE_R, 512)
                 except BlockingIOError:
-                    pass
-                last_poll, woke = 0, True
+                    got_bytes = b""
+                if got_bytes.strip(b"p"):       # a signal (a hook, a click elsewhere), not the poller / 신호 (훅, 다른 곳 클릭). poller 가 아님
+                    last_poll, woke = 0, True
             if fd not in r:
                 continue
             last_poll = 0  # re-read right after a click or key / 클릭/키 입력 뒤에는 바로 새로 읽는다
