@@ -1330,7 +1330,30 @@ def report(session, date=None):
     return {"project": session, "folder": folder, "date": day.isoformat(), "team": label(team), "flow": team.get("flow") or list(roles),
             "start": min(times, default=start + 9 * 3600), "end": max(times, default=start + 18 * 3600),
             "roles": list(roles.values()), "handoffs": hand, "diets": diets, "outputs": outputs[-40:], "waits": waits, "summary": summary,
-            "today": day == datetime.date.today()}
+            "today": day == datetime.date.today(), "first": first_day(folder)}
+
+
+def first_day(folder):
+    """The day the team began: its first logged state or hand-off, else when its folder was made
+    팀이 시작한 날: 처음 기록된 상태나 넘김, 없으면 폴더를 만든 때"""
+    import datetime
+    d = team_dir(folder)
+    at = []
+    for name in ("states.log", "handoffs.log"):
+        try:
+            with open(os.path.join(d, name), encoding="utf-8") as f:
+                head = f.readline().split("\t", 1)[0]
+            if head.isdigit():
+                at.append(int(head))
+        except OSError:
+            pass
+    if not at:
+        try:
+            st = os.stat(d)
+            at.append(int(getattr(st, "st_birthtime", st.st_mtime)))
+        except OSError:
+            return datetime.date.today().isoformat()
+    return datetime.date.fromtimestamp(min(at)).isoformat()
 
 
 def summarize(session, date=None):

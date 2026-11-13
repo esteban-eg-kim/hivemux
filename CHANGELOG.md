@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Team report: the timeline zooms along time (buttons, ⌘/Ctrl + wheel or a
+  pinch at the pointer) and scrolls or drags sideways, with finer time marks
+  as it zooms; the role names stay in place. The report no longer goes back
+  before the day the team began. Its wording, in Korean and English, is now
+  formal
 - Sidebar: "waiting on 1 shell" no longer stays for good when that
   background shell (a server, say) is stopped by hand; no hook comes then, so
   the sidebar now sees the shell count gone from Claude's footer and marks it

@@ -67,9 +67,14 @@ h2 { margin: 0; font-size: 19px; font-weight: 700; }
 .hover { display: flex; align-items: center; gap: 10px; background: var(--soft); border: 1px solid var(--line2); border-radius: 10px; padding: 10px 14px; min-height: 44px; }
 .chart { overflow-x: auto; }
 .lanes { min-width: 860px; display: flex; }
-.lanes .names { width: 112px; flex-shrink: 0; padding-top: 26px; }
+.lanes .names { width: 112px; flex-shrink: 0; padding-top: 26px; position: sticky; left: 0; z-index: 3; background: var(--panel); }
+/* zoom along time: the lanes grow wide and the chart scrolls; the names stay put / 시간 축 확대: 줄이 넓어지고 그림이 스크롤된다. 이름은 제자리 */
+.zoom { display: inline-flex; align-items: center; gap: 4px; }
+.zoom .btn { min-width: 32px; padding: 0 8px; }
+.zoom b { font: 600 12px var(--f-mono); color: var(--fg2); min-width: 34px; text-align: center; }
+.chart.grab { cursor: grab; } .chart.grabbing { cursor: grabbing; user-select: none; }
 .lanes .names div { height: 52px; display: flex; align-items: center; gap: 8px; font-weight: 700; }
-.plot { flex: 1; position: relative; }
+.plot { flex: 1; position: relative; margin-left: 22px; }   /* room for the first time label beside the names / 이름 칸 옆 첫 시각 눈금 자리 */
 .plot .hour { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line2); }
 .plot .hl { position: absolute; top: 0; transform: translateX(-50%); font: 11px var(--f-mono); color: var(--muted); }
 .plot .track { position: absolute; left: 0; right: 0; height: 30px; border-radius: 6px; background: var(--soft2); }
@@ -126,7 +131,7 @@ const tr = (ko, en) => L === 'ko' ? ko : en;
 try { L = localStorage.getItem('hivemux-lang') || L; } catch (e) { /* private window / 사생활 보호 창 */ }
 document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = L === 'ko' ? ko : en; });
 const q = new URLSearchParams(location.search);
-const S = { project: q.get('project') || '', date: q.get('date') || '', hover: null, table: false };
+const S = { project: q.get('project') || '', date: q.get('date') || '', hover: null, table: false, zoom: 1 };
 // role colors: checked for color-blind separation and contrast (dataviz validator); each mark is also labelled
 // 역할 색: 색약 구분과 대비를 검사했다 (dataviz 검사기). 모든 표시에 이름도 붙는다
 const COLOR = { dev: '#3b82d6', planner: '#d99a1e', researcher: '#0aa3a6', marketer: '#e06a4a', designer: '#8b6fd6', qa: '#2e9e6a' };
@@ -155,16 +160,31 @@ async function load() {
   document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
   $('#project').innerHTML = PROJECTS.map(p => `<option value="${esc(p.name)}"${p.name === S.project ? ' selected' : ''}>${esc(p.name)}</option>`).join('');
   $('#toteam').href = '/team?project=' + encodeURIComponent(S.project);
-  if (!S.project) { $('#main').innerHTML = `<div class="card"><h1>${tr('팀이 있는 프로젝트가 없어요', 'No project has a team')}</h1><p class="sub">${tr('팀 화면에서 팀을 먼저 만드세요.', 'Make a team on the team page first.')}</p></div>`; return; }
+  if (!S.project) { $('#main').innerHTML = `<div class="card"><h1>${tr('팀이 구성된 프로젝트가 없습니다', 'No project has a team.')}</h1><p class="sub">${tr('팀 화면에서 먼저 팀을 구성하십시오.', 'Please create a team on the team page first.')}</p></div>`; return; }
   const r = await (await fetch(`/team/report?project=${encodeURIComponent(S.project)}${S.date ? '&date=' + S.date : ''}`, { cache: 'no-store' })).json();
-  if (!r.ok) { $('#main').innerHTML = `<div class="card">${esc(r.say || tr('리포트를 만들지 못했어요', 'Could not build the report'))}</div>`; return; }
-  R = r.report; S.date = R.date; draw();
+  if (!r.ok) { $('#main').innerHTML = `<div class="card">${esc(r.say || tr('리포트를 생성하지 못했습니다', 'The report could not be generated.'))}</div>`; return; }
+  R = r.report;
+  if (R.first && R.date < R.first) { S.date = R.first; return load(); }   // before the team began: its first day / 팀 시작 전: 첫날로
+  S.date = R.date; draw();
 }
 $('#project').onchange = e => { S.project = e.target.value; S.date = ''; history.replaceState(null, '', '/report?project=' + encodeURIComponent(S.project)); load(); };
-function shiftDay(n) { const d = new Date(S.date + 'T12:00:00'); d.setDate(d.getDate() + n); S.date = d.toISOString().slice(0, 10); history.replaceState(null, '', `/report?project=${encodeURIComponent(S.project)}&date=${S.date}`); load(); }
+function shiftDay(n) {
+  const d = new Date(S.date + 'T12:00:00'); d.setDate(d.getDate() + n);
+  const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  if (R && R.first && day < R.first) return;   // not before the team began / 팀이 시작한 날보다 앞으로는 가지 않는다
+  S.date = day; history.replaceState(null, '', `/report?project=${encodeURIComponent(S.project)}&date=${S.date}`); load(); }
 
 function color(id) { if (COLOR[id]) return COLOR[id]; const i = R.roles.findIndex(r => r.id === id); return EXTRA[Math.max(0, i) % EXTRA.length]; }
+// zoom about a point of the chart (px from its left edge), keeping that moment under it / 그림의 한 점 (왼쪽부터 px) 을 중심으로 확대, 그 순간이 그 자리에 남게
+function setZoom(z, at) {
+  const ch = $('#chart'); z = Math.max(1, Math.min(24, z));
+  if (!ch || Math.abs(z - S.zoom) < .001) return;
+  const x = at ?? ch.clientWidth / 2, f = (ch.scrollLeft + x - 112) / Math.max(1, ch.scrollWidth - 112);
+  S.zoom = z; draw();
+  const c2 = $('#chart'); if (c2) c2.scrollLeft = f * (c2.scrollWidth - 112) + 112 - x;
+}
 function draw() {
+  const keep = $('#chart') ? $('#chart').scrollLeft : 0;   // a refresh keeps where you were / 새로 그려도 보던 곳 그대로
   const roles = R.roles, byId = Object.fromEntries(roles.map(r => [r.id, r]));
   const work = roles.reduce((a, r) => a + r.work, 0), honey = roles.reduce((a, r) => a + r.honey, 0), tok = roles.reduce((a, r) => a + r.tokens, 0);
   const models = {}; roles.forEach(r => Object.entries(r.models).forEach(([k, v]) => { models[k] = (models[k] || 0) + v; }));
@@ -174,7 +194,7 @@ function draw() {
   const title = L === 'ko' ? `${date.getMonth() + 1}월 ${date.getDate()}일 (${'일월화수목금토'[date.getDay()]}) 팀 리포트` : `${date.toDateString()} — team report`;
   // the time axis: whole hours around the day's work / 시간 축: 그날 일한 시간을 감싸는 정시
   // a short day gets finer ticks (10 or 30 minutes) / 짧은 날은 눈금을 촘촘히 (10분이나 30분)
-  const raw = Math.max(R.end - R.start, 1800), step = raw <= 3600 ? 600 : raw <= 3 * 3600 ? 1800 : 3600;
+  const raw = Math.max(R.end - R.start, 1800), vis = raw / S.zoom, step = vis <= 1200 ? 300 : vis <= 3600 ? 600 : vis <= 3 * 3600 ? 1800 : 3600;
   const t0 = Math.floor(R.start / step) * step, t1 = Math.max(t0 + 3 * step, Math.ceil(R.end / step) * step), span = t1 - t0;
   const X = t => ((t - t0) / span * 100).toFixed(2) + '%';
   const LANE = 52, TOP = 26, lane = Object.fromEntries(roles.map((r, i) => [r.id, i]));
@@ -185,38 +205,39 @@ function draw() {
   const hub = roles.map(r => ({ r, n: R.handoffs.filter(h => h.from === r.id || h.to === r.id).length })).sort((a, b) => b.n - a.n)[0];
   const story = R.summary ? `<p>${esc(R.summary)}</p>` : R.handoffs.length
     ? `<p>${R.handoffs.slice(0, 6).map(h => tr(`${hm(h.at)} ${esc(h.fromName)} → ${esc(h.toName)}: ${esc(h.text)}`, `${hm(h.at)} ${esc(h.fromName)} → ${esc(h.toName)}: ${esc(h.text)}`)).join('<br>')}${R.handoffs.length > 6 ? '<br>…' : ''}</p>`
-    : `<p>${tr('아직 이 날의 넘김이 없어요.', 'No hand-offs on this day yet.')}</p>`;
+    : `<p>${tr('이 날의 업무 전달 기록이 없습니다.', 'No hand-offs were recorded on this day.')}</p>`;
   $('#main').innerHTML = `
   <div class="row between" style="align-items:flex-end">
     <div style="display:flex;flex-direction:column;gap:6px">
-      <div class="row"><button class="btn icon" id="prev" aria-label="${tr('전날', 'Previous day')}">‹</button><h1>${esc(title)}</h1><button class="btn icon" id="next" aria-label="${tr('다음 날', 'Next day')}" ${R.today ? 'disabled' : ''}>›</button></div>
+      <div class="row"><button class="btn icon" id="prev" aria-label="${tr('이전 날', 'Previous day')}" ${R.first && R.date <= R.first ? 'disabled' : ''}>‹</button><h1>${esc(title)}</h1><button class="btn icon" id="next" aria-label="${tr('다음 날', 'Next day')}" ${R.today ? 'disabled' : ''}>›</button></div>
       <span class="sub">${esc(R.team)} · ${hm(R.start)} – ${hm(R.end)} · ${tr(`역할 ${roles.length}명`, `${roles.length} roles`)}</span>
     </div>
-    <div class="row"><button class="btn" id="md">${tr('Markdown 으로 복사', 'Copy as Markdown')}</button><button class="btn primary" id="print">${tr('PDF 로 저장', 'Save as PDF')}</button></div>
+    <div class="row"><button class="btn" id="md">${tr('Markdown으로 복사', 'Copy as Markdown')}</button><button class="btn primary" id="print">${tr('PDF로 저장', 'Save as PDF')}</button></div>
   </div>
-  <section class="tiles" aria-label="${tr('오늘의 숫자', 'The day in numbers')}">
-    <div class="tile"><span>${tr('함께 일한 시간', 'Time worked')}</span><b>${(work / 3600).toFixed(work < 36000 ? 1 : 0)}<small>${tr('시간', 'h')}</small></b><i>${top && top.work ? tr(`가장 오래: ${esc(top.name)} ${dur(top.work)}`, `Longest: ${esc(top.name)} ${dur(top.work)}`) : tr('기록이 아직 없어요', 'Nothing logged yet')}</i></div>
-    <div class="tile"><span>${tr('넘김', 'Hand-offs')}</span><b>${R.handoffs.length}<small>${tr('번', '')}</small></b><i>${hub && hub.n ? tr(`${esc(hub.r.name)}이(가) ${hub.n}번에 관여`, `${esc(hub.r.name)} in ${hub.n}`) : ''}</i></div>
-    <div class="tile"><span>${tr('끝낸 일', 'Tasks done')}</span><b>${honey}<small>${tr('개', '')}</small></b><i>${tr('꿀 장부 기준', 'From the honey ledger')}</i></div>
+  <section class="tiles" aria-label="${tr('주요 지표', 'Key figures')}">
+    <div class="tile"><span>${tr('총 작업 시간', 'Total working time')}</span><b>${(work / 3600).toFixed(work < 36000 ? 1 : 0)}<small>${tr('시간', 'h')}</small></b><i>${top && top.work ? tr(`최장 작업: ${esc(top.name)} ${dur(top.work)}`, `Longest: ${esc(top.name)}, ${dur(top.work)}`) : tr('기록이 없습니다', 'No activity recorded')}</i></div>
+    <div class="tile"><span>${tr('업무 전달', 'Hand-offs')}</span><b>${R.handoffs.length}<small>${tr('건', '')}</small></b><i>${hub && hub.n ? tr(`${esc(hub.r.name)} 관여 ${hub.n}건`, `${esc(hub.r.name)}: involved in ${hub.n}`) : ''}</i></div>
+    <div class="tile"><span>${tr('완료 작업', 'Completed tasks')}</span><b>${honey}<small>${tr('개', '')}</small></b><i>${tr('꿀 장부 기준', 'Per the honey ledger')}</i></div>
     <div class="tile"><span>${tr('토큰', 'Tokens')}</span><b>${K(tok)}</b><i>${Object.entries(models).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${Math.round(v / Math.max(1, tok) * 100)}%`).join(' · ')}</i></div>
-    <div class="tile"><span>${tr('다이어트', 'Diets')}</span><b>${R.diets.length}<small>${tr('번', '')}</small></b><i>${dd ? tr(`평균 ${dd}`, `Average ${dd}`) : ''}</i></div>
+    <div class="tile"><span>${tr('다이어트', 'Diets')}</span><b>${R.diets.length}<small>${tr('회', '')}</small></b><i>${dd ? tr(`평균 ${dd}`, `Average ${dd}`) : ''}</i></div>
   </section>
-  <section class="story" aria-label="${tr('오늘의 흐름', 'The flow of the day')}">
-    <span class="k">${tr('오늘의 흐름', 'HOW THE DAY WENT')}</span>${story}
-    <button class="btn small" id="sum">${R.summary ? tr('요약 다시 쓰기', 'Rewrite the summary') : tr('하루 요약 쓰기 (haiku)', 'Write a summary (haiku)')}</button>
+  <section class="story" aria-label="${tr('일일 요약', 'Daily summary')}">
+    <span class="k">${tr('일일 요약', 'DAILY SUMMARY')}</span>${story}
+    <button class="btn small" id="sum">${R.summary ? tr('요약 다시 작성', 'Regenerate summary') : tr('일일 요약 작성 (haiku)', 'Generate daily summary (haiku)')}</button>
   </section>
-  <section class="card" aria-label="${tr('시간표', 'Timeline')}" style="display:flex;flex-direction:column;gap:14px">
-    <div class="row between"><div><h2>${tr('누가 언제 무엇을 했나', 'Who did what, when')}</h2><span class="sub" style="font-size:13px">${tr('막대는 일한 시간, 화살표는 일을 넘긴 순간이에요', 'Bars are work; arrows are hand-offs')}</span></div>
-      <div class="legend"><span><i style="width:22px;height:12px;border-radius:3px;background:var(--muted)"></i>${tr('일함', 'Working')}</span>
-        <span><i style="width:22px;height:12px;border-radius:3px;border:2px dashed var(--muted)"></i>${tr('답 기다림', 'Needs you')}</span>
-        <span><svg width="12" height="20" viewBox="0 0 12 20" aria-hidden="true"><path d="M6 1v14" stroke="currentColor" stroke-width="2"/><path d="M1 12l5 6 5-6z" fill="currentColor"/></svg>${tr('넘김', 'Hand-off')}</span>
+  <section class="card" aria-label="${tr('작업 타임라인', 'Timeline')}" style="display:flex;flex-direction:column;gap:14px">
+    <div class="row between"><div><h2>${tr('역할별 작업 타임라인', 'Activity timeline by role')}</h2><span class="sub" style="font-size:13px">${tr('막대는 작업 시간, 화살표는 업무 전달 시점을 나타냅니다', 'Bars indicate working time; arrows indicate hand-offs.')}</span></div>
+      <div class="legend"><span><i style="width:22px;height:12px;border-radius:3px;background:var(--muted)"></i>${tr('작업', 'Working')}</span>
+        <span><i style="width:22px;height:12px;border-radius:3px;border:2px dashed var(--muted)"></i>${tr('응답 대기', 'Awaiting response')}</span>
+        <span><svg width="12" height="20" viewBox="0 0 12 20" aria-hidden="true"><path d="M6 1v14" stroke="currentColor" stroke-width="2"/><path d="M1 12l5 6 5-6z" fill="currentColor"/></svg>${tr('업무 전달', 'Hand-off')}</span>
         <span><i style="width:12px;height:12px;border-radius:50%;border:3px solid var(--fg)"></i>${tr('다이어트', 'Diet')}</span>
-        <button class="btn small" id="tbl" aria-pressed="${S.table}">${S.table ? tr('그림으로 보기', 'Show chart') : tr('표로 보기', 'Show table')}</button></div></div>
-    <div class="hover" role="status" id="hover"><b>${tr('자세히 보기', 'Details')}</b><span class="sub">${tr('막대, 화살표, 동그라미에 마우스를 올리거나 Tab 으로 옮겨 보세요', 'Hover or Tab over a bar, arrow or circle')}</span></div>
+        ${S.table ? '' : `<span class="zoom" role="group" aria-label="${tr('시간 축 확대', 'Time zoom')}"><button class="btn small" id="zout" aria-label="${tr('축소', 'Zoom out')}" ${S.zoom <= 1 ? 'disabled' : ''}>−</button><b>×${S.zoom < 10 ? S.zoom.toFixed(1).replace('.0', '') : Math.round(S.zoom)}</b><button class="btn small" id="zin" aria-label="${tr('확대', 'Zoom in')}" ${S.zoom >= 24 ? 'disabled' : ''}>+</button><button class="btn small" id="zfit" ${S.zoom <= 1 ? 'disabled' : ''}>${tr('전체 보기', 'Fit')}</button></span>`}
+        <button class="btn small" id="tbl" aria-pressed="${S.table}">${S.table ? tr('차트로 보기', 'Show chart') : tr('표로 보기', 'Show table')}</button></div></div>
+    <div class="hover" role="status" id="hover"><b>${tr('상세 정보', 'Details')}</b><span class="sub">${tr('막대, 화살표, 원 위에 마우스를 올리거나 Tab 키로 이동하면 상세 정보가 표시됩니다', 'Hover over or Tab to a bar, arrow or circle to view details.')}</span></div>
     ${S.table ? `<div class="chart"><table><thead><tr><th>${tr('역할', 'Role')}</th><th>${tr('시간', 'Time')}</th><th>${tr('상태', 'State')}</th></tr></thead><tbody>
-      ${roles.flatMap(r => r.segs.map(s => `<tr><td><b>${esc(r.name)}</b></td><td class="mono">${hm(s.start)}–${hm(s.end)}</td><td>${s.kind === 'run' ? tr('일함', 'Working') : tr('답 기다림', 'Needs you')}</td></tr>`)).join('') || `<tr><td colspan="3" class="empty">${tr('기록이 없어요', 'Nothing logged')}</td></tr>`}
+      ${roles.flatMap(r => r.segs.map(s => `<tr><td><b>${esc(r.name)}</b></td><td class="mono">${hm(s.start)}–${hm(s.end)}</td><td>${s.kind === 'run' ? tr('작업', 'Working') : tr('응답 대기', 'Awaiting response')}</td></tr>`)).join('') || `<tr><td colspan="3" class="empty">${tr('기록이 없습니다', 'No records')}</td></tr>`}
       ${R.handoffs.map(h => `<tr><td><b>${esc(h.fromName)} → ${esc(h.toName)}</b></td><td class="mono">${hm(h.at)}</td><td>${esc(h.text)}</td></tr>`).join('')}</tbody></table></div>`
-    : `<div class="chart"><div class="lanes">
+    : `<div class="chart${S.zoom > 1 ? ' grab' : ''}" id="chart" title="${tr('⌘/Ctrl + 휠 또는 손가락 벌리기로 확대하고, 드래그하여 이동합니다', 'Use ⌘/Ctrl + wheel or pinch to zoom; drag to pan.')}"><div class="lanes" style="width:${S.zoom * 100}%;min-width:${Math.round(860 * S.zoom)}px">
       <div class="names">${roles.map(r => `<div>${icon(r.id, 28)}<span>${esc(r.name)}</span></div>`).join('')}</div>
       <div class="plot" style="height:${TOP + roles.length * LANE}px">
         ${hours.map(t => `<i class="hour" style="left:${X(t)}"></i><span class="hl" style="left:${X(t)}">${hm(t)}</span>`).join('')}
@@ -228,61 +249,80 @@ function draw() {
       </div></div></div>`}
   </section>
   <div class="two">
-    <section class="card" aria-label="${tr('일이 흐른 길', 'Where the work went')}" style="display:flex;flex-direction:column;gap:12px">
-      <div><h2>${tr('일이 흐른 길', 'Where the work went')}</h2><span class="sub" style="font-size:13px">${tr(`누가 누구에게 몇 번 넘겼나 · 모두 ${R.handoffs.length}번`, `Who handed to whom · ${R.handoffs.length} in all`)}</span></div>
-      ${routes.map(x => `<div class="route"><span class="who">${icon(x.f, 24)}${ARROW}${icon(x.t, 24)}<span>${esc((byId[x.f] || { name: x.f }).name)} → ${esc((byId[x.t] || { name: x.t }).name)}</span></span><span class="track"><i style="width:${x.n / maxN * 100}%"></i></span><b class="mono" style="width:22px;text-align:right">${x.n}</b></div>`).join('') || `<span class="empty">${tr('넘김이 없어요', 'No hand-offs')}</span>`}
+    <section class="card" aria-label="${tr('업무 전달 경로', 'Hand-off routes')}" style="display:flex;flex-direction:column;gap:12px">
+      <div><h2>${tr('업무 전달 경로', 'Hand-off routes')}</h2><span class="sub" style="font-size:13px">${tr(`역할 간 업무 전달 횟수 · 총 ${R.handoffs.length}건`, `Hand-offs between roles · ${R.handoffs.length} in total`)}</span></div>
+      ${routes.map(x => `<div class="route"><span class="who">${icon(x.f, 24)}${ARROW}${icon(x.t, 24)}<span>${esc((byId[x.f] || { name: x.f }).name)} → ${esc((byId[x.t] || { name: x.t }).name)}</span></span><span class="track"><i style="width:${x.n / maxN * 100}%"></i></span><b class="mono" style="width:22px;text-align:right">${x.n}</b></div>`).join('') || `<span class="empty">${tr('업무 전달 기록이 없습니다', 'No hand-offs recorded')}</span>`}
     </section>
-    <section class="card" aria-label="${tr('사람이 볼 것', 'For you')}" style="display:flex;flex-direction:column;gap:10px">
-      <h2>${tr('사람이 볼 것', 'For you')}</h2>
-      ${R.waits.map(w => `<div class="ask">${icon(w.role, 32)}<div><b>${esc(w.name)} · ${hm(w.start)}–${hm(w.end)}</b><br><span class="sub" style="font-size:13px">${tr(`답을 ${dur(w.end - w.start)} 기다렸어요. 자주 막히는 질문이면 지시문이나 CLAUDE.md 에 미리 적어 두세요.`, `Waited ${dur(w.end - w.start)} for you. If it is a usual question, answer it ahead in the prompt or CLAUDE.md.`)}</span></div></div>`).join('') || `<span class="empty">${tr('기다린 일이 없어요', 'Nothing waited on you')}</span>`}
+    <section class="card" aria-label="${tr('확인 필요 사항', 'Items requiring attention')}" style="display:flex;flex-direction:column;gap:10px">
+      <h2>${tr('확인 필요 사항', 'Items requiring attention')}</h2>
+      ${R.waits.map(w => `<div class="ask">${icon(w.role, 32)}<div><b>${esc(w.name)} · ${hm(w.start)}–${hm(w.end)}</b><br><span class="sub" style="font-size:13px">${tr(`응답을 ${dur(w.end - w.start)} 동안 대기했습니다. 반복되는 질문이라면 역할 지시문이나 CLAUDE.md에 미리 기재하십시오.`, `Awaited a response for ${dur(w.end - w.start)}. If this question recurs, address it in advance in the role prompt or CLAUDE.md.`)}</span></div></div>`).join('') || `<span class="empty">${tr('응답 대기 기록이 없습니다', 'No waits recorded')}</span>`}
     </section>
   </div>
-  <section aria-label="${tr('역할별 하루', 'Each role')}" style="display:flex;flex-direction:column;gap:14px">
-    <h2>${tr('역할별 하루', 'Each role')}</h2>
+  <section aria-label="${tr('역할별 현황', 'By role')}" style="display:flex;flex-direction:column;gap:14px">
+    <h2>${tr('역할별 현황', 'By role')}</h2>
     <div class="cards">${roles.map(r => `<article class="card rc">
       <div class="row">${icon(r.id, 40)}<div style="flex:1;line-height:1.3"><b style="font-size:16px">${esc(r.name)}</b><br><span class="mono sub">${r.model} · ${r.effort}</span></div><b style="font-size:20px">${r.work ? dur(r.work) : '–'}</b></div>
       <div class="meter" aria-hidden="true"><i style="width:${r.work / maxW * 100}%;background:${color(r.id)}"></i></div>
-      ${r.files.length || r.commits.length ? `<ul>${r.commits.slice(0, 3).map(c => `<li>${esc(c.subject)} <span class="mono sub">${esc(c.hash)}</span></li>`).join('')}${r.files.slice(0, 4).map(f => `<li class="mono">${esc(f)}</li>`).join('')}</ul>` : `<span class="empty">${tr('고친 파일 기록이 없어요', 'No files logged')}</span>`}
-      <div class="chips"><span>${tr('파일', 'Files')} ${r.files.length}</span><span>${tr('커밋', 'Commits')} ${r.commits.length}</span><span>${tr('넘김', 'Hand-offs')} ${r.handoffs}</span><span>${tr('토큰', 'Tokens')} ${K(r.tokens)}</span><span>${tr('다이어트', 'Diets')} ${r.diets}</span><span class="honey">${tr('꿀', 'Honey')} ${r.honey}</span></div>
+      ${r.files.length || r.commits.length ? `<ul>${r.commits.slice(0, 3).map(c => `<li>${esc(c.subject)} <span class="mono sub">${esc(c.hash)}</span></li>`).join('')}${r.files.slice(0, 4).map(f => `<li class="mono">${esc(f)}</li>`).join('')}</ul>` : `<span class="empty">${tr('수정된 파일 기록이 없습니다', 'No file changes recorded')}</span>`}
+      <div class="chips"><span>${tr('파일', 'Files')} ${r.files.length}</span><span>${tr('커밋', 'Commits')} ${r.commits.length}</span><span>${tr('업무 전달', 'Hand-offs')} ${r.handoffs}</span><span>${tr('토큰', 'Tokens')} ${K(r.tokens)}</span><span>${tr('다이어트', 'Diets')} ${r.diets}</span><span class="honey">${tr('꿀', 'Honey')} ${r.honey}</span></div>
     </article>`).join('')}</div>
   </section>
-  <section class="card" aria-label="${tr('오늘 만든 것', 'Made today')}" style="display:flex;flex-direction:column;gap:12px">
-    <h2>${tr('오늘 만든 것', 'Made today')}</h2>
-    <div class="outs">${R.outputs.slice().reverse().map(o => `<div>${icon(o.role, 26)}<code>${esc(o.path)}</code><span class="sub" style="font-size:12px;white-space:nowrap">${o.new ? tr('새 파일', 'new') : tr('고침', 'edited')} · ${hm(o.at)}</span></div>`).join('') || `<span class="empty">${tr('고친 파일 기록이 없어요', 'No files logged')}</span>`}</div>
+  <section class="card" aria-label="${tr('당일 산출물', 'Outputs of the day')}" style="display:flex;flex-direction:column;gap:12px">
+    <h2>${tr('당일 산출물', 'Outputs of the day')}</h2>
+    <div class="outs">${R.outputs.slice().reverse().map(o => `<div>${icon(o.role, 26)}<code>${esc(o.path)}</code><span class="sub" style="font-size:12px;white-space:nowrap">${o.new ? tr('신규', 'new') : tr('수정', 'modified')} · ${hm(o.at)}</span></div>`).join('') || `<span class="empty">${tr('수정된 파일 기록이 없습니다', 'No file changes recorded')}</span>`}</div>
   </section>
-  <footer class="sub" style="font-size:12px">${tr('재료: 역할 상태 기록(states.log), 넘김(handoffs.log), 다이어트(diet.log), 고친 파일(files.log), 꿀 장부, 역할 대화의 토큰, 역할 브랜치의 커밋. 모두 프로젝트의 .hivemux/ 에 있어요.', "From the roles' states (states.log), hand-offs, diets, files changed, the honey ledger, the roles' conversations (tokens) and their branches (commits), all in the project's .hivemux/.")}</footer>`;
+  <footer class="sub" style="font-size:12px">${tr('자료 출처: 역할 상태 기록(states.log), 업무 전달(handoffs.log), 다이어트(diet.log), 수정된 파일(files.log), 꿀 장부, 역할 대화의 토큰, 역할 브랜치의 커밋. 모두 프로젝트의 .hivemux/ 폴더에 있습니다.', "Sources: role states (states.log), hand-offs (handoffs.log), diets (diet.log), changed files (files.log), the honey ledger, tokens from the roles' conversations and commits on the roles' branches, all in the project's .hivemux/ folder.")}</footer>`;
   bind();
+  if ($('#chart')) $('#chart').scrollLeft = keep;
 }
 function bind() {
+  const ch = $('#chart');
+  if (ch) {
+    $('#zin').onclick = () => setZoom(S.zoom * 1.5); $('#zout').onclick = () => setZoom(S.zoom / 1.5); $('#zfit').onclick = () => setZoom(1);
+    // ⌘/Ctrl + wheel, or a trackpad pinch (which comes as a wheel with ctrl), zooms at the pointer / ⌘/Ctrl + 휠, 트랙패드 벌리기 (ctrl 붙은 휠로 온다) 는 포인터 자리에서 확대
+    ch.addEventListener('wheel', e => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      setZoom(S.zoom * Math.exp(-e.deltaY * .01), e.clientX - ch.getBoundingClientRect().left);
+    }, { passive: false });
+    // drag the chart to move along the day / 그림을 끌어 하루를 따라 옮긴다
+    ch.addEventListener('pointerdown', e => {
+      if (S.zoom <= 1 || e.button !== 0 || e.target.closest('button')) return;
+      const x0 = e.clientX, s0 = ch.scrollLeft; ch.classList.add('grabbing'); ch.setPointerCapture(e.pointerId);
+      const move = ev => { ch.scrollLeft = s0 - (ev.clientX - x0); };
+      const up = () => { ch.classList.remove('grabbing'); ch.removeEventListener('pointermove', move); ch.removeEventListener('pointerup', up); ch.removeEventListener('pointercancel', up); };
+      ch.addEventListener('pointermove', move); ch.addEventListener('pointerup', up); ch.addEventListener('pointercancel', up);
+    });
+  }
   $('#prev').onclick = () => shiftDay(-1); $('#next').onclick = () => shiftDay(1);
   $('#tbl').onclick = () => { S.table = !S.table; draw(); };
   $('#print').onclick = () => window.print();
   $('#md').onclick = copyMd;
   $('#sum').onclick = async e => {
-    e.target.disabled = true; e.target.textContent = tr('쓰는 중… (30초쯤)', 'Writing… (about 30 s)');
+    e.target.disabled = true; e.target.textContent = tr('작성 중… (약 30초 소요)', 'Generating… (about 30 seconds)');
     const r = await post('/team/summary', { project: S.project, date: S.date });
-    if (!r.ok) toast(r.say || tr('요약을 쓰지 못했어요', 'Could not write it'));
+    if (!r.ok) toast(r.say || tr('요약을 작성하지 못했습니다', 'The summary could not be generated.'));
     load();
   };
   document.querySelectorAll('[data-h]').forEach(el => {
     const show = () => {
       const [kind, a, b] = el.dataset.h.split('|');
       let title = '', sub = '', col = 'var(--fg)';
-      if (kind === 'seg') { const r = R.roles.find(x => x.id === a), s = r.segs[+b]; title = `${r.name} · ${hm(s.start)}–${hm(s.end)}`; sub = s.kind === 'run' ? tr(`일함 ${dur(s.end - s.start)}`, `working ${dur(s.end - s.start)}`) : tr(`답 기다림 ${dur(s.end - s.start)}`, `needs you ${dur(s.end - s.start)}`); col = color(a); }
+      if (kind === 'seg') { const r = R.roles.find(x => x.id === a), s = r.segs[+b]; title = `${r.name} · ${hm(s.start)}–${hm(s.end)}`; sub = s.kind === 'run' ? tr(`작업 ${dur(s.end - s.start)}`, `Working ${dur(s.end - s.start)}`) : tr(`응답 대기 ${dur(s.end - s.start)}`, `Awaiting response ${dur(s.end - s.start)}`); col = color(a); }
       if (kind === 'hand') { const h = R.handoffs.filter(h => R.roles.some(r => r.id === h.from) && R.roles.some(r => r.id === h.to))[+a]; title = `${hm(h.at)} · ${h.fromName} → ${h.toName}`; sub = h.text; }
-      if (kind === 'diet') { const d = R.diets.filter(d => R.roles.some(r => r.id === d.role))[+a]; title = `${hm(d.at)} · ${d.name} ${tr('다이어트', 'diet')}`; sub = tr(`컨텍스트 ${K(d.before)} → ${K(d.after)}`, `context ${K(d.before)} → ${K(d.after)}`); }
+      if (kind === 'diet') { const d = R.diets.filter(d => R.roles.some(r => r.id === d.role))[+a]; title = `${hm(d.at)} · ${d.name} ${tr('다이어트', 'diet')}`; sub = tr(`컨텍스트 ${K(d.before)} → ${K(d.after)}`, `Context ${K(d.before)} → ${K(d.after)}`); }
       $('#hover').innerHTML = `<i style="width:10px;height:10px;border-radius:3px;background:${col}"></i><b>${esc(title)}</b><span class="sub">${esc(sub)}</span>`;
     };
     el.addEventListener('mouseenter', show); el.addEventListener('focus', show);
   });
 }
 function copyMd() {
-  const md = [`# ${R.team} · ${R.date}`, '', R.summary || '', '', `## ${tr('넘김', 'Hand-offs')}`, ...R.handoffs.map(h => `- ${hm(h.at)} ${h.fromName} → ${h.toName}: ${h.text}`), '',
-    `## ${tr('역할별', 'Roles')}`, ...R.roles.map(r => `- ${r.name}: ${tr('일함', 'worked')} ${dur(r.work)}, ${tr('넘김', 'hand-offs')} ${r.handoffs}, ${tr('토큰', 'tokens')} ${K(r.tokens)}, ${tr('꿀', 'honey')} ${r.honey}`), '',
-    `## ${tr('만든 것', 'Made')}`, ...R.outputs.map(o => `- ${o.name}: ${o.path}`)].join('\n');
-  (navigator.clipboard ? navigator.clipboard.writeText(md) : Promise.reject()).then(() => toast(tr('복사했어요', 'Copied')), () => {
+  const md = [`# ${R.team} · ${R.date}`, '', R.summary || '', '', `## ${tr('업무 전달', 'Hand-offs')}`, ...R.handoffs.map(h => `- ${hm(h.at)} ${h.fromName} → ${h.toName}: ${h.text}`), '',
+    `## ${tr('역할별', 'Roles')}`, ...R.roles.map(r => `- ${r.name}: ${tr('작업', 'working time')} ${dur(r.work)}, ${tr('업무 전달', 'hand-offs')} ${r.handoffs}, ${tr('토큰', 'tokens')} ${K(r.tokens)}, ${tr('꿀', 'honey')} ${r.honey}`), '',
+    `## ${tr('산출물', 'Outputs')}`, ...R.outputs.map(o => `- ${o.name}: ${o.path}`)].join('\n');
+  (navigator.clipboard ? navigator.clipboard.writeText(md) : Promise.reject()).then(() => toast(tr('복사되었습니다', 'Copied.')), () => {
     const t = document.createElement('textarea'); t.value = md; document.body.appendChild(t); t.select();
-    try { document.execCommand('copy'); toast(tr('복사했어요', 'Copied')); } catch (e) { toast(tr('복사하지 못했어요', 'Could not copy')); }
+    try { document.execCommand('copy'); toast(tr('복사되었습니다', 'Copied.')); } catch (e) { toast(tr('복사하지 못했습니다', 'Could not copy.')); }
     t.remove();
   });
 }
