@@ -105,6 +105,7 @@ def copy_path(aid):
 
 def keep_copies(d):
     """Copy each published file while it is there, again when it changed / 게시한 파일이 있으면 복사, 바뀌었으면 다시"""
+    os.makedirs(DATA, exist_ok=True)
     for it in d["items"].values():
         src, dst = it.get("path"), copy_path(it["id"])
         if not src or not os.path.isfile(src):
