@@ -637,9 +637,9 @@ def letters():
 
 def team_state(project):
     """The team page's data: projects, templates, and the chosen project's team / 팀 화면 자료: 프로젝트, 템플릿, 고른 프로젝트의 팀"""
-    projects = []
+    projects, where = [], teams.folders()
     for name in tmux("list-sessions", "-F", "#{session_name}").splitlines():
-        folder = teams.folder_of(name) if name else ""
+        folder = where.get(name, "") if name else ""
         if name and folder and not (name == "0" and tmux("show", "-gqv", "@hivemux-starting").strip()):
             projects.append({"name": name, "folder": folder, "team": os.path.isfile(os.path.join(folder, ".hivemux", "team.toml"))})
     out = {"lang": lang(), "projects": projects, "templates": teams.templates(), "nav": take_nav(), "project": None}

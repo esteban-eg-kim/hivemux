@@ -60,9 +60,15 @@ def tmux(*a):
     return subprocess.run([TMUX, *a], capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout
 
 
+_LANG = [0.0, ""]
+
+
 def lang():
-    v = os.environ.get("HIVEMUX_LANG") or tmux("show", "-gqv", "@hivemux-lang").strip()
-    return "ko" if (v or os.environ.get("LANG", "")).startswith("ko") else "en"
+    # asked many times while one page is built: tmux once every few seconds is enough / 화면 하나 만드는 동안 여러 번 묻는다: 몇 초에 한 번이면 된다
+    if time.time() - _LANG[0] > 3:
+        v = os.environ.get("HIVEMUX_LANG") or tmux("show", "-gqv", "@hivemux-lang").strip()
+        _LANG[:] = [time.time(), "ko" if (v or os.environ.get("LANG", "")).startswith("ko") else "en"]
+    return _LANG[1]
 
 
 def tr(ko, en):
@@ -238,20 +244,27 @@ def project(session):
     return session, folder
 
 
-def folder_of(session):
+FOLDER_FMT = "\t".join(["#{session_name}", "#{@hivemux-folder}", "#{session_path}", "#{window_index}", "#{pane_index}", "#{pane_title}",
+                         "#{@hivemux-role}", "#{@claude_cwd}", "#{pane_current_path}"])
+
+
+def folder_of(session, rows=None):
     """The project's folder. Not tmux's session_path: a restored session can keep another folder there (a
     team landed in another project's folder that way). Pinned once a team is made (@hivemux-folder), else
-    where its Claudes started (@claude_cwd) or its shells are, the first window first.
+    where its Claudes started (@claude_cwd) or its shells are, the first window first. rows: its panes in
+    FOLDER_FMT, when already read (folders()).
     프로젝트 폴더. tmux 의 session_path 가 아니다: 복원된 세션은 거기 다른 폴더를 갖고 있을 수 있다 (그래서
     팀이 다른 프로젝트 폴더에 만들어졌다). 팀을 만들면 고정하고 (@hivemux-folder), 아니면 Claude 가 시작한
-    곳 (@claude_cwd) 이나 셸이 있는 곳, 첫 창부터."""
-    pinned = tmux("show", "-t", f"={session}:", "-qv", "@hivemux-folder").strip()
+    곳 (@claude_cwd) 이나 셸이 있는 곳, 첫 창부터. rows: 이미 읽은 그 칸들 (FOLDER_FMT, folders())."""
+    if rows is None:
+        rows = [(l.split("\t") + [""] * 9)[:9] for l in tmux("list-panes", "-s", "-t", f"={session}", "-F", FOLDER_FMT).splitlines()]
+    if not rows:
+        return ""
+    pinned = rows[0][1]
     if pinned and os.path.isdir(pinned):
         return pinned
     home, best = os.path.expanduser("~"), None
-    fmt = "\t".join(["#{window_index}", "#{pane_index}", "#{pane_title}", "#{@hivemux-role}", "#{@claude_cwd}", "#{pane_current_path}"])
-    for line in tmux("list-panes", "-s", "-t", f"={session}", "-F", fmt).splitlines():
-        w, pi, title, role, ccwd, cur = (line.split("\t") + [""] * 6)[:6]
+    for _, _, _, w, pi, title, role, ccwd, cur in rows:
         if title == "hivemux-sidebar" or role or not (w.isdigit() and pi.isdigit()):
             continue
         d = ccwd or cur
@@ -259,7 +272,16 @@ def folder_of(session):
             key = (0 if ccwd else 1, int(w), int(pi))
             if best is None or key < best[0]:
                 best = (key, d)
-    return best[1] if best else tmux("display", "-p", "-t", f"={session}:", "#{session_path}").strip()
+    return best[1] if best else rows[0][2]
+
+
+def folders():
+    """Every project's folder, from one tmux call / 모든 프로젝트의 폴더, tmux 한 번으로"""
+    by = {}
+    for l in tmux("list-panes", "-a", "-F", FOLDER_FMT).splitlines():
+        r = (l.split("\t") + [""] * 9)[:9]
+        by.setdefault(r[0], []).append(r)
+    return {name: folder_of(name, rows) for name, rows in by.items()}
 
 
 def team_dir(folder):
