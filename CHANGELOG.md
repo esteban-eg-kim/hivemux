@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Bee office: bees with no resting spot left no longer stand on each other.
+  They used to go round the courtyard (or along the lounge) by their number,
+  which came back to the same place every 10 bees (14 in the classic office),
+  so with many sessions 3 to 5 stood in one spot; each now keeps a place of
+  its own, spread all round
+
 ## 0.1.56 — 2026-11-13
 
 - Claude accounts: log in to more than one Claude account and switch between
