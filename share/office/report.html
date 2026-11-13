@@ -205,6 +205,7 @@ function draw() {
   const LANE = 52, TOP = 26, lane = Object.fromEntries(roles.map((r, i) => [r.id, i]));
   const hours = []; for (let t = t0; t <= t1; t += step) hours.push(t);
   const counts = {}; R.handoffs.forEach(h => { const k = h.from + '>' + h.to; counts[k] = (counts[k] || 0) + 1; });
+  const nameOf = {}; R.handoffs.forEach(h => { nameOf[h.from] = h.fromName; nameOf[h.to] = h.toName; });   // a reply to an unknown Claude has no role / 모르는 Claude 에게 간 답장은 역할이 없다
   const routes = Object.entries(counts).map(([k, n]) => { const [f, t] = k.split('>'); return { f, t, n }; }).sort((a, b) => b.n - a.n).slice(0, 8);
   const maxN = Math.max(1, ...routes.map(r => r.n)), maxW = Math.max(1, ...roles.map(r => r.work));
   const hub = roles.map(r => ({ r, n: R.handoffs.filter(h => h.from === r.id || h.to === r.id).length })).sort((a, b) => b.n - a.n)[0];
@@ -256,7 +257,7 @@ function draw() {
   <div class="two">
     <section class="card" aria-label="${tr('업무 전달 경로', 'Hand-off routes')}" style="display:flex;flex-direction:column;gap:12px">
       <div><h2>${tr('업무 전달 경로', 'Hand-off routes')}</h2><span class="sub" style="font-size:13px">${tr(`역할 간 업무 전달 횟수 · 총 ${R.handoffs.length}건`, `Hand-offs between roles · ${R.handoffs.length} in total`)}</span></div>
-      ${routes.map(x => `<div class="route"><span class="who">${icon(x.f, 24)}${ARROW}${icon(x.t, 24)}<span>${esc((byId[x.f] || { name: x.f }).name)} → ${esc((byId[x.t] || { name: x.t }).name)}</span></span><span class="track"><i style="width:${x.n / maxN * 100}%"></i></span><b class="mono" style="width:22px;text-align:right">${x.n}</b></div>`).join('') || `<span class="empty">${tr('업무 전달 기록이 없습니다', 'No hand-offs recorded')}</span>`}
+      ${routes.map(x => `<div class="route"><span class="who">${icon(x.f, 24)}${ARROW}${icon(x.t, 24)}<span>${esc((byId[x.f] || { name: nameOf[x.f] || x.f }).name)} → ${esc((byId[x.t] || { name: nameOf[x.t] || x.t }).name)}</span></span><span class="track"><i style="width:${x.n / maxN * 100}%"></i></span><b class="mono" style="width:22px;text-align:right">${x.n}</b></div>`).join('') || `<span class="empty">${tr('업무 전달 기록이 없습니다', 'No hand-offs recorded')}</span>`}
     </section>
     <section class="card" aria-label="${tr('확인 필요 사항', 'Items requiring attention')}" style="display:flex;flex-direction:column;gap:10px">
       <h2>${tr('확인 필요 사항', 'Items requiring attention')}</h2>

@@ -368,9 +368,11 @@ function renderTeam(m) {
         <button class="btn primary" id="tup" ${t.roles.length && running < t.roles.length ? '' : 'disabled'}>▶ ${running ? tr('나머지 역할 시작', 'Start remaining roles') : tr('팀 시작', 'Start team')} · ${t.roles.length - running}</button>
       </div>
     </div>
-    ${(t.questions || '').trim() ? `<section class="card" aria-label="${tr('받은 질문', 'Questions awaiting your answer')}" style="display:flex;flex-direction:column;gap:10px;border-color:var(--tip-line);background:var(--tip-bg)">
-      <div class="row between"><h2>${tr('받은 질문', 'Questions awaiting your answer')}</h2><code class="sub">.hivemux/questions.md</code></div>
-      <pre style="margin:0;white-space:pre-wrap;font:14px/1.7 var(--f-body);max-height:360px;overflow:auto">${esc(t.questions)}</pre>
+    ${(t.questions || []).length ? `<section class="card" aria-label="${tr('받은 질문', 'Questions awaiting your answer')}" style="display:flex;flex-direction:column;gap:10px;border-color:var(--tip-line);background:var(--tip-bg)">
+      <div class="row between"><h2>${tr(`받은 질문 · ${t.questions.length}건`, `Questions awaiting your answer · ${t.questions.length}`)}</h2><code class="sub">.hivemux/questions.md</code></div>
+      ${t.questions.map(q => `<div style="display:flex;flex-direction:column;gap:6px;padding:10px 0;border-top:1px solid var(--tip-line)">
+        <div class="row between"><b>${esc(q.head)}</b><button class="btn small" data-qdone="${q.i}">${tr('답변 완료로 표시', 'Mark as answered')}</button></div>
+        <pre style="margin:0;white-space:pre-wrap;font:14px/1.7 var(--f-body);max-height:300px;overflow:auto">${esc(q.body)}</pre></div>`).join('')}
       <span class="sub" style="font-size:13px">${tr(`질문한 역할의 창에 번호를 붙여 답변하십시오. 해당 역할이 불분명하면 리드(${esc((t.roles.find(r => r.lead) || t.roles[0] || {}).name || '')})에게 답변하십시오.`, `Answer in the window of the role that asked, citing the number. If unsure which role asked, answer the lead (${esc((t.roles.find(r => r.lead) || t.roles[0] || {}).name || '')}).`)}</span>
     </section>` : ''}
     ${guide(t, running)}
@@ -401,6 +403,10 @@ function renderTeam(m) {
     if (!r.ok) return toast(r.say);
     S.sel = r.id; S.sig = ''; load();
   };
+  document.querySelectorAll('[data-qdone]').forEach(b => { b.onclick = async () => {
+    b.disabled = true; const r = await post('/team/question/done', { project: S.project, index: +b.dataset.qdone });
+    if (!r.ok) toast(r.say || tr('표시하지 못했습니다', 'Could not mark it.')); S.sig = ''; load();
+  }; });
   $('#tup').onclick = async () => { const r = await post('/team/up', { project: S.project }); toast(r.say || tr('시작했습니다', 'Started.')); load(); };
   $('#tdown').onclick = () => ask(tr('팀을 종료하시겠습니까?', 'Stop the team?'), tr('각 역할의 Claude 를 퇴근처럼 종료합니다. 작업 중인 역할은 작업을 마친 뒤 종료되며, 대화는 보존되어 다시 시작하면 이어집니다.', 'Each role clocks out; roles at work finish first. Conversations are kept and resume when the team starts again.'),
     tr('종료', 'Stop'), async () => { const r = await post('/team/down', { project: S.project }); toast(r.say || tr('종료했습니다', 'Stopped.')); load(); });

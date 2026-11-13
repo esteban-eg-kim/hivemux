@@ -681,6 +681,8 @@ def team_post(action, req):
         ok, msg = team_call(teams.trust, project)
     elif action == "diet":
         ok, msg = team_call(teams.diet_now, project, str(req.get("id", "")))
+    elif action == "question/done":
+        ok, msg = team_call(teams.question_done, project, int(req.get("index", -1)))
     elif action == "save":
         ok, msg = team_call(teams.save, str(req.get("id", "")), project)
     else:

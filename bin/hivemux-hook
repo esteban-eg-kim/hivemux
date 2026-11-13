@@ -184,6 +184,10 @@ case "$event" in
     ;;
   UserPromptSubmit|PermissionDenied)
     [ "$event" = UserPromptSubmit ] && t set -pu -t "$TMUX_PANE" @claude_touched   # a new turn / 새 턴
+    # the user typed into a team role's window: its open questions count as answered (bin/hivemux-team)
+    # 사용자가 팀 역할 창에 입력함: 그 역할의 열린 질문은 답한 것으로 (bin/hivemux-team)
+    [ "$event" = UserPromptSubmit ] && [ -n "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @hivemux-role 2>/dev/null)" ] &&
+      ( "$(dirname "$0")/hivemux-team" prompted "$TMUX_PANE" >/dev/null 2>&1 & )
     mode_
     working
     ;;

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Teams: a reply sent to a Claude by its address (uds:/…/<pid>.sock) now
+  reads as its role even after that Claude is gone: each role's Claude is
+  noted when it starts (.hivemux/pids.tsv), and old logs read through that
+  note at their own time, never through whatever has the pid now. A reply
+  nobody can place shows once as "Unidentified session"
+- Teams: questions to the user close. Roles write them under "(waiting for an
+  answer)" and change it to "(answered)"; typing into a role's window marks
+  its open questions answered, and the team page shows only open ones, each
+  with "Mark as answered"
 - Team report: the timeline zooms along time (buttons, ⌘/Ctrl + wheel or a
   pinch at the pointer) and scrolls or drags sideways, with finer time marks
   as it zooms; the role names stay in place. The report no longer goes back

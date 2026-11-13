@@ -357,8 +357,8 @@ def build_prompt(session, folder, team, role):
         if lead and lead["id"] != role["id"]:
             lines.append(f"막히거나 판단이 필요하면 리드({session}-{lead['id']})에게 보낸다.")
         lines.append("다른 역할이 맡은 곳의 파일은 고치지 않는다.")
-        lines.append(f"사용자에게 물을 것은 {os.path.join(team_dir(folder), 'questions.md')} 에 번호를 붙여 적고 (누가, 언제, 원문 그대로) 답변에도 보여라. "
-                     "답이 오면 그 질문 아래에 답을 적는다. 대화가 비워져도 질문을 잃지 않게 하려는 것이다.")
+        lines.append(f"사용자에게 물을 것은 {os.path.join(team_dir(folder), 'questions.md')} 에 '## {label(role)} · <시각> (답을 기다림)' 제목 아래 번호를 붙여 적고 (원문 그대로) 답변에도 보여라. "
+                     "답이 오면 그 질문 아래에 답을 적고 제목의 (답을 기다림) 을 (답변함) 으로 바꾼다. 대화가 비워져도 질문을 잃지 않게 하려는 것이다.")
         if role["readonly"]:
             lines.append("너는 읽기 전용 역할이다. 파일을 고치지 않고, 고칠 것은 맡은 역할에게 넘긴다.")
         if role["worktree"]:
@@ -371,8 +371,8 @@ def build_prompt(session, folder, team, role):
         if lead and lead["id"] != role["id"]:
             lines.append(f"When blocked or a decision is needed, message the lead ({session}-{lead['id']}).")
         lines.append("Do not change files another role owns.")
-        lines.append(f"Questions for the user go to {os.path.join(team_dir(folder), 'questions.md')}, numbered (who, when, the exact words), and in your answer too. "
-                     "Write the answer under the question when it comes, so a cleared conversation never loses a question.")
+        lines.append(f"Questions for the user go to {os.path.join(team_dir(folder), 'questions.md')} under a heading '## {label(role)} · <time> (waiting for an answer)', numbered, word for word, and in your answer too. "
+                     "When the answer comes, write it under the question and change the heading's (waiting for an answer) to (answered), so a cleared conversation never loses a question.")
         if role["readonly"]:
             lines.append("You are a read-only role: do not change files; hand what needs fixing to the role that owns it.")
         if role["worktree"]:
@@ -567,7 +567,7 @@ def status(session):
             "team": {"id": team.get("id", ""), "name": label(team), "description": label(team, "description"),
                      "flow": team.get("flow") or [r["id"] for r in team["role"]], "diet": team["diet"], "roles": roles,
                      "handoffs": handoffs(folder, team),
-                     "questions": _read(os.path.join(team_dir(folder), "questions.md"))[:8000],
+                     "questions": open_questions(folder),
                      "starters": (lang() == "en" and team.get("starters_en")) or team.get("starters") or []}}
 
 
@@ -1042,6 +1042,110 @@ def diet_line(folder, role):
     return line
 
 
+# ── questions to the user (.hivemux/questions.md) / 사용자에게 묻는 질문 ────────────────────────────────────
+# A role writes them under "## <role> · <time> (waiting for an answer)". A question is open until its heading
+# says it was answered: the role marks it, the user marks it on the team page, or the user types into that
+# role's window (an answer, as far as hivemux can tell).
+# 역할이 "## <역할> · <시각> (답을 기다림)" 아래 적는다. 제목에 답했다고 적힐 때까지 열려 있다: 역할이 바꾸거나,
+# 사용자가 팀 화면에서 표시하거나, 사용자가 그 역할 창에 입력하면 (hivemux 가 아는 한 답이다) 닫힌다.
+WAITING_RE = re.compile(r"\((?:답을 기다림|waiting[^)]*)\)", re.I)
+ANSWERED_RE = re.compile(r"\((?:답변함|답변 받음|answered)[^)]*\)", re.I)
+
+
+def question_sections(text):
+    """[(heading index, heading, body lines)] of a questions file / 질문 파일의 [(제목 줄 번호, 제목, 본문 줄)]"""
+    lines, out = text.splitlines(), []
+    for i, l in enumerate(lines):
+        if l.startswith("## "):
+            out.append([i, l, []])
+        elif out:
+            out[-1][2].append(l)
+    return lines, out
+
+
+def open_questions(folder):
+    """The questions still waiting, for the team page / 아직 답을 기다리는 질문 (팀 화면용)"""
+    lines, secs = question_sections(_read(os.path.join(team_dir(folder), "questions.md")))
+    return [{"i": i, "head": h[3:].strip(), "body": "\n".join(b).strip()[:4000]} for i, h, b in secs if not ANSWERED_RE.search(h)]
+
+
+def answer_questions(folder, role=None, index=None):
+    """Mark questions answered: the one at heading index, or every open one of a role / 답변함으로 표시: 그 제목 줄 하나, 또는 한 역할의 열린 것 모두"""
+    path = os.path.join(team_dir(folder), "questions.md")
+    lines, secs = question_sections(_read(path))
+    mark = time.strftime(tr("(답변함 · %m월 %d일 %H:%M)", "(answered · %b %d %H:%M)"))
+    hit = False
+    for i, h, _ in secs:
+        if ANSWERED_RE.search(h) or (index is not None and i != index):
+            continue
+        if index is None and not (role and label(role) in h):
+            continue
+        lines[i] = WAITING_RE.sub(mark, h) if WAITING_RE.search(h) else f"{h} {mark}"
+        hit = True
+    if hit:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+    return hit
+
+
+def on_prompt(pane):
+    """bin/hivemux-hook, UserPromptSubmit in a role's window: the user answered that role's open questions
+    역할 창의 UserPromptSubmit: 사용자가 그 역할의 열린 질문에 답했다"""
+    found = role_of(pane)
+    if found:
+        answer_questions(found[1], found[3])
+
+
+def question_done(session, index):
+    """The team page's Mark answered / 팀 화면의 답변 완료로 표시"""
+    session, folder = project(session)
+    if not answer_questions(folder, index=int(index)):
+        die(tr("그 질문을 찾을 수 없습니다", "That question was not found"))
+
+
+def claude_pid(pane):
+    """The pid of the Claude running in a pane (a child of its shell) / 칸에서 도는 Claude 의 pid (셸의 자식)"""
+    shell = tmux("display", "-p", "-t", pane, "#{pane_pid}").strip()
+    out = subprocess.run(["ps", "-ax", "-o", "pid=,ppid=,comm="], capture_output=True, text=True).stdout
+    for line in out.splitlines():
+        p = line.split(None, 2)
+        if len(p) == 3 and p[1] == shell and os.path.basename(p[2].strip()) == "claude":
+            return p[0]
+    return ""
+
+
+def remember_pid(folder, pane, role):
+    """A reply is addressed to a Claude by its pid (uds:/…/<pid>.sock). Keep which role each pid was, so a reply
+    reads as that role even after its Claude is gone: .hivemux/pids.tsv ("<epoch> <pid> <role>")
+    답장은 Claude 의 pid 로 주소가 붙는다 (uds:/…/<pid>.sock). pid 마다 어느 역할이었는지 적어 두어, 그 Claude 가
+    꺼진 뒤에도 답장이 그 역할로 읽히게 한다: .hivemux/pids.tsv ("<epoch> <pid> <역할>")"""
+    pid = claude_pid(pane)
+    if not pid:
+        return
+    path = os.path.join(team_dir(folder), "pids.tsv")
+    try:
+        lines = open(path, encoding="utf-8").read().splitlines()[-400:]
+    except OSError:
+        lines = []
+    lines.append(f"{int(time.time())}\t{pid}\t{role['id']}")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+def pid_role(folder, pid, at):
+    """The role the Claude with this pid was at a moment (pids get reused, so the last record before it)
+    그 순간 이 pid 의 Claude 가 어느 역할이었나 (pid 는 다시 쓰이니 그 전 마지막 기록)"""
+    best = None
+    try:
+        for line in open(os.path.join(team_dir(folder), "pids.tsv"), encoding="utf-8"):
+            t, p, r = (line.rstrip("\n").split("\t") + ["", "", ""])[:3]
+            if p == pid and t.isdigit() and int(t) <= at:
+                best = r
+    except OSError:
+        pass
+    return best
+
+
 def on_start(pane, sid, source):
     """bin/hivemux-hook, SessionStart: remember the conversation; after a diet's /clear, carry on from the notes
     SessionStart: 대화를 적는다. 다이어트의 /clear 뒤에는 노트로 이어 간다"""
@@ -1051,6 +1155,7 @@ def on_start(pane, sid, source):
     if not found:
         return
     session, folder, team, role = found
+    remember_pid(folder, pane, role)
     if st == "clear" and source == "clear":
         time.sleep(1.0)
         tmux("set", "-p", "-t", pane, "@hivemux-diet", "after")
@@ -1067,18 +1172,31 @@ def on_start(pane, sid, source):
 # and to @hivemux-letters (the bee office flies a letter from one desk to the other).
 # 역할이 팀원에게 메시지를 보내면 (SendMessage, bin/hivemux-hook 이 본다) 넘김이다: handoffs.log, 프로젝트의
 # @hivemux-handoff (사이드바 한 줄), @hivemux-letters (벌 사무실이 편지를 이 책상에서 저 책상으로 날린다) 에 남긴다.
-def role_by_address(session, team, to):
+def role_by_address(session, team, to, folder=None, at=None):
     """The role a message went to: by its session name, or (a reply) by the address of its Claude,
-    uds:/…/<pid>.sock, whose parent is the role's pane / 메시지를 받은 역할: 세션 이름으로, 또는 (답장) 그 Claude 의
-    주소 uds:/…/<pid>.sock 로. 그 부모가 역할 칸이다"""
+    uds:/…/<pid>.sock. Now (at None): whose parent is a role's pane, else the address book. Later (at, reading a
+    log): only the address book, as that pid may be another process by then.
+    메시지를 받은 역할: 세션 이름으로, 또는 (답장) 그 Claude 의 주소 uds:/…/<pid>.sock 로. 지금 (at 없음): 부모가 역할
+    칸인 것, 아니면 주소록. 나중에 (at, 기록을 읽을 때): 주소록만. 그때는 그 pid 가 다른 프로세스일 수 있다."""
     r = next((r for r in team["role"] if f"{session}-{r['id']}" == to or r["id"] == to), None)
     m = re.search(r"/(\d+)\.sock$", to or "")
     if r or not m:
         return r
-    out = subprocess.run(["ps", "-o", "ppid=", "-p", m.group(1)], capture_output=True, text=True).stdout.strip()
-    pp = {l.split()[0]: l.split()[1] for l in tmux("list-panes", "-s", "-t", f"={session}", "-F", "#{pane_pid} #{@hivemux-role}").splitlines() if len(l.split()) == 2}
-    rid = pp.get(out)
+    rid = None
+    if at is None:
+        out = subprocess.run(["ps", "-o", "ppid=", "-p", m.group(1)], capture_output=True, text=True).stdout.strip()
+        pp = {l.split()[0]: l.split()[1] for l in tmux("list-panes", "-s", "-t", f"={session}", "-F", "#{pane_pid} #{@hivemux-role}").splitlines() if len(l.split()) == 2}
+        rid = pp.get(out)
+    if not rid and folder:
+        rid = pid_role(folder, m.group(1), at if at is not None else int(time.time()))
     return next((r for r in team["role"] if r["id"] == rid), None)
+
+
+UNKNOWN = "?"     # a reply whose Claude is not known / 어느 Claude 인지 모르는 답장
+
+
+def unknown_name():
+    return tr("확인되지 않은 세션", "Unidentified session")
 
 
 def handoff(pane, to, summary):
@@ -1086,7 +1204,7 @@ def handoff(pane, to, summary):
     if not found:
         return
     session, folder, team, role = found
-    dest = role_by_address(session, team, to)
+    dest = role_by_address(session, team, to, folder)
     dest_pane = next((p["pane"] for p in panes(session) if dest and p["role"] == dest["id"]), "")
     text = " ".join(str(summary).split())[:160]
     now = int(time.time())
@@ -1106,12 +1224,16 @@ def handoffs(folder, team, n=30):
         lines = open(os.path.join(team_dir(folder), "handoffs.log"), encoding="utf-8").read().splitlines()[-n:]
     except OSError:
         return []
-    out = []
+    out, session = [], ""
     for line in reversed(lines):
         p = line.split("\t", 3)
         if len(p) == 4 and p[0].isdigit():
-            out.append({"at": int(p[0]), "from": p[1], "to": p[2], "fromName": names.get(p[1], p[1]),
-                        "toName": names.get(p[2], p[2]), "text": p[3]})
+            to = p[2]
+            if to not in names:             # a reply logged by its address / 주소로 남은 답장
+                r = role_by_address(session, team, to, folder, int(p[0]))
+                to = r["id"] if r else UNKNOWN
+            out.append({"at": int(p[0]), "from": p[1], "to": to, "fromName": names.get(p[1], p[1]),
+                        "toName": names.get(to, unknown_name()), "text": p[3]})
     return out
 
 
@@ -1265,9 +1387,9 @@ def report(session, date=None):
     hand = []
     for at, frm, to, text in _log(folder, "handoffs.log", start, end, 4):
         if to not in names:                 # a reply logged by its address / 주소로 남은 답장
-            r = role_by_address(session, team, to)
-            to = r["id"] if r else to
-            names.setdefault(to, tr("다른 세션", "another session"))
+            r = role_by_address(session, team, to, folder, int(at))
+            to = r["id"] if r else UNKNOWN
+            names.setdefault(to, unknown_name())
         hand.append({"at": int(at), "from": frm, "to": to, "fromName": names.get(frm, frm), "toName": names.get(to, to), "text": text})
         for k in (frm, to):
             if k in roles:
@@ -1441,6 +1563,8 @@ def main(argv):
         on_start(*args)
     elif cmd == "handoff" and len(args) == 3:
         handoff(*args)
+    elif cmd == "prompted" and len(args) == 1:
+        on_prompt(*args)
     elif cmd == "rename" and args:
         rename_team(session, " ".join(args))
     elif cmd == "trust":
