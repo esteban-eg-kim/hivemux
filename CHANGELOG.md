@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.62 — 2026-11-14
 
 - Slow connections: `hivemux connect` compresses the ssh stream; on tmux 3.8 popups open
   without the copy window (tmux 3.8 no longer draws wide text through them), which sent the whole
