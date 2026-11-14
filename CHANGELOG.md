@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Teams on a connected computer: the team page and the report list the
+  projects of the computers you are connected to (`⇄ <computer> · <project>`)
+  and edit, start, stop and report on their teams there, over the
+  connection hivemux connect keeps; the team files stay on that computer.
+  Right-click → Team… on a screen attached from another computer opens the
+  team page on that computer. Both computers need this version
+
 ## 0.1.57 — 2026-11-14
 
 - Remote ports: a dev server started in the background through a wrapper

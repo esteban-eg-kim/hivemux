@@ -136,7 +136,10 @@ const tr = (ko, en) => L === 'ko' ? ko : en;
 try { L = localStorage.getItem('hivemux-lang') || L; } catch (e) { /* private window / 사생활 보호 창 */ }
 document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = L === 'ko' ? ko : en; });
 const q = new URLSearchParams(location.search);
-const S = { project: q.get('project') || '', date: q.get('date') || '', hover: null, table: false, zoom: 1 };
+const S = { project: q.get('project') || '', ssh: q.get('ssh') || '', date: q.get('date') || '', hover: null, table: false, zoom: 1 };
+// a connected computer's project (see team.html) / 붙어 있는 컴퓨터의 프로젝트 (team.html 참고)
+const QS = () => 'project=' + encodeURIComponent(S.project) + (S.ssh ? '&ssh=' + encodeURIComponent(S.ssh) : '');
+const same = p => p.name === S.project && (p.ssh || '') === S.ssh;
 // role colors: checked for color-blind separation and contrast (dataviz validator); each mark is also labelled
 // 역할 색: 색약 구분과 대비를 검사했다 (dataviz 검사기). 모든 표시에 이름도 붙는다
 const COLOR = { dev: '#3b82d6', planner: '#d99a1e', researcher: '#0aa3a6', marketer: '#e06a4a', designer: '#8b6fd6', qa: '#2e9e6a' };
@@ -157,27 +160,27 @@ function toast(m) { const t = $('#toast'); t.textContent = m; t.hidden = false; 
 async function post(path, body) { try { return await (await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); } catch (e) { return { ok: false }; } }
 
 async function load() {
-  const st = await (await fetch('/team/state?project=' + encodeURIComponent(S.project), { cache: 'no-store' })).json();
+  const st = await (await fetch('/team/state?' + QS(), { cache: 'no-store' })).json();
   L = st.lang || 'ko'; document.documentElement.lang = L;
   try { localStorage.setItem('hivemux-lang', L); } catch (e) { /* private window / 사생활 보호 창 */ }
   PROJECTS = st.projects.filter(p => p.team);
-  if (!PROJECTS.some(p => p.name === S.project)) S.project = (PROJECTS[0] || {}).name || '';
+  if (!PROJECTS.some(same)) { S.project = (PROJECTS[0] || {}).name || ''; S.ssh = (PROJECTS[0] || {}).ssh || ''; }
   document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
-  $('#project').innerHTML = PROJECTS.map(p => `<option value="${esc(p.name)}"${p.name === S.project ? ' selected' : ''}>${esc(p.name)}</option>`).join('');
-  $('#toteam').href = '/team?project=' + encodeURIComponent(S.project);
+  $('#project').innerHTML = PROJECTS.map((p, i) => `<option value="${i}"${same(p) ? ' selected' : ''}>${p.mac ? '⇄ ' + esc(p.mac) + ' · ' : ''}${esc(p.name)}</option>`).join('');
+  $('#toteam').href = '/team?' + QS();
   if (!S.project) { $('#main').innerHTML = `<div class="card"><h1>${tr('팀이 구성된 프로젝트가 없습니다', 'No project has a team.')}</h1><p class="sub">${tr('팀 화면에서 먼저 팀을 구성하십시오.', 'Please create a team on the team page first.')}</p></div>`; return; }
-  const r = await (await fetch(`/team/report?project=${encodeURIComponent(S.project)}${S.date ? '&date=' + S.date : ''}`, { cache: 'no-store' })).json();
+  const r = await (await fetch(`/team/report?${QS()}${S.date ? '&date=' + S.date : ''}`, { cache: 'no-store' })).json();
   if (!r.ok) { $('#main').innerHTML = `<div class="card">${esc(r.say || tr('리포트를 생성하지 못했습니다', 'The report could not be generated.'))}</div>`; return; }
   R = r.report;
   if (R.first && R.date < R.first) { S.date = R.first; return load(); }   // before the team began: its first day / 팀 시작 전: 첫날로
   S.date = R.date; draw();
 }
-$('#project').onchange = e => { S.project = e.target.value; S.date = ''; history.replaceState(null, '', '/report?project=' + encodeURIComponent(S.project)); load(); };
+$('#project').onchange = e => { const p = PROJECTS[+e.target.value] || {}; S.project = p.name || ''; S.ssh = p.ssh || ''; S.date = ''; history.replaceState(null, '', '/report?' + QS()); load(); };
 function shiftDay(n) {
   const d = new Date(S.date + 'T12:00:00'); d.setDate(d.getDate() + n);
   const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   if (R && R.first && day < R.first) return;   // not before the team began / 팀이 시작한 날보다 앞으로는 가지 않는다
-  S.date = day; history.replaceState(null, '', `/report?project=${encodeURIComponent(S.project)}&date=${S.date}`); load(); }
+  S.date = day; history.replaceState(null, '', `/report?${QS()}&date=${S.date}`); load(); }
 
 function color(id) { if (COLOR[id]) return COLOR[id]; const i = R.roles.findIndex(r => r.id === id); return EXTRA[Math.max(0, i) % EXTRA.length]; }
 // zoom about a point of the chart (px from its left edge), keeping that moment under it / 그림의 한 점 (왼쪽부터 px) 을 중심으로 확대, 그 순간이 그 자리에 남게
@@ -306,7 +309,7 @@ function bind() {
   $('#md').onclick = copyMd;
   $('#sum').onclick = async e => {
     e.target.disabled = true; e.target.textContent = tr('작성 중… (약 30초 소요)', 'Generating… (about 30 seconds)');
-    const r = await post('/team/summary', { project: S.project, date: S.date });
+    const r = await post('/team/summary', { project: S.project, date: S.date, ...(S.ssh ? { ssh: S.ssh } : {}) });
     if (!r.ok) toast(r.say || tr('요약을 작성하지 못했습니다', 'The summary could not be generated.'));
     load();
   };

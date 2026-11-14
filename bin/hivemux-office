@@ -15,7 +15,9 @@
                                open it from tmux (sidebar button and menu, prefix B); a first build shows
                                its progress in a popup on <client>
                                tmux 에서 열기 (사이드바 버튼과 메뉴, prefix B). 처음 빌드는 <client> 의 팝업에 진행을 보인다
-  hivemux-office --team <project> [--client <client>]
+  hivemux-office --team <project> [--client <client>] [--ssh <host>]
+                               (--ssh: a project of that connected computer / 붙어 있는 그 컴퓨터의 프로젝트)
+  hivemux-office --team-api state|report|prompt|post …   (for another computer's team page / 다른 컴퓨터의 팀 화면용)
                                open it on the team page of that project (sidebar menu "Team…")
                                그 프로젝트의 팀 화면으로 연다 (사이드바 메뉴 "팀…")
   hivemux-office --artifacts    open it on the list of artifacts your Claudes published (sidebar menu "Artifacts…")
@@ -516,9 +518,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == "/team/state":
             Handler.last = time.time()
             q = query(self.path)
-            return self.send(200, json.dumps(team_state(q.get("project", "")), ensure_ascii=False))
+            return self.send(200, json.dumps(team_state(q.get("project", ""), q.get("ssh") or None), ensure_ascii=False))
         if path == "/team/report":
             q = query(self.path)
+            if q.get("ssh"):             # that computer's team / 그 컴퓨터의 팀
+                ok, out = remote_team(q["ssh"], ["report", q.get("project", ""), q.get("date") or ""], timeout=30)
+                return self.send(200, json.dumps(out if ok else {"ok": False, "report": None, "say": out}, ensure_ascii=False))
             ok, rep = team_call(teams.report, q.get("project", ""), q.get("date") or None)
             return self.send(200, json.dumps({"ok": ok, "report": rep if ok else None, "say": "" if ok else rep}, ensure_ascii=False))
         if path == "/artifacts/list":
@@ -535,6 +540,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self.send(200, f.read(), "text/html; charset=utf-8")
         if path == "/team/prompt":
             q = query(self.path)
+            if q.get("ssh"):
+                ok, out = remote_team(q["ssh"], ["prompt", q.get("project", ""), q.get("role", "")])
+                return self.send(200, json.dumps(out if ok else {"ok": False, "text": ""}, ensure_ascii=False))
             ok, text = team_call(teams.final_prompt, q.get("project", ""), q.get("role", ""))
             return self.send(200, json.dumps({"ok": ok, "text": text if ok else ""}, ensure_ascii=False))
         # one page: the office at an angle, or seen from above (/2d opens it that way; the page switches)
@@ -684,8 +692,74 @@ def letters():
     return out
 
 
-def team_state(project):
-    """The team page's data: projects, templates, and the chosen project's team / 팀 화면 자료: 프로젝트, 템플릿, 고른 프로젝트의 팀"""
+# A connected computer's teams (hivemux connect): the team page asks its hivemux-office --team-api over the
+# ssh connection hivemux-ports keeps, so the team files stay on that computer and its hivemux-team edits them.
+# Its project list is kept a few seconds (the page asks every 2 s).
+# 붙어 있는 컴퓨터의 팀 (hivemux connect): 팀 화면이 hivemux-ports 가 유지하는 ssh 연결로 그 컴퓨터의
+# hivemux-office --team-api 에 묻는다. 팀 파일은 그 컴퓨터에 그대로 있고 그쪽 hivemux-team 이 고친다.
+# 그 프로젝트 목록은 몇 초 둔다 (페이지는 2초마다 묻는다).
+_RPROJ = {}     # host -> (time, projects) / 호스트 -> (시각, 프로젝트)
+TEAM_WAIT = {"assist": 260, "summary": 200, "up": 90, "down": 90, "trust": 60, "use": 60}   # seconds / 초
+
+
+def remote_team(host, args, timeout=15):
+    """(ok, answer) from that computer's --team-api / 그 컴퓨터의 --team-api 답"""
+    sock = next((k for h, k in connections() if h == host), None)
+    if not sock:
+        return False, tr_("그 컴퓨터와 연결되어 있지 않습니다", "That computer is not connected.")
+    r = remote_run(sock, host, ["--team-api", *args], timeout=timeout)
+    try:
+        out = json.loads(r.stdout) if r and r.returncode == 0 else None
+    except ValueError:
+        out = None
+    if isinstance(out, dict) and not out.get("missing"):
+        return True, out
+    if r is None:
+        return False, tr_("그 컴퓨터의 답이 너무 오래 걸립니다", "That computer took too long to answer.")
+    return False, tr_("그 컴퓨터의 hivemux 를 업데이트하십시오 (팀 화면은 0.1.58 부터 원격을 지원합니다)",
+                      "Please update hivemux on that computer (remote teams need 0.1.58 or later).")
+
+
+def tr_(ko, en):
+    return ko if lang() == "ko" else en
+
+
+def remote_projects():
+    """Projects of every connected computer, tagged with it / 붙어 있는 컴퓨터마다의 프로젝트 (그 컴퓨터 표시)"""
+    names = {o.get("ssh"): o.get("host") for o in (Handler.remotes.list() if Handler.remotes else [])}
+    out = []
+    for host, _ in connections():
+        hit = _RPROJ.get(host)
+        if not hit or time.time() - hit[0] > 6:
+            ok, st = remote_team(host, ["state", ""])
+            hit = (time.time(), st.get("projects", []) if ok else [])
+            _RPROJ[host] = hit
+        out += [{**p, "ssh": host, "mac": names.get(host) or host} for p in hit[1]]
+    return out
+
+
+def team_state(project, ssh=None):
+    """The team page's data: projects (this computer's, then each connected one's), templates, and the chosen
+    project's team / 팀 화면 자료: 프로젝트 (이 컴퓨터, 그다음 붙어 있는 컴퓨터마다), 템플릿, 고른 프로젝트의 팀"""
+    if ssh:
+        ok, st = remote_team(ssh, ["state", project])
+        local = local_team_state("")
+        if ok:
+            _RPROJ[ssh] = (time.time(), st.get("projects", []))
+        local["projects"] += remote_projects()
+        local["project"] = st.get("project") if ok else None
+        if ok:
+            local["templates"] = st.get("templates", local["templates"])
+        else:
+            local["say"] = st
+        return local
+    out = local_team_state(project)
+    if Handler.remotes is not None:      # the server (not --team-api asked from another computer) / 서버 (다른 컴퓨터가 부른 --team-api 가 아님)
+        out["projects"] += remote_projects()
+    return out
+
+
+def local_team_state(project):
     projects, where = [], teams.folders()
     for name in tmux("list-sessions", "-F", "#{session_name}").splitlines():
         folder = where.get(name, "") if name else ""
@@ -701,6 +775,12 @@ def team_state(project):
 def team_post(action, req):
     """The team page's edits; every one goes through bin/hivemux-team / 팀 화면의 편집. 모두 bin/hivemux-team 을 거친다"""
     project = str(req.get("project", ""))
+    if req.get("ssh"):
+        host = str(req["ssh"])
+        ok, out = remote_team(host, ["post", action, json.dumps({k: v for k, v in req.items() if k != "ssh"})],
+                              timeout=TEAM_WAIT.get(action, 30))
+        _RPROJ.pop(host, None)           # a team made or renamed shows at once / 만들거나 바꾼 팀이 바로 보이게
+        return out if ok else {"ok": False, "say": out}
     if action == "use":
         tpl = str(req.get("template", ""))
         ok, msg = team_call(teams.use, tpl, project, bool(req.get("force")))
@@ -1019,7 +1099,7 @@ def from_tmux(client):
         os.remove(pause)
 
 
-def open_there(client):
+def open_there(client, team=None):
     """Ask the Mac the screen is attached from to open the window: its hivemux-ports waits on the channel
     hivemux-paste-<Mac> over the ssh connection it keeps (bin/hivemux-ports) and takes the request from
     @hivemux-office-<Mac>. This Mac's sessions show there next door.
@@ -1031,14 +1111,18 @@ def open_there(client):
     seen = tmux("show", "-gqv", f"@hivemux-seen-{mac}").strip() if mac else ""
     name = (tmux("show", "-gqv", f"@hivemux-name-{mac}").strip() or mac) if mac else ""
     if seen.isdigit() and time.time() - int(seen) <= 20:
-        opt, tag = f"@hivemux-office-{mac}", str(os.getpid())
+        # "<tag>" opens the office there, "<tag> team <project>" its team page on this computer's project
+        # (an older hivemux there takes it as the office) / "<태그>" 는 거기서 사무실을, "<태그> team <프로젝트>" 는
+        # 이 컴퓨터 프로젝트의 팀 화면을 연다 (거기 hivemux 가 예전 것이면 사무실로 받는다)
+        opt, tag = f"@hivemux-office-{mac}", str(os.getpid()) + (f" team {team}" if team else "")
         tmux("set", "-g", opt, tag)
         subprocess.run([os.path.join(HERE, "hivemux-wake"), mac])   # see there / 거기 참고
         for _ in range(20):          # hivemux-ports clears it when it takes it / 가져가면 지운다
             time.sleep(0.25)
             if tmux("show", "-gqv", opt).strip() != tag:
                 tmux("display", "-c", client, "-d", "3000",
-                     f"🐝 {name} 에서 벌 사무실을 엽니다" if ko else f"🐝 Opening the bee office on {name}")
+                     (f"🐝 {name} 에서 팀 화면을 엽니다" if ko else f"🐝 Opening the team page on {name}") if team else
+                     (f"🐝 {name} 에서 벌 사무실을 엽니다" if ko else f"🐝 Opening the bee office on {name}"))
                 return
         tmux("set", "-gu", opt)      # no answer: an older hivemux there / 대답이 없음: 거기 hivemux 가 예전 것
         msg = (f"{name} 에서 벌 사무실을 열지 못했습니다. 그 컴퓨터의 hivemux 를 업데이트하세요" if ko
@@ -1082,15 +1166,36 @@ def main(argv):
         print(r.stdout.strip()); sys.exit(r.returncode)
     elif argv[:1] == ["serve"]:
         serve()
+    elif argv[:1] == ["--team-api"] and len(argv) >= 3:
+        # another computer's team page asks (see remote_team): the answer as JSON / 다른 컴퓨터의 팀 화면이 묻는다 (remote_team 참고)
+        kind = argv[1]
+        if kind == "state":
+            out = local_team_state(argv[2])
+        elif kind == "report":
+            ok, rep = team_call(teams.report, argv[2], (argv[3] if len(argv) > 3 else "") or None)
+            out = {"ok": ok, "report": rep if ok else None, "say": "" if ok else rep}
+        elif kind == "prompt" and len(argv) > 3:
+            ok, text = team_call(teams.final_prompt, argv[2], argv[3])
+            out = {"ok": ok, "text": text if ok else ""}
+        elif kind == "post" and len(argv) > 3:
+            try:
+                req = json.loads(argv[3])
+            except ValueError:
+                req = None
+            out = team_post(argv[2], req) if isinstance(req, dict) else {"ok": False, "say": "?"}
+        else:
+            out = {"ok": False, "say": "?"}
+        print(json.dumps(out, ensure_ascii=False))
     elif argv[:1] == ["--team"] and len(argv) >= 2:
-        client = argv[3] if argv[2:3] == ["--client"] and len(argv) >= 4 else ""
+        opt = dict(zip(argv[2::2], argv[3::2]))
+        client, ssh = opt.get("--client", ""), opt.get("--ssh", "")
         if client and f" {client} " in f" {tmux('show', '-gqv', '@hivemux-remote-clients')} ":
-            # the team files are on this computer; editing them from the other one is for later
-            # 팀 파일은 이 컴퓨터에 있다. 다른 컴퓨터에서 고치는 것은 나중에
-            tmux("display", "-c", client, "-d", "5000", "다른 컴퓨터에서 붙은 화면에서는 아직 팀 화면을 열 수 없습니다. 이 컴퓨터에서 여세요"
-                 if lang() == "ko" else "The team page does not open from a screen attached from another computer yet. Open it on this computer")
+            # a screen from another computer: that computer opens its window on this project (open_there)
+            # 다른 컴퓨터에서 붙은 화면: 그 컴퓨터가 자기 창에 이 프로젝트를 연다 (open_there)
+            open_there(client, team=argv[1])
             return
-        open_window(page="/team?project=" + urllib.parse.quote(argv[1]))
+        page = "/team?project=" + urllib.parse.quote(argv[1]) + ("&ssh=" + urllib.parse.quote(ssh) if ssh else "")
+        open_window(page=page)
     elif argv[:1] == ["--artifacts"]:     # sidebar menu "Artifacts…" / 사이드바 메뉴 "아티팩트…"
         open_window(page="/artifacts")
     elif argv[:1] == ["--client"]:

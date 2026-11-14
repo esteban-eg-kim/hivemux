@@ -216,7 +216,14 @@ const tr = (ko, en) => L === 'ko' ? ko : en;
 try { L = localStorage.getItem('hivemux-lang') || L; } catch (e) { /* private window / 사생활 보호 창 */ }
 document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = L === 'ko' ? ko : en; });
 const FULL = {};                     // role -> its last final preview / 역할 -> 마지막 최종 미리보기
-const S = { project: new URLSearchParams(location.search).get('project') || '', sel: '', tab: 'mine', edited: {}, wiz: null, sig: '' };
+const S = { project: new URLSearchParams(location.search).get('project') || '', ssh: new URLSearchParams(location.search).get('ssh') || '',
+  sel: '', tab: 'mine', edited: {}, wiz: null, sig: '' };
+// a project of a connected computer (hivemux connect) carries it as ssh: every request goes there
+// 붙어 있는 컴퓨터 (hivemux connect) 의 프로젝트는 ssh 로 그 컴퓨터를 단다: 요청이 모두 그리로 간다
+const P = () => S.ssh ? { ...P(), ssh: S.ssh } : P();
+const QS = () => 'project=' + encodeURIComponent(S.project) + (S.ssh ? '&ssh=' + encodeURIComponent(S.ssh) : '');
+const KEY = () => S.ssh + '\t' + S.project;
+const same = p => p.name === S.project && (p.ssh || '') === S.ssh;
 
 // ── role look: an icon and a color per known role; others get a person / 역할 모습: 아는 역할은 아이콘과 색, 나머지는 사람
 const ICON = {
@@ -258,18 +265,20 @@ const role = id => team() && team().roles.find(r => r.id === id);
 // ── data / 자료 ─────────────────────────────────────────────────────────────────────────────
 async function load() {
   let d;
-  try { d = await (await fetch('/team/state?project=' + encodeURIComponent(S.project), { cache: 'no-store' })).json(); } catch (e) { return; }
+  try { d = await (await fetch('/team/state?' + QS(), { cache: 'no-store' })).json(); } catch (e) { return; }
   if (d.nav) { location.href = d.nav; return; }
   D = d; L = d.lang || 'ko'; document.documentElement.lang = L;
   try { localStorage.setItem('hivemux-lang', L); } catch (e) { /* private window / 사생활 보호 창 */ }
-  if (!S.project || !d.projects.some(p => p.name === S.project)) {
-    S.project = (d.projects.find(p => p.team) || d.projects[0] || {}).name || '';
+  if (!S.project || !d.projects.some(same)) {
+    const p = d.projects.find(p => p.team) || d.projects[0] || {};
+    S.project = p.name || ''; S.ssh = p.ssh || '';
     if (S.project && !d.project) return load();
   }
+  if (d.say) toast(d.say);
   // redraw everything only when the shape changed; otherwise just the states (keeps what is being typed)
   // 모양이 바뀔 때만 다시 그린다. 아니면 상태만 (입력 중인 것을 지킨다)
   const t = team();
-  const sig = [S.project, d.projects.map(p => p.name + p.team).join(','), t ? t.roles.map(r => r.id + r.name + r.model + r.effort + r.lead + r.readonly + r.worktree + r.diet.how + r.diet.at + r.running + r.trust).join('|') : '-',
+  const sig = [KEY(), d.projects.map(p => (p.ssh || '') + p.name + p.team).join(','), t ? t.roles.map(r => r.id + r.name + r.model + r.effort + r.lead + r.readonly + r.worktree + r.diet.how + r.diet.at + r.running + r.trust).join('|') : '-',
     t ? Math.min(1, (t.handoffs || []).length) : 0, t ? (t.questions || '').length : 0, S.sel, S.tab].join('#');
   if (sig !== S.sig) { S.sig = sig; render(); } else states();
 }
@@ -277,9 +286,9 @@ setInterval(load, 2000);
 
 function render() {
   document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
-  $('#toreport').href = '/report?project=' + encodeURIComponent(S.project);
+  $('#toreport').href = '/report?' + QS();
   const sel = $('#project');
-  sel.innerHTML = D.projects.map(p => `<option value="${esc(p.name)}"${p.name === S.project ? ' selected' : ''}>${esc(p.name)}${p.team ? ' · ' + tr('팀', 'team') : ''}</option>`).join('');
+  sel.innerHTML = D.projects.map((p, i) => `<option value="${i}"${same(p) ? ' selected' : ''}>${p.mac ? '⇄ ' + esc(p.mac) + ' · ' : ''}${esc(p.name)}${p.team ? ' · ' + tr('팀', 'team') : ''}</option>`).join('');
   const m = $('#main');
   if (!D.projects.length) { m.innerHTML = `<div class="card"><h1>${tr('열린 프로젝트가 없습니다', 'No project is open.')}</h1><p class="sub">${tr('hm 으로 프로젝트를 연 뒤 다시 시도하십시오.', 'Open a project with hm, then try again.')}</p></div>`; return; }
   aiDraw();
@@ -336,26 +345,26 @@ function aiDraw() {
 }
 async function aiAsk(text) {
   text = String(text || '').trim(); if (!text || AI.busy) return;
-  if (AI.project !== S.project) { AI.project = S.project; AI.msgs = []; }
+  if (AI.project !== KEY()) { AI.project = KEY(); AI.msgs = []; }
   AI.msgs.push({ role: 'user', text }); AI.busy = true; $('#aiinput').value = ''; aiDraw();
-  const r = await post('/team/assist', { project: S.project, messages: AI.msgs.map(m => ({ role: m.role, text: m.text })) });
+  const r = await post('/team/assist', { ...P(), messages: AI.msgs.map(m => ({ role: m.role, text: m.text })) });
   AI.busy = false;
   AI.msgs.push(r.ok ? { role: 'bot', text: r.text || '', plan: r.plan || null } : { role: 'bot', text: r.say || tr('도우미가 답하지 못했습니다', 'The assistant could not answer.') });
   aiDraw();
 }
 async function aiApply(i) {
   const m = AI.msgs[i]; if (!m || !m.plan || m.applied) return;
-  const r = await post('/team/assist/apply', { project: S.project, plan: m.plan });
+  const r = await post('/team/assist/apply', { ...P(), plan: m.plan });
   if (!r.ok) return toast(r.say || tr('적용하지 못했습니다', 'Could not apply it.'));
   m.applied = true; toast(tr('구성을 적용했습니다. 실행 중인 역할은 다시 시작할 때 반영됩니다', 'Applied. Running roles pick it up when they restart.'));
   S.sig = ''; aiDraw(); load();
 }
-$('#aifab').onclick = () => { AI.open = true; if (AI.project !== S.project) { AI.project = S.project; AI.msgs = []; } aiDraw(); $('#aiinput').focus(); };
+$('#aifab').onclick = () => { AI.open = true; if (AI.project !== KEY()) { AI.project = KEY(); AI.msgs = []; } aiDraw(); $('#aiinput').focus(); };
 $('#aiclose').onclick = () => { AI.open = false; aiDraw(); };
 $('#aiform').onsubmit = e => { e.preventDefault(); aiAsk($('#aiinput').value); };
 $('#aiinput').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); aiAsk($('#aiinput').value); } };
 $('#aiinput').oninput = e => { e.target.style.height = 'auto'; e.target.style.height = Math.min(140, e.target.scrollHeight) + 'px'; };
-$('#project').addEventListener('change', e => { S.project = e.target.value; S.sel = ''; S.sig = ''; history.replaceState(null, '', '/team?project=' + encodeURIComponent(S.project)); load(); });
+$('#project').addEventListener('change', e => { const p = D.projects[+e.target.value] || {}; S.project = p.name || ''; S.ssh = p.ssh || ''; S.sel = ''; S.sig = ''; history.replaceState(null, '', '/team?' + QS()); load(); });
 
 // ── no team yet: templates and the wizard / 팀이 없을 때: 템플릿과 위저드 ─────────────────────────────
 function renderTemplates(m) {
@@ -384,9 +393,9 @@ function modelsLine(roles) {
   return MODELS.filter(k => c[k]).map(k => `${k} ${c[k]}`).join(' · ');
 }
 async function useTemplate(id, plan, start) {
-  const r = await post('/team/use', { project: S.project, template: id, plan, force: !!team() });
+  const r = await post('/team/use', { ...P(), template: id, plan, force: !!team() });
   if (!r.ok) return toast(r.say || tr('팀을 구성하지 못했습니다', 'The team could not be created.'));
-  if (start) { const u = await post('/team/up', { project: S.project }); toast(u.say || tr('팀을 시작했습니다', 'The team has started.')); }
+  if (start) { const u = await post('/team/up', P()); toast(u.say || tr('팀을 시작했습니다', 'The team has started.')); }
   else toast(tr('팀을 구성했습니다. 내용을 수정한 뒤 팀 시작을 누르십시오', 'The team has been created. Edit it, then press Start team.'));
   S.sel = ''; S.sig = ''; $('#wizard').hidden = true; load();
 }
@@ -465,7 +474,7 @@ function renderTeam(m) {
   const flow = (t.flow || []).map(id => role(id)).filter(Boolean);
   m.innerHTML = `
     <div class="row between">
-      <div><h1 style="margin:0"><input class="teamname" id="tname" value="${esc(t.name)}" maxlength="40" aria-label="${tr('팀 이름', 'Team name')}" title="${tr('클릭하여 이름 변경', 'Click to rename')}"></h1><span class="sub"><code>${esc(D.project.folder)}/.hivemux/team.toml</code> · ${tr('변경 사항은 자동으로 저장됩니다', 'Changes are saved automatically.')}</span></div>
+      <div><h1 style="margin:0"><input class="teamname" id="tname" value="${esc(t.name)}" maxlength="40" aria-label="${tr('팀 이름', 'Team name')}" title="${tr('클릭하여 이름 변경', 'Click to rename')}"></h1><span class="sub">${S.ssh ? `⇄ ${esc((D.projects.find(same) || {}).mac || S.ssh)} · ` : ''}<code>${esc(D.project.folder)}/.hivemux/team.toml</code> · ${tr('변경 사항은 자동으로 저장됩니다', 'Changes are saved automatically.')}</span></div>
       <div class="row">
         <button class="btn" id="tsave">${tr('내 템플릿으로 저장', 'Save as my template')}</button>
         <button class="btn danger" id="tdown" ${running ? '' : 'disabled'}>${tr('팀 종료', 'Stop team')}</button>
@@ -498,24 +507,24 @@ function renderTeam(m) {
   const tn = $('#tname');
   tn.onkeydown = e => { if (e.key === 'Enter') tn.blur(); if (e.key === 'Escape') { tn.value = t.name; tn.blur(); } };
   tn.onchange = async () => { const v = tn.value.trim(); if (!v || v === t.name) { tn.value = t.name; return; }
-    const r = await post('/team/rename', { project: S.project, name: v }); toast(r.say || ''); S.sig = ''; load(); };
+    const r = await post('/team/rename', { ...P(), name: v }); toast(r.say || ''); S.sig = ''; load(); };
   m.querySelectorAll('.roleitem').forEach(b => b.onclick = () => { S.sel = b.dataset.role; S.tab = 'mine'; S.sig = ''; load(); });
   $('#addform').onsubmit = async e => {
     e.preventDefault();
     const name = $('#addname').value.trim(); if (!name) return;
-    const r = await post('/team/role/add', { project: S.project, name });
+    const r = await post('/team/role/add', { ...P(), name });
     if (!r.ok) return toast(r.say);
     S.sel = r.id; S.sig = ''; load();
   };
   document.querySelectorAll('[data-qdone]').forEach(b => { b.onclick = async () => {
-    b.disabled = true; const r = await post('/team/question/done', { project: S.project, index: +b.dataset.qdone });
+    b.disabled = true; const r = await post('/team/question/done', { ...P(), index: +b.dataset.qdone });
     if (!r.ok) toast(r.say || tr('표시하지 못했습니다', 'Could not mark it.')); S.sig = ''; load();
   }; });
-  $('#tup').onclick = async () => { const r = await post('/team/up', { project: S.project }); toast(r.say || tr('시작했습니다', 'Started.')); load(); };
+  $('#tup').onclick = async () => { const r = await post('/team/up', P()); toast(r.say || tr('시작했습니다', 'Started.')); load(); };
   $('#tdown').onclick = () => ask(tr('팀을 종료하시겠습니까?', 'Stop the team?'), tr('각 역할의 Claude 를 퇴근처럼 종료합니다. 작업 중인 역할은 작업을 마친 뒤 종료되며, 대화는 보존되어 다시 시작하면 이어집니다.', 'Each role clocks out; roles at work finish first. Conversations are kept and resume when the team starts again.'),
-    tr('종료', 'Stop'), async () => { const r = await post('/team/down', { project: S.project }); toast(r.say || tr('종료했습니다', 'Stopped.')); load(); });
+    tr('종료', 'Stop'), async () => { const r = await post('/team/down', P()); toast(r.say || tr('종료했습니다', 'Stopped.')); load(); });
   $('#tsave').onclick = () => ask(tr('내 템플릿으로 저장', 'Save as my template'), tr('다른 프로젝트에서도 이 팀을 선택할 수 있습니다. 이름은 영문 소문자와 - 로 입력하십시오.', 'This team can then be chosen in other projects. Use lowercase letters and hyphens.'),
-    tr('저장', 'Save'), async v => { const r = await post('/team/save', { project: S.project, id: v }); toast(r.say); load(); }, S.project.toLowerCase().replace(/[^a-z0-9-]+/g, '-'));
+    tr('저장', 'Save'), async v => { const r = await post('/team/save', { ...P(), id: v }); toast(r.say); load(); }, S.project.toLowerCase().replace(/[^a-z0-9-]+/g, '-'));
   drawDetail(); drawTips(); states();
 }
 
@@ -550,11 +559,11 @@ function bindGuide() {
   const t = team(), starters = t.starters && t.starters.length ? t.starters : t.roles.some(r => r.id === 'writer') ? CONTENT_STARTERS.map(x => tr(...x)) : [];
   if ($('#goal')) $('#goal').oninput = e => { S.goal = e.target.value; };
   document.querySelectorAll('[data-start]').forEach(b => b.onclick = () => { S.goal = starters[+b.dataset.start]; $('#goal').value = S.goal; $('#goal').focus(); });
-  if ($('#gtrust')) $('#gtrust').onclick = async () => { const r = await post('/team/trust', { project: S.project }); toast(r.say); S.sig = ''; setTimeout(load, 1500); };
+  if ($('#gtrust')) $('#gtrust').onclick = async () => { const r = await post('/team/trust', P()); toast(r.say); S.sig = ''; setTimeout(load, 1500); };
   if ($('#ggo')) $('#ggo').onclick = async () => {
     const goal = ($('#goal').value || '').trim();
     if (!goal) return toast(tr('목표를 입력하십시오', 'Please enter a goal.'));
-    const r = await post('/team/goal', { project: S.project, goal });
+    const r = await post('/team/goal', { ...P(), goal });
     toast(r.say || (r.ok ? tr('전달했습니다', 'Sent.') : tr('전달하지 못했습니다', 'Could not send.')));
     if (r.ok) { S.goal = ''; S.sig = ''; load(); }
   };
@@ -601,7 +610,7 @@ function drawDetail() {
     </div>`;
   const save = async (fields, text) => {
     $('#saved').textContent = tr('저장 중…', 'Saving…');
-    const res = await post('/team/role', { project: S.project, id: r.id, fields, text });
+    const res = await post('/team/role', { ...P(), id: r.id, fields, text });
     $('#saved').textContent = res.ok ? tr('저장됨', 'Saved') : (res.say || tr('저장하지 못했습니다', 'Could not save.'));
     if (res.ok && r.running) S.edited[r.id] = true;
     if (res.ok && fields && Object.keys(fields).length) { S.sig = ''; load(); }
@@ -612,7 +621,7 @@ function drawDetail() {
   box.querySelectorAll('[data-flag]').forEach(c => c.onchange = () => save({ [c.dataset.flag]: c.checked }));
   $('#dminus').onclick = () => save({ diet: { at: Math.max(40, r.diet.at - 10) } });
   $('#dplus').onclick = () => save({ diet: { at: Math.min(800, r.diet.at + 10) } });
-  $('#dnow').onclick = async () => { const x = await post('/team/diet', { project: S.project, id: r.id }); toast(x.say); load(); };
+  $('#dnow').onclick = async () => { const x = await post('/team/diet', { ...P(), id: r.id }); toast(x.say); load(); };
   $('#fname').onchange = e => save({ name: e.target.value });
   $('#fowns').onchange = e => save({ owns: e.target.value });
   if ($('#ftext')) $('#ftext').oninput = e => { clearTimeout(save.h); $('#saved').textContent = tr('입력 중…', 'Editing…'); save.h = setTimeout(() => { r.text = e.target.value; save({}, e.target.value); }, 600); };
@@ -622,20 +631,20 @@ function drawDetail() {
   // one meanwhile, so it neither sticks on "Loading…" nor goes stale after an edit
   // 최종 미리보기: 그 탭을 그릴 때마다 가져온다 (화면은 몇 초마다 다시 그린다). 그동안은 마지막 것을 보여 줘서
   // "불러오는 중…" 에 머물지도, 고친 뒤 낡지도 않는다
-  if (S.tab === 'full') fetch(`/team/prompt?project=${encodeURIComponent(S.project)}&role=${encodeURIComponent(r.id)}`, { cache: 'no-store' })
+  if (S.tab === 'full') fetch(`/team/prompt?${QS()}&role=${encodeURIComponent(r.id)}`, { cache: 'no-store' })
     .then(x => x.json()).then(res => { FULL[r.id] = res.ok ? res.text || '' : (res.say || tr('미리보기를 불러오지 못했습니다', 'Could not load the preview.')); if ($('#ffull')) $('#ffull').textContent = FULL[r.id]; })
     .catch(() => { if ($('#ffull')) $('#ffull').textContent = tr('미리보기를 불러오지 못했습니다', 'Could not load the preview.'); });
-  if ($('#rgo')) $('#rgo').onclick = () => post('/goto', { pane: r.pane });
-  if ($('#rstart')) $('#rstart').onclick = async () => { const x = await post('/team/up', { project: S.project, role: r.id }); toast(x.say); load(); };
-  if ($('#rstop')) $('#rstop').onclick = async () => { const x = await post('/team/down', { project: S.project, role: r.id }); toast(x.say); load(); };
+  if ($('#rgo')) $('#rgo').onclick = () => post('/goto', S.ssh ? { pane: r.pane, ssh: S.ssh } : { pane: r.pane });
+  if ($('#rstart')) $('#rstart').onclick = async () => { const x = await post('/team/up', { ...P(), role: r.id }); toast(x.say); load(); };
+  if ($('#rstop')) $('#rstop').onclick = async () => { const x = await post('/team/down', { ...P(), role: r.id }); toast(x.say); load(); };
   $('#rdel').onclick = () => ask(tr(`${r.name} 역할을 삭제하시겠습니까?`, `Delete the ${r.name} role?`), tr('팀과 지시문 파일에서 제거됩니다. 노트와 실행 중인 Claude 는 유지됩니다.', 'The role and its prompt file are removed. Its notes and any running Claude are kept.'),
-    tr('삭제', 'Delete'), async () => { const x = await post('/team/role/delete', { project: S.project, id: r.id }); if (!x.ok) toast(x.say); S.sel = ''; S.sig = ''; load(); });
+    tr('삭제', 'Delete'), async () => { const x = await post('/team/role/delete', { ...P(), id: r.id }); if (!x.ok) toast(x.say); S.sel = ''; S.sig = ''; load(); });
 }
 
 // ── suggestions from what people found works (the research board) / 제안: 사람들이 효과를 본 방식에서 ─────────
 function drawTips() {
   const t = team(), roles = t.roles, tips = [];
-  const fix = (id, fields) => async () => { await post('/team/role', { project: S.project, id, fields }); S.sig = ''; load(); };
+  const fix = (id, fields) => async () => { await post('/team/role', { ...P(), id, fields }); S.sig = ''; load(); };
   if (roles.length >= 7) tips.push([tr(`역할이 ${roles.length}개입니다. 처음에는 3~5개를 권장합니다. 사용량은 팀 규모에 비례합니다.`, `${roles.length} roles. Three to five are recommended to start; usage scales with team size.`), null]);
   const opus = roles.filter(r => r.model === 'opus').length;
   roles.filter(r => (r.id === 'researcher' || r.id === 'marketer') && r.model === 'opus').forEach(r =>

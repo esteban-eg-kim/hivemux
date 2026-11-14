@@ -294,7 +294,7 @@ class Ports:
                 if kind == "paste" and len(parts) == 3:
                     self.paste(parts[1], parts[2])
                 elif kind == "office" and req:
-                    self.office()
+                    self.office(req)
             if len(shown) > 1:           # "<id> <client>", then the paths / "<번호> <화면>", 그다음 경로들
                 self.show(shown[0].partition(" ")[2], shown[1:])
 
@@ -336,14 +336,19 @@ class Ports:
             return
         subprocess.run([OS, "open", *got])
 
-    def office(self):
-        """Open the bee office window on this Mac; the other Mac's sessions show next door
-        이 Mac 에서 벌 사무실 창을 연다. 상대 Mac 의 세션은 옆 사무실에 나온다"""
+    def office(self, req=""):
+        """Open the bee office window on this Mac; the other Mac's sessions show next door. "<tag> team <project>"
+        opens the team page on that project of the other Mac (sidebar menu Team… there)
+        이 Mac 에서 벌 사무실 창을 연다. 상대 Mac 의 세션은 옆 사무실에 나온다. "<태그> team <프로젝트>" 는
+        상대 Mac 그 프로젝트의 팀 화면을 연다 (거기 사이드바 메뉴의 팀…)"""
+        parts = req.split(" ", 2)
+        team = parts[2] if len(parts) == 3 and parts[1] == "team" else ""
         if os.environ.get("HIVEMUX_DRYRUN"):    # for tests: record instead of opening / 테스트용: 열지 않고 기록만
             with open(os.environ["HIVEMUX_DRYRUN"], "a") as f:
-                f.write("office\n")
+                f.write(f"office {team}".rstrip() + "\n")
             return
-        subprocess.Popen([os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-office")],
+        args = ["--team", team, "--ssh", self.host] if team else []
+        subprocess.Popen([os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-office"), *args],
                          start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def paste(self, pane, client):
