@@ -796,7 +796,7 @@ def team_post(action, req):
         if ok:
             team_call(teams.remark, project)          # a new name or lead shows in the sidebar / 새 이름이나 리드가 사이드바에
     elif action == "role/add":
-        ok, msg = team_call(teams.add_role, project, str(req.get("name", "")))
+        ok, msg = team_call(teams.add_role, project, str(req.get("name", "")), str(req.get("id") or "") or None)
     elif action == "role/delete":
         ok, msg = team_call(teams.delete_role, project, str(req.get("id", "")))
     elif action == "order":

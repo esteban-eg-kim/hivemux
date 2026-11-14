@@ -92,6 +92,17 @@ h2 { margin: 0; font-size: 18px; font-weight: 700; }
 .dot.run { background: var(--run); } .dot.wait { background: var(--wait); } .dot.done { background: var(--done); } .dot.idle, .dot.on { background: var(--sleep); }
 .addrow { display: flex; gap: 6px; margin-top: 6px; }
 .addrow input { flex: 1; min-width: 0; min-height: 40px; border: 1px dashed var(--line); border-radius: 10px; padding: 0 10px; background: transparent; }
+/* a new role: its name, then its session name (<project>- is fixed), the reason it cannot be used, Add
+   새 역할: 이름, 그다음 세션 이름 (<프로젝트>- 는 고정), 쓸 수 없는 이유, 추가 */
+.addform { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.addform > input, .addsess { min-height: 40px; border: 1px dashed var(--line); border-radius: 10px; background: transparent; }
+.addform > input { padding: 0 10px; min-width: 0; }
+.addsess { display: flex; align-items: center; padding-left: 10px; font: 12.5px var(--f-mono); color: var(--muted); min-width: 0; }
+.addsess .pre { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
+.addsess input { flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; color: var(--fg); padding: 0 10px 0 0; min-height: 38px; }
+.addfoot { display: flex; align-items: center; gap: 8px; }
+.addfoot .hint { flex: 1; font-size: 12px; color: var(--muted); line-height: 1.35; }
+.addfoot .hint.bad { color: var(--alert); }
 .tips { margin-top: 10px; border-top: 1px solid var(--line2); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .tip { background: var(--tip-bg); border: 1px solid var(--tip-line); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
 .tip button { align-self: flex-start; }
@@ -283,6 +294,19 @@ async function load() {
   if (sig !== S.sig) { S.sig = sig; render(); } else states();
 }
 setInterval(load, 2000);
+
+// a new role's session name: <project>-<id>; the id from an English name, else role<n> (bin/hivemux-team add_role)
+// 새 역할의 세션 이름: <프로젝트>-<id>. id 는 영문 이름에서, 아니면 role<n> (bin/hivemux-team add_role)
+const slugOf = n => { const s = String(n).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20); return /^[a-z][a-z0-9_-]{0,23}$/.test(s) ? s : ''; };
+function nextId(t) { let n = 1; while (t.roles.some(r => r.id === `role${n}`)) n++; return `role${n}`; }
+function addHint() {   // the reason the session name cannot be used, or '' / 세션 이름을 쓸 수 없는 이유, 없으면 ''
+  const id = $('#addid').value.trim(), h = $('#addhint'), t = team();
+  const why = !id ? '' : !/^[a-z][a-z0-9_-]{0,23}$/.test(id) ? tr('영문 소문자로 시작하고 영문 소문자, 숫자, -, _ 만 24자까지 쓰십시오', 'Start with a lowercase letter; use lowercase letters, digits, - and _, up to 24.')
+    : t && t.roles.some(r => r.id === id) ? tr('이미 다른 역할이 쓰는 이름입니다', 'Another role already uses this name.') : '';
+  h.classList.toggle('bad', !!why);
+  h.textContent = why || (id ? tr(`세션 이름: ${S.project}-${id}`, `Session name: ${S.project}-${id}`) : tr('세션 이름: 다른 역할이 이 이름으로 메시지를 보냅니다', 'Session name: other roles message it by this name'));
+  return why;
+}
 
 function render() {
   document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
@@ -493,7 +517,11 @@ function renderTeam(m) {
     <div class="layout">
       <nav class="card roles" aria-label="${tr('역할', 'Roles')}">
         ${t.roles.map(r => `<button class="roleitem" data-role="${r.id}" aria-pressed="${r.id === S.sel}">${icon(r.id, 32)}<span class="meta"><b>${esc(r.name)}${r.lead ? ` <span class="tag honey">${tr('리드', 'lead')}</span>` : ''}</b><span>${r.model} · ${r.effort}</span><span class="ctxline" data-ctx="${r.id}"></span></span><i class="dot" data-dot="${r.id}" title=""></i></button>`).join('')}
-        <form class="addrow" id="addform"><input id="addname" placeholder="${tr('새 역할 이름', 'New role name')}" aria-label="${tr('새 역할 이름', 'New role name')}"><button class="btn small">${tr('추가', 'Add')}</button></form>
+        <form class="addform" id="addform">
+          <input id="addname" placeholder="${tr('새 역할 이름', 'New role name')}" aria-label="${tr('새 역할 이름', 'New role name')}">
+          <label class="addsess" title="${tr('다른 역할이 이 이름으로 메시지를 보냅니다', 'Other roles send messages to this name')}"><span class="pre">${esc(S.project)}-</span><input id="addid" placeholder="${nextId(t)}" autocomplete="off" spellcheck="false" aria-label="${tr('세션 이름', 'Session name')}"></label>
+          <div class="addfoot"><span class="hint" id="addhint">${tr('세션 이름: 다른 역할이 이 이름으로 메시지를 보냅니다', 'Session name: other roles message it by this name')}</span><button class="btn small">${tr('추가', 'Add')}</button></div>
+        </form>
         <div class="tips" id="tips"></div>
       </nav>
       <section class="card detail" id="detail" aria-label="${tr('역할 설정', 'Role settings')}"></section>
@@ -509,10 +537,17 @@ function renderTeam(m) {
   tn.onchange = async () => { const v = tn.value.trim(); if (!v || v === t.name) { tn.value = t.name; return; }
     const r = await post('/team/rename', { ...P(), name: v }); toast(r.say || ''); S.sig = ''; load(); };
   m.querySelectorAll('.roleitem').forEach(b => b.onclick = () => { S.sel = b.dataset.role; S.tab = 'mine'; S.sig = ''; load(); });
+  // the session name follows an English role name until edited; the reason shows as you type
+  // 세션 이름은 고치기 전까지 영문 역할 이름을 따라간다. 쓸 수 없으면 입력하는 동안 이유가 보인다
+  let idTyped = false;
+  $('#addname').oninput = () => { if (!idTyped) { const g = slugOf($('#addname').value); $('#addid').value = g && !t.roles.some(r => r.id === g) ? g : ''; addHint(); } };
+  $('#addid').oninput = e => { idTyped = !!e.target.value; e.target.value = e.target.value.toLowerCase(); addHint(); };
   $('#addform').onsubmit = async e => {
     e.preventDefault();
     const name = $('#addname').value.trim(); if (!name) return;
-    const r = await post('/team/role/add', { ...P(), name });
+    if (addHint()) return $('#addid').focus();
+    const id = $('#addid').value.trim();
+    const r = await post('/team/role/add', { ...P(), name, ...(id ? { id } : {}) });
     if (!r.ok) return toast(r.say);
     S.sel = r.id; S.sig = ''; load();
   };

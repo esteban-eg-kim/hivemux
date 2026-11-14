@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Team page: adding a role asks for its session name too (`<project>-` and
+  the part you choose), the name other roles message it by. An English role
+  name fills it in; one that is taken or malformed says why instead of
+  quietly becoming `role1`
+
 ## 0.1.60 — 2026-11-14
 
 - Team page: changes work again. Since 0.1.58 every change on the page
