@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.61 — 2026-11-14
 
 - Team page: adding a role asks for its session name too (`<project>-` and
   the part you choose), the name other roles message it by. An English role
