@@ -1,0 +1,240 @@
+#!/usr/bin/env python3
+"""Sidebar width by drag, applied on release (runs in a tmux display-popup over the window, opened by the
+mouse bindings in share/hivemux.tmux on a screen from another computer, or always with @hivemux-resize release).
+
+A live resize redraws the sidebar and the Claude next to it on every column of the drag, and over a slow
+connection those frames pile up: the border lagged behind the mouse and went past the width wanted. Here the
+popup shows a copy of the window and moves only a guide line (a few dozen bytes a step); the release resizes
+once, so the screen is sent once.
+  release: that width (saved like a live drag: bin/hivemux-border up)   Esc / right click: no change
+
+드래그로 사이드바 폭 바꾸기, 놓을 때 적용 (창 위의 tmux display-popup 에서 실행. 다른 컴퓨터에서 붙은 화면,
+또는 @hivemux-resize release 일 때 share/hivemux.tmux 의 마우스 바인딩이 연다).
+실시간으로 바꾸면 끄는 한 칸마다 사이드바와 옆 Claude 를 다시 그리고, 느린 연결에서는 그 화면들이 밀려서
+경계선이 마우스를 늦게 따라오고 원하는 폭을 지나쳤다. 여기서는 팝업이 창의 사본을 보이고 안내선만
+움직인다 (한 걸음에 수십 바이트). 놓으면 한 번만 바꾸므로 화면도 한 번만 간다.
+  놓기: 그 폭 (실시간 끌기처럼 저장: bin/hivemux-border up)   Esc / 오른쪽 클릭: 바꾸지 않음
+
+  hivemux-resize-ui <window_id> <sidebar pane id> <client tty>
+"""
+import os, re, select, shutil, subprocess, sys, termios, tty, unicodedata
+
+TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
+HERE = os.path.dirname(os.path.realpath(__file__))
+MIN_W, WORK_MIN = 16, 41          # bin/hivemux-sidebar width_for / bin/hivemux-sidebar width_for 와 같다
+SGR = re.compile(r"\x1b\[([0-9;:]*)m")
+ESC = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-9;:?]*[A-Za-z]|\x1b.")
+
+
+def tmux(*a):
+    return subprocess.run([TMUX, *a], capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout
+
+
+def lang():
+    v = os.environ.get("HIVEMUX_LANG") or tmux("show", "-gqv", "@hivemux-lang").strip()
+    return "ko" if (v or os.environ.get("LANG", "")).startswith("ko") else "en"
+
+
+def tr(ko, en):
+    return ko if lang() == "ko" else en
+
+
+def cw(ch):
+    return 0 if unicodedata.combining(ch) else 2 if unicodedata.east_asian_width(ch) in "WF" else 1
+
+
+def capture(win, ww, wh):
+    """The window as cells: grid[row][col] = (sgr, char); a wide char's second column has char ""
+    창을 칸으로: grid[줄][열] = (sgr, 글자). 넓은 글자의 둘째 칸은 글자가 "" """
+    blank = ("", " ")
+    grid = [[blank] * ww for _ in range(wh)]
+    panes = []
+    for ln in tmux("list-panes", "-t", win, "-F", "#{pane_id} #{pane_left} #{pane_top} #{pane_width} #{pane_height}").split("\n"):
+        p = ln.split()
+        if len(p) == 5:
+            panes.append((p[0], *map(int, p[1:])))
+    covered = [[False] * ww for _ in range(wh)]
+    for pid, left, top, pw, ph in panes:
+        text = tmux("capture-pane", "-p", "-e", "-N", "-t", pid)
+        for r, line in enumerate(text.split("\n")[:ph]):
+            y = top + r
+            if not 0 <= y < wh:
+                continue
+            x, state, i = left, [], 0
+            while i < len(line) and x < left + pw:
+                if line[i] == "\x1b":
+                    m = SGR.match(line, i)
+                    if m:
+                        ps = m.group(1)
+                        state = [] if ps in ("", "0") or ps.startswith("0;") else state
+                        state = state + [m.group(0)] if ps not in ("", "0") else state
+                        i = m.end()
+                        continue
+                    m = ESC.match(line, i)
+                    i = m.end() if m else i + 1
+                    continue
+                ch, w = line[i], cw(line[i])
+                i += 1
+                if w == 0:
+                    continue
+                if x + w > left + pw:
+                    break
+                grid[y][x] = ("".join(state), ch)
+                if w == 2:
+                    grid[y][x + 1] = ("".join(state), "")
+                x += w
+        for y in range(top, min(top + ph, wh)):
+            for x in range(left, min(left + pw, ww)):
+                covered[y][x] = True
+    # what no pane covers is a border: vertical next to a pane's side, else horizontal
+    # 칸이 덮지 않은 곳은 경계선: 칸 옆이면 세로, 아니면 가로
+    line = "\x1b[38;2;44;48;57m"
+    for y in range(wh):
+        for x in range(ww):
+            if not covered[y][x]:
+                side = (x > 0 and covered[y][x - 1]) or (x + 1 < ww and covered[y][x + 1])
+                grid[y][x] = (line, "│" if side else "─")
+    return grid
+
+
+class View:
+    def __init__(self, grid, out):
+        self.grid, self.out, self.over = grid, out, {}
+
+    def cell(self, y, x):
+        sgr, ch = self.grid[y][x]
+        return f"\x1b[{y + 1};{x + 1}H\x1b[0m{sgr}{ch}"
+
+    def full(self):
+        buf, last = ["\x1b[?25l\x1b[H"], None
+        for y, row in enumerate(self.grid):
+            buf.append(f"\x1b[{y + 1};1H")
+            for sgr, ch in row:
+                if not ch:
+                    continue
+                if sgr != last:
+                    buf.append("\x1b[0m" + sgr)
+                    last = sgr
+                buf.append(ch)
+        self.out.write("".join(buf))
+
+    def show(self, over):
+        """over: {(y, x): text drawn there}; the cells it leaves get the window back
+        over: {(줄, 열): 그 자리에 그릴 것}. 비게 된 칸은 창 내용으로 되돌린다"""
+        buf = []
+        for (y, x) in self.over.keys() - over.keys():
+            sgr, ch = self.grid[y][x]
+            if ch:
+                # a wide char whose second column is still covered: a space instead / 둘째 칸이 아직 덮였으면 빈칸
+                buf.append(self.cell(y, x) if ch == " " or cw(ch) == 1 or (y, x + 1) not in over
+                           else f"\x1b[{y + 1};{x + 1}H\x1b[0m{sgr} ")
+            elif (y, x - 1) not in over:
+                buf.append(self.cell(y, x - 1))      # the first half went back with it / 앞 칸과 함께 되돌린다
+            else:
+                buf.append(f"\x1b[{y + 1};{x + 1}H\x1b[0m{sgr} ")
+        for (y, x), s in over.items():
+            if self.over.get((y, x)) != s:
+                buf.append(f"\x1b[{y + 1};{x + 1}H{s}")
+                # the wide char this covered half of: its other half becomes a space / 반만 덮은 넓은 글자: 나머지 반은 빈칸
+                sgr, ch = self.grid[y][x]
+                if ch and cw(ch) == 2 and (y, x + 1) not in over:
+                    buf.append(f"\x1b[0m{sgr} ")
+                if not ch and (y, x - 1) not in over:
+                    buf.append(f"\x1b[{y + 1};{x}H\x1b[0m{self.grid[y][x - 1][0]} ")
+        self.over = over
+        self.out.write("".join(buf))
+
+
+def guide(col, row, w, wh, ww, clamped):
+    """The guide line at col and the label next to it on row / col 의 안내선과 row 줄의 표시"""
+    acc, ink = "\x1b[0m\x1b[38;2;90;169;255m", "\x1b[0m\x1b[48;2;90;169;255m\x1b[38;2;22;24;29m\x1b[1m"
+    over = {(y, col): acc + "┃" for y in range(wh)}
+    label = " " + tr(f"{w}칸", f"{w} cols") + (" ·" + tr(" 끝", " limit") if clamped else "") + " "
+    hint = " " + tr("놓으면 적용 · Esc 취소", "release: apply · Esc: cancel") + " "
+    lw = sum(cw(c) for c in label)
+    hw = sum(cw(c) for c in hint)
+    x0 = col + 2 if col + 2 + max(lw, hw) <= ww else max(0, col - 1 - max(lw, hw))
+    row = max(0, min(row, wh - 2))
+    over[(row, x0)] = ink + label
+    for i in range(1, lw):
+        over[(row, x0 + i)] = ""            # covered by the label / 표시가 덮은 칸
+    over[(row + 1, x0)] = "\x1b[0m\x1b[48;2;30;33;40m\x1b[38;2;154;163;178m" + hint
+    for i in range(1, hw):
+        over[(row + 1, x0 + i)] = ""
+    return over
+
+
+def main():
+    if len(sys.argv) < 4:
+        sys.exit(2)
+    win, side, client_tty = sys.argv[1:4]
+    up = [os.path.join(HERE, "hivemux-border"), "up", client_tty, win]
+    ww, wh = (int(v) for v in tmux("display", "-p", "-t", win, "#{window_width} #{window_height}").split())
+    w0 = int(tmux("display", "-p", "-t", side, "#{pane_width}").strip() or 0)
+    if not w0:
+        subprocess.run(up)
+        return
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    tty.setraw(fd)
+    out = sys.stdout
+    view = View(capture(win, ww, wh), out)
+    view.full()
+    # 1002: drags; 1003: plain moves too, so a release that went past the popup is seen (a move with no button)
+    # 1002: 끌기, 1003: 그냥 움직임도. 그래서 팝업이 못 받은 놓기를 알아챈다 (버튼 없는 움직임)
+    out.write("\x1b[?1002h\x1b[?1003h\x1b[?1006h")
+    hi, lo = max(MIN_W, ww - WORK_MIN), MIN_W
+    w, row = w0, wh // 2
+    view.show(guide(w, row, w, wh, ww, False))
+    out.flush()
+    apply, buf, dragged = None, "", False
+    try:
+        while apply is None:
+            r, _, _ = select.select([fd], [], [], 30)
+            if not r:
+                apply = False                       # left alone: no change / 그대로 둠: 바꾸지 않음
+                break
+            buf += os.read(fd, 4096).decode(errors="ignore")
+            moved, cut = False, 0
+            for m in re.finditer(r"\x1b\[<(\d+);(\d+);(\d+)([Mm])|\x1b(?!\[)|\x03|q", buf):
+                cut = m.end()
+                if not m.group(1):
+                    apply = False                   # Esc, Ctrl+C, q
+                    break
+                b, x, y, kind = int(m.group(1)), int(m.group(2)), int(m.group(3)), m.group(4)
+                if b & 64:
+                    continue                        # wheel / 휠
+                if b & 3 == 2 and kind == "M":
+                    apply = False                   # right button / 오른쪽 버튼
+                    break
+                if kind == "m" or (b & 32 and b & 3 == 3):
+                    # released, or a move with no button (the release went past the popup): a drag applies,
+                    # a click alone changes nothing / 놓음, 또는 버튼 없는 움직임 (놓기가 팝업을 지나감):
+                    # 끌었으면 적용, 클릭만 했으면 그대로
+                    apply = dragged or kind == "m"
+                    if kind == "m":
+                        col = x - 1
+                        w = max(lo, min(hi, col))
+                    break
+                col = x - 1
+                w, row, moved, dragged = max(lo, min(hi, col)), y - 1, True, True
+            rest = buf[cut:]
+            buf = rest if rest.startswith("\x1b[<") else ""   # a sequence cut in two / 둘로 잘린 시퀀스
+            if moved and apply is None:
+                view.show(guide(w, row, w, wh, ww, not lo < col < hi))
+                out.flush()
+    finally:
+        out.write("\x1b[?1003l\x1b[?1002l\x1b[?1006l\x1b[0m")
+        out.flush()
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+    if apply and w != w0:
+        # under the popup, so the screen goes once, when it closes / 팝업 아래에서. 화면은 팝업이 닫힐 때 한 번 간다
+        tmux("resize-pane", "-t", side, "-x", str(w))
+    # pointer, borders, saving the width and every other window: as after a live drag
+    # 포인터, 경계선, 폭 저장과 다른 창들: 실시간 끌기 뒤와 같다
+    subprocess.Popen(up, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     start_new_session=True)
+
+
+if __name__ == "__main__":
+    main()

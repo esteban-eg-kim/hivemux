@@ -339,7 +339,8 @@ new hooks once restarted. Claude Code itself: right-click → Update Claude
 | right click | menu. On a task: go to, rename, move up/down, clock this Claude out, close Claude, new Claude, new project. On a clocked-out (dimmed) card: clock in, go to, close Claude. On a project name: rename, close project, account for this project, clock this project out / in, new Claude, new project. On empty space: new project. Every menu ends with Open path…, Ports…, Bee office, Artifacts…, (on empty space: Clock everyone out / in…), Update Claude…, Switch account…, Connect to… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes. A popup that asks starts on Cancel, so `Enter` alone never confirms |
 | menu → Close Claude | asks, then closes that Claude: its pane, or its window when nothing else is in it; a project's last window keeps its shell. Not resumed again, like `/exit`; `claude --resume` still continues the conversation |
 | menu → New project | folder browser in the middle: `Enter` starts the selected folder (like `hm`), `→` / `←` in and out, type to filter, `Ctrl+N` new folder |
-| menu → Settings | language (한국어 / English), animation, notifications, sidebar width, editor for Open path, this computer's name (shown in the bee office and on remote screens); applied at once and saved |
+| menu → Sidebar width | Narrow 24 / Medium 32 / Wide 44 or a width of your own, applied once on Enter |
+| menu → Settings | language (한국어 / English), animation, notifications, sidebar width, width drag (live, or on release), editor for Open path, this computer's name (shown in the bee office and on remote screens); applied at once and saved |
 | drag card / project header | reorder tasks / projects |
 | `prefix Shift+↑` / `↓` | move the current task up / down (at a project's edge, the project moves) |
 | `Option+O` / menu → Open path | open a file path from recent output (Enter editor from Settings, Tab default app, ^F Finder or the file manager, ^Y copy; on a screen from another computer, on that computer) |
@@ -350,8 +351,9 @@ new hooks once restarted. Claude Code itself: right-click → Update Claude
 | `prefix Shift+B` | open the bee office window (also the 🐝 button at the top of the sidebar) |
 | `prefix Shift+R` | Remote Control server window (start new sessions from the phone) |
 | `prefix b` | hide / show sidebars |
+| `prefix <` / `>` | sidebar 4 columns narrower / wider (keep pressing for more) |
 | `prefix s` / `prefix Shift+S` | session list / full tree |
-| drag the sidebar grip | resize; width is saved. Wider: project boxes in 2–3 columns |
+| drag the sidebar grip | resize; width is saved. Wider: project boxes in 2–3 columns. On a screen from another computer a guide line follows the mouse and the width changes once on release (Settings → Width drag) |
 | mouse wheel on the sidebar | scroll when the list does not fit (shared by every window) |
 
 `prefix` is `Ctrl+A` with the recommended keys, otherwise tmux's `Ctrl+B`. On

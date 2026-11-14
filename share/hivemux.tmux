@@ -157,6 +157,10 @@ bind R run-shell "#{@hivemux-bin}/hivemux-remote '#{pane_current_path}'"
 bind B run-shell -b "#{@hivemux-bin}/hivemux-office --client '#{client_name}'"
 # prefix b  hide / show sidebars      prefix S  session + window tree
 bind b run-shell -b "#{@hivemux-bin}/hivemux-sidebar toggle"
+# prefix < / >  sidebar 4 columns narrower / wider, repeatable (in place of tmux's window and pane menus on these keys)
+# 사이드바 4칸 좁히기 / 넓히기, 연달아 누를 수 있다 (이 키에 있던 tmux 의 창, 칸 메뉴 대신)
+bind -r < run-shell -b "#{@hivemux-bin}/hivemux-border step -4 '#{window_id}'"
+bind -r > run-shell -b "#{@hivemux-bin}/hivemux-border step 4 '#{window_id}'"
 bind S choose-tree -Zw
 # prefix Shift+Up/Down  move the current task up/down in the sidebar (at a project's edge, the project moves)
 # 사이드바에서 지금 작업을 위/아래로 (프로젝트 끝이면 프로젝트가 움직인다)
@@ -168,15 +172,37 @@ bind -n MouseDown1Status if -F "#{m/r:^hm[0-9]+$,#{mouse_status_range}}" "run-sh
 
 # ── Mouse: border and sidebar grip resize ────────────────────────────────
 # tmux has no mouse-move events, so feedback starts on press, not on hover.
-bind -n MouseDown1Border select-pane -M \; run-shell -b "#{@hivemux-bin}/hivemux-border down '#{client_tty}'"
+# The sidebar's own border or grip, on a screen from another computer (@hivemux-remote-clients): a popup over
+# the window moves a guide line and the release resizes once (bin/hivemux-resize-ui), because a live resize
+# sends the whole screen for every column dragged. @hivemux-resize: remote (that), live (never), release (always)
+# 사이드바 자신의 경계선이나 핸들, 다른 컴퓨터에서 붙은 화면 (@hivemux-remote-clients): 창 위의 팝업이 안내선만
+# 움직이고 놓을 때 한 번 바꾼다 (bin/hivemux-resize-ui). 실시간으로 바꾸면 끄는 한 칸마다 화면 전체가 가기 때문.
+# @hivemux-resize: remote (그렇게), live (안 함), release (항상)
+set -gq @hivemux-resize remote
+run-shell 'v=$(cat "#{@hivemux-data}/resize" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-resize "$v"; true'
+set -g @hivemux-resize-if "#{&&:#{==:#{pane_title},hivemux-sidebar},#{||:#{==:#{@hivemux-resize},release},#{&&:#{!=:#{@hivemux-resize},live},#{m:* #{client_name} *,#{@hivemux-remote-clients}}}}}"
+bind -n MouseDown1Border if -F "#{E:@hivemux-resize-if}" {
+  run-shell -b "#{@hivemux-bin}/hivemux-border ghost '#{client_tty}' '#{client_name}' '#{window_id}' '#{pane_id}' '#{window_width}' '#{window_height}' '#{?#{==:#{status-position},top},1,0}'"
+} {
+  select-pane -M
+  run-shell -b "#{@hivemux-bin}/hivemux-border down '#{client_tty}'"
+}
 bind -n MouseDrag1Border resize-pane -M
 bind -n MouseDragEnd1Border run-shell -b "#{@hivemux-bin}/hivemux-border up '#{client_tty}' '#{window_id}'"
 bind -n MouseUp1Border      run-shell -b "#{@hivemux-bin}/hivemux-border up '#{client_tty}' '#{window_id}'"
 # a drag that starts on the sidebar grip column becomes tmux's own resize;
 # everything else keeps tmux's default pane mouse behavior
-bind -n MouseDown1Pane if -F '#{&&:#{==:#{pane_title},hivemux-sidebar},#{==:#{mouse_x},#{e|-:#{pane_width},1}}}' \
-  "set -g @hivemux-grip 1 ; run-shell -b \"#{@hivemux-bin}/hivemux-border down '#{client_tty}'\"" \
-  "select-pane -t = ; send-keys -M"
+bind -n MouseDown1Pane if -F "#{&&:#{==:#{pane_title},hivemux-sidebar},#{==:#{mouse_x},#{e|-:#{pane_width},1}}}" {
+  if -F "#{E:@hivemux-resize-if}" {
+    run-shell -b "#{@hivemux-bin}/hivemux-border ghost '#{client_tty}' '#{client_name}' '#{window_id}' '#{pane_id}' '#{window_width}' '#{window_height}' '#{?#{==:#{status-position},top},1,0}'"
+  } {
+    set -g @hivemux-grip 1
+    run-shell -b "#{@hivemux-bin}/hivemux-border down '#{client_tty}'"
+  }
+} {
+  select-pane -t =
+  send-keys -M
+}
 bind -n MouseDrag1Pane if -F '#{@hivemux-grip}' "resize-pane -M" \
   "if-shell -F '#{||:#{pane_in_mode},#{mouse_any_flag}}' 'send-keys -M' 'copy-mode -M'"
 bind -n MouseDragEnd1Pane if -F '#{@hivemux-grip}' \

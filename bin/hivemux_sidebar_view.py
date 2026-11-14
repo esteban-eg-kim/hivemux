@@ -10,7 +10,7 @@ bin/hivemux-sidebar 가 각 창 왼쪽 칸에서 실행한다.
 - click or press 1-9 to jump; double/right click to rename; q or Esc returns focus
   클릭하거나 1-9 를 누르면 이동, 더블/오른쪽 클릭은 이름 바꾸기, q 나 Esc 는 원래 칸으로
 """
-import functools, math, os, queue, re, shlex, socket, select, shutil, signal, subprocess, sys, termios, threading, time, tty, unicodedata
+import errno, functools, math, os, queue, re, shlex, socket, select, shutil, signal, subprocess, sys, termios, threading, time, tty, unicodedata
 
 # Ignore the redraw signal (SIGUSR1) first, so it cannot kill us before the handler is installed
 # 바로 다시 그리기 신호(SIGUSR1)를 처리기 등록 전에 받아도 종료되지 않게 먼저 무시한다
@@ -78,12 +78,23 @@ GRIP = f"/tmp/hivemux-grip-{os.getuid()}"     # grip is being dragged (created b
 REST_SH = """trap '' USR1 INT QUIT
 ended() { printf '%s %s\\n  the resting sidebar ended (%s)\\n\\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$TMUX_PANE" "$3" >> "$2"; exit 1; }
 trap 'ended "$@" TERM' TERM
-trap '"$1" list-panes -t "$TMUX_PANE" >/dev/null 2>&1 && ended "$@" HUP; exit 1' HUP
+trap '"$1" list-panes -t "$TMUX_PANE" >/dev/null 2>&1 && [ -z "$("$1" show -pqv -t "$TMUX_PANE" @hivemux-respawn)" ] && ended "$@" HUP; exit 1' HUP
 wake() { trap '' USR2; "$1" set -pu -t "$TMUX_PANE" @hivemux-rest; export HIVEMUX_SIDEBAR_RESUMED=1; exec "$0"; }
 trap 'wake "$@"' USR2
 "$1" set -p -t "$TMUX_PANE" @hivemux-rest 1
 case "$("$1" display -p -t "$TMUX_PANE" '#{window_active} #{session_attached}')" in "1 "[1-9]*) wake "$@" ;; esac
 while :; do read -r _ || sleep 1; done"""
+def tcset(fd, attrs):
+    """termios.tcsetattr, again when a signal cuts it short (EINTR ended the sidebar: sidebar-errors.log)
+    termios.tcsetattr. 신호가 끊으면 다시 (EINTR 로 사이드바가 끝났다: sidebar-errors.log)"""
+    for _ in range(5):
+        try:
+            return termios.tcsetattr(fd, termios.TCSADRAIN, attrs)
+        except termios.error as e:
+            if e.args[0] != errno.EINTR:
+                raise
+
+
 WAKE_R, WAKE_W = os.pipe()          # SIGUSR1 -> wakes select() via this pipe / SIGUSR1 -> 이 파이프로 select() 를 깨운다
 os.set_blocking(WAKE_R, False)
 os.set_blocking(WAKE_W, False)
@@ -912,6 +923,8 @@ def menu(y, pid=None, sess=None, items=(), homes=()):
     rows += [(tr("Claude 업데이트…", "Update Claude…"), "u", lambda: bg_run(os.path.join(here, "hivemux-claude-update"), "--popup", client)),
              (tr("계정 전환…", "Switch account…"), "a", lambda: bg_run(os.path.join(here, "hivemux-account"), "--popup", client)),
              None, (tr("원격 연결…", "Connect to…"), "c", lambda: bg_run(os.path.join(here, "hivemux-connect"), "--pick", client)),
+             # narrow / medium / wide in one go: no drag over a slow connection / 좁게 / 보통 / 넓게를 한 번에: 느린 연결에서 끌지 않고
+             (tr("사이드바 폭…", "Sidebar width…"), "w", lambda: bg_run(os.path.join(here, "hivemux-settings"), client, "width")),
              (tr("설정…", "Settings…"), "s", lambda: bg_run(os.path.join(here, "hivemux-settings"), client))]
     # card: the task name; project name row: the project; empty space: "New"
     # 카드: 작업 이름, 프로젝트 이름 줄: 프로젝트 이름, 빈 곳: "새로 만들기"
@@ -1334,6 +1347,7 @@ def main():
     # wakes without clearing it) / 돌고 있는 사이드바는 쉬지 않는다: 여기서도 표시를 지운다 (REST_SH 를
     # 고치기 전부터 쉬던 셸은 지우지 못하고 깬다)
     tmux("set", "-pu", "-t", ME, "@hivemux-rest")
+    tmux("set", "-pu", "-t", ME, "@hivemux-respawn")      # bin/hivemux-sidebar respawn
     try:
         if resumed:
             raise OSError
@@ -1619,7 +1633,7 @@ def main():
                     lines, _ = render(items, current, w, h, cur_sess, sessions, homes)
                 out.write("\x1b[H" + "\r\n".join(lines) + "\x1b[0m\x1b[?1000l\x1b[?1002l\x1b[?1006l\x1b[H")
                 out.flush()
-                termios.tcsetattr(fd, termios.TCSADRAIN, old)
+                tcset(fd, old)
                 # a shell cannot trap a signal it started with ignored (the launcher ignores SIGUSR2)
                 # 셸은 무시된 채로 받은 신호를 잡지 못한다 (실행 파일이 SIGUSR2 를 무시한다)
                 signal.signal(signal.SIGUSR2, signal.SIG_DFL)
@@ -1809,7 +1823,7 @@ def main():
         # a signal can cut it short (EINTR, sidebar-errors.log): once more / 신호가 끊을 수 있다 (EINTR): 한 번 더
         for _ in range(3):
             try:
-                termios.tcsetattr(fd, termios.TCSADRAIN, old)
+                tcset(fd, old)
                 break
             except termios.error:
                 pass
@@ -1826,6 +1840,11 @@ def restart():
     다 차지했고, 조금 뒤 pane-exited 훅이 새 사이드바를 만들었다. 시작하고 1분 안에 다섯 번 잇달아 끝나면
     전처럼 끝낸다 (훅이 다시 만든다)."""
     import traceback
+    # the pane's terminal is gone (pane closed, tmux server ended): nothing to draw on, not a crash
+    # 칸의 터미널이 사라짐 (칸이 닫힘, tmux 서버 끝남): 그릴 곳이 없을 뿐 오류가 아니다
+    err = sys.exc_info()[1]
+    if isinstance(err, OSError) and err.errno == errno.EIO:
+        os._exit(0)
     try:
         if os.path.getsize(CRASH_LOG) > 256 * 1024:
             os.replace(CRASH_LOG, CRASH_LOG + ".old")
@@ -1859,7 +1878,9 @@ if __name__ == "__main__":
     def ended(sig, _):
         """A signal ends the sidebar (no error, so nothing was written): note it, unless it is the HUP of a closed
         pane / 신호로 끝남 (오류가 아니라 아무것도 남지 않았다): 적어 둔다. 닫힌 칸의 HUP 은 빼고"""
-        if sig != signal.SIGHUP or tmux("display", "-p", "-t", ME, "#{pane_id}").strip():
+        # nor the HUP of bin/hivemux-sidebar respawn (the pane says @hivemux-respawn) / bin/hivemux-sidebar respawn 의 HUP 도 빼고
+        here = tmux("display", "-p", "-t", ME, "#{pane_id} #{@hivemux-respawn}").split() if sig == signal.SIGHUP else [ME]
+        if here == [ME]:
             try:
                 with open(CRASH_LOG, "a") as f:
                     f.write(time.strftime("%Y-%m-%d %H:%M:%S ") + ME + f"\n  ended by {signal.Signals(sig).name}\n\n")

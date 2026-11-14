@@ -221,7 +221,10 @@ case "$1" in
     done ;;
   respawn)
     # restart every sidebar (after a language change) / 모든 사이드바를 다시 띄운다 (언어를 바꾼 뒤)
+    # @hivemux-respawn: the HUP that ends the old one is not a crash (sidebar-errors.log); the new one clears it
+    # @hivemux-respawn: 이전 것을 끝내는 HUP 은 오류가 아니다 (sidebar-errors.log). 새 사이드바가 지운다
     t list-panes -a -F '#{pane_id} #{pane_title}' | awk -v T="$TITLE" '$2==T{print $1}' | while read -r p; do
+      t set -p -t "$p" @hivemux-respawn 1
       t respawn-pane -k -t "$p" "exec $(printf '%q' "$HM_BIN/hivemux-sidebar-view")"
     done ;;
   toggle)

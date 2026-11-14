@@ -5,6 +5,13 @@
 #                                                 포인터를 좌우 크기 조절 모양으로, 경계선 강조
 #   hivemux-border up   <client_tty> <window_id>  restore pointer/borders, save sidebar width, apply to all windows
 #                                                 포인터/경계선 되돌리기, 사이드바 폭 저장 후 모든 창에 맞춤
+#   hivemux-border step <+n|-n> <window_id>      prefix > / < : the sidebar width n columns wider / narrower, saved
+#                                                 prefix > / < : 사이드바 폭을 n 칸 넓히기 / 좁히기, 저장
+#   hivemux-border set <width>                    that width, saved (the right-click menu's Sidebar width)
+#                                                 그 폭으로, 저장 (오른쪽 클릭 메뉴의 사이드바 폭)
+#   hivemux-border ghost <client_tty> <client> <window_id> <sidebar pane> <width> <height> <status on top: 1|0>
+#                       down, then the popup that resizes on release (bin/hivemux-resize-ui; share/hivemux.tmux)
+#                       down 다음 놓을 때 바꾸는 팝업 (bin/hivemux-resize-ui, share/hivemux.tmux)
 # The pointer shape is sent to Ghostty as OSC 22 directly (tmux does not pass it through).
 # 포인터 모양은 Ghostty 에 OSC 22 를 직접 보낸다 (tmux 는 이 신호를 넘기지 않음).
 HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
@@ -22,7 +29,29 @@ wake() {
   t list-panes -a -F '#{pane_pid} #{pane_title} #{m:*hivemux-sidebar-view*,#{pane_start_command}}' 2>/dev/null | awk '$2=="hivemux-sidebar" && $3==1{print $1}' |
     while read -r p; do kill -USR1 "$p" 2>/dev/null; done
 }
+# save width w, put every sidebar at it and say so / 폭 w 를 저장하고 모든 사이드바를 맞춘 뒤 알린다
+keep() {
+  t set -g @hivemux-sidebar-width "$1"
+  d="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux"; mkdir -p "$d"; echo "$1" > "$d/sidebar-width"
+  "$HM_BIN/hivemux-sidebar" fix
+  t display -d 1200 "$(say "사이드바 폭 $1 칸" "Sidebar width $1")"
+}
 case "$1" in
+  step)
+    cur="$(t show -gqv @hivemux-sidebar-width)"; cur="${cur:-32}"
+    # up to what this window can hold (bin/hivemux-sidebar width_for); never under 16
+    # 이 창이 둘 수 있는 만큼까지 (bin/hivemux-sidebar width_for). 16 아래로는 안 간다
+    ww="$(t display -p -t "${3:-}" '#{window_width}' 2>/dev/null)"; top=$(( ${ww:-200} - 41 ))
+    w=$(( cur + $2 )); [ "$w" -gt "$top" ] && w="$top"; [ "$w" -lt 16 ] && w=16
+    if [ "$w" != "$cur" ]; then keep "$w"; else t display -d 1200 "$(say "사이드바 폭 $cur 칸 (끝)" "Sidebar width $cur (limit)")"; fi ;;
+  set)
+    [[ "$2" =~ ^[0-9]+$ ]] && [ "$2" -ge 16 ] && keep "$2" ;;
+  ghost)
+    "$0" down "$tty" &
+    # over the window: -y is the popup's bottom line, so its top is the window's (the line under a status line on top)
+    # 창 위에: -y 는 팝업의 아래 줄이므로 위 줄이 창의 위 줄과 맞는다 (상태줄이 위에 있으면 그 아래 줄)
+    t display-popup -c "$3" -B -x 0 -y "$(( $7 + ${8:-0} ))" -w "$6" -h "$7" \
+      -E "$(printf '%q ' "$HM_BIN/hivemux-resize-ui" "$4" "$5" "$tty")" ;;
   down)
     shape ew-resize
     : > "$GRIP"; wake
@@ -39,10 +68,7 @@ case "$1" in
     ww="$(t display -p -t "$3" '#{window_width}' 2>/dev/null)"; held="$cur"
     [ -n "$ww" ] && [ $((ww - 41)) -lt "$held" ] && held=$((ww - 41)); [ "$held" -lt 16 ] && held=16
     if [ -n "$w" ] && [ "$w" != "$cur" ] && [ "$w" != "$held" ] && [ "$w" -ge 16 ]; then
-      t set -g @hivemux-sidebar-width "$w"
-      d="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux"; mkdir -p "$d"; echo "$w" > "$d/sidebar-width"
-      "$HM_BIN/hivemux-sidebar" fix
-      t display -d 1200 "$(say "사이드바 폭 $w 칸" "Sidebar width $w")"
+      keep "$w"
     elif [ -n "$w" ]; then
       # dragged under 16 columns (or not changed): every sidebar back to the width that holds
       # 16칸보다 좁게 끌었거나 그대로: 모든 사이드바를 정해진 폭으로 되돌린다

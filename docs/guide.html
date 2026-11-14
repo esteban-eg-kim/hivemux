@@ -553,13 +553,15 @@ claude -c
       <div class="key"><span class="combo">사이드바 카드 클릭</span><span class="d">그 Claude로 이동</span></div>
       <div class="key"><span class="combo">프로젝트 이름 클릭</span><span class="d">그 프로젝트로 이동. Claude 창을 모두 닫은 프로젝트도 "Claude 없음"으로 남고, 오른쪽 클릭 → 프로젝트 닫기로 정리합니다</span></div>
       <div class="key"><span class="combo">카드 더블클릭</span><span class="d">작업 이름 바꾸기</span></div>
-      <div class="key"><span class="combo">오른쪽 클릭</span><span class="d">메뉴. 작업 카드: 이동, 이름 바꾸기, 위로 / 아래로 옮기기, 이 Claude 퇴근, Claude 닫기, 이 프로젝트에 새 Claude, 새 프로젝트. 퇴근한 카드: 출근, 이동, Claude 닫기. 프로젝트 이름 줄: 이름 바꾸기, 프로젝트 닫기, 이 프로젝트 계정, 이 프로젝트 퇴근 / 출근, 새 Claude, 새 프로젝트. 빈 곳: 새 프로젝트, 모두 퇴근하기 / 모두 출근하기. 모든 메뉴 맨 아래에 경로 열기, 포트 목록, 벌 사무실, 아티팩트, Claude 업데이트, 계정 전환, 원격 연결, 설정. 마우스를 올리면 강조되고 클릭하면 실행. <kbd>↑</kbd> <kbd>↓</kbd>와 <kbd>Enter</kbd>, 괄호 안 글자로도 고름. <kbd>Esc</kbd>나 바깥 클릭으로 닫힘</span></div>
+      <div class="key"><span class="combo">오른쪽 클릭</span><span class="d">메뉴. 작업 카드: 이동, 이름 바꾸기, 위로 / 아래로 옮기기, 이 Claude 퇴근, Claude 닫기, 이 프로젝트에 새 Claude, 새 프로젝트. 퇴근한 카드: 출근, 이동, Claude 닫기. 프로젝트 이름 줄: 이름 바꾸기, 프로젝트 닫기, 이 프로젝트 계정, 이 프로젝트 퇴근 / 출근, 새 Claude, 새 프로젝트. 빈 곳: 새 프로젝트, 모두 퇴근하기 / 모두 출근하기. 모든 메뉴 맨 아래에 경로 열기, 포트 목록, 벌 사무실, 아티팩트, Claude 업데이트, 계정 전환, 원격 연결, 사이드바 폭, 설정. 마우스를 올리면 강조되고 클릭하면 실행. <kbd>↑</kbd> <kbd>↓</kbd>와 <kbd>Enter</kbd>, 괄호 안 글자로도 고름. <kbd>Esc</kbd>나 바깥 클릭으로 닫힘</span></div>
       <div class="key"><span class="combo">메뉴 → Claude 닫기</span><span class="d">확인을 받은 뒤 그 Claude를 닫습니다. 같은 창에 다른 칸이 있으면 그 칸만, 프로젝트에 다른 창이 있으면 그 창을 닫고, 프로젝트의 마지막 창이면 Claude만 끄고 셸은 남깁니다(창을 닫으면 프로젝트가 닫히므로). <code>/exit</code>처럼 직접 닫은 것이라 재부팅이나 출근 때 다시 띄우지 않고, 벌 사무실의 그 벌은 퇴사합니다. 대화는 남아 <code>claude --resume</code>으로 이어갈 수 있습니다</span></div>
       <div class="key"><span class="combo">메뉴 → 새 프로젝트</span><span class="d">가운데 폴더 탐색 창이 열림. <kbd>Enter</kbd>는 고른 폴더에서 <code>hm</code>처럼 시작, <kbd>→</kbd> / <kbd>←</kbd>는 폴더 안 / 상위로, 글자를 치면 걸러 보기 (<code>.</code>으로 시작하면 숨김 폴더도), <kbd>Ctrl</kbd>+<kbd>N</kbd>은 새 폴더</span></div>
-      <div class="key"><span class="combo">메뉴 → 설정</span><span class="d">언어 (한국어 / English), 애니메이션 켜기 / 끄기, 알림 켜기 / 끄기, 사이드바 폭, 경로 열기에 쓸 편집기, 이 컴퓨터 이름(Enter로 고침. 벌 사무실과 <code>hivemux connect</code>로 붙은 상대 컴퓨터에 이 이름이 보이고, 비우면 Mac 원래 이름, Linux는 호스트 이름). 바꾸면 바로 적용되고 <code>~/.local/share/hivemux</code>에 저장되어 재시작 뒤에도 유지됨. 언어를 바꾸면 사이드바를 다시 띄움</span></div>
+      <div class="key"><span class="combo">메뉴 → 사이드바 폭</span><span class="d">좁게 24 / 보통 32 / 넓게 44 또는 직접 정한 폭(<kbd>←</kbd> <kbd>→</kbd>). 고르는 동안은 바뀌지 않고 <kbd>Enter</kbd>나 클릭으로 한 번 적용. 느린 연결에서도 끌지 않고 바꿈</span></div>
+      <div class="key"><span class="combo">메뉴 → 설정</span><span class="d">언어 (한국어 / English), 애니메이션 켜기 / 끄기, 알림 켜기 / 끄기, 사이드바 폭, 폭 끌기(원격 화면은 놓을 때 / 항상 실시간 / 항상 놓을 때), 경로 열기에 쓸 편집기, 이 컴퓨터 이름(Enter로 고침. 벌 사무실과 <code>hivemux connect</code>로 붙은 상대 컴퓨터에 이 이름이 보이고, 비우면 Mac 원래 이름, Linux는 호스트 이름). 바꾸면 바로 적용되고 <code>~/.local/share/hivemux</code>에 저장되어 재시작 뒤에도 유지됨. 언어를 바꾸면 사이드바를 다시 띄움</span></div>
       <div class="key"><span class="combo">카드 / 프로젝트 이름 줄 끌기</span><span class="d">작업 순서 / 프로젝트 순서 바꾸기. 놓을 자리가 파랗게 표시되고, <kbd>⌥</kbd>+숫자 번호와 맨 위 창 목록도 같은 순서를 따름. 작업은 같은 프로젝트 안에서만 옮겨짐</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Shift</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></span><span class="d">지금 작업을 한 칸 위 / 아래로. 프로젝트 끝이면 프로젝트 전체가 움직임</span></div>
-      <div class="key"><span class="combo">핸들 막대 끌기</span><span class="d">핸들 막대나 경계선을 끌어 사이드바 폭 바꾸기. 모든 창에 맞추고 저장. 넓히면 프로젝트 상자가 2열, 3열로 늘어남</span></div>
+      <div class="key"><span class="combo">핸들 막대 끌기</span><span class="d">핸들 막대나 경계선을 끌어 사이드바 폭 바꾸기. 모든 창에 맞추고 저장. 넓히면 프로젝트 상자가 2열, 3열로 늘어남. 다른 컴퓨터에서 붙은 화면에서는 파란 안내선과 폭만 마우스를 따라오고, 놓을 때 한 번 바뀜(<kbd>Esc</kbd>나 오른쪽 클릭은 취소). 끌 때마다 화면 전체를 보내지 않아 느린 연결에서도 끊기지 않음</span></div>
+      <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>&lt;</kbd> / <kbd>&gt;</kbd></span><span class="d">사이드바 4칸 좁히기 / 넓히기. 이어서 누르면 더 (tmux 기본의 창 / 칸 메뉴 대신)</span></div>
       <div class="key"><span class="combo">사이드바 위에서 마우스 휠</span><span class="d">목록이 다 들어가지 않을 때 스크롤. 위치는 모든 창이 함께 씀</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>b</kbd></span><span class="d">사이드바 모두 숨기기 / 다시 보이기</span></div>
       <div class="key"><span class="combo"><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Space</kbd></span><span class="d">Option+0과 같음</span></div>
@@ -570,7 +572,7 @@ claude -c
       <figure><a href="img/reorder-ko.png"><img src="img/reorder-ko.png" alt="카드 끌어서 순서 바꾸기" width="1088" height="682" loading="lazy"></a><figcaption>카드 끌기: 놓을 자리가 파랗게, 끄는 카드는 흐리게</figcaption></figure>
       <figure><a href="img/new-project-ko.png"><img src="img/new-project-ko.png" alt="새 프로젝트 폴더 탐색 창" width="1088" height="682" loading="lazy"></a><figcaption>메뉴 → 새 프로젝트: 폴더 탐색 창. 이미 열린 프로젝트에 "열린 세션" 표시</figcaption></figure>
       <figure><a href="img/ports-ko.png"><img src="img/ports-ko.png" alt="포트 목록 팝업" width="1088" height="682" loading="lazy"></a><figcaption>메뉴 → 포트 목록 (<kbd>Option</kbd>+<kbd>W</kbd>): 원격으로 붙은 컴퓨터로 이어진 개발 서버</figcaption></figure>
-      <figure><a href="img/settings-ko.png"><img src="img/settings-ko.png" alt="설정 창" width="1088" height="682" loading="lazy"></a><figcaption>메뉴 → 설정: 언어, 애니메이션, 알림, 사이드바 폭, 편집기</figcaption></figure>
+      <figure><a href="img/settings-ko.png"><img src="img/settings-ko.png" alt="설정 창" width="1088" height="682" loading="lazy"></a><figcaption>메뉴 → 설정: 언어, 애니메이션, 알림, 사이드바 폭, 폭 끌기, 편집기</figcaption></figure>
     </div>
     <h3>파일 경로 열기</h3>
     <div class="keys">
@@ -738,6 +740,10 @@ hivemux account list            <span class="cmt"># 계정, 이메일, 프로젝
 cat ~/.local/share/hivemux/panes.log</pre></div>
       <p class="why">기록에 <code>busy</code>가 있으면 그 창이 셸 프롬프트가 아니어서 건너뛴 것입니다. <code>pane missing</code>이면 배치가 바뀌어 창이 없어진 것입니다. 이럴 땐 그 폴더에서 <code>claude -c</code>로 이어가면 됩니다.</p>
     </div></details>
+    <details class="issue" data-c="restore"><summary>원격으로 붙었더니 Claude가 모두 "Not logged in"이다<span class="pill part tag">복원</span></summary><div class="body">
+      <p>Mac에 tmux가 떠 있지 않을 때 다른 컴퓨터에서 <code>hivemux connect</code>로 붙으면, 그 ssh 연결이 tmux를 띄우고 이전 작업을 복원합니다. 그런데 ssh 연결 안에서는 Mac의 로그인 키체인이 잠겨 있어서, 복원된 Claude가 로그인 정보를 읽지 못합니다. 그래서 hivemux가 복원하기 전에 그 Mac의 로그인 비밀번호를 물어 키체인 잠금을 풉니다(<kbd>Ctrl</kbd>+<kbd>C</kbd>는 건너뛰기). 이미 "Not logged in"이 보이면 원격 창에서 아래를 실행하고, Claude를 다시 시작하세요(<code>/exit</code> 뒤 <code>claude --resume</code>). <code>/login</code>은 하지 않아도 됩니다.</p>
+      <div class="code"><button class="copy" type="button">복사</button><pre>security unlock-keychain ~/Library/Keychains/login.keychain-db</pre></div>
+    </div></details>
     <details class="issue" data-c="restore"><summary>방금 만든 창이 복원 목록에 없다<span class="pill part tag">복원</span></summary><div class="body">
       <p>자동 저장은 5분마다 일어납니다. 중요한 작업을 시작했다면 바로 저장하세요.</p>
       <p><kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Ctrl</kbd>+<kbd>S</kbd></p>
@@ -771,7 +777,7 @@ tmux set-environment -g HIVEMUX_NO_RESUME 1</pre></div>
 hivemux-agents list</pre></div>
     </div></details>
     <details class="issue" data-c="term"><summary>사이드바가 없거나 폭이 이상하다<span class="pill part tag">터미널</span></summary><div class="body">
-      <p><kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>b</kbd>를 두 번 누르면 모든 창의 사이드바를 다시 만듭니다. 폭은 오른쪽 클릭 메뉴 → <b>설정</b>의 사이드바 폭에서 바꾸거나, 사이드바 오른쪽 끝 세로 가운데의 <b>핸들 막대</b>(밝은 세로 막대에 ⠿ 무늬, 잡으면 파랗게 바뀜)이나 경계선을 마우스로 끌어서 바꾸세요. 누르는 동안 경계선이 파랗게 바뀌고 포인터가 좌우 크기 조절 모양이 됩니다. 손을 놓으면 모든 창의 사이드바가 같은 폭으로 맞춰지고, 그 폭이 저장되어 재시작 뒤에도 유지됩니다. 기본 폭은 32칸입니다. 명령으로 바꾸려면 아래처럼 하세요.</p>
+      <p><kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>b</kbd>를 두 번 누르면 모든 창의 사이드바를 다시 만듭니다. 폭은 오른쪽 클릭 메뉴 → <b>사이드바 폭</b>(좁게 / 보통 / 넓게), <kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>&lt;</kbd> / <kbd>&gt;</kbd>로 바꾸거나, 사이드바 오른쪽 끝 세로 가운데의 <b>핸들 막대</b>(밝은 세로 막대에 ⠿ 무늬, 잡으면 파랗게 바뀜)이나 경계선을 마우스로 끌어서 바꾸세요. 누르는 동안 경계선이 파랗게 바뀌고 포인터가 좌우 크기 조절 모양이 됩니다. 손을 놓으면 모든 창의 사이드바가 같은 폭으로 맞춰지고, 그 폭이 저장되어 재시작 뒤에도 유지됩니다. 기본 폭은 32칸입니다. 명령으로 바꾸려면 아래처럼 하세요.</p>
       <div class="code"><button class="copy" type="button">복사</button><pre>tmux set -g @hivemux-sidebar-width 40
 hivemux-sidebar fix
 <span class="cmt"># 저장한 폭을 지우고 기본 32칸으로</span>
@@ -932,7 +938,7 @@ hivemux terminal iterm --off</pre></div>
     <div><code>hivemux-agents</code><span>Option+번호 이동, 기다리는 작업으로 이동, 목록 출력</span></div>
     <div><code>hivemux-rename</code>, <code>hivemux-rename-ui</code><span>작업 이름 바꾸기 팝업과 /rename 전달</span></div>
     <div><code>hivemux-new-project-ui</code><span>새 프로젝트 폴더 탐색 팝업</span></div>
-    <div><code>hivemux-settings</code>, <code>hivemux-settings-ui</code><span>설정 팝업 (언어, 애니메이션, 알림, 사이드바 폭, 편집기, 이 컴퓨터 이름)</span></div>
+    <div><code>hivemux-settings</code>, <code>hivemux-settings-ui</code><span>설정 팝업 (언어, 애니메이션, 알림, 사이드바 폭, 폭 끌기, 편집기, 이 컴퓨터 이름)</span></div>
     <div><code>hivemux-modal</code><span>화면을 멈춘 사본 위에 팝업 띄우기</span></div>
     <div><code>hivemux-account</code><span><code>hivemux account</code>: Claude 계정 추가, 전환, 프로젝트별 계정 (<code>account</code>, <code>account-projects</code>, <code>accounts/</code>)</span></div>
     <div><code>hivemux-artifacts</code><span>게시한 아티팩트 목록과 계정, 사본 (<code>artifacts/</code>)</span></div>
@@ -940,7 +946,8 @@ hivemux terminal iterm --off</pre></div>
     <div><code>hivemux-confirm</code><span>팝업 질문 끝의 확인·취소 버튼 (퇴근·출근, Claude 닫기, Claude 업데이트)</span></div>
     <div><code>hivemux-order</code><span>사이드바 작업 / 프로젝트 순서 바꾸기</span></div>
     <div><code>hivemux-open</code>, <code>hivemux-open-ui</code><span>Option+O 경로 열기 팝업</span></div>
-    <div><code>hivemux-border</code><span>경계선과 핸들 끌기 피드백, 사이드바 폭 저장</span></div>
+    <div><code>hivemux-border</code><span>경계선과 핸들 끌기 피드백, 사이드바 폭 저장, <code>prefix &lt;</code> / <code>&gt;</code></span></div>
+    <div><code>hivemux-resize-ui</code><span>원격 화면에서 안내선으로 폭 끌기, 놓을 때 적용</span></div>
     <div><code>hivemux-new-claude</code>, <code>hivemux-new-claude-ui</code>, <code>hivemux-remote</code><span>prefix Shift+C(이름을 묻는 팝업), prefix Shift+R</span></div>
     <div><code>hivemux-plugins</code><span>tmux-resurrect와 continuum을 찾아 불러옵니다</span></div>
   </div>

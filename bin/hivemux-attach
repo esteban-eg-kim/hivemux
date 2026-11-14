@@ -27,10 +27,32 @@ say() {
 }
 note() { printf '\r\033[2K  \033[38;2;154;163;178mhivemux · %s\033[0m' "$1"; }   # one status line, replaced each time / 한 줄 안내, 매번 덮어씀
 
+# A server started from another computer (ssh, hivemux connect) belongs to that ssh login, where the Mac's login
+# keychain is locked: every Claude it resumes finds no login there ("Not logged in"). Unlock it first, here,
+# where a terminal can take the password; Ctrl+C goes on without it.
+# 다른 컴퓨터에서 (ssh, hivemux connect) 띄운 서버는 그 ssh 로그인에 속하고, 거기서는 Mac 의 로그인 키체인이
+# 잠겨 있다: 그 서버가 재개하는 Claude 는 모두 로그인을 찾지 못한다 ("Not logged in"). 그래서 먼저 여기서,
+# 비밀번호를 받을 수 있는 터미널에서 잠금을 푼다. Ctrl+C 면 풀지 않고 이어 간다.
+unlock_keychain() {
+  local kc="$HOME/Library/Keychains/login.keychain-db" i
+  [ "$(uname -s)" = Darwin ] && [ -n "$SSH_CONNECTION$HIVEMUX_REMOTE" ] && [ -f "$kc" ] && [ -t 0 ] || return 0
+  security show-keychain-info "$kc" >/dev/null 2>&1 && return 0      # already open / 이미 열림
+  printf '\r\033[2K\n  \033[33m%s\033[0m\n  %s\n\n' \
+    "$(say "이 연결에서는 Mac 의 키체인이 잠겨 있어, 복원되는 Claude 가 로그인하지 못합니다 (Not logged in)." \
+            "The Mac's keychain is locked over this connection, so the Claudes resumed would not be logged in.")" \
+    "$(say "이 Mac 의 로그인 비밀번호로 잠금을 푸십시오. Ctrl+C: 건너뛰기" "Unlock it with this Mac's login password. Ctrl+C: skip")"
+  trap 'trap - INT; return 0' INT
+  for i in 1 2 3; do
+    security unlock-keychain "$kc" && { trap - INT; return 0; }
+  done
+  trap - INT
+}
+
 # Start the server and restore the last snapshot (which also resumes Claude sessions via bin/hivemux-panes).
 # 서버를 띄우고 마지막 저장본을 복원한다 (bin/hivemux-panes 로 Claude 세션도 이어서 띄운다).
 start_server() {
   local err
+  unlock_keychain
   note "$(say "이전 작업을 복원하는 중…" "Restoring your last work…")"
   # Bootstrap session "0": tmux-resurrect deletes it after a from-scratch restore.
   # 시작용 세션 "0": tmux-resurrect 가 처음부터 복원한 뒤 지운다.

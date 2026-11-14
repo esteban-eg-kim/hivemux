@@ -5,16 +5,22 @@
   ↑↓ choose / 고르기    ←→ or Enter or click: change / 바꾸기    Esc close / 닫기
 
 Changes apply at once and are saved in $XDG_DATA_HOME/hivemux (lang, anim, notify,
-sidebar-width, editor, mac-name);
+sidebar-width, resize, editor, mac-name); the width a moment after the last ←→, so stepping through
+the widths sends the screen once, not at every step (a screen from another computer).
 share/hivemux.tmux reads them back when tmux starts.
-바꾸면 바로 적용하고 $XDG_DATA_HOME/hivemux 에 (lang, anim, notify, sidebar-width, editor, mac-name) 저장한다.
+바꾸면 바로 적용하고 $XDG_DATA_HOME/hivemux 에 (lang, anim, notify, sidebar-width, resize, editor, mac-name) 저장한다.
+폭은 마지막 ←→ 조금 뒤에: 폭을 넘겨 가도 화면이 걸음마다가 아니라 한 번 간다 (다른 컴퓨터에서 붙은 화면).
+
+  hivemux-settings-ui --width   only the sidebar width: Narrow / Medium / Wide or a number, applied on Enter
+                                (the right-click menu's "Sidebar width")
+                                사이드바 폭만: 좁게 / 보통 / 넓게 또는 숫자, Enter 로 적용 (오른쪽 클릭 메뉴 "사이드바 폭")
 "This Mac's name" is typed in (Enter edits, Enter saves, Esc cancels; empty goes back to the Mac's own name):
 the bee office and the other Mac (hivemux connect) show it.
 "이 Mac 이름"은 직접 친다 (Enter 로 고치고 Enter 로 저장, Esc 취소. 비우면 Mac 원래 이름): 벌 사무실과
 상대 Mac (hivemux connect)이 이 이름을 보인다.
 tmux 가 시작할 때 share/hivemux.tmux 가 다시 읽는다.
 """
-import os, re, shutil, subprocess, sys, termios, tty, unicodedata
+import os, re, select, shutil, subprocess, sys, termios, time, tty, unicodedata
 
 TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -53,7 +59,8 @@ def computer_name():
         if shutil.which("scutil") else ""
 
 
-def computer_name():
+def own_name():
+    """The Mac's name, else the host name (Linux) / Mac 의 이름, 없으면 호스트 이름 (Linux)"""
     return computer_name() or os.uname().nodename.split(".")[0]
 
 
@@ -66,6 +73,8 @@ def save(name, value):
 
 
 WIDTHS = list(range(24, 50, 2))
+PRESETS = [(24, ("좁게", "Narrow")), (32, ("보통", "Medium")), (44, ("넓게", "Wide"))]
+SETTLE = 0.6          # seconds after the last ←→ on the width / 폭의 마지막 ←→ 뒤 이만큼 기다렸다가 적용
 
 
 def settings():
@@ -88,8 +97,14 @@ def settings():
         ("anim", tr("애니메이션", "Animation"), [("on", tr("켜기", "on")), ("off", tr("끄기", "off"))], 0 if anim else 1),
         ("notify", tr("알림", "Notifications"), [("on", tr("켜기", "on")), ("off", tr("끄기", "off"))], 0 if notify else 1),
         ("width", tr("사이드바 폭", "Sidebar width"), [(str(x), tr(f"{x}칸", f"{x} columns")) for x in ws], ws.index(w)),
+        # dragging the sidebar's border: live, or a guide line and one resize on release (bin/hivemux-resize-ui)
+        # 사이드바 경계선 끌기: 실시간, 또는 안내선만 움직이고 놓을 때 한 번 (bin/hivemux-resize-ui)
+        ("resize", tr("폭 끌기", "Width drag"), [("remote", tr("원격 화면은 놓을 때", "on release, remote")),
+                                                ("live", tr("항상 실시간", "always live")),
+                                                ("release", tr("항상 놓을 때", "always on release"))],
+         {"live": 1, "release": 2}.get(tmux("show", "-gqv", "@hivemux-resize").strip(), 0)),
         ("editor", tr("편집기", "Editor"), eds, next((i for i, (k, _) in enumerate(eds) if k == ed), 0)),
-        ("name", tr("이 컴퓨터 이름", "This computer's name"), [(nick, nick or computer_name())], 0),
+        ("name", tr("이 컴퓨터 이름", "This computer's name"), [(nick, nick or own_name())], 0),
     ]
 
 
@@ -100,7 +115,7 @@ def apply(key, value):
         # the sidebars read the language when they start / 사이드바는 시작할 때 언어를 읽는다
         subprocess.Popen([os.path.join(HERE, "hivemux-sidebar"), "respawn"], stdin=subprocess.DEVNULL,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-    elif key in ("anim", "notify", "editor"):
+    elif key in ("anim", "notify", "editor", "resize"):
         tmux("set", "-g", "@hivemux-" + key, value)
         save(key, value)
     elif key == "name":
@@ -116,9 +131,7 @@ def apply(key, value):
                 pass
         tmux("refresh-client", "-S")
     elif key == "width":
-        tmux("set", "-g", "@hivemux-sidebar-width", value)
-        save("sidebar-width", value)
-        subprocess.run([os.path.join(HERE, "hivemux-sidebar"), "fix"], stdin=subprocess.DEVNULL,
+        subprocess.run([os.path.join(HERE, "hivemux-border"), "set", value], stdin=subprocess.DEVNULL,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
@@ -130,10 +143,16 @@ def main():
     out.write("\x1b[?25l\x1b[?1000h\x1b[?1006h")
     sel, msg = 0, ""
     edit = None                            # the name being typed / 치고 있는 이름
+    pending, due = None, 0                 # a width shown but not applied yet / 보이기만 하고 아직 적용하지 않은 폭
     try:
         while True:
             cols, rows = os.get_terminal_size()
             items = settings()
+            if pending is not None:
+                k = next(i for i, it in enumerate(items) if it[0] == "width")
+                vals = items[k][2] if any(v == pending for v, _ in items[k][2]) else \
+                    sorted(items[k][2] + [(pending, tr(f"{pending}칸", f"{pending} columns"))], key=lambda v: int(v[0]))
+                items[k] = (*items[k][:2], vals, [v for v, _ in vals].index(pending))
             sel = max(0, min(sel, len(items) - 1))
             buf = ["\x1b[H", bg(BG), "\x1b[2J"]
             rows_y = {}
@@ -170,6 +189,10 @@ def main():
             out.write("".join(buf))
             out.flush()
             msg = ""
+            if pending is not None and not select.select([fd], [], [], max(0, due - time.time()))[0]:
+                apply("width", pending)
+                pending = None
+                continue
             data = os.read(fd, 256).decode(errors="ignore")
             for ch in re.findall(r"\x1b\[<\d+;\d+;\d+[Mm]|\x1b\[[0-9;]*[A-Za-z~]|\x1bO[A-Za-z]|\x1b|[\s\S]", data):
                 if edit is not None:
@@ -200,6 +223,8 @@ def main():
                     elif b == 65:
                         sel += 1
                 elif ch in ("\x1b", "\x03", "q"):
+                    if pending is not None:
+                        apply("width", pending)
                     return
                 elif ch in ("\x1b[A", "\x1bOA", "k", "\x10"):
                     sel -= 1
@@ -216,7 +241,11 @@ def main():
                     # width stops at the ends; the others go round / 폭은 끝에서 멈추고, 나머지는 돌아간다
                     n = cur + step
                     n = max(0, min(n, len(values) - 1)) if key == "width" else n % len(values)
-                    if n != cur:
+                    # keys read together step on from the value just picked / 함께 읽은 키는 방금 고른 값에서 이어 간다
+                    items[sel] = (*items[sel][:3], n)
+                    if n != cur and key == "width":
+                        pending, due = values[n][0], time.time() + SETTLE
+                    elif n != cur:
                         apply(key, values[n][0])
                 sel = max(0, min(sel, len(items) - 1))
     finally:
@@ -225,5 +254,81 @@ def main():
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
 
+def pick_width():
+    """The right-click menu's "Sidebar width": three widths and one of your own, applied once on Enter or a click
+    (↑↓ and ←→ only move what is shown, so nothing goes over a slow connection until then)
+    오른쪽 클릭 메뉴의 "사이드바 폭": 세 가지 폭과 직접 정한 폭. Enter 나 클릭으로 한 번 적용한다
+    (↑↓ 와 ←→ 는 보이는 것만 바꾸므로, 그 전에는 느린 연결로 아무것도 가지 않는다)"""
+    try:
+        now = int(tmux("show", "-gqv", "@hivemux-sidebar-width").strip() or 32)
+    except ValueError:
+        now = 32
+    own = now
+    sel = next((i for i, (w, _) in enumerate(PRESETS) if w == now), len(PRESETS))
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    tty.setraw(fd)
+    out = sys.stdout
+    out.write("\x1b[?25l\x1b[?1000h\x1b[?1006h")
+    try:
+        while True:
+            cols, rows = os.get_terminal_size()
+            rows_y, buf = {}, ["\x1b[H", bg(BG), "\x1b[2J"]
+            choices = [(w, tr(*names)) for w, names in PRESETS] + [(own, tr("직접", "Your own"))]
+            for i, (w, name) in enumerate(choices):
+                y = 2 + i
+                rows_y[y] = i
+                on = i == sel
+                val = (f"‹ {w}칸 ›" if lang() == "ko" else f"‹ {w} cols ›") if i == len(PRESETS) else tr(f"{w}칸", f"{w} cols")
+                mark = tr("  지금", "  now") if w == now else ""
+                line = f" {'▌' if on else ' '} {name}"
+                pad = " " * max(1, 14 - width(line))
+                body = f"{line}{pad}{val}{mark}"
+                if on:
+                    buf.append(f"\x1b[{y};1H{bg(SEL_BG)}{fg(ACC)} ▌ {fg(TEXT)}{BOLD}{name}{RST}{bg(SEL_BG)}{fg(TEXT)}"
+                               f"{pad}{val}{fg(T3)}{mark}" + " " * max(0, cols - width(body)) + RST + bg(BG))
+                else:
+                    buf.append(f"\x1b[{y};1H   {fg(T2)}{name}{pad}{val}{fg(T3)}{mark}")
+            hint = (f"{fg(TEXT)}Enter{fg(T3)} {tr('적용', 'apply')}  {fg(TEXT)}←→{fg(T3)} {tr('직접 폭', 'own width')}  "
+                    f"{fg(TEXT)}Esc{fg(T3)} {tr('닫기', 'close')}")
+            buf.append(f"\x1b[{rows};1H " + hint + RST)
+            out.write("".join(buf))
+            out.flush()
+            data = os.read(fd, 256).decode(errors="ignore")
+            for ch in re.findall(r"\x1b\[<\d+;\d+;\d+[Mm]|\x1b\[[0-9;]*[A-Za-z~]|\x1bO[A-Za-z]|\x1b|[\s\S]", data):
+                m = re.match(r"\x1b\[<(\d+);(\d+);(\d+)([Mm])", ch)
+                if m:
+                    b, x, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+                    if b == 0 and m.group(4) == "M" and y in rows_y:
+                        sel = rows_y[y]
+                        if sel < len(PRESETS) or x <= 14:
+                            return choices[sel][0]
+                        own = max(16, own + (-2 if x <= 18 else 2))     # ‹ left, › right / ‹ 왼쪽, › 오른쪽
+                    elif b == 64:
+                        sel = max(0, sel - 1)
+                    elif b == 65:
+                        sel = min(len(PRESETS), sel + 1)
+                elif ch in ("\x1b", "\x03", "q"):
+                    return None
+                elif ch in ("\x1b[A", "\x1bOA", "k", "\x10"):
+                    sel = max(0, sel - 1)
+                elif ch in ("\x1b[B", "\x1bOB", "j", "\x0e"):
+                    sel = min(len(PRESETS), sel + 1)
+                elif ch in ("\x1b[D", "\x1bOD", "h", "\x1b[C", "\x1bOC", "l"):
+                    sel = len(PRESETS)
+                    own = max(16, own + (-2 if ch in ("\x1b[D", "\x1bOD", "h") else 2))
+                elif ch in ("\r", "\n", " "):
+                    return [w for w, _ in PRESETS][sel] if sel < len(PRESETS) else own
+    finally:
+        out.write("\x1b[?1000l\x1b[?1006l\x1b[?25h" + RST + "\x1b[2J")
+        out.flush()
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
 if __name__ == "__main__":
-    main()
+    if sys.argv[1:2] == ["--width"]:
+        w = pick_width()
+        if w is not None:
+            apply("width", str(w))
+    else:
+        main()

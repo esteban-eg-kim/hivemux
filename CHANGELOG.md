@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Sidebar width over a slow connection: on a screen attached from another computer, dragging the
+  sidebar's border or grip moves only a guide line with the width, and the sidebar changes once on
+  release (`Esc` or a right click cancels). A live resize sent the whole screen for every column, so
+  the border lagged and went past the width wanted. Settings → Width drag: on release on remote
+  screens (default), always live, or always on release.
+- Right-click menu → Sidebar width: Narrow 24 / Medium 32 / Wide 44 or your own, applied once.
+  `prefix <` / `>`: 4 columns narrower / wider. In Settings, stepping through the widths applies the
+  last one a moment later instead of every step.
+- Settings did not open when this computer's name was not set (since 0.1.49).
+- A tmux server started by `hivemux connect` from another computer asks for the Mac's login password
+  to unlock the keychain before restoring; without it every resumed Claude said "Not logged in".
+- Sidebar: a terminal that is gone (closed pane, ended server) and `hivemux-sidebar respawn` no
+  longer fill `sidebar-errors.log`; a signal during the switch to resting no longer ends it.
 - Sidebar: while another Mac is viewing, the summary line says "animation off"
   instead of "paused", which read like the Claudes had stopped.
 
