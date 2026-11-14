@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.58 — 2026-11-14
 
 - Teams on a connected computer: the team page and the report list the
   projects of the computers you are connected to (`⇄ <computer> · <project>`)
