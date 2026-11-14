@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Remote: the other computer's hivemux is the one its tmux runs. A Mac
+  running hivemux from git with an old Homebrew copy beside it answered
+  with the old copy (no teams from afar, old bee office data, a wrong
+  version check). Needs this version on the computer you connect from
+
 ## 0.1.58 — 2026-11-14
 
 - Teams on a connected computer: the team page and the report list the

@@ -52,7 +52,7 @@ MOSH_HINT="$([ "$(uname -s)" = Darwin ] && echo "brew install mosh" || echo "sud
 REMOTE="$(cat <<'EOF'
 g=/Applications/Ghostty.app/Contents/Resources/terminfo; [ -d "$g" ] && export TERMINFO_DIRS="$g:${TERMINFO_DIRS:-}"
 infocmp "$TERM" >/dev/null 2>&1 || export TERM=xterm-256color COLORTERM=truecolor
-for p in ${HIVEMUX_ATTACH:-} /opt/homebrew/bin/hivemux-attach /usr/local/bin/hivemux-attach "$HOME/.local/share/hivemux/src/bin/hivemux-attach"; do
+for p in ${HIVEMUX_ATTACH:-} "$(PATH=/opt/homebrew/bin:/usr/local/bin:$PATH tmux show -gqv @hivemux-bin 2>/dev/null)/hivemux-attach" /opt/homebrew/bin/hivemux-attach /usr/local/bin/hivemux-attach "$HOME/.local/share/hivemux/src/bin/hivemux-attach"; do
   [ -x "$p" ] || continue
   v=$(sed -n 's/^VERSION="\(.*\)"$/\1/p' "${p%-attach}" 2>/dev/null)
   if awk -v a="$v" -v b=@MIN@ 'BEGIN { split(a, x, "."); split(b, y, "."); for (i = 1; i <= 3; i++) if (x[i] + 0 != y[i] + 0) exit !(x[i] + 0 < y[i] + 0); exit 1 }'; then
@@ -154,7 +154,7 @@ case "$1" in
     [ -n "$host" ] || { echo "usage: hivemux connect --add <host> [--mosh]" >&2; exit 2; }
     echo "$(say "확인 중" "Checking") $host …"
     check() {
-      out="$("${SSH[@]}" -o BatchMode=yes "${SSH_OPTS[@]}" "$host" 'for p in ${HIVEMUX_ATTACH%-attach} /opt/homebrew/bin/hivemux /usr/local/bin/hivemux "$HOME/.local/share/hivemux/src/bin/hivemux"; do [ -x "$p" ] && { "$p" version; exit 0; }; done; exit 3' 2>&1)"; rc=$?
+      out="$("${SSH[@]}" -o BatchMode=yes "${SSH_OPTS[@]}" "$host" 'for p in ${HIVEMUX_ATTACH%-attach} "$(PATH=/opt/homebrew/bin:/usr/local/bin:$PATH tmux show -gqv @hivemux-bin 2>/dev/null)/hivemux" /opt/homebrew/bin/hivemux /usr/local/bin/hivemux "$HOME/.local/share/hivemux/src/bin/hivemux"; do [ -x "$p" ] && { "$p" version; exit 0; }; done; exit 3' 2>&1)"; rc=$?
     }
     # first time: the host key is not known yet, or it takes a password (BatchMode refuses both)
     # 처음 연결: 호스트 키를 아직 모르거나 비밀번호를 묻는다 (BatchMode 는 둘 다 거절한다)

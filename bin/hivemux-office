@@ -69,7 +69,11 @@ SSH = shlex.split(os.environ.get("HIVEMUX_SSH") or "ssh")
 PATH = "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH"
 # Runs on the other Mac: its hivemux-office, wherever it got installed / 상대 Mac 에서 실행: 설치된 곳의 hivemux-office
 # (HIVEMUX_OFFICE: another path there, used for testing / 거기 다른 경로, 시험용)
-REMOTE = ('for p in ${HIVEMUX_OFFICE:-} /opt/homebrew/bin/hivemux-office /usr/local/bin/hivemux-office "$HOME/.local/share/hivemux/src/bin/hivemux-office"; '
+# The one its tmux runs first (@hivemux-bin, share/hivemux.tmux): a Mac running hivemux from git with an old Homebrew
+# copy beside it answered with the old copy (no remote teams, old office data)
+# 그 tmux 가 쓰는 것 (@hivemux-bin, share/hivemux.tmux) 먼저: git 으로 hivemux 를 돌리면서 예전 Homebrew 사본이
+# 남은 Mac 은 그 예전 사본이 답했다 (원격 팀 없음, 예전 사무실 자료)
+REMOTE = ('for p in ${HIVEMUX_OFFICE:-} "$(PATH=/opt/homebrew/bin:/usr/local/bin:$PATH tmux show -gqv @hivemux-bin 2>/dev/null)/hivemux-office" /opt/homebrew/bin/hivemux-office /usr/local/bin/hivemux-office "$HOME/.local/share/hivemux/src/bin/hivemux-office"; '
           'do [ -x "$p" ] && exec "$p" %s; done; echo \'{"missing": true}\'')
 
 
