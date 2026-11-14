@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.59 — 2026-11-14
 
 - Remote: the other computer's hivemux is the one its tmux runs. A Mac
   running hivemux from git with an old Homebrew copy beside it answered
