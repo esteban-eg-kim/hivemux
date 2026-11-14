@@ -14,7 +14,7 @@ Dev server ports forwarded from another Mac (bin/hivemux-ports):
   Enter           open in the browser of the Mac it is forwarded to / 이어진 Mac 의 브라우저로 열기
   Ctrl+Y          copy the address / 주소 복사      Esc   close / 닫기
 """
-import os, shutil, subprocess, sys, termios, tty, unicodedata
+import os, shutil, subprocess, sys, termios, time, tty, unicodedata
 
 TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
 OS = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-os")   # open, copy on macOS or Linux / macOS 나 Linux 에서 열기, 복사
@@ -69,6 +69,15 @@ def ports():
         if not name.startswith("@hivemux-ports-") or name.startswith("@hivemux-ports-open-"):
             continue
         mac = name[len("@hivemux-ports-"):]
+        # a connection that stopped asking (it polls every 3 s): its list is old, so it goes. A Mac that came back
+        # under another name left one for days, and Enter there asked a computer that no longer listened
+        # 묻지 않게 된 연결 (3초마다 묻는다): 목록이 낡았으니 지운다. 다른 이름으로 다시 붙은 Mac 이 며칠씩 남겼고,
+        # 거기서 Enter 를 누르면 이제 듣지 않는 컴퓨터에 부탁했다
+        seen = tmux("show", "-gqv", f"@hivemux-seen-{mac}").strip()
+        if not seen.isdigit() or time.time() - int(seen) > 60:
+            for o in (name, f"@hivemux-ports-open-{mac}"):
+                tmux("set", "-gu", o)
+            continue
         for row in tmux("show", "-gqv", name).splitlines():
             lp, rp, cmd = (row.split(" ", 2) + ["", "", ""])[:3]
             if lp.isdigit() and rp.isdigit():

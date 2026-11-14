@@ -7,6 +7,10 @@
   forwarded too. Its listening node sat under the `npm` left behind, not
   directly under launchd, so the port never reached the other computer.
   Needs this version on the computer you connect from
+- Ports list: the ports of a computer that stopped connecting no longer
+  show. A Mac that came back under another name left its old list for days
+  (a dev server there seemed forwarded, and Enter asked a computer that no
+  longer listened); a list goes once its computer has not asked for a minute
 
 - Sidebar: one that a signal ends (TERM, HUP while its pane stays, INT) now
   writes so to `sidebar-errors.log`; it used to go and come back with no
