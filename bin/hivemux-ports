@@ -64,10 +64,14 @@ SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ServerAliveInterval=3", "-o", "ServerA
 # "<포트> <명령>". ssh 는 기본 PATH 만 준다.
 # A dev server started in the background (nohup … &) leaves the tmux tree for launchd or init (parent 1), so
 # those count too: a node, python, ruby … of this user working in a folder under home (not ~/Library or a
-# dot folder) or /tmp, and not hivemux's own (the bee office server).
+# dot folder) or /tmp, and not hivemux's own (the bee office server). It may sit under a wrapper that was
+# left there instead (`npm exec vite`, `npx`, `pnpm`, a shell, nohup): up to four such steps to launchd
+# (the vite of `npm run dev &` was missed: its parent is npm, not launchd).
 # 백그라운드로 띄운 개발 서버(nohup … &)는 tmux 를 벗어나 launchd(부모 1) 아래로 가서, 그것도 센다:
 # 이 사용자의 node, python, ruby … 중 홈 아래 폴더(~/Library 와 점 폴더는 빼고)나 /tmp 에서 도는 것,
-# 그리고 hivemux 자신(벌 사무실 서버)은 뺀다.
+# 그리고 hivemux 자신(벌 사무실 서버)은 뺀다. 그 대신 감싸는 프로세스가 launchd 아래 남았을 수 있다
+# (`npm exec vite`, `npx`, `pnpm`, 셸, nohup): launchd 까지 그런 단계 넷까지 (`npm run dev &` 의 vite 를
+# 놓쳤다: 부모가 launchd 가 아니라 npm 이다).
 # Before that, "open <port>" when that Mac's port list popup asked to open one here.
 # 그 앞에, 상대 Mac 의 포트 목록 팝업이 여기서 열어 달라고 했으면 "open <포트>".
 REMOTE = r'''PATH=/opt/homebrew/bin:/usr/local/bin:$PATH
@@ -79,7 +83,12 @@ e=$(tmux show -gqv @hivemux-edit-@ME@) && [ -n "$e" ] && { tmux set -gu @hivemux
 pids=$(ps -A -o pid= -o ppid= | awk -v r="$root" '{ p[$1] = $2 } END { for (k in p) { x = k; n = 0; while (x > 1 && n++ < 64) { if (x == r) { print k; break } x = p[x] } } }' | paste -sd, -)
 # adopted by launchd or init (1), or on Linux often by the user's systemd / launchd 나 init(1), Linux 에서는 흔히 사용자의 systemd 가 넘겨받는다
 sr=",1,$(pgrep -u "$(id -u)" -x systemd 2>/dev/null | paste -sd, -),"
-cand=$(ps -A -o pid= -o ppid= -o uid= -o comm= | awk -v u="$(id -u)" -v sr="$sr" 'index(sr, "," $2 ",") && $3 == u { n = split($NF, a, "/"); c = tolower(a[n]); if (c ~ /^(node|python[0-9.]*|ruby|deno|bun|php|java|uvicorn|gunicorn)$/) print $1 }' | paste -sd, -)
+cand=$(ps -A -o pid= -o ppid= -o uid= -o comm= | awk -v u="$(id -u)" -v sr="$sr" '
+  { n = split($4, a, "/"); c[$1] = tolower(a[n]); pp[$1] = $2; us[$1] = $3 }
+  END { for (k in c) { if (us[k] != u || c[k] !~ /^(node|python[0-9.]*|ruby|deno|bun|php|java|uvicorn|gunicorn)$/) continue
+    x = pp[k]; for (i = 0; i < 5; i++) { if (index(sr, "," x ",")) { print k; break }
+      if (us[x] != u || c[x] !~ /^(node|npm|npx|pnpm|yarn|bun|deno|sh|bash|zsh|dash|nohup|env|python[0-9.]*|uv|poetry|ruby|bundle)$/) break
+      x = pp[x] } } }' | paste -sd, -)
 # lsof, else (a Linux server without it) /proc and ss / lsof, 없으면 (lsof 없는 Linux 서버) /proc 과 ss
 cwds() { if command -v lsof >/dev/null; then lsof -a -d cwd -p "$1" -Fpn 2>/dev/null
   else for p in $(echo "$1" | tr , ' '); do d=$(readlink "/proc/$p/cwd" 2>/dev/null) && printf 'p%s\nn%s\n' "$p" "$d"; done; fi; }

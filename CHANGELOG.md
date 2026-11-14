@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Remote ports: a dev server started in the background through a wrapper
+  (`npm run dev &`, `npx vite`, `pnpm dev` under nohup or a shell) is
+  forwarded too. Its listening node sat under the `npm` left behind, not
+  directly under launchd, so the port never reached the other computer.
+  Needs this version on the computer you connect from
+
 - Sidebar: one that a signal ends (TERM, HUP while its pane stays, INT) now
   writes so to `sidebar-errors.log`; it used to go and come back with no
   trace. A resting sidebar no longer ends on Ctrl+C
