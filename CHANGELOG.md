@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Team page: changes work again. Since 0.1.58 every change on the page
+  (add or edit a role, rename, start, stop, send a goal) failed silently in
+  the browser, for this computer's teams and for a connected one's
+
 ## 0.1.59 — 2026-11-14
 
 - Remote: the other computer's hivemux is the one its tmux runs. A Mac

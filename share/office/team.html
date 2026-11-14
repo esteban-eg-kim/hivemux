@@ -220,7 +220,7 @@ const S = { project: new URLSearchParams(location.search).get('project') || '', 
   sel: '', tab: 'mine', edited: {}, wiz: null, sig: '' };
 // a project of a connected computer (hivemux connect) carries it as ssh: every request goes there
 // 붙어 있는 컴퓨터 (hivemux connect) 의 프로젝트는 ssh 로 그 컴퓨터를 단다: 요청이 모두 그리로 간다
-const P = () => S.ssh ? { ...P(), ssh: S.ssh } : P();
+const P = () => S.ssh ? { project: S.project, ssh: S.ssh } : { project: S.project };
 const QS = () => 'project=' + encodeURIComponent(S.project) + (S.ssh ? '&ssh=' + encodeURIComponent(S.ssh) : '');
 const KEY = () => S.ssh + '\t' + S.project;
 const same = p => p.name === S.project && (p.ssh || '') === S.ssh;
