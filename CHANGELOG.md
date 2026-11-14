@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Slow connections: `hivemux connect` compresses the ssh stream; on tmux 3.8 popups open
+  without the copy window (tmux 3.8 no longer draws wide text through them), which sent the whole
+  screen twice more; the ⇄ badge shows the round trip (orange over 150 ms) and a connection over
+  200 ms for a while is told once to use mosh. Both computers need this version for the round trip.
+- Open path (`Option+O`) lists links too: the http(s) addresses printed and those hidden under a
+  link's text (read from the pane's Claude conversation). Enter opens one in the browser of the
+  computer you look from, `^Y` copies it: a hidden link Cmd+click could not open from another
+  computer. `hivemux open <address>` does the same.
 - Sidebar width over a slow connection: on a screen attached from another computer, dragging the
   sidebar's border or grip moves only a guide line with the width, and the sidebar changes once on
   release (`Esc` or a right click cancels). A live resize sent the whole screen for every column, so

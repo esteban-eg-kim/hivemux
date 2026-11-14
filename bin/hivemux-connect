@@ -32,7 +32,9 @@ HOSTS="$DATA/remote-hosts"; LAST="$DATA/remote-last"
 # a silent connection (Wi-Fi off on either Mac) counts as lost after ~7 s, not ~37 s: until then the
 # screen just froze, with no word of it / 응답 없는 연결(어느 쪽이든 Wi-Fi 꺼짐)은 ~37초가 아니라 ~7초 뒤
 # 끊긴 것으로 본다: 그때까지 화면은 아무 말 없이 멈춰 있었다
-SSH_OPTS=(-o ServerAliveInterval=3 -o ServerAliveCountMax=2 -o ConnectTimeout=10)
+# Compression: the screen is text and shrinks a few times over, which a slow connection feels (a fast one does not
+# mind) / Compression: 화면은 글자라 몇 배로 줄어든다. 느린 연결에서 차이가 나고, 빠른 연결은 상관없다
+SSH_OPTS=(-o ServerAliveInterval=3 -o ServerAliveCountMax=2 -o ConnectTimeout=10 -o Compression=yes)
 # HIVEMUX_SSH: another ssh command, e.g. "ssh -F <config>" (used for testing) / 다른 ssh 명령 (시험용)
 read -ra SSH <<< "${HIVEMUX_SSH:-ssh}"
 MOSH_HINT="$([ "$(uname -s)" = Darwin ] && echo "brew install mosh" || echo "sudo apt-get install mosh, or your package manager")"
@@ -103,7 +105,8 @@ connect() {
   # 연결해 있는 동안 거기 개발 서버를 이 Mac 의 localhost 로 잇는다 (HIVEMUX_PORTS=0: 끔)
   ports=""
   if [ "${HIVEMUX_PORTS:-1}" != 0 ]; then
-    "$HM_BIN/hivemux-ports" "$host" "$(tty)" </dev/null >/dev/null 2>&1 &
+    # HIVEMUX_MOSH: over mosh already, so a slow connection gets no hint to use it / 이미 mosh 라 느려도 mosh 를 권하지 않는다
+    HIVEMUX_MOSH="$([ "$how" = mosh ] && echo 1)" "$HM_BIN/hivemux-ports" "$host" "$(tty)" </dev/null >/dev/null 2>&1 &
     ports=$!
     trap 'kill "$ports" 2>/dev/null' EXIT
   fi

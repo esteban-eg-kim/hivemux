@@ -567,7 +567,7 @@ claude -c
     </div>
     <h3>Open file paths</h3>
     <div class="keys">
-      <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>O</kbd></span><span class="d">Popup listing file paths from this pane's recent output; same as right-click menu → Open path</span></div>
+      <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>O</kbd></span><span class="d">Popup listing file paths and links from this pane's recent output. A link's address hidden under its text (what Claude wrote in the conversation) is listed too: <kbd>Enter</kbd> opens it in the browser of the computer you look from, <kbd>Ctrl</kbd>+<kbd>Y</kbd> copies it, so a link Cmd+click cannot reach on a remote screen still opens. Same as right-click menu → Open path</span></div>
       <div class="key"><span class="combo">Type in the popup</span><span class="d">Filter the paths</span></div>
       <div class="key"><span class="combo"><kbd>Enter</kbd></span><span class="d">Open in the editor chosen in Settings (VS Code, Cursor, Zed, Sublime Text, text editor), at the line when there is one</span></div>
       <div class="key"><span class="combo"><kbd>Tab</kbd> / <kbd>Ctrl</kbd>+<kbd>F</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></span><span class="d">Default app / reveal in Finder / copy path</span></div>
@@ -678,7 +678,7 @@ hivemux connect --add me@work-mac.local
 hivemux connect me@work-mac.local</pre></div>
   <p>The host is anything <code>ssh</code> takes: a <code>Host</code> from <code>~/.ssh/config</code>, <code>user@address</code>, or a device name on a VPN.</p>
   <div class="cols">
-    <div class="card"><h3>Remote windows</h3><p>A window attached from another computer shows a purple <b>⇄ name</b> at the right of the status line, before the clock (the name from Settings, else the Mac's name or the Linux host name). "Connect to…" is blocked there, since it would open a window on the other computer's screen. On a Linux desktop a new connection window opens in Ghostty, else the desktop's terminal (<code>x-terminal-emulator</code>).</p></div>
+    <div class="card"><h3>Remote windows</h3><p>A window attached from another computer shows a purple <b>⇄ name</b> and the round trip to it (e.g. 24ms) at the right of the status line, before the clock (the name from Settings, else the Mac's name or the Linux host name). Over 150 ms it turns orange, and a connection over 200 ms for a while is told once to connect with mosh. "Connect to…" is blocked there, since it would open a window on the other computer's screen. On a Linux desktop a new connection window opens in Ghostty, else the desktop's terminal (<code>x-terminal-emulator</code>).</p></div>
     <div class="card"><h3>When it drops</h3><p>A "Connection lost" box shows in the middle with ssh's reason and counts down to the next try; <kbd>Enter</kbd> tries now, <kbd>Ctrl</kbd>+<kbd>C</kbd> stops. <kbd>Ctrl</kbd>+<kbd>A</kbd> then <kbd>d</kbd> detaches and closes the window.</p></div>
     <div class="card"><h3>Notifications and mosh</h3><p>Notifications from remote tasks show on this computer. Added with <code>--mosh</code> (or switched with <kbd>m</kbd> in the Connect to… list), the session survives sleep and network changes by itself, but notifications do not pass through mosh; the list marks such a host "mosh · no notifications". Both computers need mosh (<code>brew install mosh</code> on a Mac, the <code>mosh</code> package on Linux); if it stops at UDP, allow <code>mosh-server</code> in the other computer's firewall.</p></div>
   </div>

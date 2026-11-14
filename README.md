@@ -343,7 +343,7 @@ new hooks once restarted. Claude Code itself: right-click → Update Claude
 | menu → Settings | language (한국어 / English), animation, notifications, sidebar width, width drag (live, or on release), editor for Open path, this computer's name (shown in the bee office and on remote screens); applied at once and saved |
 | drag card / project header | reorder tasks / projects |
 | `prefix Shift+↑` / `↓` | move the current task up / down (at a project's edge, the project moves) |
-| `Option+O` / menu → Open path | open a file path from recent output (Enter editor from Settings, Tab default app, ^F Finder or the file manager, ^Y copy; on a screen from another computer, on that computer) |
+| `Option+O` / menu → Open path | open a file path or link from recent output (Enter editor from Settings, Tab default app, ^F Finder or the file manager, ^Y copy; on a screen from another computer, on that computer). Links include the address under a link's text, which a terminal shows without it: Enter opens it in the browser of the computer you look from |
 | `Option+W` / menu → Ports | dev server ports forwarded between computers (Enter opens in the browser of the computer they reach, ^Y copies the address) |
 | `prefix Shift+C` | new window with a named Claude in this folder (asks the name in a popup) |
 | menu → Connect to… | another computer's hivemux in a new Ghostty window (hosts added with `hivemux connect --add`) |
@@ -464,7 +464,10 @@ with its path pasted for Claude to read. Several at once, no folders, up to
   other computer's firewall.
 - **You always know where you are.** The remote window shows `⇄ <name>` at
   the right of the status line, before the clock: the name from Settings, else
-  the Mac's name or the Linux host name.
+  the Mac's name or the Linux host name, and the round trip to it (`24ms`). Over
+  150 ms the badge turns orange; a connection slow for a while suggests mosh once.
+  ssh compresses the screen, and popups open without the extra copy window on
+  tmux 3.8, so less goes over a slow connection.
 - **A new window.** On a Linux desktop, a new connection window opens in
   Ghostty, else the desktop's terminal (`x-terminal-emulator`).
 - **Two screens, one project.** Two screens on the same project share it:

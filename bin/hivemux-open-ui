@@ -4,8 +4,14 @@
 
   hivemux-open-ui <pane_id> [client]
 
-Lists existing file/dir paths found in that pane's recent output, newest first.
-그 칸의 최근 출력에서 실제로 있는 파일/폴더 경로를 모아 최근 것부터 보여 준다.
+Lists existing file/dir paths found in that pane's recent output, newest first, and the links in it: the
+http(s) addresses printed, and those under a link's text (Claude writes [text](address) and the terminal
+shows only the text), read from the pane's Claude conversation. A link opens in the browser of the computer
+you look from (bin/hivemux-show), since Cmd+click on a hidden one may not reach it from another computer.
+그 칸의 최근 출력에서 실제로 있는 파일/폴더 경로를 모아 최근 것부터 보여 준다. 링크도: 찍힌 http(s) 주소와,
+링크 글자 아래의 주소 (Claude 는 [글자](주소) 로 쓰고 터미널은 글자만 보인다. 그 칸 Claude 의 대화 기록에서
+읽는다). 링크는 보고 있는 컴퓨터의 브라우저로 연다 (bin/hivemux-show). 다른 컴퓨터에서는 숨은 링크의
+Cmd+클릭이 닿지 않을 수 있다.
   ↑↓ / Ctrl+P N   select / 고르기       type   filter / 걸러 보기
   Enter           open in the editor of Settings (at the line) / 설정의 편집기로 열기 (그 줄로)
   Tab             default app / 기본 앱     Ctrl+F  reveal in Finder / Finder에서 보기
@@ -19,7 +25,7 @@ Enter with another editor and Ctrl+F, which would otherwise open it on this Mac 
 그런 화면에서 Tab 은 파일을 그 Mac 으로 복사해 기본 앱으로 연다 (bin/hivemux-show). 다른 편집기의 Enter 와
 Ctrl+F 도 그렇게 한다. 아니면 아무도 안 보는 이 Mac 에서 열리기 때문이다.
 """
-import glob, shutil, os, re, subprocess, sys, termios, time, tty, unicodedata, urllib.parse
+import glob, json, shutil, os, re, subprocess, sys, termios, time, tty, unicodedata, urllib.parse
 
 TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
 OS = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-os")   # open, copy on macOS or Linux / macOS 나 Linux 에서 열기, 복사
@@ -87,6 +93,43 @@ PATH_RE = re.compile(
 # 들여쓴 다음 줄에 이어진 경로 나머지, 그리고 이어 붙인 경로와 :줄:열
 WRAP_RE = re.compile(r"\s+([^\s'\"`<>()\[\]{},;|]+)")
 TAIL_RE = re.compile(r"(.+?)(?::(\d+))?(?::(\d+))?$")
+
+
+# Links: an address printed, and [text](address) in what Claude wrote / 링크: 찍힌 주소, Claude 가 쓴 [글자](주소)
+URL_RE = re.compile(r"https?://[^\s'\"`<>()\[\]{}]+")
+MD_LINK = re.compile(r"\[([^\]\n]{1,120})\]\((https?://[^)\s]+)\)")
+
+
+def conversation_links(pane):
+    """[(text, address)] of the links Claude wrote in this pane's conversation, newest first (its last few MB)
+    이 칸 대화에서 Claude 가 쓴 링크 [(글자, 주소)], 최근 것부터 (끝의 몇 MB 에서)"""
+    sid = tmux("show", "-pqv", "-t", pane, "@claude_session").strip()
+    if not re.fullmatch(r"[\w-]+", sid):
+        return []
+    homes = [os.path.expanduser("~/.claude"), *glob.glob(os.path.join(
+        os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "accounts", "*"))]
+    files = sorted({os.path.realpath(f) for h in homes for f in glob.glob(os.path.join(h, "projects", "*", sid + ".jsonl"))},
+                   key=os.path.getmtime)
+    if not files:
+        return []
+    try:
+        with open(files[-1], "rb") as f:
+            f.seek(max(0, os.path.getsize(files[-1]) - 4 * 1024 * 1024))
+            rows = f.read().decode(errors="ignore").splitlines()
+    except OSError:
+        return []
+    out = []
+    for row in reversed(rows):
+        if '"assistant"' not in row or "](http" not in row:
+            continue
+        try:
+            msg = json.loads(row).get("message") or {}
+        except ValueError:
+            continue
+        for c in reversed(msg.get("content") or []):
+            if isinstance(c, dict) and c.get("type") == "text":
+                out += reversed(MD_LINK.findall(c.get("text", "")))
+    return out
 
 
 # Folders below the bases, for a relative path printed from a folder Claude cd'ed into earlier
@@ -201,9 +244,27 @@ def candidates(pane):
                 continue
             seen.add(key)
             out.append(dict(full=full, line=ln, col=col, shown=raw + (f":{ln}" if ln else ""),
-                            isdir=os.path.isdir(full)))
+                            isdir=os.path.isdir(full), at=i))
             if len(out) >= 200:
-                return out, bases
+                break
+        if len(out) >= 200:
+            break
+    # links, by the line they were last seen on; a hidden one only while its text is in the pane's history
+    # 링크. 마지막으로 보인 줄 순서로. 숨은 링크는 그 글자가 칸의 기록에 있을 때만
+    links, where = {}, {}
+    for i in range(len(lines) - 1, -1, -1):
+        for m in URL_RE.finditer(lines[i]):
+            u = m.group(0).rstrip(".,;:!?'\"")
+            if u not in links:
+                links[u] = dict(full=u, url=True, line=None, col=None, shown=u, isdir=False, at=i)
+    for text, u in conversation_links(pane):
+        t = text.strip("`*_ ")
+        if t not in where:
+            where[t] = next((i for i in range(len(lines) - 1, -1, -1) if t in lines[i]), None)
+        if where[t] is not None and (u not in links or links[u]["at"] < where[t]):
+            links[u] = dict(full=u, url=True, line=None, col=None, shown=f"{t}  →  {u}", isdir=False, at=where[t])
+    # newest first, paths and links together / 최근 것부터, 경로와 링크 함께
+    out = sorted(out + list(links.values()), key=lambda it: -it["at"])
     return out, bases
 
 
@@ -246,6 +307,19 @@ def show_there(it):
         return ""
     r = subprocess.run([os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-show"), "--client", CLIENT,
                         it["full"]], capture_output=True, text=True)
+    return (r.stdout or r.stderr).strip()
+
+
+def open_url(url):
+    """In the browser of the computer you look from; returns what to say / 보고 있는 컴퓨터의 브라우저로. 알릴 말을 돌려준다"""
+    if not from_mac():
+        run([OS, "open", url])
+        return None
+    if os.environ.get("HIVEMUX_DRYRUN"):
+        run(["hivemux-show", "--client", CLIENT, url])
+        return ""
+    r = subprocess.run([os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-show"), "--client", CLIENT, url],
+                       capture_output=True, text=True)
     return (r.stdout or r.stderr).strip()
 
 
@@ -297,10 +371,10 @@ def main():
             buf.append(head + " " * max(1, cols - width(f"  {tr('찾기', 'filter')} {q}▏") - width(cnt) - 2) + fg(T3) + cnt + "  \r\n")
             buf.append(fg((44, 48, 57)) + "  " + "─" * (cols - 4) + "  \r\n")
             if not shown:
-                buf.append(f"  {fg(T2)}" + (tr("이 칸의 최근 출력에 열 수 있는 경로가 없습니다", "No openable paths in this pane's recent output") if not q else tr("맞는 경로가 없습니다", "No matching paths")) + "\r\n")
+                buf.append(f"  {fg(T2)}" + (tr("이 칸의 최근 출력에 열 수 있는 경로나 링크가 없습니다", "No openable paths or links in this pane's recent output") if not q else tr("맞는 경로가 없습니다", "No matching paths")) + "\r\n")
             for i in range(top, min(len(shown), top + list_h)):
                 it = shown[i]
-                icon = "▸" if it["isdir"] else "•"
+                icon = "↗" if it.get("url") else "▸" if it["isdir"] else "•"
                 name = cut_left(it["shown"] + ("/" if it["isdir"] else ""), cols - 8)
                 if i == sel:
                     line = f"{bg(SEL_BG)}{fg(ACC)} ▌{fg(TEXT)}{BOLD} {icon} {name}{RST}{bg(SEL_BG)}"
@@ -310,7 +384,9 @@ def main():
                 buf.append(line + "\r\n")
             buf.append(f"\x1b[{rows - 1};1H{fg((44, 48, 57))}  " + "─" * (cols - 4) + "\r\n")
             there = from_mac()
-            hint = msg or (f"{fg(TEXT)}Enter{fg(T3)} {editor_name(editor())}   "
+            link = shown and shown[sel].get("url")
+            hint = msg or (f"{fg(TEXT)}Enter{fg(T3)} " + (tr(f"{there} 브라우저로 열기", f"open in the browser on {there}") if there else tr("브라우저로 열기", "open in the browser")) +
+                           f"   {fg(TEXT)}^Y{fg(T3)} {tr('주소 복사', 'copy address')}   {fg(TEXT)}Esc{fg(T3)} {tr('닫기', 'close')}" if link else f"{fg(TEXT)}Enter{fg(T3)} {editor_name(editor())}   "
                            f"{fg(TEXT)}Tab{fg(T3)} {tr('기본 앱', 'default app')}   {fg(TEXT)}^F{fg(T3)} Finder   "
                            if not there else
                            f"{fg(TEXT)}Enter{fg(T3)} {editor_name(editor()) if editor() in ('vscode', 'cursor') else tr(f'{there} 에서 열기', f'open on {there}')}   "
@@ -331,6 +407,13 @@ def main():
                 sel -= list_h
             elif ch in ("\x1b[6~",):
                 sel += list_h
+            elif ch in ("\r", "\n", "\t", "\x06") and shown and shown[sel].get("url"):
+                note = open_url(shown[sel]["full"])
+                if note:
+                    out.write(f"\x1b[{rows};1H\x1b[2K  {fg(ACC)}{note}{RST}")
+                    out.flush()
+                    time.sleep(1.2)
+                return
             elif ch in ("\r", "\n") and shown:
                 note = open_editor(shown[sel])
                 if note:            # opening on another Mac: say so for a moment / 다른 Mac 에서 열면 잠깐 알린다

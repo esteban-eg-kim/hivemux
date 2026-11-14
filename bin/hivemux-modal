@@ -13,8 +13,14 @@ tmux 3.7 은 칸이 그리는 두 칸 폭 글자(한글 등)를 그 위의 팝�
 열고, 거기에 팝업을 띄운 뒤, 원래 창으로 돌아가며 임시 창을 닫는다. 팝업 아래에서 바뀌는 것이 없다.
 
   hivemux-modal --backdrop <window_id>    (inside the temporary window / 임시 창 안에서)
+
+tmux 3.8 no longer does (a pane printing Korean across a popup's edges for seconds left it clean), so
+there the popup opens over the window as it is: the copy window cost the whole screen twice more, which a
+screen from another computer felt over a slow connection.
+tmux 3.8 은 더 이상 그러지 않는다 (팝업 가장자리에 걸쳐 한글을 몇 초 찍어도 팝업이 깨끗했다). 그래서 거기서는
+창 위에 바로 팝업을 띄운다: 사본 창은 화면 전체를 두 번 더 보냈고, 느린 연결의 원격 화면에서 그게 느껴졌다.
 """
-import os, shutil, signal, subprocess, sys, time
+import os, re, shutil, signal, subprocess, sys, time
 
 TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
 US = "\x1f"
@@ -25,6 +31,12 @@ def tmux(*a):
     # some tmux versions (3.4) print a control character in a format as an escape ("\037"): put it back
     # 어떤 tmux (3.4) 는 형식 안의 제어 문자를 이스케이프("\037")로 내보낸다: 되돌린다
     return out.replace("\\037", "\x1f") if any("\x1f" in x for x in a) else out
+
+
+def bleeds():
+    """tmux before 3.8 draws wide text through popups / 3.8 전의 tmux 는 넓은 글자를 팝업 위로 그린다"""
+    m = re.search(r"(\d+)\.(\d+)", subprocess.run([TMUX, "-V"], capture_output=True, text=True).stdout)
+    return not m or (int(m.group(1)), int(m.group(2))) < (3, 8)
 
 
 def backdrop(win):
@@ -66,8 +78,9 @@ def main(argv):
         print(__doc__.split("\n\n")[1], file=sys.stderr)
         return 2
     client, popup = argv[0], argv[1:]
-    if not client:                   # no client to show it on: a plain popup / 띄울 화면을 모르면 그냥 팝업
-        return subprocess.run([TMUX, "display-popup", *popup], stdin=subprocess.DEVNULL).returncode
+    if not client or not bleeds():   # no client to show it on, or no need: a plain popup / 띄울 화면을 모르거나 필요 없으면 그냥 팝업
+        return subprocess.run([TMUX, "display-popup", *(["-c", client] if client else []), *popup],
+                              stdin=subprocess.DEVNULL).returncode
     sess, prev = (tmux("display", "-p", "-c", client, f"#{{session_name}}{US}#{{window_id}}").strip().split(US) + ["", ""])[:2]
     here = os.path.realpath(__file__)
     win = ""

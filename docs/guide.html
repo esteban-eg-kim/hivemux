@@ -576,7 +576,7 @@ claude -c
     </div>
     <h3>파일 경로 열기</h3>
     <div class="keys">
-      <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>O</kbd></span><span class="d">지금 칸의 최근 출력에서 파일 경로를 골라 열기 팝업. 오른쪽 클릭 메뉴 → 경로 열기와 같음</span></div>
+      <div class="key"><span class="combo"><kbd>Option</kbd>+<kbd>O</kbd></span><span class="d">지금 칸의 최근 출력에서 파일 경로나 링크를 골라 열기 팝업. 링크 글자 뒤에 숨은 주소(Claude가 대화에 쓴 것)도 나오고, <kbd>Enter</kbd>는 보고 있는 컴퓨터의 브라우저로, <kbd>Ctrl</kbd>+<kbd>Y</kbd>는 주소 복사. 원격 화면에서 Cmd+클릭이 안 되는 링크도 열 수 있음. 오른쪽 클릭 메뉴 → 경로 열기와 같음</span></div>
       <div class="key"><span class="combo">팝업에서 글자 입력</span><span class="d">경로 걸러 보기</span></div>
       <div class="key"><span class="combo"><kbd>Enter</kbd></span><span class="d">설정에서 고른 편집기(VS Code, Cursor, Zed, Sublime Text, 텍스트 편집기)로 열기. 줄 번호가 있으면 그 줄로</span></div>
       <div class="key"><span class="combo"><kbd>Tab</kbd> / <kbd>Ctrl</kbd>+<kbd>F</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></span><span class="d">기본 앱으로 열기 / Finder에서 보기 / 경로 복사</span></div>
@@ -686,7 +686,7 @@ hivemux connect --add me@work-mac.local
 hivemux connect me@work-mac.local</pre></div>
   <p>호스트에는 <code>ssh</code>에 쓰는 것이면 무엇이든 넣습니다. <code>~/.ssh/config</code>의 <code>Host</code>, <code>사용자@주소</code>, VPN 안의 기기 이름 모두 됩니다.</p>
   <div class="cols">
-    <div class="card"><h3>원격 창 표시</h3><p>원격으로 붙은 창은 상태줄 오른쪽 시계 앞에 보라색 <b>⇄ 이름</b>이 붙습니다(설정에서 정한 이름, 없으면 Mac 이름이나 Linux 호스트 이름). 원격 창에서 "원격 연결"을 고르면 상대 컴퓨터 화면에 창이 열리므로 막아 둡니다. Linux 데스크톱에서는 새 연결 창이 Ghostty로, 없으면 데스크톱의 터미널(<code>x-terminal-emulator</code>)로 열립니다.</p></div>
+    <div class="card"><h3>원격 창 표시</h3><p>원격으로 붙은 창은 상태줄 오른쪽 시계 앞에 보라색 <b>⇄ 이름</b>과 그 컴퓨터까지의 왕복 시간(예: 24ms)이 붙습니다(설정에서 정한 이름, 없으면 Mac 이름이나 Linux 호스트 이름). 150ms를 넘으면 주황색이 되고, 한동안 200ms를 넘으면 mosh로 붙으라고 한 번 알립니다. 원격 창에서 "원격 연결"을 고르면 상대 컴퓨터 화면에 창이 열리므로 막아 둡니다. Linux 데스크톱에서는 새 연결 창이 Ghostty로, 없으면 데스크톱의 터미널(<code>x-terminal-emulator</code>)로 열립니다.</p></div>
     <div class="card"><h3>끊겼을 때</h3><p>화면 가운데에 "연결이 끊겼습니다" 상자가 뜨고, 남은 시간을 센 뒤 저절로 다시 붙습니다. 끊긴 이유(ssh 메시지)도 보입니다. <kbd>Enter</kbd>는 지금 연결, <kbd>Ctrl</kbd>+<kbd>C</kbd>는 그만. <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>d</kbd>로 떼면 창이 닫힙니다.</p></div>
     <div class="card"><h3>알림과 mosh</h3><p>원격 작업의 알림도 이 컴퓨터에 뜹니다. <code>--mosh</code>로 등록하거나 원격 연결 목록에서 <kbd>m</kbd>을 누르면 잠자기와 네트워크 변경을 스스로 견디지만 알림이 지나가지 못합니다. 목록에는 "mosh · 알림 없음"으로 표시됩니다. 두 컴퓨터 모두 mosh가 필요하고(Mac은 <code>brew install mosh</code>, Linux는 <code>mosh</code> 패키지), UDP에서 멈추면 상대 컴퓨터의 방화벽에서 <code>mosh-server</code>를 허용하세요.</p></div>
   </div>
