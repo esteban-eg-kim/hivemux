@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Sidebar: while another Mac is viewing, the summary line says "animation off"
+  instead of "paused", which read like the Claudes had stopped.
+
 ## 0.1.61 — 2026-11-14
 
 - Team page: adding a role asks for its session name too (`<project>-` and

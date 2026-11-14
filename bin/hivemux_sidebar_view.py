@@ -495,8 +495,11 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
     # 움직이지 않게 한다. 개수가 자리를 차지하면 짧게 줄인다
     if REMOTE_HERE is not None:
         mac = REMOTE_HERE or tr("원격", "remote")
-        for note in (tr(f"⇄ {mac}에서 보는 중 · 멈춤", f"⇄ {mac} viewing · paused"),
-                     tr(f"⇄ {mac} · 멈춤", f"⇄ {mac} · paused"), tr("⇄ 원격 · 멈춤", "⇄ remote · paused"), "⇄"):
+        # "animation off", not "paused": the Claudes go on working, only the drawing holds still
+        # "멈춤" 이 아니라 "애니메이션 끔": Claude 는 계속 일하고, 그림만 가만히 있다
+        for note in (tr(f"⇄ {mac}에서 보는 중 · 애니메이션 끔", f"⇄ {mac} viewing · animation off"),
+                     tr(f"⇄ {mac} · 애니메이션 끔", f"⇄ {mac} · animation off"),
+                     tr("⇄ 원격 · 애니메이션 끔", "⇄ remote · animation off"), "⇄"):
             if summary.used() + 1 + width(note) <= w - 1:
                 summary.right(note, C["remote"], margin=1)
                 break
@@ -504,7 +507,7 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
     SHIFT_BTN = None
     if clocked_out() and not items:
         # everyone went home: say so, and a click clocks in / 모두 퇴근: 그렇다고 보이고, 누르면 출근
-        # (the paused note, if any, stays on the right, short) / (멈춤 표시가 있으면 오른쪽에 짧게 남긴다)
+        # (the paused note, if any, stays on the right, short) / (애니메이션 끔 표시가 있으면 오른쪽에 짧게 남긴다)
         summary = L().put("  ").put(tr("🌙 퇴근 중 · 눌러서 출근", "🌙 clocked out · click to clock in"), C["wait"], bold=True)
         if REMOTE_HERE is not None:
             summary.right("⇄", C["remote"], margin=1)
