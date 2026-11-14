@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.1.60 — 2026-11-14
 
 - Team page: changes work again. Since 0.1.58 every change on the page
