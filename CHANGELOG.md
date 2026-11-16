@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Team setup without knowing the models: a role picks a level (light, standard, careful, best) and
+  hivemux sets its model, effort, advisor and subagents for that kind of role (lead, builder,
+  reviewer, research, light work); the four settings fold under "set by hand". The team page's
+  header picks a way of running for all roles at once (save, balanced, quality) and shows what
+  changes first. Usage shows as a multiple of the standard level or of a balanced team. The wizard
+  and the team assistant use the same levels, and the web & app template is balanced (dev on
+  sonnet asking opus when it matters).
+
 - A Claude could vanish from the sidebar: a background `claude -p` of hivemux's (the team report's
   summary, the team assistant) run by a bee office started from a pane wrote its own session and
   folder onto that pane. Only a Claude the pane started writes on it now, and those background runs

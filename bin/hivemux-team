@@ -75,6 +75,81 @@ PROVIDERS = {
 }
 CLOUD_ENV = ("CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY")
 
+# Levels, so a newcomer picks how much care a role gets, not four settings. What a level means depends on the
+# kind of role: a careful developer asks a stronger model when it matters, a careful researcher keeps cheap
+# subagents reading. A role is on a level when its settings are that level's; else it is set by hand
+# 수준: 처음 쓰는 사람은 설정 네 개가 아니라 역할을 얼마나 공들일지 고른다. 수준의 뜻은 역할 종류마다 다르다:
+# 꼼꼼한 개발은 중요할 때 더 강한 모델에게 묻고, 꼼꼼한 조사는 싼 서브에이전트에게 읽힌다. 역할의 설정이 그 수준의
+# 것과 같으면 그 수준이고, 아니면 직접 설정이다
+LEVELS = ("light", "normal", "careful", "best")
+KINDS = ("lead", "build", "check", "research", "light")
+_P = lambda m, e, a="", s="": {"model": m, "effort": e, "advisor": a, "subagents": s}
+PRESETS = {
+    "lead":     {"light": _P("sonnet", "high"), "normal": _P("opus", "high"), "careful": _P("opus", "xhigh"), "best": _P("fable", "high")},
+    "build":    {"light": _P("sonnet", "medium"), "normal": _P("sonnet", "high", "opus"), "careful": _P("opus", "high", "fable"), "best": _P("fable", "high")},
+    "check":    {"light": _P("haiku", "medium"), "normal": _P("sonnet", "medium"), "careful": _P("sonnet", "high", "opus"), "best": _P("opus", "high")},
+    "research": {"light": _P("haiku", "medium"), "normal": _P("sonnet", "medium", "", "haiku"), "careful": _P("sonnet", "high", "", "haiku"), "best": _P("opus", "high", "", "sonnet")},
+    "light":    {"light": _P("haiku", "low"), "normal": _P("haiku", "medium"), "careful": _P("sonnet", "medium"), "best": _P("sonnet", "high")},
+}
+# the team's way of running: a level for each kind / 팀 운영 방식: 종류마다 수준
+MODES = {
+    "cost":    {"lead": "light", "build": "normal", "check": "light", "research": "light", "light": "light"},
+    "balance": {k: "normal" for k in KINDS},
+    "quality": {"lead": "careful", "build": "careful", "check": "careful", "research": "normal", "light": "normal"},
+}
+# rough relative usage, to compare roles and teams, not to price them / 대략의 상대 사용량. 비교용이지 요금이 아니다
+WEIGHT = {"haiku": 1, "sonnet": 3, "opus": 5, "fable": 8}
+EFFORT_X = {"low": .7, "medium": 1, "high": 1.3, "xhigh": 1.6, "max": 2}
+
+
+def kind_of(role):
+    """The kind of a role: as set, else read from what it is / 역할 종류: 정한 대로, 없으면 무엇인지 보고"""
+    if role.get("kind") in KINDS:
+        return role["kind"]
+    if role.get("lead"):
+        return "lead"
+    words = f"{role.get('id', '')} {role.get('name', '')} {role.get('name_en', '')}".lower()
+    if role.get("readonly") or re.search(r"qa|review|test|audit|검사|검토|리뷰|테스트", words):
+        return "check"
+    if re.search(r"research|analy|조사|분석|리서치", words):
+        return "research"
+    if re.search(r"market|seo|promo|tidy|support|홍보|마케팅|정리|운영", words):
+        return "light"
+    return "build"
+
+
+def weight(u):
+    """Relative usage of settings as they run (uses()) / 실제로 도는 설정의 상대 사용량"""
+    w = WEIGHT.get(u["model"] or "sonnet", 3) * EFFORT_X.get(u["effort"] or "medium", 1)
+    if u["advisor"]:
+        w += .15 * WEIGHT.get(u["advisor"], 5)
+    if u["subagents"] == "haiku":
+        w *= .9
+    return round(w, 2)
+
+
+def level_of(role):
+    """The level whose settings the role has, or "" (set by hand) / 역할의 설정과 같은 수준, 없으면 "" (직접 설정)"""
+    have = {"model": role.get("model") or "sonnet", "effort": role.get("effort") or "medium",
+            "advisor": role.get("advisor") or "", "subagents": role.get("subagents") or ""}
+    return next((lv for lv, f in PRESETS[kind_of(role)].items() if f == have), "")
+
+
+def presets(prov):
+    """Every kind's levels as they would run here, with their usage / 종류별 수준을 여기서 도는 대로, 사용량과 함께"""
+    out = {}
+    for k, lv in PRESETS.items():
+        out[k] = {}
+        for name, f in lv.items():
+            u = uses({**f, "id": ""}, prov)
+            out[k][name] = {**u, "w": weight(u)}
+    return out
+
+
+def team_mode(team):
+    """The way of running all roles follow, or "" / 모든 역할이 따르는 운영 방식, 없으면 """""
+    return next((m for m, lv in MODES.items() if team["role"] and all(level_of(r) == lv[kind_of(r)] for r in team["role"])), "")
+
 
 def tmux(*a):
     return subprocess.run([TMUX, *a], capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout
@@ -623,22 +698,25 @@ def down(session, only=None):
 def status(session):
     session, folder = project(session)
     path = team_dir(folder)
+    prov = provider()
+    common = {"provider": prov, "presets": presets(prov), "modes": MODES}
     if not os.path.isfile(os.path.join(path, "team.toml")):
-        return {"project": session, "folder": folder, "team": None}
+        return {"project": session, "folder": folder, "team": None, **common}
     team = load(path)
     have = {p["role"]: p for p in panes(session) if p["role"]}
-    prov, roles = provider(), []
+    roles = []
     for r in ranked(team):
         p = have.get(r["id"]) or {}
         running = bool(p) and not SHELLS.match(p.get("cmd", ""))
         roles.append({**{k: r[k] for k in ("id", "model", "effort", "lead", "readonly", "worktree", "owns", "diet", "prompt")},
                       "advisor": r.get("advisor") or "", "subagents": r.get("subagents") or "", "uses": uses(r, prov),
+                      "kind": kind_of(r), "kindSet": r.get("kind") in KINDS, "level": level_of(r), "w": weight(uses(r, prov)),
                       "name": label(r), "session": f"{session}-{r['id']}", "pane": p.get("pane", ""),
                       "running": running, "state": p.get("state", "") if running else ("off" if p else ""),
                       "ctx": int(p["ctx"]) if p.get("ctx", "").isdigit() else 0, "dieting": p.get("diet", "") if running else "",
                       "trust": bool(running and needs_trust(p["pane"]))})
-    return {"project": session, "folder": folder, "provider": prov,
-            "team": {"id": team.get("id", ""), "name": label(team), "description": label(team, "description"),
+    return {"project": session, "folder": folder, **common,
+            "team": {"id": team.get("id", ""), "mode": team_mode(team), "name": label(team), "description": label(team, "description"),
                      "flow": team.get("flow") or [r["id"] for r in team["role"]], "diet": team["diet"], "roles": roles,
                      "handoffs": handoffs(folder, team),
                      "questions": open_questions(folder),
@@ -761,6 +839,15 @@ def prompt_path(folder, role):
     return en if lang() == "en" and os.path.isfile(en) else base
 
 
+def set_mode(session, mode):
+    """Every role to its kind's level in this way of running / 모든 역할을 이 운영 방식에서 그 종류의 수준으로"""
+    if mode not in MODES:
+        raise KeyError(mode)
+    _, folder = project(session)
+    for r in load(team_dir(folder))["role"]:
+        set_role(session, r["id"], {"level": MODES[mode][kind_of(r)]})
+
+
 def set_role(session, rid, fields, prompt=None):
     """Change a role's fields and, when given, its prompt file / 역할의 칸과 (주어지면) 지시문 파일을 바꾼다"""
     session, folder = project(session)
@@ -777,6 +864,24 @@ def set_role(session, rid, fields, prompt=None):
             r[k] = v
         elif k == "effort" and v in EFFORTS:
             r[k] = v
+        elif k == "level" and v in LEVELS:
+            for f, x in PRESETS[kind_of({**r, **({"kind": fields["kind"]} if fields.get("kind") in KINDS else {})})][v].items():
+                if x:
+                    r[f] = x
+                else:
+                    r.pop(f, None)
+        elif k == "kind" and v in ("", *KINDS):
+            lv = level_of(r)          # a role on a level keeps it, now for its new kind / 수준에 있던 역할은 새 종류로 그 수준을 지킨다
+            if v:
+                r[k] = v
+            else:
+                r.pop(k, None)
+            if lv and "level" not in fields:
+                for f, x in PRESETS[kind_of(r)][lv].items():
+                    if x:
+                        r[f] = x
+                    else:
+                        r.pop(f, None)
         elif k == "advisor" and v in ("", *MODELS) or k == "subagents" and v in ("", *MODELS):
             if v:
                 r[k] = v
@@ -905,7 +1010,10 @@ def apply_plan(session, plan):
             delete_role(session, r["id"])
     have = {r["id"] for r in load(team_dir(folder))["role"]}
     for r in plan.get("roles") or []:
-        fields = {k: r[k] for k in ("model", "effort", "advisor", "subagents", "readonly", "worktree", "lead") if k in r}
+        fields = {k: r[k] for k in ("model", "effort", "advisor", "subagents", "kind", "level", "readonly", "worktree", "lead") if k in r}
+        if fields.get("level") in LEVELS:
+            for k in ("model", "effort", "advisor", "subagents"):
+                fields.pop(k, None)
         if r.get("id") in have:
             set_role(session, r["id"], fields)
         else:
@@ -939,6 +1047,7 @@ ASSIST_GUIDE = {
 - 모델: fable 은 가장 뛰어나지만 가장 비싸다 (요금제에 따라 사용 크레딧으로 따로 청구). opus 는 판단이 많은 역할 (리드, 복잡한 개발), sonnet 은 대부분의 역할, haiku 는 정리·반복·가벼운 조사. opus 는 sonnet 보다 사용량이 훨씬 크다.
 - 어드바이저 (advisor): 역할의 모델이 방법을 정하기 전, 오류가 되풀이될 때, 끝내기 전에 더 강한 모델에게 묻는다. 조언 때만 그 모델 요금이 든다. 그래서 개발을 sonnet + opus 어드바이저로 두면 opus 에 가까운 판단을 더 적은 사용량으로 얻는다. 어드바이저는 역할 모델보다 같거나 높아야 한다 (fable > opus > sonnet > haiku). 지금 서비스가 지원하지 않으면 (아래 "서비스") 쓰지 않는다.
 - 서브에이전트 (subagents): 조사가 많은 역할은 서브에이전트를 haiku 로 정하면 자료 읽기가 싸진다.
+- 수준 (level): light(가볍게), normal(보통), careful(꼼꼼히), best(최고). 역할 종류(리드, 만들기, 검사, 조사, 가벼운 일)에 맞게 모델, 노력, 어드바이저, 서브에이전트를 한꺼번에 정한다 (아래 "수준표"). 처음 쓰는 사람에게는 칸 네 개보다 수준으로 말하고, plan 에도 level 을 준다.
 - 노력 (effort): low, medium, high, xhigh, max. 높을수록 깊이 생각하고 토큰을 더 쓴다. 리드는 high 이상, 가벼운 역할은 low~medium.
 - 처음에는 역할 3~5개를 권한다. 사용량은 역할 수에 비례한다. 리드는 정확히 하나.
 - 개발이 둘 이상이면 각자 워크트리 (worktree true) 를 쓰고, 맡는 영역을 나눈다 (예: 화면과 API). 같은 파일을 함께 고치면 충돌한다.
@@ -952,7 +1061,7 @@ ASSIST_GUIDE = {
 ```plan
 {"template": "<팀이 없을 때만: 템플릿 id 또는 empty>", "name": "<팀 이름, 선택>",
  "roles": [{"id": "<영문 소문자 id>", "name": "<표시 이름>", "model": "fable|opus|sonnet|haiku", "effort": "low|medium|high|xhigh|max",
-            "advisor": "fable|opus|sonnet|<빈 문자열>", "subagents": "sonnet|haiku|<빈 문자열>",
+            "level": "light|normal|careful|best (주면 아래 넷보다 먼저)", "advisor": "fable|opus|sonnet|<빈 문자열>", "subagents": "sonnet|haiku|<빈 문자열>",
             "lead": true|false, "readonly": true|false, "worktree": true|false, "like": "<새 역할이면 지시문을 본뜰 기존 역할 id, 선택>"}],
  "diet_at": <천 토큰 단위 숫자, 선택>}
 ```""",
@@ -963,6 +1072,7 @@ Principles (cite them as reasons):
 - Models: fable is the most capable and the most expensive (on some plans it bills to usage credits). opus for roles that decide a lot (the lead, complex development), sonnet for most roles, haiku for tidy, repetitive or light research work. opus uses far more than sonnet.
 - Advisor: the role's model asks a stronger model before settling an approach, on a recurring error and before calling a task done; only the advice costs that model's rates. So dev on sonnet with an opus advisor gets close to opus judgment for less usage. The advisor must be at or above the role's model (fable > opus > sonnet > haiku). Not used when the service (below, "service") lacks it.
 - Subagents: a role that researches a lot reads more cheaply with its subagents on haiku.
+- Level: light, normal, careful, best. It sets the model, effort, advisor and subagents at once, by the kind of role (lead, build, check, research, light; see "Levels" below). Talk to newcomers in levels rather than the four settings, and give a level in the plan.
 - Effort: low, medium, high, xhigh, max. Higher thinks deeper and uses more tokens. The lead at high or above, light roles at low to medium.
 - Start with 3 to 5 roles; usage scales with the number of roles. Exactly one lead.
 - With two or more developers, each gets its own worktree (worktree true) and its own area (e.g. UI and API); editing the same files together conflicts.
@@ -976,7 +1086,7 @@ How to answer:
 ```plan
 {"template": "<only when there is no team: a template id or empty>", "name": "<team name, optional>",
  "roles": [{"id": "<lowercase id>", "name": "<display name>", "model": "fable|opus|sonnet|haiku", "effort": "low|medium|high|xhigh|max",
-            "advisor": "fable|opus|sonnet|<empty string>", "subagents": "sonnet|haiku|<empty string>",
+            "level": "light|normal|careful|best (when given, it wins over the next four)", "advisor": "fable|opus|sonnet|<empty string>", "subagents": "sonnet|haiku|<empty string>",
             "lead": true|false, "readonly": true|false, "worktree": true|false, "like": "<for a new role: an existing role id whose prompt to copy, optional>"}],
  "diet_at": <thousands of tokens, optional>}
 ```""",
@@ -1030,6 +1140,7 @@ def assist(session, messages):
     prov = provider()
     service = {k: prov[k] for k in ("name", "models", "efforts", "advisors", "subagents")}
     ask = (f"{ASSIST_GUIDE['ko' if ko else 'en']}\n\n# {'서비스' if ko else 'Service'}\n{json.dumps(service, ensure_ascii=False)}\n\n"
+           f"# {'수준표' if ko else 'Levels'}\n{json.dumps({'presets': PRESETS, 'modes': MODES}, ensure_ascii=False)}\n\n"
            f"# {'프로젝트' if ko else 'Project'}: {session}\n{project_brief(folder)}\n\n"
            f"# {'지금 팀' if ko else 'The team now'}\n{json.dumps(now, ensure_ascii=False)}\n\n# {'대화' if ko else 'Conversation'}\n{talk}\n\n"
            f"{'도우미:' if ko else 'Assistant:'}")
@@ -1068,6 +1179,7 @@ def clean_plan(plan, have):
                       "effort": r.get("effort") if r.get("effort") in EFFORTS else "medium",
                       "advisor": r.get("advisor") if r.get("advisor") in MODELS else "",
                       "subagents": r.get("subagents") if r.get("subagents") in MODELS else "",
+                      **({"level": r["level"]} if r.get("level") in LEVELS else {}),
                       "lead": bool(r.get("lead")), "readonly": bool(r.get("readonly")), "worktree": bool(r.get("worktree")),
                       **({"like": str(r["like"])} if r.get("like") else {})})
     if not roles:

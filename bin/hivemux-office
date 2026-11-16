@@ -795,6 +795,8 @@ def team_post(action, req):
                             req.get("text") if isinstance(req.get("text"), str) else None)
         if ok:
             team_call(teams.remark, project)          # a new name or lead shows in the sidebar / 새 이름이나 리드가 사이드바에
+    elif action == "mode":
+        ok, msg = team_call(teams.set_mode, project, str(req.get("mode", "")))
     elif action == "role/add":
         ok, msg = team_call(teams.add_role, project, str(req.get("name", "")), str(req.get("id") or "") or None)
     elif action == "role/delete":
