@@ -2483,22 +2483,39 @@ function laptop(d, owner, t) {
     else c.fillRect(.2, 24, .44, 3);
   });
 }
-// a team's board on an easel by its pod: each role, its state, its context against the diet line
-// 팀 섬 옆 이젤의 팀 보드: 역할마다 상태와, 다이어트 기준에 대한 컨텍스트
+// a team's board: a small chip over its whiteboard (the team and a dot per role's state) that stays out of the
+// way as the view turns; a click opens the whole board (each role, its state, its context against the diet line,
+// the last hand-offs), another click or Esc closes it
+// 팀 보드: 화이트보드 위의 작은 칩 (팀 이름과 역할마다 상태 점) 이라 보기를 돌려도 가리지 않는다. 누르면 보드 전체
+// (역할마다 상태, 다이어트 기준에 대한 컨텍스트, 최근 넘김) 가 열리고, 다시 누르거나 Esc 로 닫는다
 const BOARD_STATE = { run: ['일함', 'working'], wait: ['기다림', 'needs you'], done: ['끝남', 'done'], idle: ['쉼', 'resting'] };
+let BOARD_HITS = [], BOARD_OPEN = null;
 function teamBoard(foot, tm, key) {
   const members = [...bees.values()].filter(b => b.team === tm && b.project && `${b.project}|${b.team}` === key && b.state !== 'bye')
     .sort((a, c) => (c.lead ? 1 : 0) - (a.lead ? 1 : 0) || (a.order ?? 99) - (c.order ?? 99)).slice(0, 7);
   if (!members.length) return;
+  if (BOARD_OPEN !== key) {
+    const z = textZoom(), d = 7 * z, gap = 4 * z, h = 18 * z;
+    font(9.5 * z, 700); const tw = c.measureText(clipText(tm, 110 * z)).width;
+    const w = 8 * z + tw + 7 * z + members.length * (d + gap) - gap + 8 * z, x = foot.x - w / 2, y = foot.y - h - 30 * z;
+    fillRR(x, y, w, h, h / 2, 'rgba(255, 255, 255, .94)'); c.strokeStyle = 'rgba(30, 40, 60, .22)'; c.lineWidth = 1; rr(x, y, w, h, h / 2); c.stroke();
+    c.textBaseline = 'middle'; c.fillStyle = T['m-team-fg']; c.fillText(clipText(tm, 110 * z), x + 8 * z, y + h / 2 + .5);
+    members.forEach((b, i) => circle(x + 8 * z + tw + 7 * z + d / 2 + i * (d + gap), y + h / 2, d / 2, T[b.state] || T.sleep));
+    c.textBaseline = 'alphabetic';
+    BOARD_HITS.push({ key, x, y, w, h });
+    return;
+  }
   // the flow in order (its roles without the lead), and the last hand-offs / 흐름 순서 (리드 뺀 역할), 최근 넘김
   const role = b => String(b.label || '').replace('★ ', '');
   const flow = members.filter(b => !b.lead && (b.order ?? 99) < 99).sort((a, c) => a.order - c.order).map(role);
-  const log = (HANDOFFS.get(key) || []).slice(0, 2), z = textZoom(), row = 13 * z, w = 150 * z;
+  const log = (HANDOFFS.get(key) || []).slice(0, 4), z = textZoom() * 1.6, row = 13 * z, w = 150 * z;   // opened to be read: larger / 읽으려고 연 것: 크게
   const h = 22 * z + members.length * row + (flow.length > 1 ? 16 * z : 0) + (log.length ? 14 * z + log.length * 12 * z : 0) + 4 * z;
   const x = foot.x - w / 2, y = foot.y - h - 34 * z;
   c.strokeStyle = T['m-desk-edge']; c.lineWidth = 2;
   for (const dx of [-w * .3, w * .3]) { c.beginPath(); c.moveTo(foot.x + dx * .6, y + h); c.lineTo(foot.x + dx, foot.y); c.stroke(); }
   fillRR(x - 3, y - 3, w + 6, h + 6, 4, T['m-desk-edge']); fillRR(x, y, w, h, 3, T['m-board']);
+  BOARD_HITS.push({ key, x: x - 3, y: y - 3, w: w + 6, h: h + 6 });
+  font(9 * z, 700); c.fillStyle = '#8a92a3'; c.textAlign = 'right'; c.textBaseline = 'middle'; c.fillText('✕', x + w - 7 * z, y + 10 * z); c.textAlign = 'left';
   c.textBaseline = 'middle'; font(9.5 * z, 700); c.fillStyle = T['m-team-fg']; c.fillText(clipText(tm, w - 14 * z), x + 7 * z, y + 10 * z);
   let ry = y + 22 * z;
   if (flow.length > 1) { font(8.5 * z, 600); c.fillStyle = '#4a5263'; c.fillText(clipText(flow.join(' → '), w - 14 * z), x + 7 * z, ry + 4 * z); ry += 16 * z; }
@@ -2549,6 +2566,7 @@ function firstTeamPod(p) {
 }
 function labels() {
   const { LOFF } = LAY;
+  BOARD_HITS = [];
   // a team's name on its pod's floor / 팀 섬의 바닥에 팀 이름
   font(11 * textZoom(), 700); c.fillStyle = T['m-team-fg']; c.textBaseline = 'alphabetic';
   for (const p of LAY.pods) { const tm = firstTeamPod(p) && podTeam(p); if (tm) { const q = P(p.x + .15, p.y + 3.25); c.fillText(tm, q.x + 4, q.y); teamBoard(P(p.x - .35, p.y + 1.6), tm, LAY.teamPods.get(`${p.oi}:${p.n}`)); } }
@@ -3137,6 +3155,7 @@ async function send(ans) {
 }
 $('#pop-go').addEventListener('click', () => { const b = pop; closePop(); visit(b); });
 $('#pop-later').addEventListener('click', () => { snooze.set(pop.key, Date.now() + 60000); closePop(); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && BOARD_OPEN) BOARD_OPEN = null; });
 addEventListener('keydown', e => { if (e.key === 'Escape' && pop) { snooze.set(pop.key, Date.now() + 60000); closePop(); } });
 
 let actx;
@@ -3173,7 +3192,7 @@ function hit(p) {
 const tip = $('#tip');
 cv.addEventListener('mousemove', e => {
   const b = LAY && hit(worldAt(e));
-  cv.classList.toggle('hand', !!b);
+  cv.classList.toggle('hand', !!b || !!(LAY && boardAt(worldAt(e))));
   hoverKey = b ? b.key : null;
   const hh = !b && LAY && houses().length ? houseAtPoint(worldAt(e)) : null;
   HOVER_HOUSE = hh ? hh.key : null;
@@ -3199,8 +3218,13 @@ cv.addEventListener('mousemove', e => {
   tip.style.top = (e.clientY - fr.top + 14) + 'px';
 });
 cv.addEventListener('mouseleave', () => { tip.hidden = true; hoverKey = null; HOVER_HOUSE = null; });
+const boardAt = wp => wp && BOARD_HITS.find(r => wp.x >= r.x && wp.x <= r.x + r.w && wp.y >= r.y && wp.y <= r.y + r.h);
 cv.addEventListener('click', e => {
   if (dragged) { dragged = false; return; }
+  // a team board: open it, or close the open one; a click elsewhere also closes it / 팀 보드: 열거나 닫는다. 다른 곳을 눌러도 닫힌다
+  const bd = LAY && boardAt(worldAt(e));
+  if (bd) { BOARD_OPEN = BOARD_OPEN === bd.key ? null : bd.key; return; }
+  if (BOARD_OPEN) BOARD_OPEN = null;
   const wp = LAY && worldAt(e), bub = wp && BUBBLE_HITS.find(r => wp.x >= r.x && wp.x <= r.x + r.w && wp.y >= r.y && wp.y <= r.y + r.h);
   if (bub) return openPop(bub.b, true);
   const b = LAY && hit(wp); if (b) return b.state === 'wait' && (b.menu || b.why) ? openPop(b, true) : visit(b);

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Bee office: a team's board no longer stands flat over the scene whichever way it turns. It is a
+  small chip over the team's whiteboard (the team and a dot per role's state); a click opens the
+  whole board, larger, with the last hand-offs, and another click, a click elsewhere or Esc closes it.
+
 - Bee office, back to a rectangle: the modern 3D office is a compact campus again instead of the round
   park (which wasted floor and was hard to take in at a glance): three pods to a row, a corridor, the
   meeting and boss rooms as glass rooms at the back, the lounge band in front, ping-pong out in the
