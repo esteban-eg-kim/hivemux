@@ -10,7 +10,9 @@
   up when work comes in (running if they were called back), down to play when it is done; a bee
   headed to a floor you are not looking at counts there. The office opens on the floor with a
   question, else the busiest; Settings → "Go to the floor of a new question" follows new ones. A
-  team role waiting for you waits at its seat, hand up, so its floor shows it.
+  team role waiting for you waits at its seat, hand up, so its floor shows it. The building button
+  in the view bar (or O) shows all floors at once in section, the elevator shaft with whoever rides
+  it; click a floor to go in.
 
 - Bee office: a team role with nothing to do stays in its seat for 45 seconds (the next hand-off
   often comes soon), then goes out to play with the others; when work comes it runs back. The team

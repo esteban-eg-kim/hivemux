@@ -104,8 +104,10 @@ The 🐝 button at the top of the sidebar (or `prefix B`, the right-click menu,
   on the wall in a frame.
 - Turn, tilt and zoom with the mouse (a turn pivots on the point you pressed),
   or switch to **2D** for the same office seen from straight above. Zoom far out
-  and the office sits on a tiny planet. The office is a glass campus with three
-  desk pods to a row; Settings (⚙) → Office look → Classic brings back the older
+  and the office sits on a tiny planet. The office is a glass building of floors
+  (1F rest, 2F work), one screen each: the floor bar on the right switches floors
+  (PageUp / PageDown) and the building button shows them all at once; bees take
+  the elevator. Settings (⚙) → Office look → Classic brings back the older
   office, Drawing → Drawn (lighter) draws it flat for slower computers, and the
   💡 button (Office lights) keeps it bright after dark.
 - A bee's name tag shows the name you gave its session (`hivemux` rename or
