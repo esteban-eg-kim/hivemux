@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Bee office: a team role with nothing to do stays in its seat for 45 seconds (the next hand-off
+  often comes soon), then goes out to play with the others; when work comes it runs back. The team
+  board is redrawn: the chip says how many roles work, wait or are done, and the opened card has
+  the flow as steps, each role's state as a coloured pill with its context against the diet line,
+  and the last hand-offs with when.
+
 - Bee office: a team's board no longer stands flat over the scene whichever way it turns. It is a
   small chip over the team's whiteboard (the team and a dot per role's state); a click opens the
   whole board, larger, with the last hand-offs, and another click, a click elsewhere or Esc closes it.
