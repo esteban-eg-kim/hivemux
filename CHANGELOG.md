@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Team template (web & app): the roles that capture or measure screens now start headless Chrome
+  through one helper, one at a time, without its per-profile downloads, and always delete the
+  temporary profile and their own leftover Chrome; the lead checks disk use now and then.
 - The bee office as a building, in real 3D (`/building`, "3D building" on the office page): a glass
   office of three storeys or more with a perspective camera, light and shadows. The lobby has the
   cafe, lounge, ping-pong, the honey wall and the plaza outside; a work floor has a desk island per
