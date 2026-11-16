@@ -51,8 +51,29 @@ TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
 BUILTIN = os.path.join(os.path.dirname(HERE), "share", "teams")
 MINE = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "hivemux", "teams")
 SHELLS = re.compile(r"^-?(zsh|bash|fish|sh|dash|tcsh|ksh|login)$")
-MODELS = ("opus", "sonnet", "haiku")
+MODELS = ("fable", "opus", "sonnet", "haiku")      # most capable first / 성능이 높은 것부터
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
+# What each service a role runs on can do. A role keeps a setting its service lacks: it waits unused (the page
+# greys it) and works again on a service that has it. Another LLM service is one more entry here and its own
+# command in flags()
+# 역할이 도는 서비스마다 할 수 있는 것. 서비스에 없는 설정도 역할은 그대로 가진다: 쓰이지 않고 기다리다
+# (화면은 흐리게 보인다) 그것이 있는 서비스에서 다시 쓰인다. 다른 LLM 서비스는 여기 항목 하나와 flags() 의 명령 하나다
+#   models     what --model takes / --model 이 받는 것
+#   efforts    the levels of --effort / --effort 의 단계
+#   advisors   models a stronger second opinion can come from (Claude Code's advisor: the main model asks it
+#              before settling an approach, on a recurring error, before calling a task done); never below the
+#              role's own model / 더 강한 조언을 받을 모델 (Claude Code 의 어드바이저: 방법을 정하기 전, 오류가
+#              되풀이될 때, 끝내기 전에 묻는다). 역할 자신의 모델보다 낮으면 안 된다
+#   subagents  models its subagents can be held to / 서브에이전트에 정할 수 있는 모델
+PROVIDERS = {
+    "anthropic": {"name": "Claude", "models": MODELS, "efforts": EFFORTS,
+                  "advisors": ("fable", "opus", "sonnet"), "subagents": ("sonnet", "haiku")},
+    # through a cloud (Bedrock, Vertex, Foundry): no advisor there, and Fable is not offered
+    # 클라우드 경유 (Bedrock, Vertex, Foundry): 어드바이저가 없고 Fable 도 없다
+    "claude-cloud": {"name": "Claude (Bedrock · Vertex · Foundry)", "models": ("opus", "sonnet", "haiku"), "efforts": EFFORTS,
+                     "advisors": (), "subagents": ("sonnet", "haiku")},
+}
+CLOUD_ENV = ("CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY")
 
 
 def tmux(*a):
@@ -206,6 +227,39 @@ def load(folder):
     team["diet"] = diet
     team["folder"] = folder
     return team
+
+
+def provider():
+    """The service roles run on: a cloud when Claude Code is set to one (its env, tmux's, or ~/.claude/settings.json)
+    역할이 도는 서비스: Claude Code 가 클라우드로 정해져 있으면 클라우드 (환경 변수, tmux 의 것, ~/.claude/settings.json)"""
+    env = dict(os.environ)
+    for line in tmux("show-environment", "-g").splitlines():
+        k, _, v = line.partition("=")
+        env.setdefault(k, v)
+    try:
+        with open(os.path.join(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"), "settings.json")) as f:
+            for k, v in (json.load(f).get("env") or {}).items():
+                env.setdefault(k, str(v))
+    except (OSError, ValueError, AttributeError):
+        pass
+    cloud = any(env.get(k, "").lower() not in ("", "0", "false") for k in CLOUD_ENV)
+    pid = "claude-cloud" if cloud else "anthropic"
+    return {"id": pid, **PROVIDERS[pid]}
+
+
+def uses(role, prov):
+    """The role's settings its service takes now, the rest left out / 역할의 설정 중 지금 서비스가 받는 것. 나머지는 뺀다"""
+    rank = lambda m: MODELS.index(m) if m in MODELS else len(MODELS)
+    model = role["model"]
+    if model not in prov["models"] and not model.startswith("claude-"):
+        # the next one down the service has (fable -> opus) / 서비스에 있는 바로 아래 모델 (fable -> opus)
+        model = next((m for m in MODELS[rank(model):] if m in prov["models"]), "")
+    adv = role.get("advisor") or ""
+    # the advisor must not be below the model it advises / 어드바이저는 조언받는 모델보다 낮으면 안 된다
+    adv = adv if adv in prov["advisors"] and rank(adv) <= rank(model or "sonnet") else ""
+    sub = role.get("subagents") or ""
+    return {"model": model, "effort": role["effort"] if role["effort"] in prov["efforts"] else "",
+            "advisor": adv, "subagents": sub if sub in prov["subagents"] else ""}
 
 
 def label(obj, key="name"):
@@ -392,11 +446,20 @@ def flags(session, folder, team, role):
     path = os.path.join(run, role["id"] + ".md")
     with open(path, "w", encoding="utf-8") as f:
         f.write(build_prompt(session, folder, team, role))
-    out = []
-    if role["model"] in MODELS or role["model"].startswith("claude-"):
-        out += ["--model", role["model"]]
-    if role["effort"] in EFFORTS:
-        out += ["--effort", role["effort"]]
+    u, out = uses(role, provider()), []
+    if u["model"]:
+        out += ["--model", u["model"]]
+    if u["effort"]:
+        out += ["--effort", u["effort"]]
+    # through settings, not --advisor: a Claude Code that has no advisor yet ignores a setting but stops on a flag
+    # --advisor 가 아니라 설정으로: 어드바이저가 아직 없는 Claude Code 는 설정은 무시하지만 옵션에는 멈춘다
+    extra = {}
+    if u["advisor"]:
+        extra["advisorModel"] = u["advisor"]
+    if u["subagents"]:
+        extra["env"] = {"CLAUDE_CODE_SUBAGENT_MODEL": u["subagents"]}
+    if extra:
+        out += ["--settings", json.dumps(extra, separators=(",", ":"))]
     out += ["--append-system-prompt-file", path]
     # read-only is not without Edit and Write: its notes, questions and reports must be written, so where it
     # writes is checked instead (may_write, from bin/hivemux-hook's PreToolUse)
@@ -530,7 +593,8 @@ def up(session, only=None):
             what = tr("시작", "started")
         tmux("send-keys", "-t", pane, cmd, "Enter")
         tmux("set", "-p", "-t", pane, "@hivemux-role-at", str(int(time.time())))
-        print(f"  {label(role)}: {what} ({role['model']} · {role['effort']})")
+        u = uses(role, provider())
+        print(f"  {label(role)}: {what} ({' · '.join(x for x in (u['model'], u['effort'], u['advisor'] and tr('조언 ', 'advisor ') + u['advisor']) if x)})")
         started += 1
     exclude(folder)
     if started:
@@ -557,16 +621,17 @@ def status(session):
         return {"project": session, "folder": folder, "team": None}
     team = load(path)
     have = {p["role"]: p for p in panes(session) if p["role"]}
-    roles = []
+    prov, roles = provider(), []
     for r in ranked(team):
         p = have.get(r["id"]) or {}
         running = bool(p) and not SHELLS.match(p.get("cmd", ""))
         roles.append({**{k: r[k] for k in ("id", "model", "effort", "lead", "readonly", "worktree", "owns", "diet", "prompt")},
+                      "advisor": r.get("advisor") or "", "subagents": r.get("subagents") or "", "uses": uses(r, prov),
                       "name": label(r), "session": f"{session}-{r['id']}", "pane": p.get("pane", ""),
                       "running": running, "state": p.get("state", "") if running else ("off" if p else ""),
                       "ctx": int(p["ctx"]) if p.get("ctx", "").isdigit() else 0, "dieting": p.get("diet", "") if running else "",
                       "trust": bool(running and needs_trust(p["pane"]))})
-    return {"project": session, "folder": folder,
+    return {"project": session, "folder": folder, "provider": prov,
             "team": {"id": team.get("id", ""), "name": label(team), "description": label(team, "description"),
                      "flow": team.get("flow") or [r["id"] for r in team["role"]], "diet": team["diet"], "roles": roles,
                      "handoffs": handoffs(folder, team),
@@ -706,6 +771,11 @@ def set_role(session, rid, fields, prompt=None):
             r[k] = v
         elif k == "effort" and v in EFFORTS:
             r[k] = v
+        elif k == "advisor" and v in ("", *MODELS) or k == "subagents" and v in ("", *MODELS):
+            if v:
+                r[k] = v
+            else:
+                r.pop(k, None)
         elif k in ("lead", "readonly", "worktree"):
             if v:
                 r[k] = True
@@ -829,7 +899,7 @@ def apply_plan(session, plan):
             delete_role(session, r["id"])
     have = {r["id"] for r in load(team_dir(folder))["role"]}
     for r in plan.get("roles") or []:
-        fields = {k: r[k] for k in ("model", "effort", "readonly", "worktree", "lead") if k in r}
+        fields = {k: r[k] for k in ("model", "effort", "advisor", "subagents", "readonly", "worktree", "lead") if k in r}
         if r.get("id") in have:
             set_role(session, r["id"], fields)
         else:
@@ -860,7 +930,9 @@ ASSIST_GUIDE = {
 역할은 SendMessage 로 서로 일을 넘기고, 리드가 계획을 세워 배분한다. 사용자가 팀을 짜는 것을 돕는다.
 
 원칙 (근거로 쓴다):
-- 모델: opus 는 판단이 많은 역할 (리드, 복잡한 개발), sonnet 은 대부분의 역할, haiku 는 정리·반복·가벼운 조사. opus 는 sonnet 보다 사용량이 훨씬 크다.
+- 모델: fable 은 가장 뛰어나지만 가장 비싸다 (요금제에 따라 사용 크레딧으로 따로 청구). opus 는 판단이 많은 역할 (리드, 복잡한 개발), sonnet 은 대부분의 역할, haiku 는 정리·반복·가벼운 조사. opus 는 sonnet 보다 사용량이 훨씬 크다.
+- 어드바이저 (advisor): 역할의 모델이 방법을 정하기 전, 오류가 되풀이될 때, 끝내기 전에 더 강한 모델에게 묻는다. 조언 때만 그 모델 요금이 든다. 그래서 개발을 sonnet + opus 어드바이저로 두면 opus 에 가까운 판단을 더 적은 사용량으로 얻는다. 어드바이저는 역할 모델보다 같거나 높아야 한다 (fable > opus > sonnet > haiku). 지금 서비스가 지원하지 않으면 (아래 "서비스") 쓰지 않는다.
+- 서브에이전트 (subagents): 조사가 많은 역할은 서브에이전트를 haiku 로 정하면 자료 읽기가 싸진다.
 - 노력 (effort): low, medium, high, xhigh, max. 높을수록 깊이 생각하고 토큰을 더 쓴다. 리드는 high 이상, 가벼운 역할은 low~medium.
 - 처음에는 역할 3~5개를 권한다. 사용량은 역할 수에 비례한다. 리드는 정확히 하나.
 - 개발이 둘 이상이면 각자 워크트리 (worktree true) 를 쓰고, 맡는 영역을 나눈다 (예: 화면과 API). 같은 파일을 함께 고치면 충돌한다.
@@ -873,7 +945,8 @@ ASSIST_GUIDE = {
 - 구성을 바꾸자고 할 때만, 답 끝에 바뀐 뒤의 팀 전체를 아래 형식의 블록 하나로 붙인다. 빠진 역할은 삭제된다.
 ```plan
 {"template": "<팀이 없을 때만: 템플릿 id 또는 empty>", "name": "<팀 이름, 선택>",
- "roles": [{"id": "<영문 소문자 id>", "name": "<표시 이름>", "model": "opus|sonnet|haiku", "effort": "low|medium|high|xhigh|max",
+ "roles": [{"id": "<영문 소문자 id>", "name": "<표시 이름>", "model": "fable|opus|sonnet|haiku", "effort": "low|medium|high|xhigh|max",
+            "advisor": "fable|opus|sonnet|<빈 문자열>", "subagents": "sonnet|haiku|<빈 문자열>",
             "lead": true|false, "readonly": true|false, "worktree": true|false, "like": "<새 역할이면 지시문을 본뜰 기존 역할 id, 선택>"}],
  "diet_at": <천 토큰 단위 숫자, 선택>}
 ```""",
@@ -881,7 +954,9 @@ ASSIST_GUIDE = {
 Roles hand work to each other with SendMessage; the lead plans and assigns. You help the user build the team.
 
 Principles (cite them as reasons):
-- Models: opus for roles that decide a lot (the lead, complex development), sonnet for most roles, haiku for tidy, repetitive or light research work. opus uses far more than sonnet.
+- Models: fable is the most capable and the most expensive (on some plans it bills to usage credits). opus for roles that decide a lot (the lead, complex development), sonnet for most roles, haiku for tidy, repetitive or light research work. opus uses far more than sonnet.
+- Advisor: the role's model asks a stronger model before settling an approach, on a recurring error and before calling a task done; only the advice costs that model's rates. So dev on sonnet with an opus advisor gets close to opus judgment for less usage. The advisor must be at or above the role's model (fable > opus > sonnet > haiku). Not used when the service (below, "service") lacks it.
+- Subagents: a role that researches a lot reads more cheaply with its subagents on haiku.
 - Effort: low, medium, high, xhigh, max. Higher thinks deeper and uses more tokens. The lead at high or above, light roles at low to medium.
 - Start with 3 to 5 roles; usage scales with the number of roles. Exactly one lead.
 - With two or more developers, each gets its own worktree (worktree true) and its own area (e.g. UI and API); editing the same files together conflicts.
@@ -894,7 +969,8 @@ How to answer:
 - Only when proposing a change, end with the whole team after the change in one block like this; roles left out are deleted.
 ```plan
 {"template": "<only when there is no team: a template id or empty>", "name": "<team name, optional>",
- "roles": [{"id": "<lowercase id>", "name": "<display name>", "model": "opus|sonnet|haiku", "effort": "low|medium|high|xhigh|max",
+ "roles": [{"id": "<lowercase id>", "name": "<display name>", "model": "fable|opus|sonnet|haiku", "effort": "low|medium|high|xhigh|max",
+            "advisor": "fable|opus|sonnet|<empty string>", "subagents": "sonnet|haiku|<empty string>",
             "lead": true|false, "readonly": true|false, "worktree": true|false, "like": "<for a new role: an existing role id whose prompt to copy, optional>"}],
  "diet_at": <thousands of tokens, optional>}
 ```""",
@@ -939,13 +1015,16 @@ def assist(session, messages):
     if have:
         team = load(team_dir(folder))
         now = {"name": label(team), "diet_at": team["diet"].get("at"),
-               "roles": [{k: r.get(k) for k in ("id", "model", "effort", "lead", "readonly", "worktree", "owns")} | {"name": label(r),
+               "roles": [{k: r.get(k) for k in ("id", "model", "effort", "advisor", "subagents", "lead", "readonly", "worktree", "owns")} | {"name": label(r),
                           "prompt": _read(os.path.join(team_dir(folder), r.get("prompt") or f"roles/{r['id']}.md"))[:400]} for r in team["role"]]}
     else:
         now = {"team": None, "templates": [{"id": t["id"], "name": t["name"], "description": t["description"], "roles": t["roles"]} for t in templates()]}
     talk = "\n\n".join(f"{('사용자' if ko else 'User') if m.get('role') == 'user' else ('도우미' if ko else 'Assistant')}: {str(m.get('text', ''))[:4000]}"
                        for m in messages[-12:] if isinstance(m, dict))
-    ask = (f"{ASSIST_GUIDE['ko' if ko else 'en']}\n\n# {'프로젝트' if ko else 'Project'}: {session}\n{project_brief(folder)}\n\n"
+    prov = provider()
+    service = {k: prov[k] for k in ("name", "models", "efforts", "advisors", "subagents")}
+    ask = (f"{ASSIST_GUIDE['ko' if ko else 'en']}\n\n# {'서비스' if ko else 'Service'}\n{json.dumps(service, ensure_ascii=False)}\n\n"
+           f"# {'프로젝트' if ko else 'Project'}: {session}\n{project_brief(folder)}\n\n"
            f"# {'지금 팀' if ko else 'The team now'}\n{json.dumps(now, ensure_ascii=False)}\n\n# {'대화' if ko else 'Conversation'}\n{talk}\n\n"
            f"{'도우미:' if ko else 'Assistant:'}")
     try:
@@ -981,6 +1060,8 @@ def clean_plan(plan, have):
         roles.append({"id": rid, "name": str(r.get("name") or rid)[:40],
                       "model": r.get("model") if r.get("model") in MODELS else "sonnet",
                       "effort": r.get("effort") if r.get("effort") in EFFORTS else "medium",
+                      "advisor": r.get("advisor") if r.get("advisor") in MODELS else "",
+                      "subagents": r.get("subagents") if r.get("subagents") in MODELS else "",
                       "lead": bool(r.get("lead")), "readonly": bool(r.get("readonly")), "worktree": bool(r.get("worktree")),
                       **({"like": str(r["like"])} if r.get("like") else {})})
     if not roles:

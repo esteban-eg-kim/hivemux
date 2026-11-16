@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Team roles: an advisor (a stronger model the role asks before settling an approach, on a
+  recurring error and before finishing; only the advice costs that model) and a model for its
+  subagents (haiku makes research reading cheaper), and Fable among the models. The wizard's
+  "cost first" gives the lead and dev an opus advisor. What a role can use follows the service it
+  runs on: through Bedrock, Vertex or Foundry the advisor is greyed and left unused, its setting
+  kept, and Fable falls back to opus. The advisor goes in as a setting, so a Claude Code without it
+  still starts.
+
 ## 0.1.63 — 2026-11-16
 
 - A Claude started through a wrapper (a program that starts Claude itself, like `peer-claude`)

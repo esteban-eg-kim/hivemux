@@ -108,6 +108,8 @@ h2 { margin: 0; font-size: 18px; font-weight: 700; }
 .tip button { align-self: flex-start; }
 
 .detail { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+/* a setting the service lacks: kept, greyed / 서비스에 없는 설정: 남겨 두고 흐리게 */
+.field.off .seg { opacity: .45; }
 label.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: var(--muted); }
 input.text { min-height: 44px; border: 1px solid var(--line); border-radius: 9px; padding: 0 12px; background: var(--panel); font-size: 15px; font-weight: 600; color: var(--fg); }
 .checks { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -254,7 +256,11 @@ function icon(id, size = 32) {
   return `<span class="icon" style="width:${size}px;height:${size}px;background:${bg};color:${fg}" aria-hidden="true"><svg width="${Math.round(size * .56)}" height="${Math.round(size * .56)}" viewBox="0 0 24 24">${ICON[k]}</svg></span>`;
 }
 const ARROW = '<svg class="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
-const MODELS = ['opus', 'sonnet', 'haiku'], EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
+const MODELS = ['fable', 'opus', 'sonnet', 'haiku'], EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
+// what the service the roles run on can do (bin/hivemux-team PROVIDERS); a hivemux too old to say: no advisor
+// 역할이 도는 서비스가 할 수 있는 것 (bin/hivemux-team PROVIDERS). 알려 주지 않는 예전 hivemux: 어드바이저 없음
+const PROV = () => (D && D.project && D.project.provider) || { name: 'Claude', models: ['opus', 'sonnet', 'haiku'], efforts: EFFORTS, advisors: [], subagents: [] };
+const advTag = x => x.advisor ? `${tr('조언', 'advisor')} ${x.advisor}` : '';
 const DIETS = [['renew', '노트로 새로 시작', 'Fresh start from notes'], ['compact', '압축', 'Compact'], ['off', '끔', 'Off']];
 const K = n => n >= 1000 ? Math.round(n / 1000) + 'K' : String(n || 0);
 const DIETING = { pending: ['대기 시 다이어트', 'Diet when idle'], notes: ['노트 정리 중', 'Writing notes'], clear: ['새로 시작하는 중', 'Restarting'], compacting: ['압축 중', 'Compacting'], after: ['다이어트 완료', 'Diet complete'] };
@@ -289,7 +295,7 @@ async function load() {
   // redraw everything only when the shape changed; otherwise just the states (keeps what is being typed)
   // 모양이 바뀔 때만 다시 그린다. 아니면 상태만 (입력 중인 것을 지킨다)
   const t = team();
-  const sig = [KEY(), d.projects.map(p => (p.ssh || '') + p.name + p.team).join(','), t ? t.roles.map(r => r.id + r.name + r.model + r.effort + r.lead + r.readonly + r.worktree + r.diet.how + r.diet.at + r.running + r.trust).join('|') : '-',
+  const sig = [KEY(), d.projects.map(p => (p.ssh || '') + p.name + p.team).join(','), t ? t.roles.map(r => r.id + r.name + r.model + r.effort + r.advisor + r.subagents + r.lead + r.readonly + r.worktree + r.diet.how + r.diet.at + r.running + r.trust).join('|') : '-',
     t ? Math.min(1, (t.handoffs || []).length) : 0, t ? (t.questions || '').length : 0, S.sel, S.tab].join('#');
   if (sig !== S.sig) { S.sig = sig; render(); } else states();
 }
@@ -337,7 +343,7 @@ function aiDiff(plan) {   // what the proposed team changes / 제안된 팀이 �
   const now = team() ? team().roles : [], rows = [], ids = new Set(plan.roles.map(r => r.id));
   for (const r of plan.roles) {
     const o = now.find(x => x.id === r.id);
-    const flags = x => [x.model, x.effort, x.lead ? tr('리드', 'lead') : '', x.readonly ? tr('읽기 전용', 'read-only') : '', x.worktree ? tr('워크트리', 'worktree') : ''].filter(Boolean).join(' · ');
+    const flags = x => [x.model, x.effort, advTag(x), x.subagents ? tr('서브에이전트 ', 'subagents ') + x.subagents : '', x.lead ? tr('리드', 'lead') : '', x.readonly ? tr('읽기 전용', 'read-only') : '', x.worktree ? tr('워크트리', 'worktree') : ''].filter(Boolean).join(' · ');
     if (!o) rows.push(['add', tr('추가', 'Add'), `${esc(r.name)} — ${flags(r)}${r.like ? tr(` (지시문: ${esc((now.find(x => x.id === r.like) || { name: r.like }).name)} 기반)`, ` (prompt based on ${esc((now.find(x => x.id === r.like) || { name: r.like }).name)})`) : ''}`]);
     else if (flags(o) !== flags(r) || o.name !== r.name) rows.push(['mod', tr('변경', 'Change'), `${esc(o.name)}${o.name !== r.name ? ' → ' + esc(r.name) : ''}: ${flags(o)} → ${flags(r)}`]);
   }
@@ -430,8 +436,9 @@ function plan() {
   const w = S.wiz;
   const P = { quality: { lead: ['opus', 'xhigh'], dev: ['opus', 'high'], other: ['sonnet', 'high'], light: ['sonnet', 'medium'], diet: 120 },
     balance: { lead: ['opus', 'high'], dev: ['opus', 'high'], other: ['sonnet', 'high'], light: ['sonnet', 'medium'], diet: 120 },
-    cost: { lead: ['sonnet', 'high'], dev: ['sonnet', 'high'], other: ['sonnet', 'medium'], light: ['haiku', 'medium'], diet: 100 } }[w.prio];
-  const t = [], add = (id, m, why, extra) => t.push({ id, model: m[0], effort: m[1], why, ...extra });
+    cost: { lead: ['sonnet', 'high', 'opus'], dev: ['sonnet', 'high', 'opus'], other: ['sonnet', 'medium'], light: ['haiku', 'medium'], diet: 100 } }[w.prio];
+  // an advisor only where the service has one / 어드바이저는 서비스에 있을 때만
+  const t = [], add = (id, m, why, extra) => t.push({ id, model: m[0], effort: m[1], ...(m[2] && PROV().advisors.includes(m[2]) ? { advisor: m[2] } : {}), why, ...extra });
   const content = w.kind === 'content';
   add('planner', P.lead, tr('리드. 스펙과 완료 기준을 작성하고 업무를 배분합니다. 막힌 역할이 돌아오는 곳이므로 판단력이 가장 중요합니다.', 'Lead. Writes specifications and acceptance criteria and assigns the work; blocked roles return here, so judgment matters most.'), { lead: true });
   if (!w.have.spec) add('researcher', P.light, tr('기획 문서가 없으므로 시장과 경쟁 서비스부터 조사합니다. 분량이 많은 자료 검토는 에이전트에게 맡겨 대화를 가볍게 유지합니다.', 'With no plan yet, it begins with the market and competitors and delegates extensive reading to subagents.'));
@@ -456,12 +463,12 @@ function drawWizard() {
       .map(([v, a, b]) => choice('have', v, a, b, !!w.have[v])).join('')}</div>`;
   if (w.step === 2) body = `<div class="grid">${[['quality', tr('품질 우선', 'Quality first'), 4, tr('리드와 개발에 opus, 리드는 xhigh. 사용량이 가장 많습니다.', 'opus for the lead and dev, the lead at xhigh. Highest usage.')],
     ['balance', tr('균형', 'Balanced'), 3, tr('리드와 개발만 opus, 나머지는 sonnet. 처음 구성하는 경우 권장합니다.', 'opus only for the lead and dev, sonnet for the rest. Recommended for a first team.')],
-    ['cost', tr('비용 우선', 'Cost first'), 2, tr('모두 sonnet, 가벼운 역할은 haiku. 다이어트를 조금 일찍(100K) 실행합니다.', 'All sonnet, light roles on haiku, with a slightly earlier diet (100K).')]]
+    ['cost', tr('비용 우선', 'Cost first'), 2, tr('모두 sonnet, 가벼운 역할은 haiku. 리드와 개발은 막힐 때 opus 에게 조언을 받습니다(지원하는 경우). 다이어트를 조금 일찍(100K) 실행합니다.', 'All sonnet, light roles on haiku; the lead and dev consult opus when it matters (where supported). A slightly earlier diet (100K).')]]
     .map(([v, a, n, b]) => choice('prio', v, a, b, w.prio === v, `<span class="coins" aria-label="${n}/4">${[1, 2, 3, 4].map(i => `<i class="${i <= n ? 'on' : ''}"></i>`).join('')}</span>`)).join('')}</div>`;
   if (w.step === 3) {
     const p = plan(), names = Object.fromEntries((D.templates.find(t => t.id === 'web-app') || { roles: [] }).roles.map(r => [r.id, r.name]));
     body = `<div class="chips"><span>${p.roles.length}${tr('명', ' roles')}</span><span>${modelsLine(p.roles)}</span><span>${tr('다이어트', 'Diet')} ${p.diet}K</span></div>
-      <div class="result">${p.roles.map(r => `<div>${icon(r.id, 40)}<div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span class="row" style="gap:8px"><b>${esc(r.name || names[r.id] || r.id)}</b><code>${r.model} · ${r.effort}</code>${r.lead ? `<span class="tag honey">${tr('리드', 'lead')}</span>` : ''}${r.readonly ? `<span class="tag">${tr('읽기 전용', 'read-only')}</span>` : ''}${r.worktree ? `<span class="tag">${tr('워크트리', 'worktree')}</span>` : ''}</span><span class="sub" style="font-size:13px">${esc(r.why)}</span></div></div>`).join('')}</div>`;
+      <div class="result">${p.roles.map(r => `<div>${icon(r.id, 40)}<div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span class="row" style="gap:8px"><b>${esc(r.name || names[r.id] || r.id)}</b><code>${[r.model, r.effort, advTag(r)].filter(Boolean).join(' · ')}</code>${r.lead ? `<span class="tag honey">${tr('리드', 'lead')}</span>` : ''}${r.readonly ? `<span class="tag">${tr('읽기 전용', 'read-only')}</span>` : ''}${r.worktree ? `<span class="tag">${tr('워크트리', 'worktree')}</span>` : ''}</span><span class="sub" style="font-size:13px">${esc(r.why)}</span></div></div>`).join('')}</div>`;
   }
   $('#wiz').innerHTML = `
     <div class="row between"><div><span class="sub" style="font-size:13px;font-weight:700">${tr('팀 추천', 'Team wizard')} · ${w.step + 1} / 4</span><h1>${titles[w.step]}</h1></div>
@@ -516,7 +523,7 @@ function renderTeam(m) {
     ${flow.length ? `<div class="card flow" style="padding:10px 14px"><span class="sub" style="font-size:12px;font-weight:700;margin-right:6px">${tr('흐름', 'Flow')}</span>${flow.map((r, i) => `<span class="step">${icon(r.id, 24)}${esc(r.name)}</span>${i < flow.length - 1 ? ARROW : ''}`).join('')}</div>` : ''}
     <div class="layout">
       <nav class="card roles" aria-label="${tr('역할', 'Roles')}">
-        ${t.roles.map(r => `<button class="roleitem" data-role="${r.id}" aria-pressed="${r.id === S.sel}">${icon(r.id, 32)}<span class="meta"><b>${esc(r.name)}${r.lead ? ` <span class="tag honey">${tr('리드', 'lead')}</span>` : ''}</b><span>${r.model} · ${r.effort}</span><span class="ctxline" data-ctx="${r.id}"></span></span><i class="dot" data-dot="${r.id}" title=""></i></button>`).join('')}
+        ${t.roles.map(r => `<button class="roleitem" data-role="${r.id}" aria-pressed="${r.id === S.sel}">${icon(r.id, 32)}<span class="meta"><b>${esc(r.name)}${r.lead ? ` <span class="tag honey">${tr('리드', 'lead')}</span>` : ''}</b><span>${[r.model, r.effort, advTag(r)].filter(Boolean).join(' · ')}</span><span class="ctxline" data-ctx="${r.id}"></span></span><i class="dot" data-dot="${r.id}" title=""></i></button>`).join('')}
         <form class="addform" id="addform">
           <input id="addname" placeholder="${tr('새 역할 이름', 'New role name')}" aria-label="${tr('새 역할 이름', 'New role name')}">
           <label class="addsess" title="${tr('다른 역할이 이 이름으로 메시지를 보냅니다', 'Other roles send messages to this name')}"><span class="pre">${esc(S.project)}-</span><input id="addid" placeholder="${nextId(t)}" autocomplete="off" spellcheck="false" aria-label="${tr('세션 이름', 'Session name')}"></label>
@@ -607,6 +614,8 @@ function bindGuide() {
 function drawDetail() {
   const r = role(S.sel), box = $('#detail');
   if (!r) { box.innerHTML = `<h2>${tr('역할을 추가하십시오', 'Please add a role.')}</h2><p class="sub">${tr('왼쪽 아래에 이름을 입력하고 추가를 누르십시오.', 'Enter a name at the bottom left and press Add.')}</p>`; return; }
+  const prov = PROV(), unused = tr(`${prov.name} 에서는 쓰지 않습니다. 설정은 남아 있어 지원하는 서비스에서 다시 쓰입니다`, `Not used on ${prov.name}. The setting is kept for a service that supports it.`);
+  if (!r.uses) r.uses = { advisor: r.advisor, subagents: r.subagents };
   const seg = (key, list, cur) => `<div class="seg" role="group">${list.map(([v, ko, en]) => `<button type="button" data-${key}="${v}" aria-pressed="${v === cur}">${en === undefined ? ko : tr(ko, en)}</button>`).join('')}</div>`;
   box.innerHTML = `
     <div class="row">
@@ -615,9 +624,15 @@ function drawDetail() {
       <div class="field">${tr('세션 이름 (다른 역할이 이 이름으로 메시지를 보냅니다)', 'Session name (other roles send messages to it)')}<code style="background:var(--soft);border:1px solid var(--line2);border-radius:7px;padding:9px 10px">${esc(r.session)}</code></div>
       <span class="state" id="rstate"></span>
     </div>
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(250px,1fr))">
-      <div class="field">${tr('모델', 'Model')}${seg('model', MODELS.map(x => [x, x]), r.model)}<span style="font-weight:400">${{ opus: tr('가장 뛰어난 성능. 판단이 많은 역할에 적합', 'Most capable. Suited to roles with many decisions.'), sonnet: tr('빠르고 균형 잡힌 성능. 대부분의 역할에 적합', 'Fast and balanced. Suited to most roles.'), haiku: tr('가장 빠르고 저렴함. 정리, 반복 작업에 적합', 'Fastest and least expensive. Suited to tidying and repetitive work.') }[r.model] || ''}</span></div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(330px,1fr))">
+      <div class="field">${tr('모델', 'Model')}${seg('model', [...new Set([...prov.models, r.model])].map(x => [x, x]), r.model)}<span style="font-weight:400">${prov.models.includes(r.model) ? { fable: tr('가장 뛰어난 성능, 가장 높은 비용. 요금제에 따라 사용 크레딧으로 청구', 'Most capable and most expensive; on some plans it bills to usage credits.'), opus: tr('뛰어난 성능. 판단이 많은 역할에 적합', 'Highly capable. Suited to roles with many decisions.'), sonnet: tr('빠르고 균형 잡힌 성능. 대부분의 역할에 적합', 'Fast and balanced. Suited to most roles.'), haiku: tr('가장 빠르고 저렴함. 정리, 반복 작업에 적합', 'Fastest and least expensive. Suited to tidying and repetitive work.') }[r.model] || '' : unused}</span></div>
       <div class="field">${tr('노력 수준', 'Effort')}${seg('effort', EFFORTS.map(x => [x, x]), r.effort)}<span style="font-weight:400">${tr('높을수록 깊이 사고하며 토큰을 더 사용합니다', 'Higher levels think more deeply and use more tokens.')}</span></div>
+      <div class="field${prov.advisors.length ? '' : ' off'}">${tr('어드바이저', 'Advisor')}${seg('advisor', [['', '없음', 'None'], ...[...new Set([...prov.advisors, ...(r.advisor ? [r.advisor] : [])])].map(x => [x, x])], r.advisor)}<span style="font-weight:400">${
+        !prov.advisors.includes(r.advisor || prov.advisors[0]) ? unused
+        : r.advisor && !r.uses.advisor ? tr('역할 모델보다 낮아 쓰지 않습니다. 같거나 높은 모델을 고르십시오', 'Below the role\'s model, so not used. Pick the same or a higher model.')
+        : tr('방법을 정하기 전, 오류가 반복될 때, 끝내기 전에 더 강한 모델에게 조언을 구합니다. 조언에만 그 모델의 사용량이 듭니다', 'Before settling an approach, on a recurring error and before finishing, it asks a stronger model; only the advice uses that model.')}</span></div>
+      <div class="field${prov.subagents.length ? '' : ' off'}">${tr('서브에이전트 모델', 'Subagent model')}${seg('subagents', [['', '역할과 같게', 'Same as role'], ...[...new Set([...prov.subagents, ...(r.subagents ? [r.subagents] : [])])].map(x => [x, x])], r.subagents)}<span style="font-weight:400">${
+        r.subagents && !r.uses.subagents ? unused : tr('조사·검색을 맡기는 서브에이전트. haiku 로 두면 자료 읽기가 저렴해집니다', 'Subagents it sends to research and search; haiku makes the reading cheaper.')}</span></div>
     </div>
     <div class="checks">
       <label class="check"><input type="checkbox" data-flag="worktree" ${r.worktree ? 'checked' : ''}><span><b>${tr('자체 워크트리에서 작업', 'Work in its own worktree')}</b><small>${tr('다른 역할과 같은 파일을 덮어쓰지 않도록 합니다', 'Prevents overwriting other roles\' files.')}</small></span></label>
@@ -652,6 +667,8 @@ function drawDetail() {
   };
   box.querySelectorAll('[data-model]').forEach(b => b.onclick = () => save({ model: b.dataset.model }));
   box.querySelectorAll('[data-effort]').forEach(b => b.onclick = () => save({ effort: b.dataset.effort }));
+  box.querySelectorAll('[data-advisor]').forEach(b => b.onclick = () => save({ advisor: b.dataset.advisor }));
+  box.querySelectorAll('[data-subagents]').forEach(b => b.onclick = () => save({ subagents: b.dataset.subagents }));
   box.querySelectorAll('[data-diet]').forEach(b => b.onclick = () => save({ diet: { how: b.dataset.diet } }));
   box.querySelectorAll('[data-flag]').forEach(c => c.onchange = () => save({ [c.dataset.flag]: c.checked }));
   $('#dminus').onclick = () => save({ diet: { at: Math.max(40, r.diet.at - 10) } });
