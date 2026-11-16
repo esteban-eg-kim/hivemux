@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Bee office in floors: the campus was too wide to read without panning, so it is a building of
+  floors now, each one screen: 1F rest (cafe, lounge, an indoor park, the lobby), 2F work (desk
+  pods, the question window, the meeting room), 3F and up the team rooms. A bar on the right lists
+  the floors with how many bees work, wait and are done on each (a floor with a question glows
+  amber); click one, or use PageUp / PageDown or 1 to 9. Bees take the elevator between floors:
+  up when work comes in (running if they were called back), down to play when it is done; a bee
+  headed to a floor you are not looking at counts there. The office opens on the floor with a
+  question, else the busiest; Settings → "Go to the floor of a new question" follows new ones. A
+  team role waiting for you waits at its seat, hand up, so its floor shows it.
+
 - Bee office: a team role with nothing to do stays in its seat for 45 seconds (the next hand-off
   often comes soon), then goes out to play with the others; when work comes it runs back. The team
   board is redrawn: the chip says how many roles work, wait or are done, and the opened card has

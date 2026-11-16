@@ -239,8 +239,14 @@ function paintWall(S, len, windows, solid) {
 // what hangs on the walls, each on its own sharp canvas: [wall, u0, u1, v0, v1, paint, mirrored]
 // 벽에 걸린 것, 각자 또렷한 캔버스에: [벽, u0, u1, v0, v1, 칠하기, 뒤집힘]
 // where they hang: [wall, u] by plan / 걸리는 곳: 배치마다 [벽, u]
-const hangAt = () => LAY.plan === 'campus'
-  ? { clock: ['back', 3.6], frame: ['back', 13.3, false], board: ['back', 22.75], comb: 'back', menu: ['left', 10.4 + LAY.LOFF], plaques: 'left', lift: 8.5 + LAY.LOFF }
+// campus: by the floor in view; what that floor lacks hangs on 'none', a wall that is not built
+// 캠퍼스: 보고 있는 층마다. 그 층에 없는 것은 짓지 않는 벽 'none' 에 건다
+const NONE = ['none', 0];
+const hangAt = () => LAY.plan === 'campus' ? {
+  rest: { clock: ['back', 3.6], frame: ['back', 13.3, false], board: NONE, comb: 'none', menu: ['left', 1.8], plaques: 'none', sign: ['left', LAY.liftY - 2.6], lift: LAY.liftY },
+  work: { clock: ['back', 3.6], frame: NONE, board: ['back', 22.75], comb: 'back', menu: NONE, plaques: 'left', sign: ['left', LAY.liftY - 2.6], lift: LAY.liftY },
+  team: { clock: ['back', 26.5], frame: NONE, board: NONE, comb: 'none', menu: NONE, plaques: 'none', sign: ['left', LAY.liftY - 2.6], lift: LAY.liftY },
+}[floorKind(FLOOR.cur)]
   : { clock: ['back', 3.6], frame: ['back', 13.3, false], board: ['back', 16.9], comb: 'back', menu: ['left', 10.4 + LAY.LOFF], plaques: 'left', lift: 8.5 + LAY.LOFF };
 function hangings() {
   const out = [], best = RANKS && RANKS.month && RANKS.month[0], at = hangAt();
@@ -292,6 +298,14 @@ function hangings() {
     wallWord(S, q.y, 45.5, q.name, q.size * .9, 700, '#3a2612', TT('f-body'), true);
     wallWord(S, q.y, 31.8, q.sub, 8.5, 600, q.oi === 0 ? '#3a2612' : '#ffffff', TT('f-body'), true);
   }]);
+  if (at.sign) {   // the floor's number by the elevator, read from inside / 엘리베이터 옆 층 번호, 안에서 읽히게
+    const su = at.sign[1], kind = floorKind(FLOOR.cur);
+    out.push([at.sign[0], su, su + 2, 30, 58, S => {
+      wallRect(S, su, 30, 2, 58, '#3a404c'); wallRect(S, su + .06, 31.5, 1.88, 56.5, '#454c59');
+      wallWord(S, su + 1, 47, `${FLOOR.cur}F`, 14, 800, '#ffffff', TT('f-body'), true);
+      wallWord(S, su + 1, 36, tr(...FLOOR_NAME[kind]), 6.5, 700, colOf(T.honey), TT('f-body'), true);
+    }]);
+  }
   const mu = at.menu[1];
   out.push([at.menu[0], mu, mu + 2.6, 34, 56, S => {   // the cafe menu / 카페 메뉴판
     wallRect(S, mu, 34, 2.6, 56, tok('m-mon'));
@@ -310,6 +324,7 @@ function buildOffice() {
 }
 function buildOfficeIn() {
   drop(office);
+  dyn.lamp = null; dyn.jars = null; dyn.night = null;
   office = new THREE.Group(); root.add(office);
   const stat = new THREE.Group(); office.add(stat);
   const { GY } = LAY;
@@ -324,6 +339,7 @@ function buildOfficeIn() {
   }
   buildWalls(); if (LAY.plan === 'campus') buildCampus(stat); else buildClassic(stat);
   buildDesks(stat);
+  if (LAY.plan === 'campus' && floorKind(FLOOR.cur) !== 'work') { mergeStatic(stat); return; }   // the boss and meeting rooms are on 2F / 사장실과 회의실은 2층
   // the boss room: the chair, the desk with the question window, the shelf for the jars / 사장실: 의자, 질문 창구 책상, 꿀단지 선반
   const bx = PLANX.bossX || 24, frame = tok('m-wall');
   chair(stat, bx + .85, 1.5, 0, -1, shadeC(TT('m-chair'), .1), 9);
@@ -358,13 +374,16 @@ function buildWalls() {
   };
   const run = (from, to) => { const u = []; for (let x = from; x < to; x += 3) u.push(x); return u; };
   wall('back', [0, 0], [GX, 0], [0, 1], run(1.2, RANKS && RANKS.month && RANKS.month[0] ? 12 : 14));
-  wall('left', [0, 0], [0, GY], [1, 0], run(1.2, 7.5 + LOFF).filter(y => !pl.some(q => Math.abs(y + .9 - q.y) < q.W / 2 + 1.1)));
+  const leftEnd = LAY.plan === 'campus' ? GY - 2 : 7.5 + LOFF, signs = hung.filter(h => h[0] === 'left');
+  wall('left', [0, 0], [0, GY], [1, 0], run(1.2, leftEnd).filter(y => !(LAY.plan === 'campus' ? signs.some(h => y + 1.8 > h[1] - .3 && y < h[2] + .3) || (y + 1.8 > lift - .4 && y < lift + 1.7)
+    : pl.some(q => Math.abs(y + .9 - q.y) < q.W / 2 + 1.1))));
   wall('right', [GX, 0], [GX, GY], [-1, 0], run(1.2, GY - 2));
   wall('front', [0, GY], [GX, GY], [0, -1], run(1.2, GX - 2));
   // the elevator, plain enough for the wall's own paint / 엘리베이터는 벽 바탕에 칠해도 충분하다
   const lw = walls.left.parts[0], plain = lw.paint;
   lw.paint = S => { plain(S); wallRect(S, lift - .1, 0, 1.4, 52, tok('m-wall')); wallRect(S, lift, 0, .58, 48, tok('m-board')); wallRect(S, lift + .62, 0, .58, 48, tok('m-board')); };
   for (const [name, u0, u1, v0, v1, paint] of hung) {
+    if (!walls[name]) continue;
     const w = walls[name], tex = canvasTex(Math.max(8, Math.round((u1 - u0) * DK)), Math.max(8, Math.round(H(v1 - v0) * DK)));
     quad(w.g, w.a, w.d, w.n, u0, u1, v0, v1, tex, .006);
     w.parts.push({ S: surface(tex, DK, u0, v1), tex, paint });
@@ -375,17 +394,18 @@ const glassPane = (x0, y0, x1, y1) => { const w = Math.hypot(x1 - x0, y1 - y0); 
 // 섬: 책상이나 긴 테이블, 의자, 노트북. 섬이 올 자리엔 책장과 화분
 function buildDesks(stat) {
   dyn.desks = [];
+  const pods = LAY.pods.filter(p => fOf(p) === FLOOR.cur), desks = LAY.desks.filter(d => fOf(d) === FLOOR.cur);
   const shared = modern();
-  for (const p of LAY.pods) {
+  for (const p of pods) {
     const col = tok(podTeam(p) ? 'm-team' : p.oi === 0 ? 'm-zone' : 'm-zone-remote', TT('m-office'));
     rect(stat, p.x - .1, p.y - .25, 6, 3.5, col, .004); rect(stat, p.x + .05, p.y - .1, 5.7, 3.2, colOf(T[podTeam(p) ? 'm-team' : p.oi === 0 ? 'm-zone' : 'm-zone-remote'], col), .0045);
   }
-  if (shared) for (const p of LAY.pods) {   // one long table a pod, on four slim legs / 섬마다 긴 테이블 하나, 가는 다리 넷
+  if (shared) for (const p of pods) {   // one long table a pod, on four slim legs / 섬마다 긴 테이블 하나, 가는 다리 넷
     B(stat, p.x + .25, p.y + .6, 5.4, 1.8, 2.5, tok('m-desk'), 13.5, { r: .05 });
     for (const [lx, ly] of [[.45, .8], [5.38, .8], [.45, 2.12], [5.38, 2.12]]) B(stat, p.x + lx, p.y + ly, .07, .07, 13.5, tok('m-wall'));
     B(stat, p.x + .5, p.y + 1.45, 4.9, .1, 1.2, tok('m-wall'), 12.3);
   }
-  for (const d of LAY.desks) {
+  for (const d of desks) {
     if (d.room) { roomDesk(d); continue; }
     const x = d.x - DESK_W / 2, y = d.y - DESK_D / 2, leg = shadeC(TT('m-desk'), .18);
     if (!shared) {
@@ -405,10 +425,10 @@ function buildDesks(stat) {
     office.add(lap);
     dyn.desks.push({ d, ch, lap, screen, face: toBee > 0 ? 4 : 5, state: null });
   }
-  if (!shared) for (const p of LAY.pods) B(office, p.x + .3, p.y + 1.48, 5.3, .05, 11, '#9fb7c9', 16, { op: .55, r: .01 });
+  if (!shared) for (const p of pods) B(office, p.x + .3, p.y + 1.48, 5.3, .05, 11, '#9fb7c9', 16, { op: .55, r: .01 });
   // a cabinet of papers at each pod's end (what helpers fetch, campus) / 섬 끝의 서류 캐비닛 (부사수가 가져오는 것, 캠퍼스)
-  if (LAY.plan === 'campus') for (const p of LAY.pods) cabinet(stat, p.x + 5.95, p.y + .85, .36, 1.3);
-  const spare = LAY.spare || Array.from({ length: Math.max(0, LAY.rows * POD_ROW - LAY.pods.length) }, (_, k) => podAt(LAY.pods.length + k));
+  if (LAY.plan === 'campus') for (const p of pods) cabinet(stat, p.x + 5.95, p.y + .85, .36, 1.3);
+  const spare = LAY.spare ? (floorKind(FLOOR.cur) === 'work' ? LAY.spare : []) : Array.from({ length: Math.max(0, LAY.rows * POD_ROW - LAY.pods.length) }, (_, k) => podAt(LAY.pods.length + k));
   for (const [i, { x, y }] of spare.entries()) {
     green(stat, x + 1.2, y + 1, 1.2); plant(stat, x + 4.6, y + 2.1, .9);
     bookshelf(stat, x + 1.6, y + 1.6, 2.6, .5, 30, (i + LAY.pods.length) * 17);
@@ -523,23 +543,63 @@ function cabinet(stat, x, y, w, d) {
   for (const [dy, h, col] of [[.08, 1.6, '#f4f4f0'], [.45, 2.4, '#e9eef5'], [.82, 1.2, '#f4f4f0']]) B(stat, x + .05, y + dy, w - .1, .32, h, col, 16, { r: .01 });
   B(stat, x + .07, y + d - .22, w - .14, .14, 5, '#4f81bd', 16, { r: .01 });
 }
+// the campus is built one floor at a time, the floor in view / 캠퍼스는 한 번에 한 층, 보고 있는 층만 짓는다
 function buildCampus(stat) {
-  const { GY, LOFF: L, WORK_D } = LAY, frame = '#b9bec5', M = ROOMS.meet, Bo = ROOMS.boss;
-  // floors: oak planks in the work area, a stone corridor, the rooms lighter / 바닥: 작업 공간은 오크 널, 석재 복도, 방은 더 밝게
+  ({ rest: buildRest, work: buildWork, team: buildTeams })[floorKind(FLOOR.cur)](stat);
+  // the elevator lobby at the front of the left wall, on every floor / 층마다 왼쪽 벽 앞쪽의 엘리베이터 홀
+  rect(stat, 0, LAY.liftY - 1, 2.4, 3.4, mixc(tok('m-lounge'), '#ffffff', .4), .0021);
+}
+// 1F: the cafe and the lounge at the back, bean bags and ping-pong beside them, the lobby by the elevator and an
+// indoor park in front with a pond and benches / 1층: 안쪽에 카페와 라운지, 옆에 빈백과 탁구, 엘리베이터 옆 로비, 앞쪽엔 연못과 벤치가 있는 실내 공원
+function buildRest(stat) {
+  const { GY } = LAY, u = -UP;
+  for (let y = 0; y < 6; y++) for (let x = (y % 2); x < 7; x += 2) rect(stat, x, 9.4 + u + y, 1, 1, tok('m-tile'), .003);
+  B(stat, .3, 9.8 + u, .9, 4, 17, tok('m-counter'));
+  B(stat, .25, 9.75 + u, 1.05, 4.1, 2, liteC(TT('m-counter'), .25), 17);
+  B(stat, .55, 10.05 + u, .5, .5, 14, tok('m-mon'), 18, { r: .03 });
+  for (const s of SPOTS.filter(s => s.kind === 'coffee')) stool(stat, s.x, s.y);
+  for (const y of [11, 13.5]) roundTable(stat, 4, y + u, .45, 15);
+  disc(stat, 10.2, 13.2 + u, 1.93, tok('m-rug', TT('m-lounge')), .006);
+  sofaAt(stat, 7.9, 11 + u, 1);
+  lampAt(stat, 7.25, 11.15 + u);
+  green(stat, 13.6, 2.7, 1.2);
+  roundTable(stat, 17.2, 2.6, .45, 6);
+  for (const [x, y, col] of [[16.2, 2, '#e8b04a'], [18.2, 1.8, '#7fb6e6'], [17.2, 3.6, '#9fd39b']]) { C(stat, x, y, .36, 4, shadeC(col, .08)); ball(stat, .3, x, H(4), y, col, { scale: [1, .55, 1] }); }
+  pong(stat, 23.4, 1.3);
+  for (const [x, y, k] of [[29, 1.2, 1], [29.6, 4.6, 1], [20.4, .9, 1.1], [31.2, 2.8, 1.2]]) green(stat, x, y, k);
+  // the park / 공원
+  rect(stat, 8.6, 7.4, GX - 9, GY - 7.8, tok('m-grass'), .003);
+  cyl(stat, 1.55, 1.55, H(2.5), 25, 0, 10.2, '#d6d0c4', { seg: 40 }); cyl(stat, 1.4, 1.4, H(2.6), 25, 0, 10.2, '#7fb8d8', { seg: 40, shadow: false, rough: .1 });
+  for (const [x, y, k] of [[9.3, 13.4, 1.2], [19.6, 13.6, 1.3], [19.4, 8, 1.1], [29.8, 8.4, 1.3], [30.6, 13.2, 1.2], [13.6, 8.9, .9], [23, 13.4, 1]]) green(stat, x, y, k);
+  B(stat, 20.75, 9.25, .45, 1.6, 2.5, tok('m-desk'), 6, { r: .02 }); B(stat, 20.4, 9.25, .08, 1.6, 9, tok('m-desk'), 6, { r: .02 });
+  for (const ly of [9.35, 10.65]) B(stat, 20.8, ly, .38, .1, 6, '#5b6372');
+  bench(stat, 25.1, 12.35);
+  // the lobby: a round table, plants / 로비: 둥근 탁자, 화분
+  disc(stat, 3.6, GY - 3.6, 2, tok('m-rug', TT('m-lounge')), .006);
+  roundTable(stat, 4.9, 10.2, .5, 15); green(stat, 7.6, 7.9, 1); plant(stat, .6, GY - .6, 1);
+}
+// 2F: the pods, a stone corridor, the meeting and boss rooms behind glass, a hall by the elevator / 2층: 섬, 석재 복도, 유리 너머 회의실과 사장실, 엘리베이터 홀
+function buildWork(stat) {
+  const { GY, WORK_D } = LAY, M = ROOMS.meet, Bo = ROOMS.boss;
   rect(stat, 0, 0, 20.6, WORK_D, tok('m-office'), .002);
   for (let y = .5; y < WORK_D; y += .5) rect(stat, 0, y - .01, 20.6, .02, mixc(tok('m-office'), shadeC(TT('m-office'), .5), .25), .0025);
-  rect(stat, 20.62, 0, .96, WORK_D + .4, mixc(tok('m-lounge'), '#ffffff', .35), .0022);
+  rect(stat, 20.62, 0, .96, GY, mixc(tok('m-lounge'), '#ffffff', .35), .0022);
+  rect(stat, 0, WORK_D + .3, 20.6, .96, mixc(tok('m-lounge'), '#ffffff', .35), .0022);
   rect(stat, M.x0, 0, M.x1 - M.x0, M.y1, tok('m-meet'), .002); rect(stat, Bo.x0, 0, Bo.x1 - Bo.x0, Bo.y1, tok('m-mine'), .002);
-  for (let y = 0; y < 6; y++) for (let x = (y % 2); x < 7; x += 2) { const d = Math.min(1, GY - 9.4 - L - y); if (d > 0) rect(stat, x, 9.4 + L + y, 1, d, tok('m-tile'), .003); }
-  rect(stat, 21.6, 7.6, GX - 21.6, GY - 7.6, tok('m-grass'), .003);
-  disc(stat, MEET_C.x, MEET_C.y, 2.24, tok('m-rug', TT('m-meet')), .006); disc(stat, 10.2, 13.2 + L, 1.93, tok('m-rug', TT('m-lounge')), .006); disc(stat, 30.4, 4.4, 1.22, tok('m-rug', TT('m-mine')), .006);
+  disc(stat, MEET_C.x, MEET_C.y, 2.24, tok('m-rug', TT('m-meet')), .006); disc(stat, 30.4, 4.4, 1.22, tok('m-rug', TT('m-mine')), .006);
   glassBox(stat, M.x0, M.y0, M.x1, M.y1, ['bottom', ...M.gap]); glassBox(stat, Bo.x0, Bo.y0, Bo.x1, Bo.y1, ['bottom', ...Bo.gap]);
   plant(stat, 26.6, 5, .9); plant(stat, 31.5, 5, 1.1);
-  // team rooms / 팀 룸
-  LAY.rooms.forEach((r, i) => {
+  // below the rooms: a reading corner with shelves, plants / 방 아래: 책장 있는 쉼터, 화분
+  bookshelf(stat, 22.4, 9.4, 2.6, .5, 30, 41); bookshelf(stat, 25.4, 9.4, 2.6, .5, 30, 47); cooler(stat, 28.6, 9.6);
+  for (const [x, y, k] of [[31.2, 8.2, 1.2], [22.2, GY - 1.2, 1.1], [31.2, GY - 1.2, 1.3], [20.2, GY - .8, 1]]) green(stat, x, y, k);
+}
+// 3F and up: the team rooms of this floor / 3층부터: 이 층의 팀 룸
+function buildTeams(stat) {
+  const { GY } = LAY;
+  LAY.rooms.filter(r => r.f === FLOOR.cur).forEach((r, i) => {
     rect(stat, r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0, tok('m-team', TT('m-office')), .0035);
     glassBox(stat, r.x0, r.y0, r.x1, r.y1, ['bottom', ...r.gap]);
-    const len = r.tx1 - r.tx0;
+    const len = r.tx1 - r.tx0, frame = '#b9bec5';
     B(stat, r.tx0, r.cy - .8, len, 1.6, 2.5, tok('m-desk'), 13.5, { r: .05 });
     for (const [lx, ly] of [[.2, .15], [len - .27, .15], [.2, 1.38], [len - .27, 1.38]]) B(stat, r.tx0 + lx, r.cy - .8 + ly, .07, .07, 13.5, tok('m-wall'));
     B(stat, r.tx0 + .4, r.cy - .05, len - .8, .1, 1.2, tok('m-wall'), 12.3);
@@ -551,21 +611,7 @@ function buildCampus(stat) {
     bookshelf(stat, r.x0 + .3, r.y0 + .15, 1.4, .4, 30, i * 13); bookshelf(stat, r.x1 - 1.7, r.y0 + .15, 1.4, .4, 30, i * 13 + 5);
     plant(stat, r.x1 - .45, r.y1 - .45, 1);
   });
-  // cafe, sofa corner, ping-pong and garden, as in the classic office / 카페, 소파 코너, 탁구, 정원. 기본 사무실처럼
-  B(stat, .3, 9.8 + L, .9, 4, 17, tok('m-counter'));
-  B(stat, .25, 9.75 + L, 1.05, 4.1, 2, liteC(TT('m-counter'), .25), 17);
-  B(stat, .55, 10.05 + L, .5, .5, 14, tok('m-mon'), 18, { r: .03 });
-  for (const s of SPOTS.filter(s => s.kind === 'coffee')) stool(stat, s.x, s.y);
-  for (const y of [11, 13.5]) roundTable(stat, 4, y + L, .45, 15);
-  sofaAt(stat, 7.9, 11 + L, 1);
-  lampAt(stat, 7.25, 11.15 + L);
-  green(stat, 13.6, 11.3 + L, 1.2); green(stat, 6.6, 15 + L, 1);
-  // bean bags round a low table where the classic ping-pong stood; ping-pong out in the garden / 기본 배치의 탁구 자리엔 낮은 탁자와 빈백, 탁구는 정원에
-  roundTable(stat, 17.2, 11.2 + L, .45, 6);
-  for (const [x, y, col] of [[16.2, 10.6, '#e8b04a'], [18.2, 10.4, '#7fb6e6'], [17.2, 12.2, '#9fd39b']]) { C(stat, x, y + L, .36, 4, shadeC(col, .08)); ball(stat, .3, x, H(4), y + L, col, { scale: [1, .55, 1] }); }
-  pong(stat, 23.4, 9.9 + L);
-  for (const [x, y, k] of [[22.6, 8.2, 1.2], [30.8, 8.4, 1.3], [26.6, 13.2 + L, 1.2], [31.2, 12 + L, 1], [30.6, 16 + L, 1.2], [21.9, 15.2 + L, 1.1]]) green(stat, x, y, k);
-  bench(stat, 23.6, 12.9 + L);
+  for (const [x, y, k] of [[31.2, GY - 1.2, 1.2], [8, GY - 1, 1.1], [20, GY - 1, 1]]) green(stat, x, y, k);
 }
 // a seat in a team room: a thin display facing it, a keyboard and mug that come with a bee, an office chair (the
 // lead's taller, in honey) / 팀 룸의 자리: 자리를 보는 얇은 디스플레이, 벌과 함께 오는 키보드와 머그, 사무용 의자 (리드는 더 높고 꿀색)
@@ -778,7 +824,7 @@ const SIT_H = { type: .19, meet: .19, sofa: .17 };
 function syncBees(t, dt) {
   const live = new Set(), now = performance.now();
   const each = (map, tag) => { for (const [k, b] of map) {
-    if (b.popped || b.inside || b.screen || (b.mini && b.born && now < b.born)) continue;
+    if (b.popped || b.inside || b.screen || (b.mini && b.born && now < b.born) || !here(b)) continue;
     const key = tag + k; live.add(key);
     let m = models.get(key);
     if (!m) { m = makeBee(b.mini); models.set(key, m); root.add(m.g); m.px = b.x; m.py = b.y; }
@@ -906,13 +952,13 @@ function updateLive(t) {
   }
   // honey jars on the shelf / 선반의 꿀단지
   const show = Math.min(jarsOf(honeyShown()), 6);
-  if (dyn.jarN !== show) {
+  if (dyn.jars && dyn.jarN !== show) {
     dyn.jarN = show; dyn.jars.clear();
     for (let i = 0; i < show; i++) { const jx = SHELF.x + .22 + i * .35, jy = SHELF.y + SHELF.d / 2; C(dyn.jars, jx, jy, .12, 9, T.honey, SHELF.h, { rough: .35 }); C(dyn.jars, jx, jy, .13, 2.5, TT('m-wax-edge'), SHELF.h + 9); }
   }
   // lamps and lit windows after dark / 어두워지면 조명과 창
   const night = LIGHT < .6;
-  if (dyn.night !== night) { dyn.night = night; dyn.lamp.material = night ? mat('#ffe2a8', { em: '#c89a52' }) : mat('#efe6d6'); dyn.bulbs.forEach(b => { b.material = night ? mat('#fff3c4', { em: '#ffd27a' }) : mat('#e8e2d0'); }); }
+  if (dyn.night !== night) { dyn.night = night; if (dyn.lamp) dyn.lamp.material = night ? mat('#ffe2a8', { em: '#c89a52' }) : mat('#efe6d6'); dyn.bulbs.forEach(b => { b.material = night ? mat('#fff3c4', { em: '#ffd27a' }) : mat('#e8e2d0'); }); }
   const home = new Set([...bees.values()].filter(b => b.inside && !b.atPub).map(b => `${b.ssh || ''}|${b.bee}`));
   const pub = [...bees.values()].some(b => b.atPub && b.inside), winKey = [...home].join() + pub + night + T.win;
   if (dyn.winKey !== winKey) { dyn.winKey = winKey; for (const m of dyn.homes) { const lit = m.userData.home === 'pub' ? pub || night : home.has(m.userData.home); m.material = lit ? mat('#ffe2a8', { em: night ? '#c08a3a' : '#5a4020' }) : mat(T.win); } }
@@ -925,7 +971,7 @@ function render(t, dt, roof = 0) {
   if (gl.hidden) gl.hidden = false;
   const w = VIEW.w, h = VIEW.h;
   if (size !== `${w}x${h}`) { size = `${w}x${h}`; renderer.setSize(w, h, false); }
-  const s1 = [settings.decor, LAY.sig, LAY.GY, LAY.pods.map(podTeam).join(), TT('m-office'), TT('m-wallface'), TT('m-lounge'), lang].join('|');
+  const s1 = [settings.decor, LAY.sig, LAY.GY, FLOOR.cur, LAY.pods.map(podTeam).join(), TT('m-office'), TT('m-wallface'), TT('m-lounge'), lang].join('|');
   if (s1 !== sig) { sig = s1; buildOffice(); buildRoof(); }
   const s2 = `${s1}|${houses().map(e => e.key + (e.r.left ? 'x' : '') + e.h.x.toFixed(1)).join()}|${VILL.blocks}|${TT('o-grass')}`;
   if (s2 !== outSig) { outSig = s2; buildOutside(); }
