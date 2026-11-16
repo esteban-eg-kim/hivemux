@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.63 — 2026-11-16
 
 - A Claude started through a wrapper (a program that starts Claude itself, like `peer-claude`)
   comes back through it: restarts for an update or a switch of account, clocking in and the
