@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Bee office, back to a rectangle: the modern 3D office is a compact campus again instead of the round
+  park (which wasted floor and was hard to take in at a glance): three pods to a row, a corridor, the
+  meeting and boss rooms as glass rooms at the back, the lounge band in front, ping-pong out in the
+  garden. A team gets a glass team room of its own: its roles round one long table in flow order
+  with name cards, the lead in a taller chair at the head, a whiteboard showing the flow, each
+  role's state and the last hand-offs, and the team meets there when it gets a goal. Bees look more
+  at work: screens show code scrolling, a subagent beyond the first fetches papers from a cabinet
+  or shelf and carries them back, a finished team role takes its work to the lead, and a hand-off is
+  walked over to the next role's desk with the papers in hand instead of flying as a letter.
+  Settings → Office look calls it Campus.
+
 - Team setup without knowing the models: a role picks a level (light, standard, careful, best) and
   hivemux sets its model, effort, advisor and subagents for that kind of role (lead, builder,
   reviewer, research, light work); the four settings fold under "set by hand". The team page's

@@ -287,7 +287,7 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
     <fieldset>
       <legend data-t="사무실 꾸밈|Office look"></legend>
       <div class="seg">
-        <label><input type="radio" name="decor" id="decor-modern" value="modern"><span data-t="둥근 캠퍼스|Round campus"></span></label>
+        <label><input type="radio" name="decor" id="decor-modern" value="modern"><span data-t="캠퍼스|Campus"></span></label>
         <label><input type="radio" name="decor" id="decor-classic" value="classic"><span data-t="기본|Classic"></span></label>
       </div>
     </fieldset>
@@ -426,17 +426,18 @@ const D = (x, y) => { const [rx, ry] = turn(x, y); return rx + ry; };   // depth
 const toward = (dx, dy) => (dx * COS - dy * SIN) + (dx * SIN + dy * COS) > 0;
 const sideOf = (dx, dy) => (dx * COS - dy * SIN) - (dx * SIN + dy * COS) >= 0 ? 1 : -1;
 /* Two floor plans. Classic: the work area in the back corner, the meeting and boss rooms behind glass to its
-   right, the cafe, lounge, ping-pong and garden in front; it grows downward. Park (the 3D office in the modern
-   look, share/office/office3d.js): a round ring of curved glass round a courtyard with a pond and fruit trees,
-   like a park headquarters: pods of four round pill-shaped oak tables set along the ring, the boss and meeting
-   rooms as glass rooms in it, the elevator core and lobby on the west, the cafe on the south, a lounge and
-   ping-pong. Bees, routes (round rooms and the pond) and spots read the plan in use (usePlan), so the same
-   office logic runs on either.
+   right, the cafe, lounge, ping-pong and garden in front; it grows downward. Campus (the 3D office in the modern
+   look, share/office/office3d.js): the same rectangle a little wider, three pods to a row, a corridor down the
+   middle, the meeting and boss rooms as glass rooms at the back on its right; a team (.hivemux/team.toml) gets a
+   glass team room of its own at the top of the work area, its roles round one long table, the lead at its head.
+   Bees, routes (round the glass rooms) and spots read the plan in use (usePlan), so the same office logic runs on
+   either. (A round park campus came before; it wasted floor and was hard to take in at a glance.)
    배치 두 가지. 기본: 안쪽 구석에 작업 공간, 그 오른쪽 유리 너머 회의실과 사장실, 앞쪽에 카페, 라운지, 탁구, 정원.
-   아래로 자란다. 파크 (모던 꾸밈의 3D 사무실, share/office/office3d.js): 연못과 과일나무가 있는 안뜰을 두른 둥근
-   곡면 유리 링, 파크 사옥처럼. 링을 따라 놓인 알약 모양 오크 테이블의 4인 포드, 링 안의 유리방인 사장실과 회의실,
-   서쪽의 엘리베이터 코어와 로비, 남쪽의 카페, 라운지와 탁구. 벌, 동선 (방과 연못을 돌아서), 자리는 쓰는 배치를
-   읽으므로 (usePlan) 같은 사무실 로직이 둘 다에서 돈다. */
+   아래로 자란다. 캠퍼스 (모던 꾸밈의 3D 사무실, share/office/office3d.js): 같은 사각형을 조금 넓혀 한 줄에 섬 셋,
+   가운데 복도, 그 오른쪽 안쪽에 유리방인 회의실과 사장실. 팀 (.hivemux/team.toml) 은 작업 공간 위쪽에 자기 유리
+   팀 룸을 받고, 역할들이 긴 탁자 하나에 둘러앉으며 리드는 상석에 앉는다. 벌, 동선 (유리방을 돌아서), 자리는 쓰는
+   배치를 읽으므로 (usePlan) 같은 사무실 로직이 둘 다에서 돈다. (전에는 둥근 파크였는데, 바닥이 낭비되고 한눈에
+   들어오지 않았다.) */
 let GX = 26;
 let LAY = null;
 const ROOMS = { meet: { name: ['회의실', 'Meeting room'] }, boss: { name: ['사장실', 'Boss room'] } };
@@ -461,19 +462,15 @@ const SPOT_DEF = [
   ['plant', 22.3, 8.9, 0], ['plant', 24.4, 11.4, 0],
   ['idle', 21.8, 12.9, 0], ['idle', 23.4, 13.6, 0], ['idle', 25, 14.3, 0], ['idle', 17.4, 13.4, 0], ['idle', 19.2, 14.2, 0], ['idle', 15.6, 14.4, 0],
 ];
-// park (round the centre C): the bar stools in the cafe, chats and seats at its long table, two sofas facing in
-// the lounge, ping-pong, benches round the pond, fruit trees to water. A spot may say where it looks
-// 파크 (가운데 C 둘레): 카페의 바 스툴, 긴 테이블의 수다와 자리, 라운지의 마주 보는 소파 둘, 탁구, 연못가 벤치,
-// 물 줄 과일나무. 자리는 바라볼 곳을 가질 수 있다
-const PARK_C = { x: 16, y: 16 }, PARK_R = 15.5, PARK_IN = 6.5;
-const SPOT_PARK = [
-  ['sofa', 6.8, 22.9, 0, [0, 1]], ['sofa', 8.2, 22.9, 0, [0, 1]], ['sofa', 6.8, 25.5, 0, [0, -1]], ['sofa', 8.2, 25.5, 0, [0, -1]],
-  ['coffee', 13.3, 25.05, 0, [0, -1]], ['coffee', 14.7, 25.05, 0, [0, -1]], ['coffee', 16.1, 25.05, 0, [0, -1]],
-  ['chat', 13.1, 26.35, 0], ['chat', 13.1, 28.05, 0],
-  ['idle', 16.4, 26.35, 0, [0, 1]], ['idle', 17.9, 28.05, 0, [0, -1]], ['idle', 19.3, 26.35, 0, [0, 1]],
-  ['pong', 21.05, 25.8, 0], ['pong', 24.75, 25.8, 0],
-  ['plant', 12.7, 13.9, 0, [1, -.6]], ['plant', 19.9, 12.9, 0, [-.4, -1]],
-  ...[150, 210, 260, 320].map(d => { const a = d * Math.PI / 180; return ['idle', 16 + Math.cos(a) * 4.7, 16 + Math.sin(a) * 4.7, 0, [-Math.cos(a), -Math.sin(a)]]; }),
+// campus: the classic lounge band, all of it moving down as the work area grows, and the garden a little wider
+// 캠퍼스: 기본 배치의 라운지 띠. 작업 공간이 커지면 전부 같이 내려가고, 정원은 조금 넓다
+const SPOT_CAMPUS = [
+  ...SPOT_DEF.filter(([k, x]) => x < 15).map(([k, x, y, , look]) => [k, x, y, 1, look]),
+  // ping-pong out in the garden, bean bags where it stood / 탁구는 정원으로, 그 자리엔 빈백
+  ['pong', 22.85, 10.6, 1], ['pong', 26.55, 10.6, 1],
+  ['plant', 29.6, 9.4, 1], ['plant', 28.6, 13.4, 1],
+  ['idle', 23.2, 13.4, 1], ['idle', 25.2, 14.2, 1], ['idle', 30.2, 14.6, 1],
+  ['idle', 16.2, 10.6, 1, [1, .6]], ['idle', 18.2, 10.4, 1, [-1, .6]], ['idle', 17.2, 12.2, 1, [0, -1]], ['idle', 17.4, 13.8, 1], ['idle', 19.2, 14.2, 1], ['idle', 15.6, 14.4, 1],
 ];
 const SPOTS = [];
 const SPOT_LABEL = { sofa: ['소파에서 낮잠', 'napping on the sofa'], coffee: ['커피 마시는 중', 'having coffee'], pong: ['탁구 치는 중', 'playing ping-pong'],
@@ -599,34 +596,25 @@ const PLANS = {
     mill: k => ({ x: 7.6 + (k % 8) * .8 + (Math.floor(k / 24) % 2) * .4, y: 13.6 + LAY.LOFF + (Math.floor(k / 8) % 3) * .7 }),
     labels: L => [[ROOMS.meet.name, 16.3, 5.7, 6, 2], [ROOMS.boss.name, 22.3, 5.7, 6, 2], [['카페', 'Cafe'], .2, 15.2 + L, 8, 4], [['라운지', 'Lounge'], 7.6, 15.2 + L, 8, 4], [['정원', 'Garden'], 22.3, 15.2 + L, 8, 4]],
   },
-  park: {
-    GX: 32, fitGY: Infinity, plaqueEnd: () => 99, ring: true,
-    boss: { x0: 21.1, x1: 26.1, y0: 4.76, y1: 9.16, in: { x: 22.9, y: 8.5 }, out: { x: 22.9, y: 9.9 } },
-    meet: { x0: 24.84, x1: 29.84, y0: 10.25, y1: 15.25, in: { x: 25.5, y: 14.1 }, out: { x: 24.2, y: 14.1 } },
-    meetC: { x: 27.6, y: 12.95 }, stand: [{ x: 25.3, y: 10.85 }, { x: 29.4, y: 10.85 }, { x: 29.4, y: 14.9 }, { x: 28.5, y: 14.95 }, { x: 25.4, y: 12.9 }, { x: 26.5, y: 15 }],
-    board: { x: 25.7, y: 10.85 }, boardLook: [0, -1], comb: { x: 23, y: 5.6 }, combU: 1.2, shelfX: 22.3, shelfY: 4.84,
-    // what bees walk round: the rooms, the pond, the elevator core / 벌이 돌아가는 것: 방, 연못, 엘리베이터 코어
-    walls: [[21.1, 4.76, 26.1, 9.16], [24.84, 10.25, 29.84, 15.25], [16.5, 16.3, 19.1, 18.9], [1.5, 12, 3, 20]],
-    q: i => i < 4 ? { x: 24.4 + (i % 2) * .8, y: 7.7 + Math.floor(i / 2) * .6 } : { x: 22.2 - ((i - 4) % 4) * .7, y: 10.1 + Math.floor((i - 4) / 4) * .7 },
-    entry: () => ({ x: 3.5, y: 16 }),
-    // pods round the ring: the outer row, then the inner one, then out in the courtyard / 링을 따라 포드: 바깥 줄, 안쪽 줄, 그다음 안뜰
-    podAt: i => { const R = [[-82, 12.2], [-114, 12.2], [-146, 12.2], [14, 12.2], [-125, 8.6], [-86, 8.6], [30, 8.6]], C = PARK_C;
-      if (i < R.length) { const a = R[i][0] * Math.PI / 180; return { cx: C.x + Math.cos(a) * R[i][1], cy: C.y + Math.sin(a) * R[i][1], a }; }
-      const k = i - R.length, a = (-150 + (k % 3) * 70) * Math.PI / 180, r = 2.6 + Math.floor(k / 3) * .2; return { cx: C.x + Math.cos(a) * r, cy: C.y + Math.sin(a) * r, a: a + Math.PI / 2 }; },
-    size: () => ({ rows: 0, LOFF: 0, GY: 32, WORK_D: 0 }),
-    spots: SPOT_PARK, sofaLook: [0, 1], plantLook: () => [1, 0],
-    // 40 round the courtyard, then 40 on a wider ring between them (k * .63 came round every 10 bees: they stood
-    // on each other) / 안뜰 둘레에 40, 그다음 그 사이로 조금 더 큰 원에 40 (k * .63 은 10마리마다 같은 자리로 돌아와 겹쳤다)
-    // (every 17th of the 40: the first few already spread all round / 40 중 17칸씩 건너: 처음 몇 마리도 고르게 둘러선다)
-    mill: k => { const ring = Math.floor(k / 40) % 2, a = ((k * 17) % 40 + ring * .5) / 40 * 2 * Math.PI, r = 5.3 + ring * .6;
-      return { x: PARK_C.x + Math.cos(a) * r, y: PARK_C.y + Math.sin(a) * r }; },
-    labels: () => [[ROOMS.boss.name, 21.3, 9.7, 6, 2], [ROOMS.meet.name, 25, 15.8, 6, 2], [['로비', 'Lobby'], 3.4, 20.2, 8, 4], [['카페', 'Cafe'], 11.6, 29.6, 8, 4],
-      [['라운지', 'Lounge'], 5.2, 27.2, 8, 4], [['안뜰', 'Courtyard'], 12.4, 20.4, 8, 4]],
+  // the work area x 0..20.6 (team rooms on top, then pods three to a row), a corridor, the rooms x 21.6..32
+  // 작업 공간 x 0..20.6 (위에 팀 룸, 그 아래 한 줄에 섬 셋), 복도, 방 x 21.6..32
+  campus: {
+    GX: 32, fitGY: 15.4 + 4.2 + 3, plaqueEnd: () => 8.2 + LAY.LOFF, perRow: 3, corridor: 21.1,
+    meet: { x0: 21.6, x1: 27.1, y0: 0, y1: 5.5, gap: [22.4, 23.4], in: { x: 22.9, y: 4.8 }, out: { x: 22.9, y: 6.2 } },
+    boss: { x0: 27.1, x1: 32, y0: 0, y1: 5.5, gap: [28.6, 29.6], in: { x: 29.1, y: 4.8 }, out: { x: 29.1, y: 6.2 } },
+    meetC: { x: 24.35, y: 2.9 }, stand: [{ x: 22.1, y: .9 }, { x: 26.6, y: .9 }, { x: 22.1, y: 4.9 }, { x: 26.6, y: 4.9 }, { x: 23.8, y: 5 }, { x: 25.4, y: 5 }],
+    board: { x: 24.3, y: .75 }, boardLook: [0, -1], comb: { x: 28.2, y: .85 }, combU: 27.5, shelfX: 27.5, bossX: 29.2,
+    walls: [],   // the glass rooms bees go round, filled by layout() / 벌이 돌아가는 유리방. layout() 이 채운다
+    q: i => i < 4 ? { x: 29.6 + (i % 2) * .8, y: 3.75 + Math.floor(i / 2) * .65 } : { x: 28.2 - ((i - 4) % 4) * .7, y: 6.3 + Math.floor((i - 4) / 4) * .7 },
+    entry: () => ({ x: .5, y: 9.1 + LAY.LOFF }),
+    spots: SPOT_CAMPUS, sofaLook: [0, 1], plantLook: s => [s.x < 26 ? -1 : 1, -.5],
+    mill: k => ({ x: 7.6 + (k % 8) * .8 + (Math.floor(k / 24) % 2) * .4, y: 13.6 + LAY.LOFF + (Math.floor(k / 8) % 3) * .7 }),
+    labels: L => [[ROOMS.meet.name, 21.9, 5.2, 6, 2], [ROOMS.boss.name, 27.4, 5.2, 6, 2], [['카페', 'Cafe'], .2, 15.2 + L, 8, 4], [['라운지', 'Lounge'], 7.6, 15.2 + L, 8, 4], [['정원', 'Garden'], 22.2, 15.2 + L, 8, 4]],
   },
 };
 let PLANX = PLANS.classic;
-// the park needs the 3D office in the modern look / 파크는 모던 꾸밈의 3D 사무실에서
-const parkOn = () => settings.look !== 'flat' && settings.decor !== 'classic' && !!(window.OFFICE3D && OFFICE3D.ok);
+// the campus needs the 3D office in the modern look / 캠퍼스는 모던 꾸밈의 3D 사무실에서
+const campusOn = () => settings.look !== 'flat' && settings.decor !== 'classic' && !!(window.OFFICE3D && OFFICE3D.ok);
 function usePlan(name) {
   const P2 = PLANS[name];
   if (PLANX === P2 && SPOTS.length) return;
@@ -640,7 +628,8 @@ function usePlan(name) {
   SPOTS.splice(0, SPOTS.length, ...P2.spots.map(([kind, x, y, shift, look]) => ({ kind, x0: x, y0: y, shift, x, y, look, occ: null })));
 }
 function layout(offices) {
-  usePlan(parkOn() ? 'park' : 'classic');
+  usePlan(campusOn() ? 'campus' : 'classic');
+  if (PLANX === PLANS.campus) return layoutCampus(offices);
   // pods of four for the sessions that are not resting, each office's pods one after another, two to a row
   // 쉬지 않는 세션만큼 4인용 섬. Mac 마다 섬이 이어지고 한 줄에 둘
   // (a working team gets pods of its own / 일하는 팀은 자기 섬을 따로 받는다)
@@ -655,30 +644,80 @@ function layout(offices) {
   const desks = [];
   pods.forEach((p, i) => {
     Object.assign(p, podAt(i));
-    if (PLANX.ring) {   // a pod set along the ring: its table runs along it (t), seats on both sides (n, outward)
-      // 링을 따라 놓인 포드: 테이블은 링 방향 (t), 자리는 양쪽 (n, 바깥쪽)
-      const n = [Math.cos(p.a), Math.sin(p.a)], t = [-n[1], n[0]], at = (j, r) => ({ x: p.cx + t[0] * j + n[0] * r, y: p.cy + t[1] * j + n[1] * r });
-      Object.assign(p, { x: p.cx - 2.8, y: p.cy - 1.5 });
-      for (let k = 0; k < 4; k++) {
-        const s2 = k < 2 ? 1 : -1, j = k % 2 ? 1.3 : -1.3, seat = at(j, s2 * 1.25), out = [n[0] * s2, n[1] * s2];
-        desks.push({ id: `${p.oi}:${p.n}:${k}`, oi: p.oi, far: s2 > 0, ...at(j, s2 * .45), seat, look: [-out[0], -out[1]], ang: p.a, side: s2,
-          help: [[-.6, .45], [.6, .45], [0, .85]].map(([dj, dr]) => ({ dx: t[0] * dj + out[0] * dr, dy: t[1] * dj + out[1] * dr })),
-          brag: { x: seat.x + t[0] * .6, y: seat.y + t[1] * .6 } });
-      }
-      return;
-    }
-    for (let k = 0; k < 4; k++) {
-      const far = k < 2, x = p.x + 1.5 + (k % 2) * 2.6;   // far row faces this way / 먼 줄은 이쪽을 본다
-      const seat = { x, y: far ? p.y + .3 : p.y + 2.7 };
-      desks.push({ id: `${p.oi}:${p.n}:${k}`, oi: p.oi, far, x, y: far ? p.y + 1.05 : p.y + 1.95, seat, look: [0, far ? 1 : -1],
-        help: far ? HELP_FAR : HELP_NEAR, brag: { x: seat.x + .6, y: seat.y + (far ? -.1 : .1) } });
-    }
+    podDesks(p, desks);
   });
   SPOTS.forEach(s => { s.x = s.x0; s.y = s.y0 + (s.shift ? LOFF : 0); });
-  return { pods, desks, byId: new Map(desks.map(d => [d.id, d])), rows, LOFF, GY, WORK_D, plan: PLANX === PLANS.park ? 'park' : 'classic',
-    sig: `${PLANX === PLANS.park ? 'p' : ''}${rows}|${GY}|${pods.map(p => p.oi).join()}`, names: offices.map(o => o.host) };
+  return { pods, desks, byId: new Map(desks.map(d => [d.id, d])), rows, LOFF, GY, WORK_D, plan: 'classic', rooms: [],
+    sig: `${rows}|${GY}|${pods.map(p => p.oi).join()}`, names: offices.map(o => o.host) };
 }
-function roomOf(x, y) { return Object.values(ROOMS).find(r => x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1) || null; }
+// four desks round a pod, the far row facing this way; helpers stand by a seat, a helper fetches from the
+// cabinet at the pod's end / 섬의 책상 넷, 먼 줄은 이쪽을 본다. 부사수는 자리 옆에 서고, 자료는 섬 끝 캐비닛에서 가져온다
+function podDesks(p, desks) {
+  for (let k = 0; k < 4; k++) {
+    const far = k < 2, x = p.x + 1.5 + (k % 2) * 2.6;
+    const seat = { x, y: far ? p.y + .3 : p.y + 2.7 };
+    desks.push({ id: `${p.oi}:${p.n}:${k}`, oi: p.oi, far, x, y: far ? p.y + 1.05 : p.y + 1.95, seat, look: [0, far ? 1 : -1],
+      help: far ? HELP_FAR : HELP_NEAR, brag: { x: seat.x + .6, y: seat.y + (far ? -.1 : .1) }, fetch: { x: p.x + 5.72, y: p.y + (far ? 1.2 : 1.8) } });
+  }
+}
+/* campus: the work area is a grid of pod cells, three to a row. A team's room comes first and takes two or three
+   cells of a row (as many as its table needs), the rest of that row and the rows below go to the pods of everyone
+   else. A team room is glass with its door at the bottom: one long table, the lead at its head by the door looking
+   down it to the whiteboard on a stand at the other end, the roles along both sides in flow order, shelves in
+   the corners.
+   캠퍼스: 작업 공간은 한 줄에 셋인 섬 칸의 격자. 팀 룸이 먼저 한 줄의 두세 칸을 (탁자에 필요한 만큼) 쓰고, 그 줄의 남은
+   칸과 아래 줄은 나머지 벌의 섬이 쓴다. 팀 룸은 아래쪽에 문이 난 유리방: 긴 탁자 하나, 문 옆 상석에 앉아 탁자 너머
+   끝의 받침대 화이트보드를 보는 리드, 흐름 순서대로 양옆에 앉는 역할, 구석의 책장. */
+const ROOM_D = 5, CELL_W = 6.7, cellX = c => .6 + c * CELL_W;
+function layoutCampus(offices) {
+  // every role of a team, working or resting, sits in its room / 팀의 역할은 일하든 쉬든 모두 자기 룸에 앉는다
+  const rooms = [];
+  offices.forEach((o, oi) => {
+    const by = {};
+    for (const s of o.sessions) if (s.team) (by[`${s.project}|${s.team}`] ||= []).push(s);
+    for (const [k, ss] of Object.entries(by).sort()) rooms.push({ oi, k, team: ss[0].team, n: ss.length, lead: ss.some(s => s.lead) });
+  });
+  const desks = [], cells = [];
+  let y = .3;
+  rooms.forEach((r, i) => {
+    const per = Math.max(2, Math.min(6, Math.ceil((r.n - (r.lead ? 1 : 0)) / 2))), span = per * 2 + 4.7 > 2 * CELL_W - .3 ? 3 : 2;
+    const x0 = .3, x1 = cellX(span) - .5, y0 = y, y1 = y0 + ROOM_D, cy = y0 + ROOM_D / 2;
+    const len = per * 2 + .6, tx1 = x1 - 2.4, tx0 = tx1 - len, dx = x1 - 2.1;
+    for (let c = span; c < 3; c++) cells.push({ x: cellX(c), y: y0 + .5 });
+    Object.assign(r, { x0, x1, y0, y1, cy, per, tx0, tx1, name: [`팀 룸 · ${r.team}`, `Team room · ${r.team}`],
+      in: { x: dx, y: y1 - .6 }, out: { x: dx, y: y1 + .6 }, gap: [dx - .5, dx + .5],
+      board: { x: tx0 - .45, y: cy }, boardX: tx0 - 1.15, boardLook: [-1, 0],
+      // where a finished role brings its work to the lead / 끝낸 역할이 결과물을 리드에게 가져오는 곳
+      present: [[.5, -.95], [.5, .95], [1.4, -1.05], [1.4, 1.05]].map(([ex, ey]) => ({ x: tx1 + ex, y: cy + ey })) });
+    const shelfL = { x: x0 + 1, y: y0 + .95 }, shelfR = { x: x1 - 1, y: y0 + .95 };
+    r.head = { id: `${r.oi}:R${i}:h`, oi: r.oi, room: r, head: true, x: tx1 - .35, y: cy, seat: { x: tx1 + .9, y: cy }, look: [-1, 0],
+      help: [{ dx: .45, dy: -.65 }, { dx: .45, dy: .65 }, { dx: .9, dy: 0 }], brag: { x: tx1 + 1, y: cy + .65 }, fetch: shelfR };
+    r.side = [];
+    for (let m = 0; m < per * 2; m++) {
+      const far = m % 2 === 0, x = tx1 - 1.3 - Math.floor(m / 2) * 2;
+      const seat = { x, y: far ? cy - 1.25 : cy + 1.25 };
+      r.side.push({ id: `${r.oi}:R${i}:${m}`, oi: r.oi, room: r, far, x, y: far ? cy - .45 : cy + .45, seat, look: [0, far ? 1 : -1],
+        help: far ? HELP_FAR : HELP_NEAR, brag: { x: x + .6, y: seat.y + (far ? -.1 : .1) }, fetch: x < (x0 + x1) / 2 ? shelfL : shelfR });
+    }
+    desks.push(r.head, ...r.side);
+    y = y1 + 1.2;
+  });
+  const need = offices.map(o => Math.max(1, Math.ceil(o.sessions.filter(s => s.state !== 'idle' && !s.team).length / 4)));
+  const pods = [];
+  need.forEach((n, oi) => { for (let k = 0; k < n; k++) pods.push({ oi, n: k }); });
+  // pods fill the cells beside the rooms, then rows of three; what is left of the last row is spare
+  // 섬은 룸 옆 칸부터, 그다음 셋씩 줄로. 마지막 줄에 남는 칸은 빈자리
+  const rows = Math.max(1, Math.ceil(Math.max(0, pods.length - cells.length) / 3));
+  for (let k = 0; k < rows * 3; k++) cells.push({ x: cellX(k % 3), y: y + .4 + Math.floor(k / 3) * 4.2 });
+  pods.forEach((p, i) => { Object.assign(p, cells[i]); podDesks(p, desks); });
+  const spare = cells.slice(pods.length).filter(c => c.y >= y);
+  const WORK_D = Math.max(y, ...cells.map(c => c.y + 3.7)), LOFF = Math.max(0, WORK_D - 8.8), GY = 15.4 + LOFF;
+  SPOTS.forEach(s => { s.x = s.x0; s.y = s.y0 + (s.shift ? LOFF : 0); });
+  PLANX.walls.splice(0, PLANX.walls.length, ...[ROOMS.meet, ROOMS.boss, ...rooms].map(r => [r.x0, r.y0, r.x1, r.y1]));
+  return { pods, desks, byId: new Map(desks.map(d => [d.id, d])), rows, LOFF, GY, WORK_D, plan: 'campus', rooms, spare,
+    sig: `c${GY}|${pods.map(p => `${p.oi}@${p.x},${p.y}`).join()}|${rooms.map(r => r.k + r.per).join()}`, names: offices.map(o => o.host) };
+}
+function roomOf(x, y) { return [...Object.values(ROOMS), ...(LAY ? LAY.rooms : [])].find(r => x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1) || null; }
 // classic: each room's door is the gap in its glass front from door + .1 to door + 1. Bees go through a door
 // from its inside point to its outside one / 기본: 방마다 문은 유리 앞면의 door + .1 ~ door + 1 틈. 벌은 문의 안쪽 점에서 바깥 점으로 지나간다
 // the rooms' block (meeting and boss room) and the corner bees go round to stay off its glass
@@ -714,8 +753,8 @@ function routeIn(from, to) {
   return out;
 }
 
-// park: the straight way from p to q, or round the corners of what is in the way (a room left or entered is not
-// in the way) / 파크: p 에서 q 로 곧장, 막히면 그 모서리를 돌아서 (나오거나 들어가는 방은 막는 것이 아니다)
+// campus: the straight way from p to q, or round the corners of what is in the way (a room left or entered is not
+// in the way) / 캠퍼스: p 에서 q 로 곧장, 막히면 그 모서리를 돌아서 (나오거나 들어가는 방은 막는 것이 아니다)
 function round(p, q) {
   const skip = new Set([roomOf(p.x, p.y), roomOf(q.x, q.y)].filter(Boolean).map(r => `${r.x0},${r.y0}`));
   const walls = PLANX.walls.filter(w => !skip.has(`${w[0]},${w[1]}`));
@@ -908,12 +947,14 @@ function freeSpot(b) {
 /* where each bee should be now / 지금 벌이 있을 곳 */
 function setTarget(b, key, p, sprint) {
   if (b.key2 === key && b.goal && b.goal.x === p.x && b.goal.y === p.y) return;
-  b.key2 = key; b.goal = p; b.sprint = !!sprint; b.arrived = false;
+  // a copy: spots like the whiteboard move in place when the plan changes / 사본: 화이트보드 같은 자리는 배치가 바뀌면 제자리에서 값이 바뀐다
+  b.key2 = key; b.goal = { x: p.x, y: p.y }; b.sprint = !!sprint; b.arrived = false;
   b.path = b.x === undefined ? [] : route({ x: b.x, y: b.y }, p);
 }
 // hot desks: a bee that is not resting keeps its desk, a new one takes the first free desk of its Mac
 // 공용 책상: 쉬지 않는 벌은 자기 책상을 지키고, 새로 온 벌은 그 Mac 의 빈 책상 중 첫 자리에 앉는다
 function assignDesks(all) {
+  if (LAY.plan === 'campus') return assignCampus(all);
   const taken = new Set();
   // a working team takes pods of its own: where most of it already sits, else an empty one; the lead first,
   // then its flow. Another bee sitting there moves.
@@ -951,6 +992,31 @@ function assignDesks(all) {
   }
   for (const b of all) b.desk = b.deskId ? LAY.byId.get(b.deskId) : null;
 }
+// campus: a team's roles take their room's seats, the lead the head, the rest in flow order; everyone else keeps
+// a hot desk in the pods / 캠퍼스: 팀 역할은 자기 룸에, 리드는 상석, 나머지는 흐름 순서로. 다른 벌은 섬의 공용 책상
+function assignCampus(all) {
+  const taken = new Set(), ord = b => b.lead ? -1 : b.order ?? 99;
+  for (const r of LAY.rooms) {
+    const crew = all.filter(b => b.team && b.oi === r.oi && `${b.project}|${b.team}` === r.k).sort((a, c) => ord(a) - ord(c) || a.idx - c.idx);
+    let m = 0;
+    for (const b of crew) {
+      const d = b.lead && !taken.has(r.head.id) ? r.head : r.side[m++];
+      b.deskId = d ? d.id : null; if (d) taken.add(d.id);
+    }
+  }
+  const free = all.filter(b => !b.team);
+  for (const b of free) {
+    const d = b.state !== 'idle' && b.deskId && LAY.byId.get(b.deskId);
+    if (d && !d.room && d.oi === b.oi && !taken.has(d.id)) taken.add(d.id); else b.deskId = null;
+  }
+  for (const b of free.filter(b => b.state !== 'idle' && !b.deskId).sort((a, c) => a.idx - c.idx)) {
+    const d = LAY.desks.find(d => !d.room && d.oi === b.oi && !taken.has(d.id));
+    if (d) { taken.add(d.id); b.deskId = d.id; }
+  }
+  LAY.teamPods = new Map();
+  for (const b of all) b.desk = b.deskId ? LAY.byId.get(b.deskId) : null;
+}
+const roomOfBee = b => b.desk && b.desk.room || null;
 const BYE = [['양말을 받았어요! 이제 자유예요! 🧦', 'I got a sock! I am free! 🧦'], ['그동안 즐거웠어요! 안녕히 계세요 👋', 'It was fun! Goodbye, everyone 👋'],
   ['짐 다 챙겼어요. 다들 고마웠어요!', 'All packed. Thanks, everyone!'], ['꿀 많이 모으세요! 저는 이만 🍯', 'Keep the honey coming! I am off 🍯']];
 function farewell(b) {
@@ -997,8 +1063,12 @@ function plan() {
   const nowS = Date.now() / 1000;
   const meet = planners.length ? [] : all.filter(b => b.team && b.kickoff && nowS - b.kickoff < 40 && b.state !== 'wait')
     .sort((a, c) => (c.lead ? 1 : 0) - (a.lead ? 1 : 0) || (a.order ?? 99) - (c.order ?? 99));
+  for (const b of all) { b.atRoomBoard = false; b.meetLook = null; }
   meet.forEach((b, i) => {
-    b.atBoard = i === 0 && b.lead; b.meetSeat = b.atBoard ? BOARD_SPOT : seats[Math.min(seat++, seats.length - 1)];
+    const room = roomOfBee(b);
+    if (room) {   // campus: in its own room, the lead at the room's whiteboard, the rest in their seats / 캠퍼스: 자기 룸에서, 리드는 룸 화이트보드, 나머지는 제자리
+      b.atRoomBoard = !!b.lead; b.meetSeat = b.lead ? room.board : b.desk.seat; b.meetLook = b.lead ? room.boardLook : b.desk.look;
+    } else { b.atBoard = i === 0 && b.lead; b.meetSeat = b.atBoard ? BOARD_SPOT : seats[Math.min(seat++, seats.length - 1)]; }
     if (b.metAt !== b.kickoff) {       // once per goal / 목표마다 한 번
       b.metAt = b.kickoff;
       say(b, b.lead ? tr(`오늘 목표: ${b.goal.length > 26 ? b.goal.slice(0, 25) + '…' : b.goal}`, `Today: ${b.goal.length > 26 ? b.goal.slice(0, 25) + '…' : b.goal}`) : tr(...[['좋아요!', 'Got it!'], ['제가 맡을게요', 'I will take it'], ['바로 시작할게요', 'On it']][i % 3]), 6000);
@@ -1015,7 +1085,12 @@ function plan() {
       const o = b.desk.help[i];
       const p = meeting ? seats[Math.min(seat++, seats.length - 1)] : { x: s.x + o.dx, y: s.y + o.dy };
       if (!helpers.has(k)) helpers.set(k, { mini: true, host: b, born: performance.now() + i * 350, phase: Math.random() * 9 });
-      Object.assign(helpers.get(k), { x: p.x, y: p.y, pose: meeting ? 'meet' : 'help', look: meeting ? [MEET_C.x - p.x, MEET_C.y - p.y] : [s.x - p.x, s.y - p.y] });
+      // the first helper reads on its laptop by the seat; the others fetch papers from the shelf and bring them
+      // 첫 부사수는 자리 옆에서 노트북으로 읽고, 나머지는 책장에서 자료를 가져다 나른다
+      const h = helpers.get(k), runner = !meeting && i > 0 && !!b.desk.fetch && b.state === 'run';
+      Object.assign(h, { home: p, fetch: runner ? b.desk.fetch : null, runner, look: meeting ? [MEET_C.x - p.x, MEET_C.y - p.y] : [s.x - p.x, s.y - p.y], seatAt: s });
+      if (!runner) Object.assign(h, { x: p.x, y: p.y, pose: meeting ? 'meet' : 'help', moving: false, docs: false });
+      else if (h.x === undefined) Object.assign(h, { x: p.x, y: p.y, pose: 'docs' });
     }
   }
   for (const k of helpers.keys()) if (!alive.has(k)) helpers.delete(k);
@@ -1029,12 +1104,22 @@ function plan() {
     } else if (n) setTarget(n, 'out', ENTRY());
   });
   const millers = [];
+  const presenting = new Map();   // room -> finished roles at its lead / 룸 -> 리드 곁의 끝낸 역할
   for (const b of all) {
-    if (meet.includes(b)) setTarget(b, 'meet', b.meetSeat);
+    const room = roomOfBee(b);
+    if (b.errand && (b.state === 'wait' || performance.now() > b.errand.until)) b.errand = null;
+    // a hand-off: it carries the papers over to the next role's desk itself / 넘김: 다음 역할의 책상까지 직접 서류를 들고 간다
+    if (b.errand) setTarget(b, 'errand', b.errand.to.desk ? b.errand.to.desk.brag : { x: b.errand.to.x + .6, y: b.errand.to.y });
+    else if (meet.includes(b)) setTarget(b, 'meet', b.meetSeat);
     else if (b.state === 'run') b.plan || !b.desk ? setTarget(b, 'meet', b.plan ? b.meetSeat : MEET_STAND[0]) : setTarget(b, 'desk', b.desk.seat);
     else if (b.state === 'wait') setTarget(b, 'q', qSpot(waits.indexOf(b)), true);
+    else if (b.state === 'done' && room && !b.lead && room.head) {   // a finished role takes its work to the lead / 끝낸 역할은 결과물을 리드에게
+      const n = presenting.get(room) || 0; presenting.set(room, n + 1);
+      setTarget(b, 'present', room.present[n % room.present.length]);
+    }
     else if (b.state === 'done') setTarget(b, 'brag', b.desk ? b.desk.brag : COMB_SPOT);
     else if (b.deliver) setTarget(b, 'comb', COMB_SPOT);
+    else if (room) setTarget(b, 'desk', b.desk.seat);   // a team role between turns waits in its seat / 차례를 기다리는 팀 역할은 제자리에서
     else {
       if (!b.spot || Date.now() > b.spotUntil) freeSpot(b);
       if (b.spot) setTarget(b, 'lounge', { x: b.spot.x, y: b.spot.y });
@@ -1052,6 +1137,23 @@ function plan() {
     setTarget(b, 'lounge', PLANX.mill(b.mill));
   }
 }
+// a fetching helper's round, each frame: by the seat sorting papers, to the shelf, a moment there, back with an
+// armful / 자료 나르는 부사수의 한 바퀴 (매 프레임): 자리 옆에서 서류 정리, 책장으로, 거기서 잠깐, 한 아름 안고 돌아온다
+function updateHelpers(t) {
+  for (const h of helpers.values()) {
+    if (!h.runner || !h.home || !h.fetch) continue;
+    const a = h.home, b = h.fetch, d = Math.hypot(b.x - a.x, b.y - a.y), walk = Math.max(1.2, d / 1.8), sort = 3.5, look = 1.2;
+    const len = sort + walk + look + walk + 1.3, u = reduced ? 0 : (t + h.phase * 7) % len;
+    const go = (k, to, from) => { Object.assign(h, { x: from.x + (to.x - from.x) * k, y: from.y + (to.y - from.y) * k, moving: true, look: null });
+      const sx = P(to.x, to.y).x - P(from.x, from.y).x, sy = P(to.x, to.y).y - P(from.x, from.y).y; h.face = sx >= 0 ? 1 : -1; h.back = sy < -Math.abs(sx) * .4; };
+    if (u < sort) Object.assign(h, { x: a.x, y: a.y, moving: false, pose: 'docs', docs: true, look: [h.seatAt.x - a.x, h.seatAt.y - a.y] });
+    else if (u < sort + walk) { h.pose = 'walk'; h.docs = false; go((u - sort) / walk, b, a); }
+    else if (u < sort + walk + look) Object.assign(h, { x: b.x, y: b.y, moving: false, pose: 'fetch', docs: false, look: [b.x - a.x, b.y - a.y] });
+    else if (u < sort + walk * 2 + look) { h.pose = 'walk'; h.docs = true; go((u - sort - walk - look) / walk, a, b); }
+    else Object.assign(h, { x: a.x, y: a.y, moving: false, pose: 'docs', docs: true, look: [h.seatAt.x - a.x, h.seatAt.y - a.y] });
+    if (!h.moving && h.look) h.face = sideOf(...h.look);
+  }
+}
 // honey in the comb: today's finished tasks minus the jars still carried / 벌집의 꿀: 오늘 끝난 작업 - 아직 들고 있는 꿀단지
 const honeyShown = () => Math.max(0, honeyTotal - [...bees.values()].filter(b => b.state === 'done' || b.deliver).length);
 function whereOf(b) {
@@ -1064,6 +1166,12 @@ function whereOf(b) {
   const aides = b.agents > 0 ? tr(` · 부사수 ${b.agents}명`, ` · ${b.agents} helper${b.agents > 1 ? 's' : ''}`) : '';
   const mates = [...crew.values()].filter(n => n.key2 === 'meet' && n.arrived).length;
   const withMates = mates ? tr(` · 동료 ${mates}명과`, ` · with ${mates} colleague${mates > 1 ? 's' : ''}`) : '';
+  if (b.errand) return tr(`${b.errand.l.toName}에게 넘길 자료를 들고 가는 중`, `taking the hand-off to ${b.errand.l.toName}`);
+  if (b.atRoomBoard && b.key2 === 'meet') return tr('팀 룸 · 화이트보드 앞에서 오늘 목표를 나누는 중', 'team room · sharing the goal at the whiteboard');
+  if (roomOfBee(b) && b.key2 === 'meet' && b.meetLook) return tr('팀 룸 · 오늘 목표를 듣는 중', 'team room · hearing the goal');
+  if (b.state === 'run' && roomOfBee(b) && b.key2 === 'desk') return tr('팀 룸 자리에서 일하는 중', 'working in the team room') + aides;
+  if (b.state === 'done' && b.key2 === 'present') return tr('리드에게 결과물을 가져가는 중', 'bringing the work to the lead');
+  if (b.state === 'idle' && roomOfBee(b) && !b.deliver) return tr('팀 룸에서 다음 차례를 기다리는 중', 'in the team room, waiting for its turn');
   if (b.state === 'run') return (b.plan ? (b.atBoard ? tr('회의실 · 화이트보드에 계획 그리는 중', 'meeting room · drawing the plan on the whiteboard') : tr('회의실 · 계획 회의 중', 'meeting room · planning')) + withMates
     : tr('자리에서 일하는 중', 'working at the desk')) + aides;
   if (b.state === 'wait') { const i = [...bees.values()].filter(x => x.state === 'wait').sort((a, c) => a.at - c.at).indexOf(b); return tr(`사장실 질문 창구 ${i + 1}번째`, `question window, #${i + 1} in line`); }
@@ -1082,9 +1190,24 @@ function takeLetters(list) {
     lettersSeen.add(id);
     const from = bees.get(`${o.ssh || ''}|${l.from}`), to = bees.get(`${o.ssh || ''}|${l.to}`);
     if (!from || !to || Date.now() / 1000 - l.at > 20) continue;      // only new ones / 새것만
+    // the bee walks it over when it can; one waiting for you (or nowhere yet) sends a letter flying instead
+    // 할 수 있으면 벌이 직접 들고 가고, 나를 기다리는 벌 (또는 아직 자리가 없는 벌) 은 편지를 날린다
+    if (!reduced && from.x !== undefined && to.x !== undefined && from.state !== 'wait' && !from.errand) {
+      from.errand = { to, l, until: performance.now() + 30000 };
+      say(from, tr(`${l.toName}에게 가져갈게요`, `Taking it to ${l.toName}`), 1800);
+      plan();
+      continue;
+    }
     letters.push({ from, to, start: performance.now(), l });
-    say(from, tr(`${l.toName}에게 보냄`, `to ${l.toName}`), 1800);
+    say(from, tr(`${l.toName}에게 보냄`, `to ${l.toName}`), 1800); logHandoff(from, l);
   }
+}
+// the last hand-offs of each team, for its whiteboard / 팀마다 최근 넘김 (화이트보드에)
+const HANDOFFS = new Map();
+function logHandoff(b, l) {
+  if (!b.team) return;
+  const k = `${b.project}|${b.team}`, list = (HANDOFFS.get(k) || []).filter(x => x.at !== l.at || x.from !== l.fromName);
+  list.unshift({ from: l.fromName, to: l.toName, at: l.at }); HANDOFFS.set(k, list.slice(0, 3));
 }
 function drawLetters() {
   const now = performance.now(), z = textZoom();
@@ -2237,9 +2360,7 @@ function drawYard(t) {
     c.beginPath(); river.forEach((p, i) => i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y));
     c.lineWidth = w; c.lineJoin = 'round'; c.lineCap = 'round'; c.strokeStyle = col; c.stroke();
   }
-  if (LAY.plan === 'park') {   // a round plaza round the ring / 링을 두른 둥근 광장
-    const C = PARK_C, r = PARK_R + 1.4; poly(Array.from({ length: 72 }, (_, i) => P(C.x + Math.cos(i / 72 * Math.PI * 2) * r, C.y + Math.sin(i / 72 * Math.PI * 2) * r)), night(T['o-path']));
-  } else floorRect(-1, -1, GX + 2, GY + 2, night(T['o-path']));
+  floorRect(-1, -1, GX + 2, GY + 2, night(T['o-path']));
   floorRect(-E, pathY() - .6, E, 1.2, night(T['o-path']));
   if (houses().length && globeFor(cam.zoom) === 0) {   // the village path and its lanes / 마을 큰길과 골목
     const vx = villageEnd(), py = pathY(); floorRect(vx, py - .6, -E - vx, 1.2, night(T['o-path']));
@@ -2365,27 +2486,56 @@ function laptop(d, owner, t) {
 // a team's board on an easel by its pod: each role, its state, its context against the diet line
 // 팀 섬 옆 이젤의 팀 보드: 역할마다 상태와, 다이어트 기준에 대한 컨텍스트
 const BOARD_STATE = { run: ['일함', 'working'], wait: ['기다림', 'needs you'], done: ['끝남', 'done'], idle: ['쉼', 'resting'] };
-function teamBoard(p, tm) {
-  const members = [...bees.values()].filter(b => b.team === tm && b.project && b.state !== 'bye')
+function teamBoard(foot, tm, key) {
+  const members = [...bees.values()].filter(b => b.team === tm && b.project && `${b.project}|${b.team}` === key && b.state !== 'bye')
     .sort((a, c) => (c.lead ? 1 : 0) - (a.lead ? 1 : 0) || (a.order ?? 99) - (c.order ?? 99)).slice(0, 7);
   if (!members.length) return;
-  const z = textZoom(), foot = P(p.x - .35, p.y + 1.6), row = 13 * z, w = 132 * z, h = 22 * z + members.length * row, x = foot.x - w / 2, y = foot.y - h - 34 * z;
+  // the flow in order (its roles without the lead), and the last hand-offs / 흐름 순서 (리드 뺀 역할), 최근 넘김
+  const role = b => String(b.label || '').replace('★ ', '');
+  const flow = members.filter(b => !b.lead && (b.order ?? 99) < 99).sort((a, c) => a.order - c.order).map(role);
+  const log = (HANDOFFS.get(key) || []).slice(0, 2), z = textZoom(), row = 13 * z, w = 150 * z;
+  const h = 22 * z + members.length * row + (flow.length > 1 ? 16 * z : 0) + (log.length ? 14 * z + log.length * 12 * z : 0) + 4 * z;
+  const x = foot.x - w / 2, y = foot.y - h - 34 * z;
   c.strokeStyle = T['m-desk-edge']; c.lineWidth = 2;
   for (const dx of [-w * .3, w * .3]) { c.beginPath(); c.moveTo(foot.x + dx * .6, y + h); c.lineTo(foot.x + dx, foot.y); c.stroke(); }
   fillRR(x - 3, y - 3, w + 6, h + 6, 4, T['m-desk-edge']); fillRR(x, y, w, h, 3, T['m-board']);
-  c.textBaseline = 'middle'; font(9.5 * z, 700); c.fillStyle = T['m-team-fg']; c.fillText(tm, x + 7 * z, y + 10 * z);
-  members.forEach((b, i) => {
-    const ry = y + 22 * z + i * row + row / 2, st = b.dieting && b.dieting !== 'after' ? 'diet' : b.state;
-    circle(x + 10 * z, ry, 3.2 * z, T[b.state] || T.sleep);
-    font(9 * z, 600); c.fillStyle = '#1b1f27'; c.fillText(String(b.label || '').replace('★ ', ''), x + 17 * z, ry);
+  c.textBaseline = 'middle'; font(9.5 * z, 700); c.fillStyle = T['m-team-fg']; c.fillText(clipText(tm, w - 14 * z), x + 7 * z, y + 10 * z);
+  let ry = y + 22 * z;
+  if (flow.length > 1) { font(8.5 * z, 600); c.fillStyle = '#4a5263'; c.fillText(clipText(flow.join(' → '), w - 14 * z), x + 7 * z, ry + 4 * z); ry += 16 * z; }
+  members.forEach(b => {
+    const cy = ry + row / 2, st = b.dieting && b.dieting !== 'after' ? 'diet' : b.state;
+    circle(x + 10 * z, cy, 3.2 * z, T[b.state] || T.sleep);
+    font(9 * z, 600); c.fillStyle = '#1b1f27'; c.fillText(clipText(String(b.label || ''), 50 * z), x + 17 * z, cy);
     font(8.5 * z, 400); c.fillStyle = '#4a5263';
-    c.fillText(st === 'diet' ? tr('다이어트', 'diet') : tr(...(BOARD_STATE[b.state] || BOARD_STATE.idle)), x + 62 * z, ry);
+    c.fillText(st === 'diet' ? tr('다이어트', 'diet') : tr(...(BOARD_STATE[b.state] || BOARD_STATE.idle)), x + 72 * z, cy);
     if (b.line) {     // context against the line / 기준 대비 컨텍스트
       const bw = 30 * z, f = Math.min(1, b.ctx / b.line);
-      fillRR(x + w - bw - 7 * z, ry - 2 * z, bw, 4 * z, 2, '#e3e7ee'); fillRR(x + w - bw - 7 * z, ry - 2 * z, Math.max(2, bw * f), 4 * z, 2, f > .9 ? '#e8a13a' : '#4caf7d');
+      fillRR(x + w - bw - 7 * z, cy - 2 * z, bw, 4 * z, 2, '#e3e7ee'); fillRR(x + w - bw - 7 * z, cy - 2 * z, Math.max(2, bw * f), 4 * z, 2, f > .9 ? '#e8a13a' : '#4caf7d');
     }
+    ry += row;
   });
+  if (log.length) {
+    c.fillStyle = '#d5dae3'; c.fillRect(x + 7 * z, ry + 3 * z, w - 14 * z, 1);
+    font(8 * z, 700); c.fillStyle = '#6b7385'; c.fillText(tr('최근 업무 전달', 'Recent hand-offs'), x + 7 * z, ry + 10 * z); ry += 14 * z;
+    for (const e of log) {
+      const ago = Math.max(0, Date.now() / 1000 - e.at), when = ago < 60 ? tr('방금', 'just now') : tr(`${Math.floor(ago / 60)}분 전`, `${Math.floor(ago / 60)}m ago`);
+      font(8.5 * z, 500); c.fillStyle = '#1b1f27'; c.fillText(clipText(`${e.from} → ${e.to} · ${when}`, w - 14 * z), x + 7 * z, ry + 6 * z); ry += 12 * z;
+    }
+  }
   c.textBaseline = 'alphabetic';
+}
+// a role's name card on the table in front of it, the lead's with a star / 자리 앞 탁자의 역할 명패. 리드는 별
+function nameCards() {
+  const z = textZoom(), owners = new Map([...bees.values()].filter(b => b.desk && b.desk.room).map(b => [b.desk.id, b]));
+  font(7.5 * z, 700); c.textAlign = 'center'; c.textBaseline = 'middle';
+  for (const d of LAY.desks) {
+    const b = d.room && owners.get(d.id); if (!b) continue;
+    const q = P(d.seat.x + d.look[0] * .62, d.seat.y + d.look[1] * .62, 17), text = (d.head ? '★ ' : '') + String(b.label || nameOf(b)).replace('★ ', '');
+    const w = c.measureText(text).width + 8 * z, h = 11 * z;
+    fillRR(q.x - w / 2, q.y - h / 2, w, h, 2 * z, d.head ? T.honey : '#ffffff'); c.strokeStyle = 'rgba(30, 40, 60, .25)'; c.lineWidth = 1; rr(q.x - w / 2, q.y - h / 2, w, h, 2 * z); c.stroke();
+    c.fillStyle = d.head ? '#3a2612' : T['m-team-fg']; c.fillText(text, q.x, q.y + .5);
+  }
+  c.textAlign = 'left'; c.textBaseline = 'alphabetic';
 }
 // the team most of a pod's bees belong to / 섬의 벌 대부분이 속한 팀
 function podTeam(p) {
@@ -2401,7 +2551,11 @@ function labels() {
   const { LOFF } = LAY;
   // a team's name on its pod's floor / 팀 섬의 바닥에 팀 이름
   font(11 * textZoom(), 700); c.fillStyle = T['m-team-fg']; c.textBaseline = 'alphabetic';
-  for (const p of LAY.pods) { const tm = firstTeamPod(p) && podTeam(p); if (tm) { const q = P(p.x + .15, p.y + 3.25); c.fillText(tm, q.x + 4, q.y); teamBoard(p, tm); } }
+  for (const p of LAY.pods) { const tm = firstTeamPod(p) && podTeam(p); if (tm) { const q = P(p.x + .15, p.y + 3.25); c.fillText(tm, q.x + 4, q.y); teamBoard(P(p.x - .35, p.y + 1.6), tm, LAY.teamPods.get(`${p.oi}:${p.n}`)); } }
+  // campus: each team room's name by its door, the name cards, and the whiteboard's words over it / 캠퍼스: 팀 룸 이름, 명패, 화이트보드의 글
+  for (const r of LAY.rooms) { const q = P(r.x0 + .3, r.y1 - .3); c.fillText(tr(...r.name), q.x + 4, q.y); }
+  if (LAY.rooms.length) { nameCards(); font(11 * textZoom(), 700); c.fillStyle = T['m-team-fg']; }
+  for (const r of LAY.rooms) teamBoard(P(r.boardX, r.cy, 0), r.team, r.k);
   font(10.5 * textZoom(), 600); c.fillStyle = T['m-label']; c.textBaseline = 'alphabetic';
   for (const [name, x, y, dx, dy] of PLANX.labels(LOFF)) { const q = P(x, y); c.fillText(tr(...name), q.x + dx, q.y + dy); }
   c.textBaseline = 'top';
@@ -2441,9 +2595,12 @@ function poseOf(b) {
   if (b.npc) return b.key2 === 'meet' ? 'meet' : 'idle';
   if (b.state === 'bye') return 'done';   // holding up its box / 상자를 들고
   if (b.state === 'home') return b.key2 === 'clap' ? 'clap' : b.key2 === 'eve' && b.arrived && b.eve && b.eve.spot ? ({ cheers: 'cheers', kick: 'kick', bench: 'sofa', chat: 'chat', type: 'type', read: 'coffee', dart: 'pong' })[b.eve.kind] : 'idle';
-  if (b.state === 'run') return b.key2 === 'meet' ? (b.atBoard ? 'board' : 'meet') : 'type';
+  if (b.key2 === 'errand') return 'hand';   // handing the papers over / 서류를 건넨다
+  if (b.key2 === 'meet' && (b.atBoard || b.atRoomBoard)) return 'board';
+  if (b.state === 'run') return b.key2 === 'meet' ? 'meet' : 'type';
   if (b.state === 'wait') return 'wait';
   if (b.state === 'done') return 'done';
+  if (b.key2 === 'meet' || (b.key2 === 'desk' && b.desk)) return 'meet';   // sitting at the table between turns / 차례 사이엔 탁자에 앉아 있다
   return b.spot && b.key2 === 'lounge' ? b.spot.kind : 'idle';
 }
 
@@ -2453,6 +2610,8 @@ function drawBee(b, t) {
   let grow = 1;
   if (mini) { const age = (now - b.born) / 300; if (age < 0) return; grow = Math.min(1, age) * (1 + Math.max(0, .3 - Math.abs(age - .8))); }
   const pose = mini ? b.pose : b.moving ? 'walk' : poseOf(b);
+  // papers in its arms: a helper bringing them, or a role carrying a hand-off / 품에 서류: 가져오는 부사수, 또는 넘길 업무를 든 역할
+  const docs = mini ? b.docs && pose !== 'fetch' : !!(b.errand && !b.errand.handed);
   const urg = b.state === 'wait' && b.office ? Math.min(1, ageOf(b) / 120) : 0;
   // a bee at work looks at something (its laptop, the counter, the whiteboard): from behind it we see its back
   // 일하는 벌은 무언가를 본다 (노트북, 카운터, 화이트보드). 그 뒤에서 보면 뒷모습
@@ -2460,7 +2619,7 @@ function drawBee(b, t) {
   const typeFront = pose === 'type' && look && toward(...look);
   const back = (busy && look ? !toward(...look) : false) || (pose === 'walk' && b.back);
   const sit = SIT[pose] || 0, f = look ? sideOf(...look) : b.face || -1, dark = T['bee-dark'];
-  const carry = pose === 'done' || ((b.state === 'done' || b.deliver || b.state === 'bye') && pose === 'walk');
+  const carry = !docs && (pose === 'done' || ((b.state === 'done' || b.deliver || b.state === 'bye') && pose === 'walk'));
   const ph = t * (b.sprint ? 18 : 10) + (b.phase || 0);
   const swing = pose === 'walk' ? Math.sin(ph) : 0;
   let bob = 0, tilt = 0, flap = .5 + .5 * Math.sin(t * 6 + (b.phase || 0));
@@ -2500,6 +2659,9 @@ function drawBee(b, t) {
   else if (pose === 'clap') { const k = 1.5 + Math.abs(Math.sin(t * 13 + (b.phase || 0))) * 5; arms.push([-1, -k, -36], [1, k, -36]); }
   else if (pose === 'wait') arms.push([-f, -f * 8, -14], [f, f * (8 + Math.sin(t * (12 + urg * 10)) * 3), -40]);
   else if (carry) arms.push([-1, -5, -44], [1, 5, -44]);
+  else if (docs || pose === 'docs') arms.push([-1, -6, -24], [1, 6, -24]);
+  else if (pose === 'hand') arms.push([-f, -f * 7, -16], [f, f * 13, -26]);
+  else if (pose === 'fetch') arms.push([-f, -f * 7, -16], [f, f * 9, -44 + Math.sin(t * 4) * 2]);
   else if (typeFront) { const tap = Math.sin(t * 28 + (b.phase || 0)) * 1.5; arms.push([-1, -7, -23 + tap], [1, 7, -23 - tap]); }
   else if (pose === 'type') { const tap = Math.sin(t * 28 + (b.phase || 0)) * 1.5; arms.push([-1, -6, -31 + tap], [1, 6, -31 - tap]); }
   else if (pose === 'coffee') arms.push([-1, -6, -30], [1, 6, -30]);
@@ -2538,6 +2700,13 @@ function drawBee(b, t) {
     fillRR(-9, -58, 18, 13, 1.5, '#c99a62'); c.strokeStyle = dark; c.lineWidth = 1; rr(-9, -58, 18, 13, 1.5); c.stroke();
     fillRR(-1.5, -58, 3, 13, .5, '#e3c08e'); fillRR(-5, -65, 5, 7, 1.5, T.run); fillRR(2, -62, 4, 4, 1, T.wait);
   } else if (carry) { fillRR(-6, -57, 12, 12, 2.5, T.honey); c.strokeStyle = dark; c.lineWidth = 1; rr(-6, -57, 12, 12, 2.5); c.stroke(); fillRR(-7, -59, 14, 3.5, 1, dark); }
+  if (docs || pose === 'docs') {   // a stack of papers held in front / 앞에 든 서류 뭉치
+    const px = back ? 0 : f * 2;
+    for (let i = 0; i < 3; i++) fillRR(px - 6 + i * .6, -30 - i * 1.6, 12, 9, 1, i === 2 ? '#ffffff' : '#eef1f6');
+    c.strokeStyle = 'rgba(40, 50, 70, .35)'; c.lineWidth = .8; rr(px - 4.8, -33.2, 12, 9, 1); c.stroke();
+    c.fillStyle = T.run; for (let i = 0; i < 3; i++) c.fillRect(px - 3.4, -31.4 + i * 2.2, 6 + (i % 2) * 2, .8);
+  }
+  if (pose === 'hand') { fillRR(f * 13 - 5, -33, 10, 8, 1, '#ffffff'); c.fillStyle = T.run; for (let i = 0; i < 2; i++) c.fillRect(f * 13 - 3.5, -31 + i * 2.4, 7, .8); }
   if (pose === 'pong') circle(f * 13, -28 + Math.sin(t * 5.5) * 4, 3.4, T.alert);
   if (pose === 'plant') fillRR(f * 10 - 4, -22, 8, 7, 1.5, T.run);
   if (b.acc === 'glasses' && !back) { const ex = (b.face || -1) * 2.4; c.strokeStyle = dark; c.lineWidth = 1; for (const s of [-1, 1]) { c.beginPath(); c.arc(ex + s * 3.2, -35, 3.1, 0, 7); c.stroke(); } c.beginPath(); c.moveTo(ex - .3, -35); c.lineTo(ex + .3, -35); c.stroke(); }
@@ -2718,11 +2887,12 @@ function drawFrame(now) {
     DRAWER.cur = reduced || Math.abs(dw) < .5 ? DRAWER.cur + dw : DRAWER.cur + dw * Math.min(1, dt * 9);
     place();
     for (const b of [...bees.values(), ...crew.values()]) step(b, dt);
+    updateHelpers(t);
     const roof = roofFor(cam.zoom), globe = globeFor(cam.zoom);
     // in 3D (share/office/office3d.js) the scene is drawn under this canvas, which keeps the words on top; the
     // roof, the planet and the plan are drawn here as before / 3D 에선 이 캔버스 아래에 장면을 그리고, 이 캔버스엔 글자만
     // 남는다. 지붕, 행성, 평면도는 전처럼 여기서 그린다
-    const solid = settings.look !== 'flat' && window.OFFICE3D && OFFICE3D.ok && globe === 0 && (flat() === 0 || LAY.plan === 'park');
+    const solid = settings.look !== 'flat' && window.OFFICE3D && OFFICE3D.ok && globe === 0 && (flat() === 0 || LAY.plan === 'campus');
     if (solid) {
       LIGHT = skyNow().light; T.win = mixc(T['m-window'], T['o-lamp'], Math.max(0, 1 - LIGHT * 1.3));
       c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, cv.width, cv.height); c.restore();
@@ -2780,39 +2950,7 @@ function drawFrame(now) {
 // the building from outside: walls all round, a flat roof with an eave, skylights, a vent, a hive and
 // the Mac's name painted on it; windows glow at night
 // 바깥에서 본 건물: 사방 벽, 처마가 있는 평지붕, 천창, 환기구, 벌통, 지붕에 칠한 Mac 이름. 밤엔 창문이 켜진다
-// the park from outside: curved glass walls, a ring of roof with solar panels round the open courtyard, the name
-// 바깥에서 본 파크: 곡면 유리벽, 열린 안뜰을 두른 링 지붕과 태양광 패널, 이름
-function drawParkRoof() {
-  const C = PARK_C, RO = PARK_R, RI = PARK_IN, H = WALL, top = H + 8, N = 72;
-  const ring = (r, z) => Array.from({ length: N }, (_, i) => { const a = i / N * Math.PI * 2; return P(C.x + Math.cos(a) * r, C.y + Math.sin(a) * r, z); });
-  const seg = (r, i, z0, z1) => { const a0 = i / N * Math.PI * 2, a1 = (i + 1) / N * Math.PI * 2; return [P(C.x + Math.cos(a0) * r, C.y + Math.sin(a0) * r, z0), P(C.x + Math.cos(a1) * r, C.y + Math.sin(a1) * r, z0), P(C.x + Math.cos(a1) * r, C.y + Math.sin(a1) * r, z1), P(C.x + Math.cos(a0) * r, C.y + Math.sin(a0) * r, z1)]; };
-  const mid = i => (i + .5) / N * Math.PI * 2;
-  // the courtyard, then the far side of its glass seen from inside / 안뜰, 그다음 안에서 보이는 안뜰 유리의 먼 쪽
-  poly(ring(RI, 0), night('#a9c98e'));
-  for (let i = 0; i < N; i++) if (toward(-Math.cos(mid(i)), -Math.sin(mid(i))) === false) poly(seg(RI, i, 0, top), shade(night(mixc(T['m-window'], '#ffffff', .4)), .1));
-  // the outer glass facing us, its windows lit at night / 이쪽을 보는 바깥 유리. 밤엔 창이 켜진다
-  for (let i = 0; i < N; i++) if (toward(Math.cos(mid(i)), Math.sin(mid(i)))) {
-    poly(seg(RO, i, 0, H), sideOf(Math.cos(mid(i)), Math.sin(mid(i))) < 0 ? shade(night(mixc(T['m-window'], '#ffffff', .3)), .05) : night(mixc(T['m-window'], '#ffffff', .45)));
-    if (LIGHT < .6) poly(seg(RO, i, 18, 50).map(p => ({ x: p.x, y: p.y })), `rgba(255, 214, 140, ${(.6 - LIGHT) * .9})`);
-    poly(seg(RO + .4, i, H, top), night('#d8d7d2'));
-  }
-  // the roof: a ring (even-odd), a band of solar panels / 지붕: 링 (짝홀 채우기), 태양광 패널 띠
-  const fillRing = (r0, r1, z, col) => { c.beginPath(); ring(r1, z).forEach((p, i) => i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)); c.closePath(); ring(r0, z).reverse().forEach((p, i) => i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)); c.closePath(); c.fillStyle = col; c.fill('evenodd'); };
-  fillRing(RI - .2, RO + .4, top, night('#efeee9'));
-  fillRing(RI + 1.2, RO - 1.2, top, night('#2b3b58'));
-  c.strokeStyle = night('#efeee9'); c.lineWidth = 1.5;
-  for (let i = 0; i < 48; i++) { const a = i / 48 * Math.PI * 2, p0 = P(C.x + Math.cos(a) * (RI + 1.2), C.y + Math.sin(a) * (RI + 1.2), top), p1 = P(C.x + Math.cos(a) * (RO - 1.2), C.y + Math.sin(a) * (RO - 1.2), top); c.beginPath(); c.moveTo(p0.x, p0.y); c.lineTo(p1.x, p1.y); c.stroke(); }
-  { const rm = (RI + RO) / 2, pts = ring(rm, top); c.beginPath(); pts.forEach((p, i) => i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)); c.closePath(); c.stroke(); }
-  // the name over the courtyard, reading across the screen / 안뜰 위의 이름, 화면 가로로
-  const o = P(C.x, C.y, top), n = [...bees.values()].filter(b => b.state === 'run').length;
-  const k = Math.max(1, .55 / scale);   // readable from far out / 멀리서도 읽히게
-  c.save(); c.textAlign = 'center'; c.textBaseline = 'middle'; font(28 * k, 800); c.fillStyle = 'rgba(255, 255, 255, .92)'; c.strokeStyle = 'rgba(30, 40, 60, .35)'; c.lineWidth = 4 * k;
-  const name = clipText(offices[0] ? offices[0].host : 'hivemux', 400 * k); c.strokeText(name, o.x, o.y - 10 * k); c.fillText(name, o.x, o.y - 10 * k);
-  font(16 * k, 700); const sub = tr(`${n}마리 일하는 중`, `${n} working`); c.strokeText(sub, o.x, o.y + 16 * k); c.fillText(sub, o.x, o.y + 16 * k);
-  c.restore(); c.textAlign = 'left'; c.textBaseline = 'top';
-}
 function drawRoof(t) {
-  if (LAY.plan === 'park') return drawParkRoof();
   const { GY } = LAY, H = WALL;
   box(0, 0, GX, GY, H, T['m-wallface']);
   for (const [a, b, n] of [[[0, GY], [GX, GY], [0, -1]], [[GX, 0], [GX, GY], [-1, 0]], [[0, 0], [GX, 0], [0, 1]], [[0, 0], [0, GY], [1, 0]]]) {
@@ -2856,7 +2994,14 @@ function settle(b) {
   if (b.key2 === 'pub') { b.inside = true; b.atPub = true; return; }
   if (b.key2 === 'eve' && b.eve && b.eve.spot) { b.look = b.eve.spot.look; return; }
   if (b.key2 === 'desk' && b.desk) b.look = b.desk.look;
-  if (b.key2 === 'meet') b.look = b.atBoard ? PLANX.boardLook : at(MEET_C);
+  if (b.key2 === 'meet') b.look = b.meetLook || (b.atBoard ? PLANX.boardLook : at(MEET_C));
+  if (b.key2 === 'present') { const r = roomOfBee(b); if (r) b.look = [r.head.seat.x - b.x, r.head.seat.y - b.y]; }
+  if (b.key2 === 'errand' && b.errand && !b.errand.handed) {   // there: hand the papers over, then back to work / 도착: 서류를 건네고 다시 일하러
+    const e = b.errand, text = e.l.text.length > 34 ? e.l.text.slice(0, 33) + '…' : e.l.text;
+    e.handed = true; b.look = at(e.to);
+    say(b, tr('여기 있어요!', 'Here you go!'), 1600); say(e.to, `${e.l.fromName}: ${text}`, 5000); logHandoff(b, e.l);
+    setTimeout(() => { if (b.errand === e) { b.errand = null; plan(); } }, 1900);
+  }
   if (b.npc && b.key2 === 'out') crew.delete(b.key);
   if (b.key2 === 'bye') { bees.delete(b.key); return; }   // gone down the elevator / 엘리베이터로 내려갔다
   if (b.key2 === 'q') { b.look = [0, -1]; maybePop(); }
