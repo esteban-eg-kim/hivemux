@@ -50,6 +50,9 @@ select.project:focus-visible { outline: 2px solid #2f7fd6; outline-offset: 2px; 
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) select.project { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239aa3b2' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); } }
 
 main { padding: 8px 24px 56px; }
+/* a phone: the 16px gutter, nothing wider than the screen / 휴대폰: 16px 여백, 화면보다 넓은 것 없음 */
+@media (max-width: 640px) { main { padding: 8px 16px 72px; } .card { padding: 16px; } .roles { max-width: none; } }
+.wrap > *, .layout > *, .card { min-width: 0; }
 .wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
 h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
 h2 { margin: 0; font-size: 18px; font-weight: 700; }
@@ -63,7 +66,7 @@ h2 { margin: 0; font-size: 18px; font-weight: 700; }
 .btn[disabled] { opacity: .5; cursor: default; }
 .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .between { justify-content: space-between; }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr)); gap: 16px; }
 
 .icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 28%; }
 .icon svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -87,7 +90,31 @@ h2 { margin: 0; font-size: 18px; font-weight: 700; }
   border-radius: 11px; padding: 8px 10px; min-height: 52px; }
 .roleitem[aria-pressed="true"] { background: var(--soft); border-color: var(--fg); }
 .roleitem .meta { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1.3; }
+.roleitem .meta .nm { display: flex; align-items: center; gap: 6px; font: 14px var(--f-body); color: var(--fg); }
+.roleitem .meta .nm .pill { margin-left: auto; }
 .roleitem .meta span { font-size: 12px; color: var(--muted); font-family: var(--f-mono); }
+/* a role's state as words, in its color / 역할의 상태를 글로, 그 색으로 */
+.pill { font-style: normal; display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 2px 8px;
+  background: var(--soft2); color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pill.run { color: var(--run); background: color-mix(in srgb, var(--run) 12%, transparent); }
+.pill.wait { color: var(--wait); background: color-mix(in srgb, var(--wait) 14%, transparent); }
+.pill.done { color: var(--done); background: color-mix(in srgb, var(--done) 12%, transparent); }
+.pill.idle { color: var(--fg2); }
+.summary { display: flex; flex-wrap: wrap; gap: 6px; }
+.navhead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 4px 6px 8px; }
+.navhead b { font-size: 13px; }
+.addbtn { border: 1px dashed var(--line); background: transparent; border-radius: 10px; min-height: 42px; font-weight: 700; color: var(--fg2); margin-top: 6px; }
+.addbtn:hover { border-color: var(--muted); color: var(--fg); }
+/* the goal for the lead, always at hand once the team works / 팀이 일하는 동안 늘 보이는 리드에게 줄 목표 */
+.goalbar { display: flex; flex-direction: column; gap: 10px; }
+.goalbar .in { display: flex; gap: 8px; align-items: stretch; }
+.goalbar textarea { flex: 1; min-height: 46px; height: 46px; resize: vertical; border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; background: var(--panel); }
+.dhead { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.dhead .who { flex: 1 1 260px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dhead input.text { font-size: 17px; }
+.group { display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--line2); padding-top: 16px; }
+.group > h3 { margin: 0; font-size: 14px; font-weight: 800; }
 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); flex-shrink: 0; }
 .dot.run { background: var(--run); } .dot.wait { background: var(--wait); } .dot.done { background: var(--done); } .dot.idle, .dot.on { background: var(--sleep); }
 .addrow { display: flex; gap: 6px; margin-top: 6px; }
@@ -164,7 +191,7 @@ pre.prompt { background: var(--code-bg); color: var(--code-fg); }
 .handoffs time { font: 12px var(--f-mono); color: var(--muted); min-width: 64px; padding-top: 4px; }
 .guide { display: flex; flex-direction: column; gap: 14px; }
 .guide > summary { cursor: pointer; font-weight: 700; font-size: 16px; }
-.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 12px; }
 .steps > li { background: var(--soft); border: 1px solid var(--line2); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
 .steps > li.now { border-color: var(--fg); background: var(--panel); }
 .steps .n { width: 24px; height: 24px; border-radius: 50%; background: var(--btn); color: var(--btn-fg); font-weight: 700; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; }
@@ -296,7 +323,7 @@ async function load() {
   // 모양이 바뀔 때만 다시 그린다. 아니면 상태만 (입력 중인 것을 지킨다)
   const t = team();
   const sig = [KEY(), d.projects.map(p => (p.ssh || '') + p.name + p.team).join(','), t ? t.roles.map(r => r.id + r.name + r.model + r.effort + r.advisor + r.subagents + r.lead + r.readonly + r.worktree + r.diet.how + r.diet.at + r.running + r.trust).join('|') : '-',
-    t ? Math.min(1, (t.handoffs || []).length) : 0, t ? (t.questions || '').length : 0, S.sel, S.tab].join('#');
+    t ? Math.min(1, (t.handoffs || []).length) : 0, t ? (t.questions || '').length : 0, S.sel, S.tab, !!S.adding].join('#');
   if (sig !== S.sig) { S.sig = sig; render(); } else states();
 }
 setInterval(load, 2000);
@@ -507,11 +534,13 @@ function renderTeam(m) {
     <div class="row between">
       <div><h1 style="margin:0"><input class="teamname" id="tname" value="${esc(t.name)}" maxlength="40" aria-label="${tr('팀 이름', 'Team name')}" title="${tr('클릭하여 이름 변경', 'Click to rename')}"></h1><span class="sub">${S.ssh ? `⇄ ${esc((D.projects.find(same) || {}).mac || S.ssh)} · ` : ''}<code>${esc(D.project.folder)}/.hivemux/team.toml</code> · ${tr('변경 사항은 자동으로 저장됩니다', 'Changes are saved automatically.')}</span></div>
       <div class="row">
-        <button class="btn" id="tsave">${tr('내 템플릿으로 저장', 'Save as my template')}</button>
+        <button class="btn" id="tsave" title="${tr('다른 프로젝트에서도 이 팀을 고를 수 있게 합니다', 'Lets other projects pick this team')}">${tr('템플릿으로 저장', 'Save as template')}</button>
         <button class="btn danger" id="tdown" ${running ? '' : 'disabled'}>${tr('팀 종료', 'Stop team')}</button>
         <button class="btn primary" id="tup" ${t.roles.length && running < t.roles.length ? '' : 'disabled'}>▶ ${running ? tr('나머지 역할 시작', 'Start remaining roles') : tr('팀 시작', 'Start team')} · ${t.roles.length - running}</button>
       </div>
     </div>
+    ${running ? `<div class="summary" aria-label="${tr('역할 상태', 'Role states')}">${['wait', 'run', 'done', 'idle'].map(k => [k, t.roles.filter(r => r.running && (r.state || 'idle') === k).length])
+      .filter(([, n]) => n).map(([k, n]) => `<span class="pill ${k}">${tr(...STATE[k])} ${n}</span>`).join('')}${t.roles.length - running ? `<span class="pill">${tr('꺼짐', 'Off')} ${t.roles.length - running}</span>` : ''}</div>` : ''}
     ${(t.questions || []).length ? `<section class="card" aria-label="${tr('받은 질문', 'Questions awaiting your answer')}" style="display:flex;flex-direction:column;gap:10px;border-color:var(--tip-line);background:var(--tip-bg)">
       <div class="row between"><h2>${tr(`받은 질문 · ${t.questions.length}건`, `Questions awaiting your answer · ${t.questions.length}`)}</h2><code class="sub">.hivemux/questions.md</code></div>
       ${t.questions.map(q => `<div style="display:flex;flex-direction:column;gap:6px;padding:10px 0;border-top:1px solid var(--tip-line)">
@@ -520,15 +549,15 @@ function renderTeam(m) {
       <span class="sub" style="font-size:13px">${tr(`질문한 역할의 창에 번호를 붙여 답변하십시오. 해당 역할이 불분명하면 리드(${esc((t.roles.find(r => r.lead) || t.roles[0] || {}).name || '')})에게 답변하십시오.`, `Answer in the window of the role that asked, citing the number. If unsure which role asked, answer the lead (${esc((t.roles.find(r => r.lead) || t.roles[0] || {}).name || '')}).`)}</span>
     </section>` : ''}
     ${guide(t, running)}
-    ${flow.length ? `<div class="card flow" style="padding:10px 14px"><span class="sub" style="font-size:12px;font-weight:700;margin-right:6px">${tr('흐름', 'Flow')}</span>${flow.map((r, i) => `<span class="step">${icon(r.id, 24)}${esc(r.name)}</span>${i < flow.length - 1 ? ARROW : ''}`).join('')}</div>` : ''}
     <div class="layout">
       <nav class="card roles" aria-label="${tr('역할', 'Roles')}">
-        ${t.roles.map(r => `<button class="roleitem" data-role="${r.id}" aria-pressed="${r.id === S.sel}">${icon(r.id, 32)}<span class="meta"><b>${esc(r.name)}${r.lead ? ` <span class="tag honey">${tr('리드', 'lead')}</span>` : ''}</b><span>${[r.model, r.effort, advTag(r)].filter(Boolean).join(' · ')}</span><span class="ctxline" data-ctx="${r.id}"></span></span><i class="dot" data-dot="${r.id}" title=""></i></button>`).join('')}
-        <form class="addform" id="addform">
+        <div class="navhead"><b>${tr(`역할 ${t.roles.length}`, `Roles · ${t.roles.length}`)}</b>${flow.length ? `<span class="sub" style="font-size:12px" title="${esc(flow.map(r => r.name).join(' → '))}">${tr('일의 흐름 순서', 'In order of the flow')}</span>` : ''}</div>
+        ${t.roles.map(r => `<button class="roleitem" data-role="${r.id}" aria-pressed="${r.id === S.sel}">${icon(r.id, 32)}<span class="meta"><span class="nm"><b>${esc(r.name)}${r.lead ? ` <span class="tag honey">${tr('리드', 'lead')}</span>` : ''}</b><i class="pill" data-dot="${r.id}" title=""></i></span><span>${[r.model, r.effort, advTag(r)].filter(Boolean).join(' · ')}</span><span class="ctxline" data-ctx="${r.id}"></span></span></button>`).join('')}
+        ${S.adding ? `<form class="addform" id="addform">
           <input id="addname" placeholder="${tr('새 역할 이름', 'New role name')}" aria-label="${tr('새 역할 이름', 'New role name')}">
           <label class="addsess" title="${tr('다른 역할이 이 이름으로 메시지를 보냅니다', 'Other roles send messages to this name')}"><span class="pre">${esc(S.project)}-</span><input id="addid" placeholder="${nextId(t)}" autocomplete="off" spellcheck="false" aria-label="${tr('세션 이름', 'Session name')}"></label>
-          <div class="addfoot"><span class="hint" id="addhint">${tr('세션 이름: 다른 역할이 이 이름으로 메시지를 보냅니다', 'Session name: other roles message it by this name')}</span><button class="btn small">${tr('추가', 'Add')}</button></div>
-        </form>
+          <div class="addfoot"><span class="hint" id="addhint">${tr('세션 이름: 다른 역할이 이 이름으로 메시지를 보냅니다', 'Session name: other roles message it by this name')}</span><button class="btn small" type="button" id="addcancel">${tr('취소', 'Cancel')}</button><button class="btn small primary">${tr('추가', 'Add')}</button></div>
+        </form>` : `<button class="addbtn" type="button" id="addopen">＋ ${tr('역할 추가', 'Add a role')}</button>`}
         <div class="tips" id="tips"></div>
       </nav>
       <section class="card detail" id="detail" aria-label="${tr('역할 설정', 'Role settings')}"></section>
@@ -546,17 +575,19 @@ function renderTeam(m) {
   m.querySelectorAll('.roleitem').forEach(b => b.onclick = () => { S.sel = b.dataset.role; S.tab = 'mine'; S.sig = ''; load(); });
   // the session name follows an English role name until edited; the reason shows as you type
   // 세션 이름은 고치기 전까지 영문 역할 이름을 따라간다. 쓸 수 없으면 입력하는 동안 이유가 보인다
+  if ($('#addopen')) $('#addopen').onclick = () => { S.adding = true; S.sig = ''; load().then(() => $('#addname') && $('#addname').focus()); };
+  if ($('#addcancel')) $('#addcancel').onclick = () => { S.adding = false; S.sig = ''; load(); };
   let idTyped = false;
-  $('#addname').oninput = () => { if (!idTyped) { const g = slugOf($('#addname').value); $('#addid').value = g && !t.roles.some(r => r.id === g) ? g : ''; addHint(); } };
-  $('#addid').oninput = e => { idTyped = !!e.target.value; e.target.value = e.target.value.toLowerCase(); addHint(); };
-  $('#addform').onsubmit = async e => {
+  if ($('#addform')) $('#addname').oninput = () => { if (!idTyped) { const g = slugOf($('#addname').value); $('#addid').value = g && !t.roles.some(r => r.id === g) ? g : ''; addHint(); } };
+  if ($('#addform')) $('#addid').oninput = e => { idTyped = !!e.target.value; e.target.value = e.target.value.toLowerCase(); addHint(); };
+  if ($('#addform')) $('#addform').onsubmit = async e => {
     e.preventDefault();
     const name = $('#addname').value.trim(); if (!name) return;
     if (addHint()) return $('#addid').focus();
     const id = $('#addid').value.trim();
     const r = await post('/team/role/add', { ...P(), name, ...(id ? { id } : {}) });
     if (!r.ok) return toast(r.say);
-    S.sel = r.id; S.sig = ''; load();
+    S.sel = r.id; S.adding = false; S.sig = ''; load();
   };
   document.querySelectorAll('[data-qdone]').forEach(b => { b.onclick = async () => {
     b.disabled = true; const r = await post('/team/question/done', { ...P(), index: +b.dataset.qdone });
@@ -594,12 +625,23 @@ function guide(t, running) {
       <span class="sub" style="font-size:12px">${tr(`리드(${esc(lead.name)})가 계획을 수립하고 업무를 나누어 팀원에게 배분합니다. 다른 역할에게 따로 지시할 필요는 없으며, 필요하면 각 역할의 창에 직접 지시할 수도 있습니다.`, `${esc(lead.name)} plans the work and assigns it to the other roles; there is no need to instruct each role separately. You may still address any role in its window.`)}</span></li>
     <li class="${started ? 'now' : ''}"><span class="row"><span class="n">3</span><b>${tr('진행 확인', 'Monitoring')}</b></span>
       <span class="sub">${tr('업무가 전달되면 사이드바에 ✉ 줄이 표시되고, 벌 사무실에 편지가 날아가며, 아래 최근 업무 전달 목록에 기록됩니다. 역할이 질문하면 "응답 대기" 상태가 되므로 해당 창에서 답변하십시오. 대화가 커지면 자동으로 다이어트합니다.', 'Hand-offs appear as a ✉ line in the sidebar, a letter in the bee office and in the list below. A role with a question shows "Awaiting response"; answer it in its window. Large conversations are reduced automatically.')}</span></li></ol>`;
-  return started ? `<details class="card guide"><summary>${tr('새 목표 전달 · 시작 안내', 'Send a new goal · Getting started')}</summary>${body}</details>`
-    : `<section class="card guide"><h2>${tr('시작 안내', 'Getting started')}</h2>${body}</section>`;
+  if (!started) return `<section class="card guide"><h2>${tr('시작 안내', 'Getting started')}</h2>${body}</section>`;
+  // started: the next goal stays at hand; what still blocks it (start, trust) shows in its place
+  // 시작한 뒤: 다음 목표 칸이 늘 보인다. 막는 것 (시작, 폴더 확인) 이 있으면 그 자리에 보인다
+  const ready = running && !waiting.length;
+  return `<section class="card goalbar" aria-label="${tr('리드에게 목표 전달', 'Give the lead a goal')}">
+    <div class="row between"><h2>${tr(`${esc(lead.name)}에게 새 목표`, `A new goal for ${esc(lead.name)}`)}</h2><span class="sub" style="font-size:12px">${tr('리드가 계획을 세워 팀원에게 나눕니다', 'The lead plans it and assigns the work')}</span></div>
+    ${ready ? `<div class="in"><textarea id="goal" rows="1" placeholder="${tr('원하는 작업을 한두 줄로 입력하십시오', 'Describe the goal in a line or two.')}">${esc(S.goal || '')}</textarea><button class="btn primary" id="ggo">${tr('전달', 'Send')}</button></div>
+      ${starters.length ? `<div class="starters">${starters.map((s, i) => `<button type="button" data-start="${i}">${esc(s)}</button>`).join('')}</div>` : ''}`
+    : waiting.length ? `<div class="row between"><span class="sub">${tr(`${waiting.map(r => r.name).join(', ')} 이(가) 이 폴더를 신뢰할지 확인을 기다립니다.`, `${waiting.map(r => r.name).join(', ')} wait for you to trust this folder.`)}</span><button class="btn primary small" id="gtrust">${tr('이 폴더를 신뢰하고 시작', 'Trust it and start')}</button></div>`
+    : `<span class="sub">${tr('팀이 꺼져 있습니다. 위의 ▶ 팀 시작을 누르면 목표를 전달할 수 있습니다.', 'The team is off. Press ▶ Start team above to send a goal.')}</span>`}
+  </section>`;
 }
 function bindGuide() {
   const t = team(), starters = t.starters && t.starters.length ? t.starters : t.roles.some(r => r.id === 'writer') ? CONTENT_STARTERS.map(x => tr(...x)) : [];
   if ($('#goal')) $('#goal').oninput = e => { S.goal = e.target.value; };
+  // Enter sends, Shift+Enter breaks the line (the one-line bar) / Enter 는 전달, Shift+Enter 는 줄바꿈 (한 줄 칸)
+  if ($('#goal') && $('#goal').closest('.goalbar')) $('#goal').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#ggo').click(); } };
   document.querySelectorAll('[data-start]').forEach(b => b.onclick = () => { S.goal = starters[+b.dataset.start]; $('#goal').value = S.goal; $('#goal').focus(); });
   if ($('#gtrust')) $('#gtrust').onclick = async () => { const r = await post('/team/trust', P()); toast(r.say); S.sig = ''; setTimeout(load, 1500); };
   if ($('#ggo')) $('#ggo').onclick = async () => {
@@ -618,13 +660,19 @@ function drawDetail() {
   if (!r.uses) r.uses = { advisor: r.advisor, subagents: r.subagents };
   const seg = (key, list, cur) => `<div class="seg" role="group">${list.map(([v, ko, en]) => `<button type="button" data-${key}="${v}" aria-pressed="${v === cur}">${en === undefined ? ko : tr(ko, en)}</button>`).join('')}</div>`;
   box.innerHTML = `
-    <div class="row">
-      ${icon(r.id, 52)}
-      <label class="field" style="flex:1 1 220px">${tr('이름', 'Name')}<input class="text" id="fname" value="${esc(r.name)}" maxlength="40"></label>
-      <div class="field">${tr('세션 이름 (다른 역할이 이 이름으로 메시지를 보냅니다)', 'Session name (other roles send messages to it)')}<code style="background:var(--soft);border:1px solid var(--line2);border-radius:7px;padding:9px 10px">${esc(r.session)}</code></div>
-      <span class="state" id="rstate"></span>
+    <div class="dhead">
+      ${icon(r.id, 48)}
+      <div class="who"><input class="text" id="fname" value="${esc(r.name)}" maxlength="40" aria-label="${tr('이름', 'Name')}">
+        <span class="sub" style="font-size:12px" title="${tr('다른 역할이 이 이름으로 메시지를 보냅니다', 'Other roles send messages to this name')}">${tr('세션 이름', 'Session name')} <code>${esc(r.session)}</code></span></div>
+      <span class="pill" id="rstate"></span>
+      <div class="row" style="gap:6px">${r.pane ? `<button class="btn small" id="rgo">${tr('창으로 이동', 'Go to pane')}</button>` : ''}
+        ${r.running ? `<button class="btn small" id="rstop">${tr('끄기', 'Stop')}</button>` : `<button class="btn small primary" id="rstart">▶ ${tr('시작', 'Start')}</button>`}
+        <button class="btn small danger" id="rdel" title="${tr('역할 삭제', 'Delete role')}">${tr('삭제', 'Delete')}</button></div>
     </div>
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(330px,1fr))">
+    <div class="row between" style="margin-top:-8px"><span></span><span class="saved" id="saved" aria-live="polite"></span></div>
+    ${r.running && S.edited[r.id] ? `<div class="note">${tr('이 역할은 현재 실행 중입니다. 변경한 설정은 다시 시작할 때 적용됩니다.', 'This role is running; changes take effect when it restarts.')}</div>` : ''}
+    <section class="group"><h3>${tr('모델과 비용', 'Model and cost')}</h3>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(min(330px,100%),1fr))">
       <div class="field">${tr('모델', 'Model')}${seg('model', [...new Set([...prov.models, r.model])].map(x => [x, x]), r.model)}<span style="font-weight:400">${prov.models.includes(r.model) ? { fable: tr('가장 뛰어난 성능, 가장 높은 비용. 요금제에 따라 사용 크레딧으로 청구', 'Most capable and most expensive; on some plans it bills to usage credits.'), opus: tr('뛰어난 성능. 판단이 많은 역할에 적합', 'Highly capable. Suited to roles with many decisions.'), sonnet: tr('빠르고 균형 잡힌 성능. 대부분의 역할에 적합', 'Fast and balanced. Suited to most roles.'), haiku: tr('가장 빠르고 저렴함. 정리, 반복 작업에 적합', 'Fastest and least expensive. Suited to tidying and repetitive work.') }[r.model] || '' : unused}</span></div>
       <div class="field">${tr('노력 수준', 'Effort')}${seg('effort', EFFORTS.map(x => [x, x]), r.effort)}<span style="font-weight:400">${tr('높을수록 깊이 사고하며 토큰을 더 사용합니다', 'Higher levels think more deeply and use more tokens.')}</span></div>
       <div class="field${prov.advisors.length ? '' : ' off'}">${tr('어드바이저', 'Advisor')}${seg('advisor', [['', '없음', 'None'], ...[...new Set([...prov.advisors, ...(r.advisor ? [r.advisor] : [])])].map(x => [x, x])], r.advisor)}<span style="font-weight:400">${
@@ -634,30 +682,30 @@ function drawDetail() {
       <div class="field${prov.subagents.length ? '' : ' off'}">${tr('서브에이전트 모델', 'Subagent model')}${seg('subagents', [['', '역할과 같게', 'Same as role'], ...[...new Set([...prov.subagents, ...(r.subagents ? [r.subagents] : [])])].map(x => [x, x])], r.subagents)}<span style="font-weight:400">${
         r.subagents && !r.uses.subagents ? unused : tr('조사·검색을 맡기는 서브에이전트. haiku 로 두면 자료 읽기가 저렴해집니다', 'Subagents it sends to research and search; haiku makes the reading cheaper.')}</span></div>
     </div>
+    </section>
+    <section class="group"><h3>${tr('일하는 방식', 'How it works')}</h3>
     <div class="checks">
       <label class="check"><input type="checkbox" data-flag="worktree" ${r.worktree ? 'checked' : ''}><span><b>${tr('자체 워크트리에서 작업', 'Work in its own worktree')}</b><small>${tr('다른 역할과 같은 파일을 덮어쓰지 않도록 합니다', 'Prevents overwriting other roles\' files.')}</small></span></label>
       <label class="check"><input type="checkbox" data-flag="lead" ${r.lead ? 'checked' : ''}><span><b>${tr('리드', 'Lead')}</b><small>${tr('막힌 역할이 돌아오는 역할. 팀에 하나', 'Where blocked roles return. One per team.')}</small></span></label>
       <label class="check"><input type="checkbox" data-flag="readonly" ${r.readonly ? 'checked' : ''}><span><b>${tr('읽기 전용', 'Read-only')}</b><small>${tr('파일을 수정하지 않고 검토만 수행 (검사 역할에 적합)', 'Reviews without editing files (for reviewers).')}</small></span></label>
     </div>
     <label class="field">${tr('담당 폴더', 'Owned folders')}<input class="text mono" id="fowns" value="${esc(r.owns)}" style="font-size:13px;font-weight:400" placeholder="docs/spec/"></label>
+    </section>
+    <section class="group"><h3>${tr('대화 관리', 'Conversation size')}</h3>
     <div class="dietrow"><b>${tr('다이어트', 'Diet')}</b>${seg('diet', DIETS, r.diet.how)}
       <div class="stepper"><span class="sub" style="font-size:13px">${tr('컨텍스트가', 'when context exceeds')}</span><button type="button" id="dminus" aria-label="-10K">−</button><b class="mono" style="min-width:52px;text-align:center">${r.diet.at}K</b><button type="button" id="dplus" aria-label="+10K">+</button><span class="sub" style="font-size:13px">${tr('초과 후 대기 시', 'and the role is idle')}</span></div></div>
     <div style="display:flex;flex-direction:column;gap:6px">
       <div class="row between"><span class="ctxline" id="dctx"></span><button class="btn small" id="dnow" ${r.running && r.diet.how !== 'off' ? '' : 'disabled'}>${tr('지금 다이어트', 'Diet now')}</button></div>
       <div class="ctxbar" aria-hidden="true"><i id="dbar"></i><b id="dline"></b></div>
-      <span class="sub" style="font-size:12px">${tr('컨텍스트는 매 요청마다 다시 읽는 분량입니다. 기준을 넘은 상태에서 대기하면 노트를 정리하고 대화를 비운 뒤 노트를 바탕으로 이어 갑니다. 세션 이름은 유지되므로 다른 역할은 계속 메시지를 보낼 수 있습니다.', 'Context is the amount re-read with every request. Once past the threshold and idle, the role writes its notes, clears the conversation and continues from the notes; its name is kept, so other roles can still message it.')}</span>
+      <span class="sub" style="font-size:12px">${tr('컨텍스트는 요청마다 다시 읽는 분량입니다. 기준을 넘고 쉬면 노트를 남기고 새로 시작해 사용량을 줄입니다. 세션 이름은 그대로라 메시지는 계속 받습니다.', 'Context is re-read with every request. Past the threshold and idle, the role leaves notes and starts fresh to use less; its name stays, so messages still reach it.')}</span>
     </div>
-    ${r.running && S.edited[r.id] ? `<div class="note">${tr('이 역할은 현재 실행 중입니다. 변경한 설정은 다시 시작할 때 적용됩니다.', 'This role is running; changes take effect when it restarts.')}</div>` : ''}
+    </section>
+    <section class="group">
     <div style="display:flex;flex-direction:column;gap:8px">
       <div class="row between"><div class="tabs" role="tablist"><button role="tab" id="tmine" aria-selected="${S.tab === 'mine'}">${tr('지시문', 'Prompt')}</button><button role="tab" id="tfull" aria-selected="${S.tab === 'full'}">${tr('최종 미리보기', 'Final preview')}</button></div><code class="sub">${esc(r.file || '')}</code></div>
       ${S.tab === 'mine' ? `<textarea class="prompt" id="ftext" spellcheck="false">${esc(r.text)}</textarea>` : `<pre class="prompt" id="ffull">${esc(FULL[r.id] ?? tr('불러오는 중…', 'Loading…'))}</pre>`}
     </div>
-    <div class="row between" style="border-top:1px solid var(--line2);padding-top:14px">
-      <span class="saved" id="saved" aria-live="polite"></span>
-      <div class="row">${r.pane ? `<button class="btn small" id="rgo">${tr('창으로 이동', 'Go to pane')}</button>` : ''}
-        ${r.running ? `<button class="btn small" id="rstop">${tr('이 역할 끄기', 'Stop this role')}</button>` : `<button class="btn small" id="rstart">${tr('이 역할 시작', 'Start this role')}</button>`}
-        <button class="btn small danger" id="rdel">${tr('역할 삭제', 'Delete role')}</button></div>
-    </div>`;
+    </section>`;
   const save = async (fields, text) => {
     $('#saved').textContent = tr('저장 중…', 'Saving…');
     const res = await post('/team/role', { ...P(), id: r.id, fields, text });
@@ -737,8 +785,8 @@ function states() {
   t.roles.forEach(r => {
     const d = document.querySelector(`[data-dot="${r.id}"]`);
     const k = r.running ? (r.state || 'idle') : '';
-    if (d) { d.className = 'dot ' + k; d.title = tr(...(STATE[k] || STATE[''])); }
-    if (r.id === S.sel && $('#rstate')) { $('#rstate').innerHTML = `<i class="dot ${k}"></i>${tr(...(STATE[k] || STATE['']))}`; }
+    if (d) { d.className = 'pill ' + k; d.textContent = tr(...(STATE[k] || STATE[''])); }
+    if (r.id === S.sel && $('#rstate')) { $('#rstate').className = 'pill ' + k; $('#rstate').textContent = tr(...(STATE[k] || STATE[''])); }
     const line = r.ctx ? `ctx ${K(r.ctx)}` + (r.dieting && DIETING[r.dieting] ? ' · ' + tr(...DIETING[r.dieting]) : '') : '';
     const c = document.querySelector(`[data-ctx="${r.id}"]`); if (c) c.textContent = line;
     if (r.id === S.sel && $('#dctx')) {

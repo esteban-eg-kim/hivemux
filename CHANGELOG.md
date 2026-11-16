@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Team page, easier to use: a running team shows how many roles work, wait or are done at the top,
+  and each role says its state in words in the list; the box for the lead's next goal stays open
+  (Enter sends) instead of folding away after the first one; a role's start, stop, go-to and delete
+  sit at the top of its settings, which are grouped (model and cost, how it works, conversation
+  size, prompt); adding a role is one button until you need the form; and it fits a phone.
+
 - Team roles: an advisor (a stronger model the role asks before settling an approach, on a
   recurring error and before finishing; only the advice costs that model) and a model for its
   subagents (haiku makes research reading cheaper), and Fable among the models. The wizard's
