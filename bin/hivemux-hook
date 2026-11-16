@@ -41,6 +41,13 @@ TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
 JQ="$(command -v jq || echo /usr/bin/jq)"
 t() { "$TMUX_BIN" "$@" </dev/null >/dev/null 2>&1; }
 field() { printf '%s' "$input" | "$JQ" -r --arg k "$1" '.[$k] // empty' 2>/dev/null; }
+# Only a Claude the pane started writes on it. A background `claude -p` run by a process that came from the pane
+# (the bee office restarted there) keeps TMUX_PANE, and took over the pane's session and folder: the sidebar lost it
+# 칸이 시작한 Claude 만 그 칸에 적는다. 칸에서 나온 프로세스(거기서 다시 띄운 벌 사무실)가 돌린 배경 `claude -p` 도
+# TMUX_PANE 을 물려받아 칸의 세션과 폴더를 가져갔다: 사이드바에서 사라졌다
+shell="$("$TMUX_BIN" display -p -t "$TMUX_PANE" '#{pane_pid}' 2>/dev/null)"
+[ -z "$shell" ] || ps -A -o pid=,ppid= 2>/dev/null |
+  awk -v p=$$ -v s="$shell" '{ up[$1] = $2 } END { while (p > 1 && n++ < 64) { if (p == s) exit 0; p = up[p] } exit 1 }' || exit 0
 # What the pane's shell ran to start this Claude when it is a wrapper: a program that starts Claude itself
 # (peer-claude), not Claude or a command that names it (caffeinate claude). Its own resume arguments dropped
 # 이 Claude 를 띄우려고 칸의 셸이 실행한 것이 래퍼일 때 그 명령: Claude 를 스스로 띄우는 프로그램 (peer-claude).

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- A Claude could vanish from the sidebar: a background `claude -p` of hivemux's (the team report's
+  summary, the team assistant) run by a bee office started from a pane wrote its own session and
+  folder onto that pane. Only a Claude the pane started writes on it now, and those background runs
+  carry no pane.
+
 - Team page, easier to use: a running team shows how many roles work, wait or are done at the top,
   and each role says its state in words in the list; the box for the lead's next goal stays open
   (Enter sends) instead of folding away after the first one; a role's start, stop, go-to and delete

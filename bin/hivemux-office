@@ -909,6 +909,7 @@ def serve():
 
 
 def start_server():
+    os.environ.pop("TMUX_PANE", None)        # see __main__ / __main__ 참고
     port = running_port()
     if port:
         return port
@@ -1216,4 +1217,7 @@ def main(argv):
 
 
 if __name__ == "__main__":
+    # a server, not a pane: the pane it may have been started from must not reach what it runs (bin/hivemux-hook)
+    # 칸이 아니라 서버다: 띄운 칸이 이것이 돌리는 것에 닿으면 안 된다 (bin/hivemux-hook)
+    os.environ.pop("TMUX_PANE", None)
     main(sys.argv[1:])
