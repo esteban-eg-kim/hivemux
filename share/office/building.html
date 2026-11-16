@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hivemux office</title>
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<style>
+/* The bee office as a building (bin/hivemux-office serves it at /building): a three-storey glass office in real 3D
+   (building.js, three.js from share/office/vendor). This page is its frame: the counts, the floor bar, the name
+   tags and bubbles over the scene, the tooltip.
+   건물로 본 벌 사무실 (bin/hivemux-office 가 /building 으로 낸다): 진짜 3D 로 그린 3층 유리 사무실 (building.js,
+   share/office/vendor 의 three.js). 이 페이지는 그 틀이다: 수, 층 표시줄, 장면 위의 이름표와 말풍선, 툴팁. */
+:root {
+  --bg: #dfe6ee; --panel: #ffffff; --line: #d3d9e3; --fg: #1b1f27; --fg2: #3a4252; --muted: #5a6375;
+  --run: #2f7fd6; --wait: #e08a00; --done: #1d9a64; --sleep: #8b94a5; --honey: #f2b632;
+  --glass: rgba(255, 255, 255, .82); --shadow: 0 6px 22px rgba(20, 28, 45, .14);
+  --f-body: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --f-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1117; --panel: #1a1d24; --line: #2b303b; --fg: #e1e6f0; --fg2: #c3c9d4; --muted: #9aa3b2;
+  --run: #5aa9ff; --wait: #f5a524; --done: #3ecf8e; --sleep: #6b7385; --glass: rgba(26, 29, 36, .82); color-scheme: dark } }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
+#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+#labels { position: fixed; inset: 0; pointer-events: none; }
+.glass { background: var(--glass); -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2);
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent); box-shadow: var(--shadow); border-radius: 14px; }
+.top { position: fixed; left: 16px; top: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 10px; max-width: calc(100vw - 32px); z-index: 3; }
+.brand { display: flex; align-items: center; gap: 8px; font: 700 15px var(--f-mono); padding: 0 4px; }
+.top a { color: var(--fg2); font-weight: 600; font-size: 13px; text-decoration: none; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); }
+.top a:hover { border-color: var(--muted); }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; background: color-mix(in srgb, var(--fg) 6%, transparent); white-space: nowrap; }
+.chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.chip b { font-family: var(--f-mono); }
+/* the floor bar: the whole building, then each floor top down with what happens there / 층 표시줄: 건물 전체, 그리고 위층부터 각 층에서 일어나는 일 */
+.floors { position: fixed; right: 16px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; padding: 8px; z-index: 3; width: 196px; }
+.floors button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; border: 1px solid transparent; background: transparent;
+  border-radius: 10px; padding: 8px 10px; color: var(--fg); font: inherit; cursor: pointer; }
+.floors button:hover { background: color-mix(in srgb, var(--fg) 5%, transparent); }
+.floors button[aria-pressed="true"] { background: var(--panel); border-color: var(--fg); }
+.floors button.alert { box-shadow: inset 3px 0 0 var(--wait); }
+.floors .fl { display: flex; align-items: baseline; gap: 8px; width: 100%; }
+.floors .fl b { font: 800 15px var(--f-mono); min-width: 28px; }
+.floors .fl span { font-weight: 700; font-size: 13px; }
+.floors .ct { display: flex; gap: 8px; font-size: 12px; color: var(--muted); font-family: var(--f-mono); }
+.floors .ct i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--c); margin-right: 3px; vertical-align: middle; }
+.hint { position: fixed; left: 16px; bottom: 16px; padding: 7px 12px; font-size: 12px; color: var(--muted); z-index: 3; }
+/* tags over the bees: the state's dot and the name; a waiting bee's bubble / 벌 위 이름표: 상태 점과 이름. 기다리는 벌의 말풍선 */
+.tag { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px 2px 6px; border-radius: 999px; background: var(--glass); color: var(--fg);
+  font: 600 11.5px var(--f-body); white-space: nowrap; box-shadow: 0 2px 8px rgba(20, 28, 45, .18); transform: translateY(-6px); }
+.tag i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.tag.lead::before { content: "★"; color: var(--honey); font-size: 11px; }
+.ask { pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 5px 10px 5px 6px; border-radius: 14px; background: var(--wait); color: #fff;
+  font: 700 12px var(--f-body); white-space: nowrap; box-shadow: 0 4px 14px rgba(224, 138, 0, .45); transform: translateY(-34px); animation: bob 1.4s ease-in-out infinite; }
+.ask b { display: inline-flex; width: 20px; height: 20px; border-radius: 50%; background: #fff; color: var(--wait); align-items: center; justify-content: center; font-size: 13px; }
+@keyframes bob { 50% { transform: translateY(-40px); } }
+.sign { padding: 3px 9px; border-radius: 7px; font: 700 11px var(--f-body); color: #fff; background: var(--c); white-space: nowrap; box-shadow: 0 2px 8px rgba(0, 0, 0, .18); }
+.room { padding: 4px 10px; border-radius: 8px; font: 700 12px var(--f-body); color: var(--fg); background: var(--glass); white-space: nowrap; box-shadow: 0 2px 8px rgba(0, 0, 0, .12); }
+.room small { font-weight: 600; color: var(--muted); margin-left: 6px; }
+.tip { position: fixed; z-index: 5; pointer-events: none; padding: 8px 11px; font-size: 12.5px; max-width: 260px; }
+.tip b { display: block; font-size: 13.5px; }
+.tip span { display: block; color: var(--muted); }
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 10px 16px; z-index: 6; font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .ask { animation: none; } }
+@media (max-width: 640px) { .floors { right: 8px; width: 150px; } .hint { display: none; } }
+</style>
+</head>
+<body>
+<canvas id="gl" aria-label="벌 사무실 건물"></canvas>
+<div id="labels"></div>
+<header class="top glass">
+  <span class="brand"><img src="/logo.svg" alt="" width="22" height="22">hivemux</span>
+  <span class="chip" style="--c: var(--run)"><i></i><span data-t="일함|Working"></span> <b id="n-run">0</b></span>
+  <span class="chip" style="--c: var(--wait)"><i></i><span data-t="기다림|Waiting"></span> <b id="n-wait">0</b></span>
+  <span class="chip" style="--c: var(--done)"><i></i><span data-t="끝남|Done"></span> <b id="n-done">0</b></span>
+  <span class="chip" style="--c: var(--sleep)"><i></i><span data-t="쉼|Resting"></span> <b id="n-idle">0</b></span>
+  <span class="chip" style="--c: var(--honey)"><i></i><span data-t="오늘 꿀|Honey today"></span> <b id="n-honey">0</b></span>
+  <a href="/team" data-t="팀|Team"></a>
+  <a href="/" data-t="이전 사무실|Classic office"></a>
+</header>
+<nav class="floors glass" id="floors" aria-label="층"></nav>
+<div class="hint glass" id="hint"></div>
+<div class="tip glass" id="tip" hidden></div>
+<div class="toast glass" id="toast" hidden></div>
+<script type="importmap">{ "imports": { "three": "/vendor/three.module.min.js", "three/addons/": "/vendor/addons/" } }</script>
+<script type="module" src="/building.js"></script>
+</body>
+</html>

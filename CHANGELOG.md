@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- The bee office as a building, in real 3D (`/building`, "3D building" on the office page): a glass
+  office of three storeys or more with a perspective camera, light and shadows. The lobby has the
+  cafe, lounge, ping-pong, the honey wall and the plaza outside; a work floor has a desk island per
+  project (small projects share one), a meeting room and the boss's office; a team floor has a
+  glass room per team with a long table, the lead at its head and a live whiteboard. Bees are
+  modelled in 3D: they type while they work (their screen scrolls code), raise a question when they
+  wait, carry honey when done, go down to the lobby by the glass lift to rest, and their subagents
+  fly papers to and fro. Drag to turn, right-drag to move, wheel to zoom; the walls facing you are
+  cut away. "Whole building" lifts the floors apart to see into each; the floor bar (or 1–9, Esc)
+  opens one, with counts per floor and the waiting ones marked. A click on a bee opens its window.
+
 - Bee office in floors: the campus was too wide to read without panning, so it is a building of
   floors now, each one screen: 1F rest (cafe, lounge, an indoor park, the lobby), 2F work (desk
   pods, the question window, the meeting room), 3F and up the team rooms. A bar on the right lists
