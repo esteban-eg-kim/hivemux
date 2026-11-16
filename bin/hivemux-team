@@ -1629,9 +1629,10 @@ def report(session, date=None):
     ledger = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "honey.log")
     try:
         for line in open(ledger, encoding="utf-8", errors="replace"):
-            p = line.split(" ", 2)
-            if len(p) >= 2 and p[0].isdigit() and start <= int(p[0]) < end and p[1] in win:
-                roles[win[p[1]]]["honey"] += 1
+            p = line.split()
+            bid = " ".join(p[1:-1]) if len(p) > 2 else p[-1]   # a bee's name may have spaces / 벌 이름에 빈칸이 있을 수 있다
+            if len(p) >= 2 and p[0].isdigit() and start <= int(p[0]) < end and bid in win:
+                roles[win[bid]]["honey"] += 1
     except OSError:
         pass
     allsids = {}

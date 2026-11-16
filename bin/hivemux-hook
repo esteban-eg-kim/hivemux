@@ -22,6 +22,10 @@
 #   so Option+O can find relative paths (bin/hivemux-open-ui)
 # - Claude 가 지금 일하는 폴더를 기록 (@claude_pwd; Bash 에서 cd 하면 @claude_cwd 와 달라진다)
 #   -> Option+O 가 상대 경로를 찾는다 (bin/hivemux-open-ui)
+# - records a wrapper Claude was started through (@claude_launch, e.g. peer-claude): resume goes through it
+#   again (bin/hivemux-claude), so a restart keeps what the wrapper adds
+# - Claude 를 시작한 래퍼를 기록 (@claude_launch, 예: peer-claude): 재개도 그것으로 한다 (bin/hivemux-claude).
+#   다시 시작해도 래퍼가 더하는 것이 빠지지 않는다
 # - records why a pane waits (@claude_wait "<kind>\t<tool>\t<text>": approve, plan, ask, input or error,
 #   with the tool and a line about it, e.g. a Bash command's description or the question) and the files a
 #   turn changed (@claude_touched, paths split by tabs) -> the sidebar and the bee office show them
@@ -37,6 +41,33 @@ TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
 JQ="$(command -v jq || echo /usr/bin/jq)"
 t() { "$TMUX_BIN" "$@" </dev/null >/dev/null 2>&1; }
 field() { printf '%s' "$input" | "$JQ" -r --arg k "$1" '.[$k] // empty' 2>/dev/null; }
+# What the pane's shell ran to start this Claude when it is a wrapper: a program that starts Claude itself
+# (peer-claude), not Claude or a command that names it (caffeinate claude). Its own resume arguments dropped
+# 이 Claude 를 띄우려고 칸의 셸이 실행한 것이 래퍼일 때 그 명령: Claude 를 스스로 띄우는 프로그램 (peer-claude).
+# Claude 나 Claude 를 이름으로 부르는 명령 (caffeinate claude) 은 아니다. 재개 인수는 뺀다
+launcher() {
+  local shell p=$$ up args w out=() skip=""
+  shell="$("$TMUX_BIN" display -p -t "$TMUX_PANE" '#{pane_pid}' 2>/dev/null)"
+  [ -n "$shell" ] || return
+  while up="$(ps -o ppid= -p "$p" 2>/dev/null)" && up="${up// /}" && [ -n "$up" ] && [ "$up" -gt 1 ]; do
+    [ "$up" = "$shell" ] && break
+    p="$up"
+  done
+  [ "$up" = "$shell" ] && [ "$p" != $$ ] || return
+  args="$(ps -o args= -p "$p" 2>/dev/null)"
+  for w in $args; do
+    case "${w##*/}" in claude|hivemux-claude|cli.js) return ;; esac
+  done
+  for w in $args; do
+    if [ -n "$skip" ]; then skip=""; [[ "$w" == -* ]] || continue; fi
+    case "$w" in
+      --resume|-r|--session-id) skip=1 ;;
+      --resume=*|--session-id=*|--continue|-c|--fork-session) ;;
+      *) out+=("$w") ;;
+    esac
+  done
+  printf '%s' "${out[*]}"
+}
 
 state() { # state <run|wait|done|idle>
   local cur; cur="$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_state 2>/dev/null)"
@@ -155,6 +186,10 @@ case "$event" in
   SessionStart)
     sid="$(field session_id)"; cwd="$(field cwd)"
     [ -n "$sid" ] && t set -p -t "$TMUX_PANE" @claude_session "$sid"
+    case "$(field source)" in
+      startup|resume) via="$(launcher)"
+        if [ -n "$via" ]; then t set -p -t "$TMUX_PANE" @claude_launch "$via"; else t set -pu -t "$TMUX_PANE" @claude_launch; fi ;;
+    esac
     # a team role: remember its conversation, so a reboot resumes it as that role (bin/hivemux-team)
     # 팀 역할: 그 대화를 적어 둔다. 재부팅 뒤 그 역할로 재개된다 (bin/hivemux-team)
     # (and after a diet's /clear it carries on from its notes) / (다이어트의 /clear 뒤에는 노트로 이어 간다)
@@ -289,6 +324,7 @@ case "$event" in
         # closed on purpose: that bee leaves the company (bin/hivemux-bees) / 직접 닫음: 그 벌은 퇴사 (bin/hivemux-bees)
         "$(dirname "$0")/hivemux-bees" quit "$TMUX_PANE" >/dev/null 2>&1
         t set -pu -t "$TMUX_PANE" @claude_session
+        t set -pu -t "$TMUX_PANE" @claude_launch
         t set -pu -t "$TMUX_PANE" @claude_cwd ;;
     esac
     "$TMUX_BIN" list-clients -F '#{client_name}' 2>/dev/null | while read -r c; do t refresh-client -t "$c" -S; done

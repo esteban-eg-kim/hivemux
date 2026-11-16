@@ -5,6 +5,8 @@
 # 이 프로젝트가 쓰는 계정으로 Claude Code 를 시작한다 (bin/hivemux-account): 프로젝트에 정한 계정, 없으면 전체 계정.
 # 다른 계정은 자기 설정 폴더(CLAUDE_CONFIG_DIR)이고, 기본 계정은 ~/.claude 다.
 # 재개하는 곳들(bin/hivemux-panes, -shift, -claude-update, -team)이 HIVEMUX_CLAUDE 로 이것을 부른다.
+# A pane whose Claude was started through a wrapper (@claude_launch, bin/hivemux-hook) starts that instead.
+# 래퍼로 시작한 Claude 의 칸 (@claude_launch, bin/hivemux-hook) 은 그 래퍼를 실행한다.
 #   HIVEMUX_ACCOUNT_SESSION=<project>   the project when not run in a pane / 칸 밖에서 실행할 때 프로젝트
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux"
 export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin"
@@ -17,4 +19,6 @@ if [ -n "$name" ] && [ "$name" != default ] && [ -d "$DATA/accounts/$name" ]; th
 # default: forget only a dir of ours (a shell started under another account); one you set yourself stays
 # 기본 계정: 우리 폴더일 때만 지운다 (다른 계정일 때 연 셸). 직접 정한 것은 그대로
 elif [[ "$CLAUDE_CONFIG_DIR" == "$DATA/accounts/"* ]]; then unset CLAUDE_CONFIG_DIR; fi
+via=""; [ -n "$TMUX_PANE" ] && via="$(tmux show -pqv -t "$TMUX_PANE" @claude_launch 2>/dev/null)"
+if [ -n "$via" ]; then read -ra via <<< "$via"; exec "${via[@]}" "$@"; fi
 exec claude "$@"

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- A Claude started through a wrapper (a program that starts Claude itself, like `peer-claude`)
+  comes back through it: restarts for an update or a switch of account, clocking in and the
+  resume after a reboot used plain `claude --resume`, which dropped what the wrapper adds (its
+  channels and tools).
+- Team reports count the honey of a role whose name has a space.
+
 ## 0.1.62 — 2026-11-14
 
 - Slow connections: `hivemux connect` compresses the ssh stream; on tmux 3.8 popups open

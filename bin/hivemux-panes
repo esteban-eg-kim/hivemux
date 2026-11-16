@@ -21,7 +21,7 @@ save() {
     log "save skipped (server started without restoring)"; return
   fi
   "$TMUX_BIN" list-panes -a -F \
-    '#{session_name}:#{window_index}.#{pane_index}	#{@claude_session}	#{@claude_cwd}' 2>/dev/null |
+    '#{session_name}:#{window_index}.#{pane_index}	#{@claude_session}	#{@claude_cwd}	#{@claude_launch}' 2>/dev/null |
     awk -F '\t' '$2 != ""' > "$tmp"
   mv -f "$tmp" "$MAP"
 }
@@ -37,8 +37,8 @@ restore() {
   fi
   local claude_cmd="${HIVEMUX_CLAUDE:-$("$TMUX_BIN" show-environment -g HIVEMUX_CLAUDE 2>/dev/null | sed -n 's/^HIVEMUX_CLAUDE=//p')}"
   claude_cmd="${claude_cmd:-claude}"
-  local target sid cwd cmd role
-  while IFS=$'\t' read -r target sid cwd; do
+  local target sid cwd via cmd role
+  while IFS=$'\t' read -r target sid cwd via; do
     [ -n "$target" ] && [ -n "$sid" ] || continue
     # clocked out by itself (bin/hivemux-shift --pane / --project): it comes back when it clocks in
     # 혼자 퇴근함 (bin/hivemux-shift --pane / --project): 출근할 때 돌아온다
@@ -52,6 +52,8 @@ restore() {
     [ -d "$cwd" ] || cwd=""
     # a team role (bin/hivemux-team) comes back with its model, effort and prompt / 팀 역할은 모델, 노력, 지시문과 함께 돌아온다
     role="$("$HM_BIN/hivemux-team" resume-args "$target" "$sid" "$cwd" 2>/dev/null)"
+    # started through a wrapper: bin/hivemux-claude runs it again / 래퍼로 시작함: bin/hivemux-claude 가 그것을 다시 실행한다
+    [ -n "$via" ] && "$TMUX_BIN" set -p -t "$target" @claude_launch "$via"
     # a leading space keeps it out of the shell history (zsh hist_ignore_space, bash ignorespace): with a shared
     # history, ↑ in any shell brought back the last Claude resumed / 앞의 공백은 셸 기록에서 뺀다 (zsh
     # hist_ignore_space, bash ignorespace). 기록을 공유하면 어느 셸에서든 ↑ 가 마지막에 재개한 Claude 를 꺼냈다
