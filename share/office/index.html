@@ -129,8 +129,6 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
 .floors button i em::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
 .floors button[aria-current="true"] { border-color: var(--run); background: color-mix(in srgb, var(--run) 12%, var(--panel)); }
 .floors button.wait { border-color: var(--wait); box-shadow: 0 0 0 2px color-mix(in srgb, var(--wait) 35%, transparent); animation: chip 1.2s ease-in-out infinite; }
-.floors .all { display: block; text-align: center; font: 700 11.5px var(--f-body); padding: 6px; }
-.floors .all[aria-pressed="true"] { border-color: var(--run); background: color-mix(in srgb, var(--run) 12%, var(--panel)); }
 @media (max-width: 640px) { .floors { width: 96px; top: 56px; } .floors button i { display: none; } }
 .open.left .top { left: calc(var(--drawer) + 12px); }
 .d-head { display: flex; align-items: center; gap: 8px; padding: 14px 14px 10px; border-bottom: 1px solid var(--line); }
@@ -340,6 +338,7 @@ button:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
     <canvas id="map" role="img"></canvas>
     <div class="view glass" id="view">
       <button type="button" id="v-2d" class="v-mode">2D</button>
+      <button type="button" id="v-all" class="v-mode" hidden aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4h14v17M5 9.5h14M5 15h14M3 21h18"/></svg></button>
       <span class="vg"><button type="button" id="v-left" data-k="rotL"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 3v5h5"/></svg></button><button type="button" id="v-right" data-k="rotR"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/></svg></button></span>
       <span class="vg vg-tilt"><button type="button" id="v-up" data-k="up"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m17 11-5-5-5 5"/><path d="m17 18-5-5-5 5"/></svg></button><button type="button" id="v-down" data-k="down"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 6 5 5 5-5"/><path d="m7 13 5 5 5-5"/></svg></button></span>
       <span class="vg"><button type="button" id="v-out" data-k="out"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M8 11h6"/></svg></button><button type="button" id="v-in" data-k="in"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M8 11h6M11 8v6"/></svg></button></span>
@@ -737,7 +736,7 @@ function goFloor(n, overview = false) {
 const esc = t => String(t).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 function floorBar() {
   const el = $('#floors');
-  if (!LAY || !LAY.floors) { el.hidden = true; return; }
+  if (!LAY || !LAY.floors) { el.hidden = true; $('#v-all').hidden = true; return; }
   el.hidden = false;
   const dot = (k, n) => n ? `<em style="--c: var(--${k})">${n}</em>` : '';
   const rows = LAY.floors.slice().reverse().map(fl => {
@@ -745,7 +744,9 @@ function floorBar() {
     const cur = !FLOOR.overview && fl.n === FLOOR.cur, quiet = !c.run && !c.wait && !c.done;
     return `<button type="button" data-f="${fl.n}" class="${c.wait ? 'wait' : ''}" aria-current="${cur}" title="${esc(`${fl.n}F · ${name}`)}"><b>${fl.n}F</b><span>${esc(name)}</span><i>${quiet ? (c.all ? tr(`쉬는 벌 ${c.all}`, `${c.all} resting`) : '–') : dot('run', c.run) + dot('wait', c.wait) + dot('done', c.done)}</i></button>`;
   });
-  const html = `<button type="button" class="all" data-f="all" aria-pressed="${FLOOR.overview}">${tr('전체 보기', 'All floors')}</button>` + rows.join('');
+  const html = rows.join('');
+  const all = $('#v-all'); all.hidden = false; all.setAttribute('aria-pressed', String(FLOOR.overview));
+  all.title = tr('전체 보기: 모든 층을 한눈에 (O)', 'All floors at once (O)'); all.setAttribute('aria-label', all.title);
   if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; }
 }
 function layoutCampus(offices) {
@@ -1912,6 +1913,72 @@ function skyNow() {
 }
 const STARS = Array.from({ length: 70 }, (_, i) => ({ x: (Math.sin(i * 12.9898) * 43758.5453) % 1, y: (Math.sin(i * 78.233) * 12345.678) % 1, p: i })).map(s => ({ x: Math.abs(s.x), y: Math.abs(s.y) * .6, p: s.p }));
 // space behind everything; the stars always out / 맨 뒤의 우주. 별은 늘 떠 있다
+/* the overview: the building in section, the floors stacked as they stand, every bee where it is on its floor
+   (across the floor's width) and the ones riding in the elevator shaft on the left. A floor is a click away
+   전체 보기: 건물 단면. 층을 서 있는 대로 쌓고, 벌은 자기 층의 그 자리에 (층 폭을 따라), 엘리베이터를 탄 벌은 왼쪽 승강로에.
+   층을 누르면 그 층으로 */
+let OV_HITS = [], OV_HOVER = 0;
+const OV_TINT = { rest: '#e3efd6', work: '#f6ead0', team: '#d6eeee' };
+function drawOverview(t) {
+  LIGHT = skyNow().light;
+  const dpr = devicePixelRatio || 1, W = cv.width / dpr, Hh = cv.height / dpr;
+  c.save(); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const sky = c.createLinearGradient(0, 0, 0, Hh);
+  sky.addColorStop(0, mixc('#8cc4ef', '#0d1638', 1 - LIGHT)); sky.addColorStop(1, mixc('#e8f0ee', '#26355e', 1 - LIGHT));
+  c.fillStyle = sky; c.fillRect(0, 0, W, Hh);
+  const right = ($('#floors').offsetWidth || 0) + 36 + drawerWant(), n = LAY.floors.length;
+  const ground = Hh - 54, topRoom = 92, slab = Math.max(48, Math.min(175, (ground - topRoom - 30) / n));
+  const bw = Math.max(320, Math.min(1000, W - right - 60)), bx = Math.max(24, (W - right - bw) / 2), shaft = 46, fx = bx + shaft, fw = bw - shaft;
+  const sx = x => fx + 10 + x / GX * (fw - 20);
+  // the ground and the roof / 땅과 지붕
+  c.fillStyle = night(T['o-wild'] || '#a9c98e'); c.fillRect(0, ground, W, Hh - ground);
+  c.fillStyle = night('#cfd3da'); c.fillRect(bx - 8, ground - n * slab - 14, bw + 16, 14);
+  font(12, 800); c.fillStyle = night('#5a6272'); c.textBaseline = 'middle';
+  c.fillText(clipText(offices[0] ? offices[0].host : 'hivemux', bw - 20), bx + 4, ground - n * slab - 26);
+  OV_HITS = [];
+  const now = performance.now(), live = [...bees.values()].filter(b => b.state !== 'home' && !b.inside && b.x !== undefined);
+  for (const fl of LAY.floors) {
+    const y1 = ground - (fl.n - 1) * slab, y0 = y1 - slab, cur = fl.n === FLOOR.cur, hov = fl.n === OV_HOVER;
+    c.fillStyle = night(mixc(OV_TINT[fl.kind], '#ffffff', hov ? .35 : 0)); c.fillRect(fx, y0, fw, slab);
+    // glass on the front, the slab under the floor / 앞의 유리, 바닥의 슬래브
+    c.fillStyle = 'rgba(160, 200, 230, .12)'; c.fillRect(fx, y0, fw, slab - 6);
+    c.fillStyle = night('#b9bec5'); c.fillRect(bx - 4, y1 - 6, bw + 8, 6);
+    if (cur) { c.strokeStyle = T.run; c.lineWidth = 2.5; c.strokeRect(fx + 1.5, y0 + 1.5, fw - 3, slab - 9); }
+    // what stands on it, in outline: rooms and pods / 그 층에 선 것, 윤곽으로: 방과 섬
+    c.strokeStyle = 'rgba(40, 50, 70, .25)'; c.lineWidth = 1;
+    const box = (x0, x1, h, label) => { const a = sx(x0), b = sx(x1); c.strokeRect(a, y1 - 6 - h, b - a, h); if (label) { font(9.5, 700); c.fillStyle = 'rgba(40, 50, 70, .55)'; c.fillText(clipText(label, b - a - 8), a + 4, y1 - 6 - h + 9); } };
+    const hh = Math.min(slab - 26, 46);
+    if (fl.kind === 'work') { box(ROOMS.meet.x0, ROOMS.meet.x1, hh, tr(...ROOMS.meet.name)); box(ROOMS.boss.x0, ROOMS.boss.x1, hh, tr(...ROOMS.boss.name)); for (const p of LAY.pods) box(p.x, p.x + 5.8, hh * .45); }
+    if (fl.kind === 'team') for (const r of fl.rooms) box(r.x0, r.x1, hh, r.team);
+    if (fl.kind === 'rest') { box(.3, 7, hh * .5, tr('카페', 'Cafe')); box(7.6, 13.4, hh * .4, tr('라운지', 'Lounge')); box(21.6, 28.4, hh * .35, tr('탁구', 'Ping-pong')); }
+    // the floor's name and its counts / 층 이름과 수
+    const k = floorCounts(fl.n), name = fl.kind === 'team' ? fl.rooms.map(r => r.team).join(' · ') : tr(...FLOOR_NAME[fl.kind]);
+    font(15, 800, 'f-mono'); c.fillStyle = night('#1b1f27'); c.fillText(`${fl.n}F`, fx + 10, y0 + 14);
+    font(11, 700); c.fillStyle = night('#3a4252'); c.fillText(clipText(name, fw * .5), fx + 44, y0 + 14);
+    let cx = fx + fw - 12; c.textAlign = 'right'; font(11, 700, 'f-mono');
+    for (const [st, v] of [['done', k.done], ['wait', k.wait], ['run', k.run]]) if (v) { c.fillStyle = night('#1b1f27'); c.fillText(String(v), cx, y0 + 14); cx -= c.measureText(String(v)).width + 4; circle(cx - 3, y0 + 14, 4, T[st]); cx -= 16; }
+    c.textAlign = 'left';
+    if (k.wait) { c.strokeStyle = T.wait; c.lineWidth = 2; c.setLineDash([5, 4]); c.strokeRect(fx + 4, y0 + 4, fw - 8, slab - 14); c.setLineDash([]); }
+    OV_HITS.push({ n: fl.n, x: bx, y: y0, w: bw, h: slab });
+    // its bees, nearer ones lower / 그 층의 벌, 가까운 벌일수록 아래
+    const on = live.filter(b => fOf(b) === fl.n && !riding(b)).sort((a, b) => a.y - b.y);
+    const k2 = Math.max(.32, Math.min(.7, slab / 210));
+    for (const b of on) { c.save(); c.translate(sx(b.x), y1 - 9 - (1 - Math.min(1, b.y / LAY.GY)) * Math.min(14, slab * .12)); c.scale(k2, k2); drawBee({ ...b, screen: true, x: 0, y: 0 }, t); c.restore(); }
+  }
+  // the elevator shaft and whoever rides it / 승강로와 타고 있는 벌
+  c.fillStyle = night('#d9dce2'); c.fillRect(bx, ground - n * slab, shaft - 4, n * slab - 6);
+  c.strokeStyle = night('#b9bec5'); c.lineWidth = 1; for (let i = 1; i < n; i++) { const y = ground - i * slab - 3; c.beginPath(); c.moveTo(bx, y); c.lineTo(bx + shaft - 4, y); c.stroke(); }
+  for (const b of live.filter(riding)) {
+    const u = Math.min(1, (now - b.rideAt) / RIDE_MS), e = u < .5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2, from = b.rideFrom || 1, f = from + (fOf(b) - from) * e;
+    const y = ground - (f - 1) * slab - 8;
+    fillRR(bx + 4, y - slab + 16, shaft - 12, slab - 18, 3, night('#eef0f3'));
+    c.save(); c.translate(bx + shaft / 2 - 2, y); c.scale(.4, .4); drawBee({ ...b, screen: true, x: 0, y: 0, rideUntil: 0, moving: false }, t); c.restore();
+  }
+  font(11, 600); c.fillStyle = night('#5a6272'); c.textAlign = 'center';
+  c.fillText(tr('층을 누르면 그 층으로 갑니다 · Esc 로 돌아가기', 'Click a floor to go there · Esc to go back'), bx + bw / 2, ground + 26);
+  c.textAlign = 'left'; c.textBaseline = 'top';
+  c.restore();
+}
 function drawSky(t) {
   LIGHT = skyNow().light;
   // window panes glow warm as the light goes / 해가 지면 창문이 따뜻하게 켜진다
@@ -3060,6 +3127,7 @@ function drawFrame(now) {
     place();
     for (const b of [...bees.values(), ...crew.values()]) step(b, dt);
     updateHelpers(t);
+    if (FLOOR.overview && LAY.floors) { if (window.OFFICE3D) OFFICE3D.hide(); drawOverview(t); if (pop) drawPopBee(t); return; }
     const roof = roofFor(cam.zoom), globe = globeFor(cam.zoom);
     // in 3D (share/office/office3d.js) the scene is drawn under this canvas, which keeps the words on top; the
     // roof, the planet and the plan are drawn here as before / 3D 에선 이 캔버스 아래에 장면을 그리고, 이 캔버스엔 글자만
@@ -3350,6 +3418,7 @@ function hit(p) {
 }
 const tip = $('#tip');
 cv.addEventListener('mousemove', e => {
+  if (FLOOR.overview) { const h = ovAt(e); OV_HOVER = h ? h.n : 0; cv.classList.toggle('hand', !!h); tip.hidden = true; return; }
   const b = LAY && hit(worldAt(e));
   cv.classList.toggle('hand', !!b || !!(LAY && boardAt(worldAt(e))));
   hoverKey = b ? b.key : null;
@@ -3378,8 +3447,10 @@ cv.addEventListener('mousemove', e => {
 });
 cv.addEventListener('mouseleave', () => { tip.hidden = true; hoverKey = null; HOVER_HOUSE = null; });
 const boardAt = wp => wp && BOARD_HITS.find(r => wp.x >= r.x && wp.x <= r.x + r.w && wp.y >= r.y && wp.y <= r.y + r.h);
+const ovAt = e => { const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top; return OV_HITS.find(h => x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h); };
 cv.addEventListener('click', e => {
   if (dragged) { dragged = false; return; }
+  if (FLOOR.overview) { const h = ovAt(e); if (h) goFloor(h.n); return; }
   // a team board: open it, or close the open one; a click elsewhere also closes it / 팀 보드: 열거나 닫는다. 다른 곳을 눌러도 닫힌다
   const bd = LAY && boardAt(worldAt(e));
   if (bd) { BOARD_OPEN = BOARD_OPEN === bd.key ? null : bd.key; return; }
@@ -3689,10 +3760,8 @@ addEventListener('keydown', e => {
 applySide(); setDrawer(DRAWER.open); setPlan(PLAN.on); updateShiftBtn();
 // floors: a click on the bar, PageUp / PageDown, or 1 to 9; the building in section with the button on top
 // 층: 표시줄을 누르거나 PageUp / PageDown, 또는 1~9. 맨 위 버튼은 건물 단면
-$('#floors').addEventListener('click', e => {
-  const btn = e.target.closest('button'); if (!btn) return;
-  if (btn.dataset.f === 'all') goFloor(FLOOR.cur, !FLOOR.overview); else goFloor(+btn.dataset.f);
-});
+$('#floors').addEventListener('click', e => { const btn = e.target.closest('button'); if (btn) goFloor(+btn.dataset.f); });
+$('#v-all').addEventListener('click', () => goFloor(FLOOR.cur, !FLOOR.overview));
 addEventListener('keydown', e => {
   if (!LAY || !LAY.floors || (e.target.closest && e.target.closest('input, textarea, select')) || e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.key === 'PageUp') goFloor(FLOOR.cur + 1); else if (e.key === 'PageDown') goFloor(FLOOR.cur - 1);
