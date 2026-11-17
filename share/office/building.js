@@ -226,6 +226,10 @@ function ground() {
   // what lies far out (the lawn, the road, trees, lamps) fades when the world becomes a planet (space())
   // 멀리 있는 것 (잔디, 길, 나무, 가로등) 은 세상이 행성이 되면 사라진다 (space())
   const g = new THREE.Group(), far = new THREE.Group(); g.add(far); W.far = far;
+  // a low mound of lawn under the campus: from far out the office and the flats sit on the planet instead of
+  // floating where its surface curves away; near, the lawn covers it / 캠퍼스 아래 낮은 잔디 둔덕: 멀리서 보면
+  // 사무실과 아파트가 행성 표면이 휘어 내려간 곳에 떠 있지 않고 그 위에 앉는다. 가까이서는 잔디가 덮는다
+  put(g, cylG(36, 46, 7, 64), C.grass, 13, -3.57, 9, { cast: false });
   W.lawn = put(g, geo('ground', () => new THREE.CircleGeometry(220, 64)), new THREE.MeshStandardMaterial({ color: 0x9fc483, roughness: 1, transparent: true }), 0, -.02, 0, { rx: -Math.PI / 2, cast: false });
   block(far, 80, .04, 7, C.road, 0, -.02, 31, { cast: false });
   block(g, 24, .06, 14, C.paving, 0, -.02, 17, { cast: false });
@@ -254,6 +258,16 @@ function ground() {
     ci.castShadow = ci.receiveShadow = true; far.add(ci);
   });
   for (const [x, z, ry] of [[-4.6, 13.6, 0], [4.6, 13.6, 0], [-4.6, 21.4, Math.PI], [4.6, 21.4, Math.PI]]) bench(g, x, z, ry);
+  // puddles on the plaza and the path to the flats, shown in the rain; rings where the drops land
+  // 광장과 아파트 가는 길의 물웅덩이. 비 올 때 보이고, 빗방울 떨어지는 곳에 동그란 물결
+  W.puddles = new THREE.Group(); W.puddles.visible = false; g.add(W.puddles);
+  const pud = new THREE.MeshStandardMaterial({ color: 0x8aa2bb, roughness: .04, metalness: .35, transparent: true, opacity: .6, depthWrite: false });
+  const ringM = new THREE.MeshBasicMaterial({ color: 0xdfe9f3, transparent: true, opacity: .6, depthWrite: false });
+  W.rings = [];
+  for (const [x, z, rx, rz] of [[-6.4, 14.2, 1.3, .7], [5.2, 20.6, 1.1, .6], [-2.4, 22.8, .8, .5], [1.8, 12.6, .9, .5], [15.5, 15.2, 1.2, .55], [22.6, 14.8, .9, .5], [29.8, 15.3, 1.4, .6], [32.4, 11.2, .8, .6]]) {
+    put(W.puddles, geo('pud', () => new THREE.CircleGeometry(1, 28)), pud, x, .045, z, { rx: -Math.PI / 2, s: [rx, rz, 1], cast: false, receive: false });
+    for (let k = 0; k < 2; k++) W.rings.push({ m: put(W.puddles, geo('ripple', () => new THREE.RingGeometry(.86, 1, 24)), ringM.clone(), x + (k - .5) * rx * .6, .05, z + (k - .5) * rz * .4, { rx: -Math.PI / 2, cast: false, receive: false }), k: Math.random(), r: Math.min(rx, rz) * .7 });
+  }
   // street lamps along the road / 길가 가로등
   for (let x = -36; x <= 36; x += 12) { put(far, cylG(.06, .08, 4, 8), C.frame, x, 2, 27); put(far, sphG(.22, 12), C.light, x, 4.1, 27, { cast: false }); }
   scene.add(g);
@@ -970,7 +984,7 @@ function makeBee(b) {
   const wrap = el => { const w = document.createElement('div'); w.append(el); return new CSS2DObject(w); };
   const above = (1.13 + top) * P.size + .22;
   const tagEl = document.createElement('div'); tagEl.className = 'tag'; const tag = wrap(tagEl); tag.position.set(0, above, 0); g.add(tag);
-  const askEl = document.createElement('div'); askEl.className = 'ask'; askEl.innerHTML = '<b>?</b><span></span>'; askEl.addEventListener('click', () => visit(b));
+  const askEl = document.createElement('div'); askEl.className = 'ask'; askEl.innerHTML = '<b>?</b><span></span>'; askEl.addEventListener('click', () => openPop(b, true));
   const ask = wrap(askEl); ask.position.set(0, above, 0); g.add(ask);
   scene.add(g);
   Object.assign(b, { g, body, head, wings, arms, feet: legs, jar, cup, mug, paddle, papers, umbrella, tag, tagEl, ask, askEl, pick, persona: P });
@@ -1157,7 +1171,9 @@ function animateHelpers(t) {
 let honey = 0, first = true, sessionsNow = [], shiftOff = false;
 async function poll() {
   let d;
-  try { d = await (await fetch('/state', { cache: 'no-store' })).json(); } catch (e) { return; }
+  try { d = await (await fetch('/state', { cache: 'no-store' })).json(); } catch (e) { lostServer(false); return; }
+  lostServer(true);
+  if (d.nav) { location.href = d.nav; return; }     // hivemux-office --team asked for a page / 다른 페이지를 요청받음
   if (d.lang) L = d.lang;
   // the weather and where it is (null while the server is still asking: keep what there is) / 날씨와 그 곳 (서버가 아직 묻는 중이면 null: 있는 것을 둔다)
   if (d.weather && JSON.stringify(d.weather) !== poll.wx) { poll.wx = JSON.stringify(d.weather); WX = d.weather; daylight(); }
@@ -1211,6 +1227,7 @@ async function poll() {
   first = false;
   if (shiftOff !== wasOff) applyFocus();
   syncHelpers(); counts(); boards(); homeLights();
+  afterPoll(d);
 }
 function boards() {
   for (const R of W.rooms.values()) {
@@ -1312,7 +1329,8 @@ canvas.addEventListener('pointermove', e => {
   if (!b) { tip.hidden = true; return; }
   const s = b.s, where = s.team ? `${s.team} · ${roleName(s)}` : s.project;
   const mins = Math.floor(s.age / 60), age = mins < 1 ? tr('방금', 'just now') : mins < 60 ? tr(`${mins}분`, `${mins} min`) : tr(`${Math.floor(mins / 60)}시간`, `${Math.floor(mins / 60)} h`);
-  tip.innerHTML = `<b>${escape(s.label || s.name)}</b><span>${escape(where)}</span><span>${stateWord(s.state)} · ${age}${s.agents ? tr(` · 부사수 ${s.agents}`, ` · ${s.agents} helpers`) : ''}</span><span>${tr('누르면 그 창으로 갑니다', 'Click to open its window')}</span>`;
+  const act = s.state === 'wait' ? tr('누르면 여기서 답합니다', 'Click to answer here') : tr('누르면 그 창으로 갑니다', 'Click to open its window');
+  tip.innerHTML = `<b>${escape(tagName(s))}</b><span>${escape(SET.privacy === 'name' ? '' : where)}</span>${taskOf(s) && s.label ? `<span>${escape(taskOf(s))}</span>` : ''}<span>${stateWord(s.state)} · ${age}${s.agents ? tr(` · 부사수 ${s.agents}`, ` · ${s.agents} helpers`) : ''}</span><span>${act}</span>`;
   tip.hidden = false;
   tip.style.left = Math.min(innerWidth - tip.offsetWidth - 10, e.clientX + 14) + 'px'; tip.style.top = Math.min(innerHeight - tip.offsetHeight - 10, e.clientY + 14) + 'px';
 });
@@ -1320,12 +1338,20 @@ canvas.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; }
 canvas.addEventListener('click', e => {
   if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
   const h = pickAt(e);
-  if (h && h.bee) return visit(h.bee);
+  // a waiting bee shows its question to answer here; the others open their window / 기다리는 벌은 여기서 답할 질문을, 나머지는 그 창을 연다
+  if (h && h.bee) return h.bee.s.state === 'wait' ? openPop(h.bee, true) : visit(h.bee);
   if (h && h.floor !== undefined && focus === null) { focus = h.floor; applyFocus(); }
 });
 addEventListener('keydown', e => {
+  // Esc closes what is on top first: the pop-out (it waits a minute), the clock-out card, the settings, the list
+  // Esc 는 맨 위의 것부터 닫는다: 튀어나온 카드 (1분 기다린다), 퇴근 카드, 설정, 목록
+  if (e.key === 'Escape' && pop) { snooze.set(pop.key, Date.now() + 60000); closePop(); return; }
+  if (e.key === 'Escape' && !$('#shift').hidden) { $('#shift').hidden = true; return; }
   if (e.key === 'Escape' && !panel.hidden) { openPanel(false); return; }
   if (e.target.closest && e.target.closest('input, textarea')) return;
+  if (e.metaKey || e.ctrlKey) return;
+  if (e.key === 'l' || e.key === 'L') { setDrawer(!drawerOpen); return; }
+  if (e.key === 'Escape' && drawerOpen) { setDrawer(false); return; }
   if (e.key === 'Escape' || e.key === '0') { focus = null; view = 'office'; applyFocus(); }
   else if (e.key === 'h' || e.key === 'H') { focus = null; view = view === 'home' ? 'office' : 'home'; applyFocus(); }
   else if (e.key === 'e' || e.key === 'E') setSpread(!spread);
@@ -1377,13 +1403,378 @@ panel.addEventListener('change', e => {
     if (e.target.value === 'auto') savePlace('');
     else if (e.target.value === 'off') savePlace('off');
     else { $('#city').hidden = false; cityIn.focus(); placePanel(); }
-  } else if (e.target.name === 'sky') {
-    let o = {}; try { o = JSON.parse(localStorage.getItem('office-settings') || '{}'); } catch (err) { /* private window / 사생활 보호 창 */ }
-    o.sky = e.target.value; try { localStorage.setItem('office-settings', JSON.stringify(o)); } catch (err) { /* private window / 사생활 보호 창 */ }
-    daylight();
   }
 });
 panel.addEventListener('submit', e => { e.preventDefault(); const v = cityIn.value.trim(); if (v) savePlace(v); });
+// ── what the classic office had around the scene: the pop-out, the list and ranking, clocking out and in,
+// hand-offs, settings (shared with it in localStorage 'office-settings') and the window app's hooks
+// 이전 사무실이 장면 둘레에 두던 것: 튀어나오기, 목록과 순위, 퇴근·출근, 넘김, 설정 (localStorage 'office-settings'
+// 로 이전 사무실과 같이 쓴다), 창 앱 연결 ─────────────────────────────────────────────────────────────────
+const SET = { pop: 'front', privacy: 'all', sound: 'off', sky: 'auto', side: 'right', follow: 'on', lights: 'on' };
+try { Object.assign(SET, JSON.parse(localStorage.getItem('office-settings') || '{}')); } catch (e) { /* private window / 사생활 보호 창 */ }
+const saveSet = () => { try { localStorage.setItem('office-settings', JSON.stringify({ ...JSON.parse(localStorage.getItem('office-settings') || '{}'), ...SET })); } catch (e) { /* private window / 사생활 보호 창 */ } };
+// the window app (share/office/OfficeWindow.swift): bring it forward, keep it on top, start the server again
+// 창 앱 (share/office/OfficeWindow.swift): 앞으로, 다른 창 위에, 서버 다시 띄우기
+const native = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.office;
+const tell = msg => { try { if (native) native.postMessage(msg); } catch (e) { /* no window app / 창 앱 없음 */ } };
+// a bee's name and task as the privacy setting allows / 보이기 설정이 허락하는 만큼의 벌 이름과 작업
+const tagName = s => SET.privacy === 'name' ? `#${s.idx ?? ''}` : s.team ? roleName(s) : SET.privacy === 'title' ? s.label || s.project : s.label || s.name;
+const taskOf = s => SET.privacy === 'all' ? (s.name || tr('새 대화', 'new chat')) : '';
+const WHY = { approve: ['✋', '승인 필요', 'Approve?'], plan: ['📋', '계획 승인', 'Approve the plan?'], ask: ['❓', '질문', 'A question'], input: ['✎', '입력 필요', 'Needs input'], error: ['⚠', '오류', 'Error'] };
+const whyOf = s => { const w = s.state === 'wait' && s.why && WHY[s.why.kind]; return w ? { icon: w[0], label: tr(w[1], w[2]), kind: s.why.kind } : null; };
+const whyText = s => {
+  if (!s.why || SET.privacy !== 'all') return '';
+  const { tool = '', text = '' } = s.why;
+  return /^(Edit|Write|MultiEdit|NotebookEdit)$/.test(tool) ? tr(`${text.split('/').pop()} 수정`, `edit ${text.split('/').pop()}`)
+    : /^mcp__/.test(tool) ? `${tool.split('__').slice(1).join(' · ')}${text ? ` · ${text}` : ''}` : text;
+};
+const fmt = sec => { sec = Math.max(0, Math.floor(sec)); return sec >= 3600 ? `${Math.floor(sec / 3600)}:${String(Math.floor(sec % 3600 / 60)).padStart(2, '0')}h` : `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`; };
+const fmtLong = sec => { sec = Math.max(0, Math.floor(sec)); return sec < 60 ? tr(`${sec}초`, `${sec}s`) : tr(`${Math.floor(sec / 60)}분 ${sec % 60}초`, `${Math.floor(sec / 60)}m ${sec % 60}s`); };
+let OFFICES = [], fetchedAt = Date.now();
+const ageNow = s => s.age + (Date.now() - fetchedAt) / 1000;
+
+// the pop-out: the bee waiting longest jumps in front with its question; the choices on its screen answer it
+// there (bin/hivemux-office /answer). "Later" lets it wait a minute; Esc too
+// 튀어나오기: 가장 오래 기다린 벌이 질문을 들고 앞으로 나온다. 화면의 선택지로 거기 답한다 (bin/hivemux-office
+// /answer). "나중에" 는 1분 기다리게 한다. Esc 도
+const popEl = $('#pop'), snooze = new Map();
+let pop = null, popAsked = false, popMenu = '', answering = false;
+// the bee itself, turning slowly, drawn by a small renderer of its own / 그 벌 자체를 작은 렌더러로 천천히 돌려 그린다
+const popR = new THREE.WebGLRenderer({ canvas: $('#popcv'), antialias: true, alpha: true });
+popR.outputColorSpace = THREE.SRGBColorSpace; popR.toneMapping = THREE.ACESFilmicToneMapping;
+const popScene = new THREE.Scene(), popCam = new THREE.PerspectiveCamera(30, 1, .1, 50);
+popScene.add(new THREE.HemisphereLight(0xffffff, 0xb59a74, 1.4)); { const l = new THREE.DirectionalLight(0xfff1dc, 2.2); l.position.set(2, 4, 5); popScene.add(l); }
+popCam.position.set(0, 1.05, 3.3); popCam.lookAt(0, .78, 0);
+let popBee = null;
+function popModel(b) {
+  if (popBee) { popScene.remove(popBee.g); popBee = null; }
+  const m = { key: b.key, s: b.s, persona: b.persona, col: b.col, phase: 0, legs: [], pos: { x: 0, z: 0 }, y: 0, floor: -1, facing: 0, arrived: true, goal: { pose: 'wait' } };
+  makeBee(m); scene.remove(m.g); popScene.add(m.g); popBee = m;
+}
+function maybePop() {
+  if (SET.pop !== 'front') { if (pop && !popAsked) closePop(); return; }   // one opened by a click stays / 클릭으로 연 카드는 둔다
+  if (pop) return;
+  const now = Date.now();
+  const b = [...bees.values()].filter(b => b.s.state === 'wait' && b.arrived && !((snooze.get(b.key) || 0) > now)).sort((a, c) => (a.s.at || 0) - (c.s.at || 0))[0];
+  if (b) openPop(b);
+}
+function openPop(b, asked = false) {
+  pop = b; popMenu = ''; popAsked = asked;
+  popEl.hidden = false; popEl.classList.remove('leaving');
+  popModel(b); renderPop();
+  if (!asked) { tell({ front: true }); buzz(); }
+}
+function closePop() {
+  if (!pop) return;
+  pop = null;
+  if (reduced) { popEl.hidden = true; return; }
+  popEl.classList.add('leaving'); setTimeout(() => { if (!pop) popEl.hidden = true; }, 300);
+}
+function renderPop() {
+  if (!pop) return;
+  if (!bees.has(pop.key) || pop.s.state !== 'wait') { closePop(); return; }
+  const s = pop.s, wt = ageNow(s);
+  popEl.dataset.lvl = wt < 45 ? 1 : wt < 120 ? 2 : 3;
+  $('#pop-h').textContent = tr(`${tagName(s)} 에서 기다려요`, `${tagName(s)} needs you`);
+  $('#pop-r').textContent = taskOf(s) || (SET.privacy === 'all' ? '' : tr('작업 이름 숨김', 'task name hidden'));
+  $('#pop-w').textContent = wt < 120 ? tr(`${fmtLong(wt)}째 기다리는 중`, `waiting for ${fmtLong(wt)}`) : tr(`${fmtLong(wt)}째 기다리는 중. 너무 오래됐어요!`, `waiting for ${fmtLong(wt)}. That's long!`);
+  const more = [...bees.values()].filter(b => b.s.state === 'wait' && b !== pop).length;
+  $('#pop-more').textContent = more ? tr(`줄 서 있는 세션이 ${more}개 더 있어요`, `${more} more in line`) : '';
+  $('#pop-go').textContent = s.idx ? tr(`⌥${s.idx} 로 이동`, `Go to ⌥${s.idx}`) : tr('그 창으로 이동', 'Go to its window');
+  $('#pop-later').textContent = tr('나중에', 'Later');
+  const w = whyOf(s);
+  $('#pop-why').hidden = !w;
+  if (w) { $('#pop-why').dataset.kind = w.kind; $('#pop-why-k').textContent = `${w.icon} ${w.label}`; $('#pop-why-t').textContent = whyText(s); }
+  renderMenu();
+}
+// the choices as buttons, built again only when they change so typed words and focus stay
+// 선택지를 버튼으로. 바뀔 때만 다시 만들어 입력한 글과 포커스가 남는다
+function renderMenu() {
+  const m = pop && pop.s.menu, sig = m ? JSON.stringify(m) : '';
+  popEl.classList.toggle('acting', !!m);
+  if (sig === popMenu) return;
+  popMenu = sig; answering = false;
+  const box = $('#pop-opts'), q = $('#pop-q');
+  box.replaceChildren(); box.hidden = q.hidden = !m;
+  if (!m) return;
+  q.textContent = m.title || '';
+  q.hidden = !m.title || (pop.s.why && pop.s.why.kind === 'ask' && m.title === String(pop.s.why.text || '').replace(/ \(\+\d+\)$/, ''));
+  m.options.forEach((o, i) => {
+    const btn = document.createElement('button'); btn.type = 'button';
+    btn.className = 'opt' + (i === 0 && o.checked === null ? ' first' : '') + (o.checked ? ' on' : '');
+    const n = document.createElement('span'); n.className = 'n'; n.textContent = o.checked === null ? o.n : (o.checked ? '☑' : '☐');
+    const l = document.createElement('span'); l.className = 'l'; l.textContent = /^type something\.?$/i.test(o.label) ? tr('직접 입력…', 'Type something…') : o.label;
+    if (o.desc) { const d = document.createElement('small'); d.textContent = o.desc; l.append(d); }
+    btn.append(n, l);
+    btn.addEventListener('click', () => {
+      if (!o.text) return send({ n: o.n, label: o.label });
+      if (btn.nextElementSibling && btn.nextElementSibling.classList.contains('say')) return btn.nextElementSibling.querySelector('textarea').focus();
+      const say = document.createElement('div'); say.className = 'say';
+      const ta = document.createElement('textarea'); ta.placeholder = tr('여기에 입력…', 'Type here…');
+      const go = document.createElement('button'); go.type = 'button'; go.textContent = tr('보내기', 'Send');
+      const fire = () => ta.value.trim() && send({ n: o.n, label: o.label, text: ta.value });
+      go.addEventListener('click', fire);
+      ta.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); fire(); } });
+      say.append(ta, go); btn.after(say); ta.focus();
+    });
+    box.append(btn);
+  });
+  if (m.tabs || m.options.some(o => o.checked !== null)) {
+    const nx = document.createElement('button'); nx.type = 'button'; nx.className = 'next';
+    nx.textContent = m.options.some(o => o.checked !== null) ? tr('고른 대로 다음 →', 'Done, next →') : tr('다음 질문 →', 'Next question →');
+    nx.addEventListener('click', () => send({ key: 'next' })); box.append(nx);
+  }
+}
+async function send(ans) {
+  if (!pop || answering) return;
+  const b = pop; answering = true;
+  $('#pop-opts').querySelectorAll('button').forEach(x => { x.disabled = true; });
+  let ok = false;
+  try { ok = (await (await fetch('/answer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pane: b.s.pane, ssh: b.s.ssh, ...ans }) })).json()).ok; } catch (e) { /* below / 아래 */ }
+  if (!ok) toast(tr('화면이 바뀌어서 누르지 못했어요. 다시 확인해 주세요', 'The screen changed, so nothing was pressed. Have another look'));
+  // off until the next screen comes; back after a while if nothing changes / 다음 화면이 올 때까지 끄고, 안 바뀌면 잠시 뒤 되살린다
+  const sig = popMenu;
+  setTimeout(() => { answering = false; if (pop === b && popMenu === sig) { popMenu = ''; renderMenu(); } }, ok ? 3000 : 0);
+}
+$('#pop-go').addEventListener('click', () => { const b = pop; closePop(); if (b) visit(b); });
+$('#pop-later').addEventListener('click', () => { if (pop) snooze.set(pop.key, Date.now() + 60000); closePop(); });
+let actx;
+function buzz() {
+  if (SET.sound !== 'on') return;
+  try {
+    actx = actx || new AudioContext();
+    const t = actx.currentTime, o = actx.createOscillator(), lfo = actx.createOscillator(), lg = actx.createGain(), f = actx.createBiquadFilter(), g = actx.createGain();
+    o.type = 'sawtooth'; o.frequency.value = 190; lfo.frequency.value = 26; lg.gain.value = 22; f.type = 'lowpass'; f.frequency.value = 900;
+    lfo.connect(lg).connect(o.frequency); o.connect(f).connect(g).connect(actx.destination);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.07, t + .06); g.gain.linearRampToValueAtTime(0, t + .7);
+    o.start(t); lfo.start(t); o.stop(t + .75); lfo.stop(t + .75);
+  } catch (e) { /* no sound / 소리 없음 */ }
+}
+function drawPop(t, dt) {
+  if (!pop || !popBee || popEl.hidden) return;
+  const r = popR.domElement, w = r.clientWidth * devicePixelRatio;
+  if (w && r.width !== w) { popR.setSize(r.clientWidth, r.clientHeight, false); popR.setPixelRatio(devicePixelRatio); }
+  animate(popBee, t, dt); popBee.g.rotation.y = reduced ? 0 : Math.sin(t * .8) * .5;
+  popR.render(popScene, popCam);
+}
+
+// the list: sessions grouped by Mac, waiting first; a click goes to the window, hovering marks the bee
+// 목록: Mac 별 세션, 기다리는 것 먼저. 누르면 그 창으로, 올리면 벌을 표시한다
+const ORDER = { wait: 0, run: 1, done: 2, idle: 3, home: 4 };
+let drawerOpen = false, TAB = 's';
+try { drawerOpen = localStorage.getItem('office-list') === '1'; } catch (e) { /* private window / 사생활 보호 창 */ }
+function setDrawer(open) {
+  drawerOpen = open; document.body.classList.toggle('open', open); $('#listbtn').setAttribute('aria-expanded', String(open));
+  try { localStorage.setItem('office-list', open ? '1' : '0'); } catch (e) { /* private window / 사생활 보호 창 */ }
+  renderList();
+}
+const applySide = () => document.body.classList.toggle('left', SET.side === 'left');
+function renderList() {
+  const roster = $('#roster'), list = [...bees.values()], want = [];
+  const rows = new Map([...roster.querySelectorAll('.r')].map(el => [el.dataset.key, el]));
+  OFFICES.forEach((o, oi) => {
+    const at = o.ssh || o.host || '', mine = list.filter(b => b.key.startsWith(at + '|')).sort((a, c) => ORDER[a.s.state] - ORDER[c.s.state] || (a.s.idx || 99) - (c.s.idx || 99));
+    if (!mine.length) return;
+    if (OFFICES.length > 1) { const g = document.createElement('div'); g.className = 'grp'; g.innerHTML = '<i></i><span></span>'; g.querySelector('span').textContent = `${o.host} · ${mine.length}`; if (oi) g.querySelector('i').style.background = '#a78bfa'; want.push(g); }
+    for (const b of mine) {
+      let r = rows.get(b.key);
+      if (!r) {
+        r = document.createElement('button'); r.type = 'button'; r.dataset.key = b.key;
+        r.innerHTML = '<span class="k"></span><span class="n"></span><span class="e"></span><span class="w"><i></i><span></span></span>';
+        r.addEventListener('click', () => { const x = bees.get(r.dataset.key); if (x) visit(x); });
+        r.addEventListener('mouseenter', () => { hover = bees.get(r.dataset.key) || null; });
+        r.addEventListener('mouseleave', () => { hover = null; });
+      }
+      const s = b.s, age = ageNow(s), wy = whyOf(s);
+      r.className = 'r s-' + s.state;
+      r.querySelector('.k').textContent = s.state === 'home' ? '🏠' : `⌥${s.idx ?? ''}`;
+      r.querySelector('.n').textContent = tagName(s);
+      r.querySelector('.e').textContent = s.state === 'done' ? tr(`${fmt(age)} 전 끝남`, `done ${fmt(age)} ago`) + (s.files ? tr(` · 파일 ${s.files}개`, ` · ${s.files} file${s.files > 1 ? 's' : ''}`) : '')
+        : wy ? `${wy.icon} ${wy.label} ${fmt(age)}` : s.state === 'idle' || s.state === 'home' ? stateWord(s.state) : `${stateWord(s.state)} ${fmt(age)}`;
+      const F = W.floors[b.goal ? b.goal.floor : b.floor];
+      r.querySelector('.w i').textContent = s.state === 'home' ? tr('벌집 아파트', 'Hive Residence') : F ? `${F.kind === 'roof' ? 'R' : `${F.i + 1}F`} ${F.label}` : '';
+      r.querySelector('.w span').textContent = wy && whyText(s) ? ` · ${whyText(s)}` : taskOf(s) ? ` · ${taskOf(s)}` : '';
+      want.push(r);
+    }
+  });
+  if (want.length !== roster.children.length || want.some((el, i) => roster.children[i] !== el)) roster.replaceChildren(...want);
+  $('#empty').hidden = list.length > 0;
+  $('#empty').textContent = tr('지금은 Claude 세션이 없어요. 터미널에서 hm 으로 프로젝트를 열고 Claude 를 시작하면 벌이 출근해요.', 'No Claude sessions yet. Open a project with hm in a terminal and start Claude; a bee will come to work.');
+  const waiting = list.filter(b => b.s.state === 'wait').length;
+  $('#list-n').textContent = list.filter(b => b.s.state !== 'home').length; $('#list-dot').hidden = !waiting;
+  $('#listbtn').classList.toggle('hot', waiting > 0 && !drawerOpen);
+  const sum = $('#d-sum'); sum.textContent = `${list.length}`;
+  if (waiting) { const em = document.createElement('em'); em.textContent = `${tr('기다림', 'waiting')} ${waiting}`; sum.append(' · ', em); }
+  if (shiftOff) { const em = document.createElement('em'); em.textContent = tr('🌙 퇴근 중', '🌙 clocked out'); sum.append(' · ', em); }
+  renderRanks();
+}
+function setTab(k) {
+  TAB = k; $('#tab-s').setAttribute('aria-selected', String(k === 's')); $('#tab-r').setAttribute('aria-selected', String(k === 'r'));
+  $('#pane-s').hidden = k !== 's'; $('#pane-r').hidden = k !== 'r'; renderRanks();
+}
+// who made the most honey today, this week, this month (this Mac's ledger) / 오늘, 이번 주, 이번 달 꿀을 가장 많이 모은 벌 (이 Mac 의 장부)
+function renderRanks() {
+  if (TAB !== 'r') return;
+  const me = OFFICES[0] || {}, RANKS = me.ranks || {}, ROSTER = me.bees || {}, at = me.ssh || me.host || '';
+  const period = ($('#periods input:checked') || {}).value || 'day', list = RANKS[period] || [];
+  $('#ranks').replaceChildren(...list.map((e, i) => {
+    const r = ROSTER[e.id], li = document.createElement('li');
+    li.className = r && r.left ? 'gone' : '';
+    const m = document.createElement('span'); m.className = 'm'; m.textContent = ['🥇', '🥈', '🥉'][i] || `${i + 1}`;
+    const who = document.createElement('span'); who.className = 'who';
+    const n = document.createElement('b'); n.textContent = SET.privacy === 'name' ? `#${i + 1}` : r ? (r.name === 'claude' ? r.project : r.name) : e.id.split('/').pop();
+    const pj = document.createElement('span'); pj.textContent = (SET.privacy === 'name' ? '' : r ? r.project : e.id.split('/')[0]) + (r && r.left ? tr(' · 퇴사', ' · left') : r && r.rehires ? tr(` · 재입사 ${r.rehires}`, ` · rehired ×${r.rehires}`) : '');
+    who.append(n, pj);
+    const h = document.createElement('span'); h.className = 'h'; h.textContent = tr(`꿀 ${e.honey}칸`, `${e.honey} honey`);
+    li.append(m, who, h);
+    li.addEventListener('mouseenter', () => { hover = bees.get(`${at}|${e.id}`) || null; });
+    li.addEventListener('mouseleave', () => { hover = null; });
+    return li;
+  }));
+  $('#ranks-empty').hidden = list.length > 0;
+  $('#ranks-empty').textContent = tr('아직 모은 꿀이 없어요. 작업이 끝날 때마다 그 벌의 꿀이 한 칸씩 쌓여요.', 'No honey yet. Each finished task adds a cell for its bee.');
+}
+$('#listbtn').addEventListener('click', () => setDrawer(!drawerOpen));
+$('#d-close').addEventListener('click', () => setDrawer(false));
+$('#tab-s').addEventListener('click', () => setTab('s')); $('#tab-r').addEventListener('click', () => setTab('r'));
+$('#periods').addEventListener('change', renderRanks);
+
+// clocking out or in, Mac by Mac (bin/hivemux-shift through the server) / 퇴근·출근, Mac 마다 (서버를 거쳐 bin/hivemux-shift)
+const macs = () => OFFICES.map((o, oi) => {
+  const at = o.ssh || o.host || '', mine = [...bees.values()].filter(b => b.key.startsWith(at + '|'));
+  return { o, oi, off: (o.shift || {}).state === 'off', working: mine.filter(b => b.s.state !== 'home').length, busy: mine.filter(b => b.s.state === 'run' || b.s.state === 'wait').length, home: ((o.shift || {}).home || []).length };
+}).filter(m => m.working || m.off);
+function updateShiftBtn() {
+  const ms = macs(), allOff = ms.length > 0 && ms.every(m => m.off), b = $('#shiftbtn');
+  b.classList.toggle('off', allOff);
+  $('#shift-t').textContent = allOff ? tr('출근', 'Clock in') : tr('퇴근', 'Clock out');
+  // moon to clock out, sun to clock in / 퇴근은 달, 출근은 해
+  $('#shift-ico').setAttribute('d', allOff ? 'M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z' : 'M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z');
+  b.title = tr('퇴근 / 출근: 컴퓨터마다 고르기', 'Clock out / in, computer by computer');
+}
+function askShift() {
+  const ms = macs();
+  $('#shift-q').textContent = tr('누가 퇴근하거나 출근할까요?', 'Who clocks out or in?');
+  $('#shift-n').textContent = tr('퇴근하면 Claude 를 끄고, 일하는 벌은 끝난 뒤 퇴근해요 (야근). 출근하면 모두 같은 대화로 다시 시작해요.', 'Clocking out stops the Claudes (busy ones after they finish); clocking in brings each back in the same conversation.');
+  const rows = ms.map(m => {
+    const row = document.createElement('div'); row.className = 'mac';
+    const name = document.createElement('span'); name.textContent = `${m.o.host}${m.oi === 0 ? tr(' (이 컴퓨터)', ' (this computer)') : ''}`;
+    const st = document.createElement('small');
+    st.textContent = m.off ? tr(`🌙 퇴근 중 · ${m.home}마리 집에${m.working ? ` · ${m.working}마리 야근` : ''}`, `🌙 home: ${m.home}${m.working ? ` · ${m.working} on overtime` : ''}`)
+      : tr(`${m.working}마리 근무${m.busy ? ` · ${m.busy}마리 일하는 중` : ''}`, `${m.working} at work${m.busy ? ` · ${m.busy} busy` : ''}`);
+    name.append(st);
+    const go = document.createElement('button'); go.type = 'button'; go.className = m.off ? 'in' : 'out';
+    go.textContent = m.off ? tr('출근', 'Clock in') : tr('퇴근', 'Clock out');
+    go.addEventListener('click', () => shiftMac(m.o, m.off ? 'on' : 'off'));
+    row.append(name, go); return row;
+  });
+  if (ms.length > 1) {
+    const anyOn = ms.some(m => !m.off), row = document.createElement('div'); row.className = 'mac all';
+    const go = document.createElement('button'); go.type = 'button'; go.className = anyOn ? 'out' : 'in';
+    go.textContent = anyOn ? tr('모두 퇴근', 'Everyone clocks out') : tr('모두 출근', 'Everyone clocks in');
+    go.addEventListener('click', () => ms.filter(m => m.off === !anyOn).forEach(m => shiftMac(m.o, anyOn ? 'off' : 'on')));
+    row.append(go); rows.push(row);
+  }
+  if (!ms.length) { const p = document.createElement('p'); p.className = 'note'; p.textContent = tr('지금은 근무 중인 벌이 없어요.', 'No bees at work right now.'); rows.push(p); }
+  $('#shift-macs').replaceChildren(...rows);
+  $('#shift').hidden = false;
+}
+async function shiftMac(o, to) {
+  $('#shift').hidden = true;
+  try {
+    const j = await (await fetch('/shift', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to, ssh: o.ssh || null }) })).json();
+    toast(j.ok ? `${o.host}: ${j.say || (to === 'off' ? tr('퇴근', 'clocked out') : tr('출근', 'clocked in'))}` : tr(`${o.host} 에서 하지 못했어요. 거기 hivemux 를 업데이트하세요.`, `Could not on ${o.host}. Update hivemux there.`));
+  } catch (e) { toast(tr('hivemux 에 닿지 못했어요.', 'Could not reach hivemux.')); }
+}
+$('#shiftbtn').addEventListener('click', askShift);
+$('#shift-no').addEventListener('click', () => { $('#shift').hidden = true; });
+
+// hand-offs between team bees: a letter flies over, then what it says shows above the one who gets it
+// 팀 벌 사이 넘김: 편지가 날아가고, 받는 벌 위에 내용이 뜬다
+const lettersSeen = new Set(), flights = [];
+const envelope = mat(0xffffff, { roughness: .6 });
+function takeLetters(offices) {
+  for (const o of offices) for (const l of o.letters || []) {
+    const at = o.ssh || o.host || '', id = `${at}|${l.at}|${l.from}`;
+    if (lettersSeen.has(id)) continue;
+    lettersSeen.add(id);
+    const from = bees.get(`${at}|${l.from}`), to = bees.get(`${at}|${l.to}`);
+    if (!from || !to || Date.now() / 1000 - l.at > 20) continue;      // only new ones / 새것만
+    const m = put(scene, boxG(.34, .03, .24), envelope, 0, -99, 0, { cast: false });
+    flights.push({ from, to, l, m, t: reduced ? 1 : 0 });
+  }
+}
+function sayOver(b, text, ms) {
+  if (!b.sayObj) { const el = document.createElement('div'); el.className = 'say3d'; const w = document.createElement('div'); w.append(el); b.sayObj = new CSS2DObject(w); b.sayObj.position.copy(b.tag.position); b.g.add(b.sayObj); b.sayEl = el; }
+  b.sayEl.textContent = text; b.sayObj.visible = true; clearTimeout(b.sayT); b.sayT = setTimeout(() => { b.sayObj.visible = false; }, ms);
+}
+const va = new THREE.Vector3(), vb = new THREE.Vector3();
+function flyLetters(dt) {
+  for (let i = flights.length - 1; i >= 0; i--) {
+    const f = flights[i]; f.t = Math.min(1, f.t + dt / 2.4);
+    f.from.g.getWorldPosition(va); f.to.g.getWorldPosition(vb);
+    const e = f.t < .5 ? 2 * f.t * f.t : 1 - Math.pow(-2 * f.t + 2, 2) / 2;
+    f.m.position.lerpVectors(va, vb, e); f.m.position.y += 1.6 + Math.sin(Math.PI * e) * Math.max(1.5, va.distanceTo(vb) * .3);
+    f.m.rotation.y = Math.atan2(vb.x - va.x, vb.z - va.z) + Math.sin(e * 12) * .2;
+    f.m.visible = f.from.g.visible || f.to.g.visible;
+    if (f.t >= 1) {
+      scene.remove(f.m); flights.splice(i, 1);
+      const t = f.l.text && f.l.text.length > 40 ? f.l.text.slice(0, 39) + '…' : f.l.text || '';
+      if (f.to.g.visible) sayOver(f.to, SET.privacy === 'all' ? `${f.l.fromName}: ${t}` : tr(`${f.l.fromName} 에게서 편지`, `A letter from ${f.l.fromName}`), 5000);
+    }
+  }
+}
+
+// lost the server: keep asking, tell the window app to start it again, say so after a few tries
+// 서버를 잃음: 계속 묻고, 창 앱에 다시 띄우라고 하고, 몇 번 뒤에 알린다
+let failures = 0;
+function lostServer(ok) {
+  if (ok) { if (failures >= 3) toast(tr('hivemux 에 다시 연결됐어요', 'Reconnected to hivemux')); failures = 0; $('#lost').hidden = true; return; }
+  if (++failures < 3) return;
+  tell({ revive: true });
+  $('#lost').textContent = tr(`hivemux 와 연결이 끊겼어요. 다시 연결하는 중… (${failures})`, `Lost hivemux. Reconnecting… (${failures})`) +
+    (failures >= 20 ? tr(' 계속 안 되면 터미널에서 hivemux office 를 실행하세요.', ' If it keeps failing, run hivemux office in a terminal.') : '');
+  $('#lost').hidden = false;
+}
+// a bee starts waiting on another floor while one floor is shown: go there / 한 층을 보는 중 다른 층 벌이 기다리기 시작하면 그 층으로
+let waitingBefore = null;   // null: not read yet, so the ones waiting at the start are not new / null: 아직 안 읽음. 처음부터 기다리던 벌은 새것이 아니다
+function followWaiting() {
+  const now = new Set([...bees.values()].filter(b => b.s.state === 'wait').map(b => b.key));
+  if (waitingBefore && SET.follow !== 'off' && focus !== null) {
+    const b = [...now].filter(k => !waitingBefore.has(k)).map(k => bees.get(k)).find(b => b.goal && b.goal.floor !== focus && b.goal.floor >= 0);
+    if (b) { focus = b.goal.floor; applyFocus(); }
+  }
+  waitingBefore = now;
+}
+// after every poll / 읽을 때마다
+function afterPoll(d) {
+  OFFICES = d.offices || []; fetchedAt = Date.now();
+  takeLetters(OFFICES); followWaiting(); updateShiftBtn(); renderList(); renderPop(); maybePop();
+}
+setInterval(() => { if (drawerOpen) renderList(); renderPop(); }, 1000);
+
+// the settings shared with the classic office / 이전 사무실과 같이 쓰는 설정
+for (const k of ['pop', 'privacy', 'sound', 'sky', 'side', 'follow', 'lights']) { const r = panel.querySelector(`input[name="${k}"][value="${SET[k]}"]`); if (r) r.checked = true; }
+panel.addEventListener('change', e => {
+  if (e.target.id === 'top') return tell({ top: e.target.checked });
+  if (!(e.target.name in SET)) return;
+  SET[e.target.name] = e.target.value; saveSet(); applySide();
+  if (e.target.name === 'sound' && e.target.value === 'on') buzz();
+  if (e.target.name === 'sky' || e.target.name === 'lights') daylight();
+  for (const b of bees.values()) b.tagKey = '';
+  renderList(); renderPop(); maybePop();
+});
+if (native) $('#top-set').hidden = false;
+window.officeTop = on => { $('#top').checked = !!on; };
+// opened as a browser app window, each 🐝 opens a new one: the new one says so and the older ones close
+// 브라우저 앱 창으로 열면 🐝 마다 새 창이 뜬다: 새 창이 알리고 예전 창은 닫힌다
+if (matchMedia('(display-mode: standalone)').matches && window.BroadcastChannel) {
+  const ch = new BroadcastChannel('hivemux-office');
+  ch.onmessage = e => { if (e.data === 'opened') window.close(); };
+  ch.postMessage('opened');
+}
+applySide();
+
 function toast(text) { const t = $('#toast'); t.textContent = text; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => { t.hidden = true; }, 2600); }
 
 // ── the sun where it really is, and the weather outside / 실제 자리의 해, 그리고 바깥 날씨 ───────────────────
@@ -1420,7 +1811,7 @@ function sunAt(ms, lat, lon) {
 }
 // "always day" or "always night" in the settings (shared with the classic office) holds the sun at noon or 11 pm
 // 설정의 "늘 낮" 이나 "늘 밤" (이전 사무실과 같이 쓴다) 은 해를 정오나 밤 11시에 둔다
-const skyMode = () => { try { return JSON.parse(localStorage.getItem('office-settings') || '{}').sky || 'auto'; } catch (e) { return 'auto'; } };
+const skyMode = () => SET.sky || 'auto';
 function skyTime() { const m = skyMode(); if (m === 'auto') return Date.now(); const d = new Date(); d.setHours(m === 'day' ? 12 : 23, 0, 0, 0); return d.getTime(); }
 const mixHex = (a, b, k) => new THREE.Color(a).lerp(new THREE.Color(b), k);
 const RAINY = c => (c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95, SNOWY = c => (c >= 71 && c <= 77) || c === 85 || c === 86;
@@ -1453,7 +1844,7 @@ function daylight() {
   hemi.intensity = .18 + .72 * day + .35 * day * sky.over;
   scene.environmentIntensity = .06 + .29 * day;   // the room's soft light, too, else the night stays bright / 방의 은은한 빛도. 아니면 밤이 밝다
   const lit = 1 - day * (1 - sky.over * .45);     // how much the lamps show / 등이 얼마나 보이나
-  C.light.emissiveIntensity = .5 + 1.7 * lit;
+  C.light.emissiveIntensity = SET.lights === 'off' ? .5 * (1 - lit) : .5 + 1.7 * lit;   // lights off: a dark office at night / 조명 끔: 밤에는 어두운 사무실
   ROOF.bulb.emissiveIntensity = .8 + 2.2 * lit; ROOF.water.emissiveIntensity = .15 + .75 * (1 - day);
   C.glass.color.copy(mixHex(0x6d7f99, 0xbfdbea, day));
   // wet paving and road in the rain, snow on the lawns / 비에 젖은 바닥과 길, 잔디 위의 눈
@@ -1494,7 +1885,7 @@ function weatherChip() {
 const RAIN_N = 4000, SNOW_N = 1600, SPAN = 74, TALL = 44;
 const fall = (n, per) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(n * per * 3), 3)); return g; };
 const rain = new THREE.LineSegments(fall(RAIN_N, 2), new THREE.LineBasicMaterial({ color: 0x7f96b0, transparent: true, opacity: .55, depthWrite: false }));
-const FLAKE = canvasTex(32, 32, (c, w) => { const g = c.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.5, 'rgba(255,255,255,.8)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(0, 0, w, w); });
+const FLAKE = canvasTex(32, 32, (c, w) => { const g = c.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.45, 'rgba(250,252,255,.95)'); g.addColorStop(.65, 'rgba(160,180,205,.4)'); g.addColorStop(1, 'rgba(160,180,205,0)'); c.fillStyle = g; c.fillRect(0, 0, w, w); });
 const snow = new THREE.Points(fall(SNOW_N, 1), new THREE.PointsMaterial({ map: FLAKE, size: .6, transparent: true, depthWrite: false, color: 0xffffff }));
 for (const p of [rain, snow]) { p.frustumCulled = false; p.visible = false; p.userData.keep = true; scene.add(p); }
 const drops = { rain: [], snow: [] };
@@ -1522,6 +1913,10 @@ function weather(t, dt, near) {
     }
     obj.geometry.setDrawRange(0, kind === 'rain' ? n * 2 : n);
     obj.geometry.attributes.position.needsUpdate = true;
+  }
+  if (W.puddles) {
+    W.puddles.visible = sky.rain > 0 && near;
+    if (W.puddles.visible) for (const R of W.rings) { const u = reduced ? .5 : (t * .7 + R.k) % 1; R.m.scale.setScalar(.15 + u * R.r); R.m.material.opacity = .65 * (1 - u); }
   }
   // thunder: now and then the sky lights up / 천둥: 가끔 하늘이 번쩍인다
   if (sky.storm && !reduced && t > flashAt) { flashAt = t + 5 + Math.random() * 12; flash = 1; }
@@ -1627,9 +2022,9 @@ function frame() {
     b.g.visible = shown;
     const st = b.s.state;
     b.tag.visible = shown && (b === hover || (focus !== null && b.floor === focus && (st !== 'idle' || dist < 30)) || (focus === null && st !== 'idle' && st !== 'home' && dist < 55));
-    if (b.tag.visible) { const key = `${st}|${b.s.lead}|${b.s.label}`; if (b.tagKey !== key) { b.tagKey = key; b.tagEl.className = 'tag' + (b.s.lead ? ' lead' : ''); b.tagEl.style.setProperty('--c', css({ run: '--run', wait: '--wait', done: '--done' }[st] || '--sleep')); b.tagEl.innerHTML = `<i></i>${escape(b.s.team ? roleName(b.s) : b.s.label || b.s.name)}`; } }
+    if (b.tag.visible) { const key = `${st}|${b.s.lead}|${b.s.label}|${SET.privacy}`; if (b.tagKey !== key) { b.tagKey = key; b.tagEl.className = 'tag' + (b.s.lead ? ' lead' : ''); b.tagEl.style.setProperty('--c', css({ run: '--run', wait: '--wait', done: '--done' }[st] || '--sleep')); b.tagEl.innerHTML = `<i></i>${escape(tagName(b.s))}`; } }
     b.ask.visible = shown && st === 'wait' && (focus === null || b.floor === focus) && dist < 320;
-    if (b.ask.visible) b.askEl.querySelector('span').textContent = b.s.team ? roleName(b.s) : (b.s.label || b.s.name);
+    if (b.ask.visible) b.askEl.querySelector('span').textContent = tagName(b.s);
     // the screen in front lights up while it works there / 앞의 화면은 거기서 일하는 동안 켜진다
     const d = W.desks.get(b.key), scr = d && (d.screen || d.laptop), on = st === 'run' && b.arrived && b.goal && b.goal.pose === 'type';
     if (scr && !!d.scr !== on) { d.mat = d.mat || screenMat(); d.scr = on ? d.mat : null; scr.material = on ? d.mat : C.screenOff; }
@@ -1637,6 +2032,7 @@ function frame() {
   // the lift rests where the last rider left it / 엘리베이터는 마지막으로 내린 층에 선다
   if (W.lift) W.lift.visible = ex < .02 && (focus === null || W.lift.position.y <= focus * FH + .1);
   animateHelpers(t);
+  flyLetters(dt); drawPop(t, dt);
   pong(t);
   if (!reduced) { RIPPLE.offset.x = t * .02; RIPPLE.offset.y = Math.sin(t * .3) * .05; }
   for (const list of W.flames) if (list) list.forEach((f, k) => { f.scale.set(1, .8 + Math.sin(t * 9 + k * 2) * .2 + Math.sin(t * 13 + k) * .1, 1); });
@@ -1655,11 +2051,12 @@ function pong(t) {   // the ball flies while both ends are taken / 양쪽에 다
 }
 
 document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
-$('#hint').textContent = tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · E: 층 펼치기 · H: 아파트 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · E: spread · H: residence · Esc: whole');
+$('#hint').textContent = tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · E: 층 펼치기 · H: 아파트 · L: 목록 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · E: spread · H: residence · L: list · Esc: whole');
 camera.position.set(52, 46, 64); controls.target.set(0, 5, 3);
 { const f = /[#&]f=(\d+)/.exec(location.hash); if (f) focus = +f[1]; }   // #f=1 opens on a floor / #f=1 은 그 층으로 연다
 ground(); daylight(); setInterval(daylight, 20000);
 await poll(); setInterval(poll, 1500);
+setDrawer(drawerOpen);
 document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
-$('#hint').textContent = tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · E: 층 펼치기 · H: 아파트 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · E: spread · H: residence · Esc: whole');
+$('#hint').textContent = tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · E: 층 펼치기 · H: 아파트 · L: 목록 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · E: spread · H: residence · L: list · Esc: whole');
 frame();

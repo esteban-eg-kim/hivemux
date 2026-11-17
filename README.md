@@ -102,14 +102,13 @@ The 🐝 button at the top of the sidebar (or `prefix B`, the right-click menu,
   list as a drawer, right or left (Settings); its **Honey** tab ranks bees by the
   honey they made today, this week and this month, and the month's best hangs
   on the wall in a frame.
-- Turn, tilt and zoom with the mouse (a turn pivots on the point you pressed),
-  or switch to **2D** for the same office seen from straight above. Zoom far out
-  and the office sits on a tiny planet. The office is a glass building of floors
-  (1F rest, 2F work), one screen each: the floor bar on the right switches floors
-  (PageUp / PageDown) and the building button shows them all at once; bees take
-  the elevator. Settings (⚙) → Office look → Classic brings back the older
-  office, Drawing → Drawn (lighter) draws it flat for slower computers, and the
-  💡 button (Office lights) keeps it bright after dark.
+- The office is a glass building in 3D: a lobby, work floors, team floors and a
+  rooftop with a pool and a pub, and the Hive Residence next door where bees go
+  home when you clock out. Drag to turn, right-drag to move, wheel to zoom; zoom
+  far out and it sits on a tiny planet. The floor bar on the right (or 1–9, Esc)
+  opens one floor; `E` spreads the floors apart. The sun and the weather are the
+  real ones where you are (Settings ⚙ → Weather place). The older drawn office is
+  still there: the **Classic office** link at the top.
 - A bee's name tag shows the name you gave its session (`hivemux` rename or
   Claude's `/rename`); bees with none show the project, numbered `api #1`,
   `api #2` among themselves.

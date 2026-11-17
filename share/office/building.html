@@ -13,14 +13,16 @@
    share/office/vendor 의 three.js). 이 페이지는 그 틀이다: 수, 층 표시줄, 장면 위의 이름표와 말풍선, 툴팁. */
 :root {
   --bg: #dfe6ee; --panel: #ffffff; --line: #d3d9e3; --fg: #1b1f27; --fg2: #3a4252; --muted: #5a6375;
-  --run: #2f7fd6; --wait: #e08a00; --done: #1d9a64; --sleep: #8b94a5; --honey: #f2b632;
+  --run: #2f7fd6; --wait: #e08a00; --done: #1d9a64; --sleep: #8b94a5; --honey: #f2b632; --alert: #d93a2b; --night: #2c3060;
+  --scrim: rgba(233, 237, 243, .7); --drawer: min(340px, calc(100vw - 48px));
   --glass: rgba(255, 255, 255, .82); --shadow: 0 6px 22px rgba(20, 28, 45, .14);
   --f-body: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
   --f-mono: ui-monospace, "SF Mono", Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #0e1117; --panel: #1a1d24; --line: #2b303b; --fg: #e1e6f0; --fg2: #c3c9d4; --muted: #9aa3b2;
-  --run: #5aa9ff; --wait: #f5a524; --done: #3ecf8e; --sleep: #6b7385; --glass: rgba(26, 29, 36, .82); color-scheme: dark } }
+  --run: #5aa9ff; --wait: #f5a524; --done: #3ecf8e; --sleep: #6b7385; --alert: #ff6b5a; --scrim: rgba(16, 18, 23, .7);
+  --glass: rgba(26, 29, 36, .82); color-scheme: dark } }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; overflow: hidden; }
@@ -41,7 +43,7 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
 .gear:hover, .gear[aria-expanded="true"] { border-color: var(--muted); }
 .gear svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 /* the building's settings: the weather's place and day or night / 건물 설정: 날씨 위치와 낮·밤 */
-.settings { position: fixed; left: 16px; top: 76px; z-index: 4; width: min(320px, calc(100vw - 32px)); padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+.settings { position: fixed; left: 16px; top: 76px; z-index: 8; width: min(340px, calc(100vw - 32px)); max-height: calc(100vh - 92px); overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 14px; }
 .settings fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
 .settings legend { font-size: 11.5px; font-weight: 700; letter-spacing: .04em; color: var(--muted); margin-bottom: 7px; padding: 0; }
 .seg { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -86,6 +88,118 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 10px 16px; z-index: 6; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .ask { animation: none; } }
 @media (max-width: 640px) { .floors { right: 8px; width: 150px; } .hint { display: none; } }
+
+/* the buttons on the top bar: clock out / in, the list / 위 막대 버튼: 퇴근·출근, 목록 */
+.tb { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--fg2);
+  font: 600 12.5px var(--f-body); cursor: pointer; }
+.tb:hover { border-color: var(--muted); }
+.tb svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.tb.off { background: var(--night); border-color: var(--night); color: #fff; }
+.tb b { font-family: var(--f-mono); }
+.tb i { width: 8px; height: 8px; border-radius: 50%; background: var(--wait); }
+.tb.hot { border-color: var(--wait); animation: hot 1.2s ease-in-out infinite; }
+@keyframes hot { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--wait) 25%, transparent); } }
+/* the list: sessions and the honey ranking, a drawer on one side / 목록: 세션과 꿀 순위. 한쪽 서랍 */
+.drawer { position: fixed; top: 0; bottom: 0; right: 0; width: var(--drawer); z-index: 7; display: flex; flex-direction: column;
+  background: color-mix(in srgb, var(--panel) 88%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2);
+  border-left: 1px solid var(--line); box-shadow: -10px 0 30px rgba(0, 0, 0, .12); transform: translateX(105%); transition: transform .25s ease, visibility .25s; visibility: hidden; }
+.left .drawer { right: auto; left: 0; border-left: 0; border-right: 1px solid var(--line); transform: translateX(-105%); }
+.open .drawer { transform: none; visibility: visible; }
+.open:not(.left) .floors { right: calc(var(--drawer) + 16px); }
+.open:not(.left) .top { max-width: calc(100vw - var(--drawer) - 32px); }
+.open.left .top, .open.left .settings, .open.left .hint { left: calc(var(--drawer) + 16px); }
+.floors, .top, .settings, .hint { transition: left .25s, right .25s; }
+.d-head { display: flex; align-items: center; gap: 8px; padding: 14px 14px 10px; }
+.d-head span { font-size: 12px; color: var(--muted); }
+.d-head em { font-style: normal; color: var(--wait); font-weight: 700; }
+.d-head button.x { margin-left: auto; width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); cursor: pointer; font-size: 16px; }
+.tabs { display: flex; gap: 2px; background: color-mix(in srgb, var(--fg) 6%, transparent); padding: 2px; border-radius: 9px; }
+.tabs button { border: 0; background: transparent; padding: 4px 10px; border-radius: 7px; font: 600 12.5px var(--f-body); color: var(--muted); cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--panel); color: var(--fg); box-shadow: 0 1px 2px rgba(0, 0, 0, .1); }
+.d-body { flex: 1; overflow-y: auto; padding: 4px 10px 14px; }
+.roster { display: grid; gap: 5px; }
+.grp { display: flex; align-items: center; gap: 6px; font: 600 11px var(--f-mono); letter-spacing: .05em; color: var(--muted); margin: 8px 4px 2px; }
+.grp i { width: 9px; height: 9px; border-radius: 3px; background: var(--honey); }
+.r { display: grid; grid-template-columns: auto 1fr auto; gap: 1px 8px; align-items: baseline; text-align: left; padding: 7px 10px; border-radius: 9px;
+  border: 1px solid var(--line); background: var(--panel); color: var(--fg); font: inherit; cursor: pointer; --st: var(--sleep); }
+.r:hover { outline: 2px solid var(--honey); outline-offset: -1px; }
+.r .k { font: 400 11px var(--f-mono); color: var(--muted); }
+.r .n { font-size: 13px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.r .e { font: 600 11.5px var(--f-mono); color: var(--st); white-space: nowrap; }
+.r .w { grid-column: 1 / -1; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.r .w i { font-style: normal; color: var(--st); }
+.r.s-run { --st: var(--run); } .r.s-wait { --st: var(--wait); border-color: var(--wait); } .r.s-done { --st: var(--done); } .r.s-home { opacity: .7; }
+.note { font-size: 12.5px; color: var(--muted); padding: 10px 12px; border: 1px dashed var(--line); border-radius: 8px; margin: 6px 0; }
+.periods { margin: 10px 2px 8px; }
+.ranks { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.ranks li { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel); }
+.ranks li:hover { outline: 2px solid var(--honey); outline-offset: -1px; }
+.ranks .m { font: 700 14px var(--f-mono); text-align: center; }
+.ranks .who b { display: block; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ranks .who span { font-size: 11.5px; color: var(--muted); }
+.ranks .h { font: 700 12.5px var(--f-mono); color: var(--wait); white-space: nowrap; }
+.ranks li.gone { opacity: .55; }
+/* a bee that needs you pops out in front / 나를 기다리는 벌은 앞으로 튀어나온다 */
+.pop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: var(--scrim); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: fade .25s; padding-inline: 16px; }
+@keyframes fade { from { opacity: 0; } }
+.pop.leaving { animation: fade .3s reverse forwards; }
+.pop-box { display: flex; flex-direction: column; align-items: center; gap: 4px; max-width: 400px; width: 100%; }
+.pop.acting .pop-box { max-width: 460px; }
+.pop-bee { width: 150px; height: 150px; position: relative; }
+.pop-bee .ring { position: absolute; inset: -6px; border-radius: 50%; border: 3px solid var(--wait); opacity: .7; }
+.pop-bee canvas { width: 100%; height: 100%; display: block; position: relative; }
+.pop-card { position: relative; width: 100%; background: var(--panel); border: 2px solid var(--wait); border-radius: 16px; padding: 16px 18px; text-align: center; box-shadow: 0 18px 50px rgba(0, 0, 0, .25); animation: card .35s cubic-bezier(.2, 1.4, .4, 1); }
+@keyframes card { from { transform: scale(.6); opacity: 0; } }
+.pop-h { font-size: 17px; font-weight: 700; text-wrap: balance; }
+.pop-r { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.pop-w { font: 600 13px var(--f-mono); color: var(--wait); margin-top: 8px; }
+.pop-more { font-size: 12px; color: var(--muted); }
+.pop-why { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--wait) 12%, transparent); text-align: left; }
+.pop-why b { display: block; font-size: 15px; color: var(--wait); }
+.pop-why span { display: block; font-size: 14px; margin-top: 3px; overflow-wrap: anywhere; max-height: 9em; overflow: auto; }
+.pop-why[data-kind="error"] { background: color-mix(in srgb, var(--alert) 12%, transparent); }
+.pop-why[data-kind="error"] b { color: var(--alert); }
+.pop-q { margin-top: 10px; font-size: 14px; font-weight: 600; text-align: left; }
+.pop-opts { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; max-height: 40vh; overflow: auto; }
+.pop-opts button.opt { display: flex; gap: 10px; align-items: baseline; width: 100%; text-align: left; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); font: inherit; font-size: 14px; cursor: pointer; }
+.pop-opts button.opt:hover:not(:disabled) { border-color: var(--wait); }
+.pop-opts button.opt:disabled { opacity: .5; cursor: default; }
+.pop-opts button.opt .n { font: 600 12px var(--f-mono); color: var(--muted); }
+.pop-opts button.opt .l { flex: 1; overflow-wrap: anywhere; }
+.pop-opts button.opt .l small { display: block; color: var(--muted); font-size: 12px; }
+.pop-opts button.opt.first { border-color: var(--wait); background: color-mix(in srgb, var(--wait) 10%, var(--panel)); }
+.pop-opts button.opt.on .n { color: var(--done); }
+.pop-opts .say { display: flex; gap: 6px; }
+.pop-opts .say textarea { flex: 1; min-height: 2.6em; resize: vertical; border: 1px solid var(--line); border-radius: 9px; padding: 8px; font: inherit; background: var(--panel); color: var(--fg); }
+.pop-opts .say button, .pop-opts .next { padding: 8px 14px; border-radius: 9px; border: 1px solid var(--wait); background: var(--wait); color: #1b1f27; font: inherit; font-weight: 700; cursor: pointer; }
+.pop-opts .next { align-self: flex-end; }
+.pop-act { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+.pop-act button { padding: 8px 16px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); font: inherit; font-weight: 600; cursor: pointer; }
+.pop-act .go { background: var(--wait); border-color: var(--wait); color: #1b1f27; }
+.pop[data-lvl="2"] .ring { animation: ring 1s ease-out infinite; }
+.pop[data-lvl="3"] .ring { border-color: var(--alert); animation: ring .7s ease-out infinite; }
+.pop[data-lvl="3"] .pop-card { border-color: var(--alert); }
+.pop[data-lvl="3"] .pop-w { color: var(--alert); }
+@keyframes ring { from { opacity: .9; transform: scale(.85); } to { opacity: 0; transform: scale(1.25); } }
+/* who clocks out or in, Mac by Mac / 누가 퇴근·출근할지, Mac 마다 */
+.shift { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: var(--scrim); padding-inline: 16px; }
+.shift-card { width: min(420px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; box-shadow: 0 18px 50px rgba(0, 0, 0, .25); }
+.shift-card p { margin: 0 0 4px; font-size: 15px; font-weight: 700; }
+.shift-card .sub { font-size: 12.5px; font-weight: 400; color: var(--muted); }
+.macs { display: grid; gap: 6px; margin-top: 12px; }
+.mac { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; }
+.mac span { flex: 1; font-size: 13.5px; font-weight: 650; min-width: 0; }
+.mac small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
+.mac button, .shift-act button { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); font: inherit; font-weight: 700; cursor: pointer; }
+.mac button.out { background: var(--night); border-color: var(--night); color: #fff; }
+.mac button.in { background: var(--wait); border-color: var(--wait); color: #1b1f27; }
+.mac.all { justify-content: flex-end; border-style: dashed; }
+.shift-act { display: flex; justify-content: flex-end; margin-top: 12px; }
+/* a hand-off between team bees: what the letter says, over the one who gets it / 팀 벌 사이 넘김: 받는 벌 위에 편지 내용 */
+.say3d { max-width: 240px; padding: 5px 10px; border-radius: 10px; background: var(--panel); color: var(--fg); font: 600 12.5px var(--f-body); box-shadow: 0 3px 12px rgba(0, 0, 0, .18); transform: translateY(-40px); white-space: normal; text-align: center; }
+.lost { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); z-index: 40; background: var(--alert); color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 13px; max-width: calc(100vw - 32px); }
+.check { display: flex; gap: 8px; align-items: center; font-size: 13px; cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .pop, .pop-card, .tb.hot { animation: none; } .pop-bee .ring { animation: none !important; } }
 </style>
 </head>
 <body>
@@ -99,11 +213,37 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
   <span class="chip" style="--c: var(--sleep)"><i></i><span data-t="쉼|Resting"></span> <b id="n-idle">0</b></span>
   <span class="chip" style="--c: var(--honey)"><i></i><span data-t="오늘 꿀|Honey today"></span> <b id="n-honey">0</b></span>
   <button class="chip wx" id="wx" type="button" hidden></button>
+  <button class="tb" id="shiftbtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="shift-ico" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span id="shift-t"></span></button>
+  <button class="tb" id="listbtn" type="button" aria-expanded="false" aria-controls="drawer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01" stroke-width="3"/></svg><b id="list-n">0</b><i id="list-dot" hidden></i></button>
   <button class="gear" id="gear" type="button" aria-expanded="false" aria-controls="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
   <a href="/team" data-t="팀|Team"></a>
-  <a href="/" data-t="이전 사무실|Classic office"></a>
+  <a href="/artifacts" data-t="아티팩트|Artifacts"></a>
+  <a href="/classic" data-t="이전 사무실|Classic office"></a>
 </header>
 <form class="settings glass" id="settings" hidden>
+  <fieldset>
+    <legend data-t="기다리는 세션이 생기면|When a session needs you"></legend>
+    <div class="seg">
+      <label><input type="radio" name="pop" value="front"><span data-t="앞으로 튀어나오기|Pop out in front"></span></label>
+      <label><input type="radio" name="pop" value="quiet"><span data-t="줄만 서기|Just line up"></span></label>
+    </div>
+  </fieldset>
+  <fieldset>
+    <legend data-t="소리|Sound"></legend>
+    <div class="seg">
+      <label><input type="radio" name="sound" value="off"><span data-t="끄기|Off"></span></label>
+      <label><input type="radio" name="sound" value="on"><span data-t="튀어나올 때 붕|Buzz when popping out"></span></label>
+    </div>
+  </fieldset>
+  <fieldset>
+    <legend data-t="화면에 보여줄 내용|What to show"></legend>
+    <div class="seg">
+      <label><input type="radio" name="privacy" value="all"><span data-t="모두|Everything"></span></label>
+      <label><input type="radio" name="privacy" value="title"><span data-t="작업 이름 숨기기|Hide task names"></span></label>
+      <label><input type="radio" name="privacy" value="name"><span data-t="프로젝트 이름도 숨기기|Hide project names too"></span></label>
+    </div>
+    <p data-t="화면 공유나 스크린샷 할 때 쓰세요.|For screen sharing and screenshots."></p>
+  </fieldset>
   <fieldset>
     <legend data-t="날씨 위치|Weather place"></legend>
     <div class="seg">
@@ -122,11 +262,58 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
       <label><input type="radio" name="sky" value="night"><span data-t="늘 밤|Always night"></span></label>
     </div>
   </fieldset>
+  <fieldset>
+    <legend data-t="밤의 사무실 조명|Office lights at night"></legend>
+    <div class="seg">
+      <label><input type="radio" name="lights" value="on"><span data-t="켜기|On"></span></label>
+      <label><input type="radio" name="lights" value="off"><span data-t="끄기|Off"></span></label>
+    </div>
+  </fieldset>
+  <fieldset>
+    <legend data-t="한 층을 보다가 다른 층 벌이 기다리면|Viewing one floor, a bee on another waits"></legend>
+    <div class="seg">
+      <label><input type="radio" name="follow" value="on"><span data-t="그 층으로|Go there"></span></label>
+      <label><input type="radio" name="follow" value="off"><span data-t="그대로|Stay"></span></label>
+    </div>
+  </fieldset>
+  <fieldset>
+    <legend data-t="목록 위치|List side"></legend>
+    <div class="seg">
+      <label><input type="radio" name="side" value="right"><span data-t="오른쪽|Right"></span></label>
+      <label><input type="radio" name="side" value="left"><span data-t="왼쪽|Left"></span></label>
+    </div>
+  </fieldset>
+  <fieldset id="top-set" hidden>
+    <legend data-t="창|Window"></legend>
+    <label class="check"><input type="checkbox" id="top"><span data-t="다른 창 위에 띄우기 (⌘T)|Keep on top of other windows (⌘T)"></span></label>
+  </fieldset>
 </form>
 <nav class="floors glass" id="floors" aria-label="층"></nav>
 <div class="hint glass" id="hint"></div>
 <div class="tip glass" id="tip" hidden></div>
 <div class="toast glass" id="toast" hidden></div>
+<div class="lost" id="lost" hidden></div>
+<aside class="drawer" id="drawer" aria-label="목록">
+  <div class="d-head"><div class="tabs" role="tablist"><button type="button" role="tab" id="tab-s" aria-selected="true" data-t="세션|Sessions"></button><button type="button" role="tab" id="tab-r" aria-selected="false" data-t="꿀 순위|Honey"></button></div><span id="d-sum"></span><button type="button" class="x" id="d-close" aria-label="닫기">×</button></div>
+  <div class="d-body" id="pane-s"><div class="roster" id="roster"></div><p class="note" id="empty" hidden></p></div>
+  <div class="d-body" id="pane-r" hidden><div class="seg periods" id="periods"><label><input type="radio" name="period" value="day" checked><span data-t="오늘|Today"></span></label><label><input type="radio" name="period" value="week"><span data-t="이번 주|This week"></span></label><label><input type="radio" name="period" value="month"><span data-t="이번 달|This month"></span></label></div><ol class="ranks" id="ranks"></ol><p class="note" id="ranks-empty" hidden></p></div>
+</aside>
+<div class="pop" id="pop" hidden>
+  <div class="pop-box">
+    <div class="pop-bee" id="pop-bee"><div class="ring"></div><canvas id="popcv" width="300" height="300"></canvas></div>
+    <div class="pop-card">
+      <div class="pop-h" id="pop-h"></div>
+      <div class="pop-r" id="pop-r"></div>
+      <div class="pop-why" id="pop-why" hidden><b id="pop-why-k"></b><span id="pop-why-t"></span></div>
+      <div class="pop-q" id="pop-q" hidden></div>
+      <div class="pop-opts" id="pop-opts" hidden></div>
+      <div class="pop-w" id="pop-w"></div>
+      <div class="pop-more" id="pop-more"></div>
+      <div class="pop-act"><button type="button" class="go" id="pop-go"></button><button type="button" id="pop-later"></button></div>
+    </div>
+  </div>
+</div>
+<div class="shift" id="shift" hidden><div class="shift-card"><p id="shift-q"></p><p class="sub" id="shift-n"></p><div class="macs" id="shift-macs"></div><div class="shift-act"><button type="button" id="shift-no" data-t="닫기|Close"></button></div></div></div>
 <script type="importmap">{ "imports": { "three": "/vendor/three.module.min.js", "three/addons/": "/vendor/addons/" } }</script>
 <script type="module" src="/building.js"></script>
 </body>

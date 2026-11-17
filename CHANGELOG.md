@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- The bee office opens on the 3D building now; the drawn office stays at `/classic` ("Classic
+  office"). The building has what the classic office had: a waiting bee pops out in front with its
+  question and the choices to answer it there (or click it, or its bubble), with a buzz if you like;
+  the ☰ list of sessions and the honey ranking (`L`); clocking out and in, computer by computer, from
+  a button at the top; team hand-offs flying as letters; a banner and a restart when the server is
+  lost; and the settings: pop out or line up, sound, hiding task or project names, day or night,
+  office lights at night, following a waiting bee to its floor, the list's side, keep on top.
+- 3D building: puddles with rings on the plaza and the path to the flats in the rain, snowflakes that
+  show against the snow, and the campus on a low mound so it sits on the planet when zoomed out.
 - Team template (web & app): the roles that capture or measure screens now start headless Chrome
   through one helper, one at a time, without its per-profile downloads, and always delete the
   temporary profile and their own leftover Chrome; the lead checks disk use now and then.
