@@ -701,7 +701,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # 한 페이지: 비스듬히 본 사무실, 또는 위에서 본 모습 (/2d 는 그렇게 연다. 페이지에서 서로 바꾼다)
         # the office is the 3D building (building.html); the classic drawn office stays at /classic
         # 사무실은 3D 건물 (building.html). 예전에 그린 사무실은 /classic 에 남는다
-        page = {"/": "building.html", "/classic": "index.html", "/index.html": "index.html", "/2d": "index.html", "/team": "team.html", "/report": "report.html", "/artifacts": "artifacts.html",
+        # /report (old links) is the team page, which opens on its Report tab / /report (예전 링크) 는 팀 화면. 리포트 탭으로 열린다
+        page = {"/": "building.html", "/classic": "index.html", "/index.html": "index.html", "/2d": "index.html", "/team": "team.html", "/report": "team.html", "/artifacts": "artifacts.html",
                 "/building": "building.html"}.get(path)
         if page:
             with open(os.path.join(SHARE, page), "rb") as f:

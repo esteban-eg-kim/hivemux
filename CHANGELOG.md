@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Team page: a new look on warm paper, with three tabs under the team's name: Progress (the roles
+  with their state and context against the diet line, the goal for the lead, the flow of work and
+  what waits for you), Setup (the team mode, an org chart you can drag to reorder the flow, and the
+  chosen role's settings) and Report (the day's report, now part of the team page; `/report` links
+  open this tab). The top bar keeps only Office | Team, with what waits for you and Stop team.
 - 3D building: the office turns its lights on when it gets dark or the weather turns grey (rain,
   snow, heavy cloud), so it stays bright inside; Settings → Office lights at night → Off keeps it
   dark. The flats' walls no longer flicker where two cells met.

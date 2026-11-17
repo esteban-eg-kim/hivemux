@@ -599,12 +599,12 @@ def sessions(folder):
 def panes(session):
     """The project's panes / 프로젝트의 칸"""
     fmt = "\t".join(["#{pane_id}", "#{window_name}", "#{@hivemux-role}", "#{@claude_session}", "#{pane_current_command}",
-                     "#{@claude_state}", "#{window_index}", "#{@hivemux-role-at}", "#{@claude_ctx}", "#{@hivemux-diet}"])
+                     "#{@claude_state}", "#{window_index}", "#{@hivemux-role-at}", "#{@claude_ctx}", "#{@hivemux-diet}", "#{@claude_state_at}"])
     out = []
     for line in tmux("list-panes", "-s", "-t", f"={session}", "-F", fmt).splitlines():
         p = line.split("\t")
-        if len(p) == 10:
-            out.append(dict(zip(("pane", "window", "role", "sid", "cmd", "state", "index", "at", "ctx", "diet"), p)))
+        if len(p) == 11:
+            out.append(dict(zip(("pane", "window", "role", "sid", "cmd", "state", "index", "at", "ctx", "diet", "since"), p)))
     return out
 
 
@@ -714,6 +714,7 @@ def status(session):
                       "name": label(r), "session": f"{session}-{r['id']}", "pane": p.get("pane", ""),
                       "running": running, "state": p.get("state", "") if running else ("off" if p else ""),
                       "ctx": int(p["ctx"]) if p.get("ctx", "").isdigit() else 0, "dieting": p.get("diet", "") if running else "",
+                      "since": int(p["since"]) if running and p.get("since", "").isdigit() else 0,     # in this state since / 이 상태가 된 때
                       "trust": bool(running and needs_trust(p["pane"]))})
     return {"project": session, "folder": folder, **common,
             "team": {"id": team.get("id", ""), "mode": team_mode(team), "name": label(team), "description": label(team, "description"),
