@@ -56,6 +56,9 @@ code, .mono { font-family: var(--f-mono); font-size: 12px; }
 .seg > * { flex: 1; border: 0; border-radius: 8px; padding: 0 12px; background: none; color: var(--muted); font-size: 13px; font-weight: 700; min-height: 40px;
   text-decoration: none; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; }
 .seg > [aria-pressed="true"], .seg > [aria-current] { background: var(--panel); color: var(--fg); box-shadow: 0 1px 2px var(--shade); }
+/* the team mode's "Custom": shown when levels were set role by role, not something to pick / 팀 운영 방식의 "직접 설정": 역할마다 정했을 때 보이는 상태. 고르는 것이 아니다 */
+.seg > .custom { cursor: default; }
+.seg > .custom:disabled { opacity: .5; }
 .seg.nav > * { font-size: 14px; padding: 0 14px; }
 .seg.wrap { flex-wrap: wrap; }
 .picker { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; min-width: 0; }
@@ -985,8 +988,8 @@ function renderSetup(m) {
     <section class="col" aria-labelledby="h-org"><h2 class="sec" id="h-org">${tr('조직도', 'Org chart')}<em>${tr('끌어서 흐름 순서 바꾸기', 'Drag to change the flow order')}</em></h2>
       <div class="card orgcard">
         ${MODES() ? `<div class="moderow"><b>${tr('팀 운영 방식', 'Team mode')}</b>
-          <div class="seg" role="group" aria-label="${tr('팀 운영 방식', 'Team mode')}">${MODE_NAMES.map(([k, ko, en]) => `<button type="button" data-act="mode" data-mode="${k}" aria-pressed="${t.mode === k}">${tr(ko, en)}</button>`).join('')}</div>
-          <span>${t.mode ? '' : tr('역할별로 직접 조정함 · ', 'Adjusted per role · ')}${tr(`사용량 균형의 ${(teamW(t.roles) / Math.max(1, baseW(t.roles))).toFixed(1)}배`, `Usage ${(teamW(t.roles) / Math.max(1, baseW(t.roles))).toFixed(1)}× balanced`)}</span></div>` : ''}
+          <div class="seg" role="group" aria-label="${tr('팀 운영 방식', 'Team mode')}">${MODE_NAMES.map(([k, ko, en]) => `<button type="button" data-act="mode" data-mode="${k}" aria-pressed="${t.mode === k}">${tr(ko, en)}</button>`).join('')}<button type="button" class="custom" aria-pressed="${!t.mode}" ${t.mode ? 'disabled' : ''} title="${tr('역할마다 수준을 직접 정한 상태입니다. 위의 방식을 고르면 모든 역할이 그 방식을 따릅니다', 'Levels set role by role; picking a mode puts every role on it')}">${tr('직접 설정', 'Custom')}</button></div>
+          <span>${tr(`사용량 균형의 ${(teamW(t.roles) / Math.max(1, baseW(t.roles))).toFixed(1)}배`, `Usage ${(teamW(t.roles) / Math.max(1, baseW(t.roles))).toFixed(1)}× balanced`)}</span></div>` : ''}
         <div class="org" id="s-chart"></div>
         ${S.adding ? `<form class="addform" id="addform">
           <div><input class="text name" id="addname" style="min-height:44px;border:1px solid var(--edge);border-radius:10px;padding:0 12px;background:var(--panel);min-width:0" placeholder="${tr('새 역할 이름', 'New role name')}" aria-label="${tr('새 역할 이름', 'New role name')}">
