@@ -24,6 +24,12 @@
   closed and every floor is seen into through it; "Spread floors" in the floor bar (or E) lifts the
   floors apart as before, and is remembered. The mullions are hairlines, the canopy is glass, and so is the lift
   shaft, rails and car seen riding through it, up to a glass head-house on the roof.
+- 3D building: the Hive Residence across the plaza, a honeycomb of glass-fronted flats, one per bee
+  by its house number, with a playground and a garden in front. Clocked out, bees clap, walk out
+  along the path, fly up to their own flat and go in (the lamp comes on; late at night they sleep);
+  clocked in, they fly down and walk back to work, and the view widens to show both while clocked
+  out. A bee that left leaves its flat empty with a sign. "Hive Residence" in the floor bar (or H)
+  looks at it. Bees are now known by their id, so a bee keeps its look and flat across restarts.
 
 - Bee office in floors: the campus was too wide to read without panning, so it is a building of
   floors now, each one screen: 1F rest (cafe, lounge, an indoor park, the lobby), 2F work (desk
