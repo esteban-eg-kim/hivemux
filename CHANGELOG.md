@@ -20,6 +20,9 @@
   swim laps, sunbathe and have a beer there. Every bee now has a look of its own, kept across
   restarts: a build and tone, hair, a hat, glasses, a beard or lashes, and clothes in its project's
   colour. Name tags and room labels are larger.
+- 3D building: taller storeys and a skin of glass from slab to slab, so the whole building stands
+  closed and every floor is seen into through it; "Spread floors" in the floor bar (or E) lifts the
+  floors apart as before, and is remembered.
 
 - Bee office in floors: the campus was too wide to read without panning, so it is a building of
   floors now, each one screen: 1F rest (cafe, lounge, an indoor park, the lobby), 2F work (desk

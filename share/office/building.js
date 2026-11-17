@@ -4,12 +4,12 @@
 // (a pool, a pub, a fire pit). Each Claude is a bee with a look of its own: it types at its desk while it works,
 // raises a question when it waits, carries a jar of honey when it is done and goes down to the lobby or up to the
 // roof to rest; the floors are joined by a glass elevator. Data: /state every 1.5 s.
-// Units are metres; y is up. The walls on the camera's side are cut away so the floors can be seen into.
+// Units are metres; y is up. The skin is glass from slab to slab, so every floor can be seen into.
 // 건물로 본 벌 사무실, 진짜 3D (three.js, share/office/vendor. building.html 이 틀). 3층 이상의 유리 사무실:
 // 로비 (카페, 라운지, 탁구, 바깥 광장), 작업층 (프로젝트마다 책상 섬, 회의실, 사장실), 팀층 (팀마다 유리방),
 // 루프탑 (수영장, 펍, 불멍). Claude 하나가 생김새가 저마다 다른 벌 하나다: 일하면 자기 책상에서 타이핑하고,
 // 기다리면 손을 들고, 끝나면 꿀단지를 들고, 쉬면 로비나 루프탑으로 간다. 층 사이는 유리 엘리베이터.
-// 자료: 1.5초마다 /state. 단위는 미터, y 가 위. 카메라 쪽 벽은 잘라 안을 본다.
+// 자료: 1.5초마다 /state. 단위는 미터, y 가 위. 겉은 슬래브에서 슬래브까지 통유리라 모든 층이 들여다보인다.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
@@ -88,7 +88,7 @@ const C = {
   steel: mat(0x8b939e, { roughness: .35, metalness: .6 }), white: mat(0xf4f5f6, { roughness: .6 }), wood: mat(0xc49a6c, { roughness: .6 }),
   woodDark: mat(0x8d6544, { roughness: .6 }), stone: mat(0xe8e3da, { roughness: .8 }), oak: mat(0xd8be97, { roughness: .7 }),
   carpet: mat(0xcfd4dc, { roughness: 1 }), teamFloor: mat(0xd6dfe0, { roughness: .95 }),
-  glass: new THREE.MeshStandardMaterial({ color: 0xbfdbea, roughness: .05, metalness: .15, transparent: true, opacity: .2, depthWrite: false, side: THREE.DoubleSide }),
+  glass: new THREE.MeshStandardMaterial({ color: 0xbfdbea, roughness: .05, metalness: .15, transparent: true, opacity: .13, depthWrite: false, side: THREE.DoubleSide }),
   glassIn: new THREE.MeshStandardMaterial({ color: 0xd9eef7, roughness: .05, metalness: .1, transparent: true, opacity: .16, depthWrite: false, side: THREE.DoubleSide }),
   frame: mat(0x3a3f47, { roughness: .4, metalness: .5 }), leaf: mat(0x4f9a5a, { roughness: .8, flatShading: true }), leaf2: mat(0x3f8a4c, { roughness: .8, flatShading: true }),
   trunk: mat(0x7a5638, { roughness: .9 }), pot: mat(0xb8714b, { roughness: .8 }), grass: mat(0x9fc483, { roughness: 1 }), paving: mat(0xe3ded4, { roughness: .9 }),
@@ -144,7 +144,7 @@ function bake(group) {
 }
 
 // ── the building's shape from the data: how many work and team floors / 자료로 정하는 건물 모양: 작업층과 팀층 수 ──
-const FH = 4.2, X0 = -16, X1 = 16, Z0 = -10, Z1 = 10, EXPLODE = 5.5;
+const FH = 5.4, X0 = -16, X1 = 16, Z0 = -10, Z1 = 10, EXPLODE = 5.5;
 const CORE = { x0: -2.6, x1: 2.6, z0: -10, z1: -5.6 }, LIFT = { x: 0, z: -4.9, carZ: -7.8 };
 // desk islands from the middle out, so a few projects sit together / 책상 섬은 가운데부터: 프로젝트가 적어도 모여 앉는다
 const PODS = []; for (const z of [-2.2, 2.6, 7.2]) for (const x of [-12, -7.2, -2.4, 2.4, 7.2, 12]) PODS.push({ x, z });
@@ -306,8 +306,8 @@ function glassWalls(p, x0, z0, x1, z1, h, doors, y = 0) {   // doors: [side, cen
   for (const [cx, cz] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]) block(p, .07, h, .07, C.frame, cx, y, cz, { cast: false });
 }
 
-// the outer skin of a floor: glass between mullions, a spandrel at the slab; each side its own group to cut away
-// 층의 겉: 멀리언 사이 유리, 슬래브의 띠. 면마다 그룹이라 잘라 낼 수 있다
+// the outer skin of a floor: glass from slab to slab between mullions, so the whole building can be seen into
+// 층의 겉: 슬래브에서 슬래브까지 멀리언 사이 통유리. 건물 전체가 들여다보인다
 function skin(fl, y, entrance) {
   const sides = [];
   const mk = (n, ax, az, bx, bz) => {
@@ -315,16 +315,16 @@ function skin(fl, y, entrance) {
     const len = Math.hypot(bx - ax, bz - az), ry = -Math.atan2(bz - az, bx - ax), cx = (ax + bx) / 2, cz = (az + bz) / 2;
     const gap = entrance && n[2] === 1 ? 2.6 : 0;
     if (gap) {
-      for (const sx of [-1, 1]) { const l = (len - gap * 2) / 2; const m = put(g, boxG(l, FH - .9, .05), C.glass, sx * (gap + l / 2), y + (FH - .9) / 2 + .02, cz, { cast: false }); m.renderOrder = 3; }
+      for (const sx of [-1, 1]) { const l = (len - gap * 2) / 2; const m = put(g, boxG(l, FH - .32, .05), C.glass, sx * (gap + l / 2), y + (FH - .32) / 2 + .02, cz, { cast: false }); m.renderOrder = 3; }
       block(g, gap * 2, .25, .3, C.frame, 0, y + 3.05, cz, { cast: false });   // the canopy / 차양
       block(g, gap * 2 + 1.2, .12, 2.2, C.frame, 0, y + 3.3, cz + 1, { cast: false });
-    } else { const m = put(g, boxG(len, FH - .9, .05), C.glass, cx, y + (FH - .9) / 2 + .02, cz, { ry, cast: false }); m.renderOrder = 3; }
+    } else { const m = put(g, boxG(len, FH - .32, .05), C.glass, cx, y + (FH - .32) / 2 + .02, cz, { ry, cast: false }); m.renderOrder = 3; }
     for (let k = 0; k <= Math.round(len / 2.2); k++) {
       const t = k / Math.round(len / 2.2), mx = ax + (bx - ax) * t, mz = az + (bz - az) * t;
       if (gap && Math.abs(mx) < gap - .05) continue;
-      block(g, .08, FH - .9, .12, C.frame, mx, y, mz, { ry, cast: false });
+      block(g, .08, FH - .3, .12, C.frame, mx, y, mz, { ry, cast: false });
     }
-    block(g, len + .1, .9, .2, C.concrete, cx, y + FH - .9, cz, { ry });   // spandrel / 띠
+    for (const fy of [y, y + FH - .42]) block(g, len + .1, .12, .14, C.frame, cx, fy, cz, { ry, cast: false });   // sill and head / 아래위 틀
   };
   mk([0, 0, -1], X0, Z0, X1, Z0); mk([0, 0, 1], X0, Z1, X1, Z1); mk([-1, 0, 0], X0, Z0, X0, Z1); mk([1, 0, 0], X1, Z0, X1, Z1);
   return sides;
@@ -1062,32 +1062,42 @@ function jars() {   // a jar on the lobby shelf for every full comb / 벌집이 
 // ── what is shown: a floor or all of them, walls on the camera's side cut / 보이는 것: 한 층 또는 전체, 카메라 쪽 벽은 잘라 냄 ──
 let focus = null;   // null: the whole building / null: 건물 전체
 const floorShown = i => focus === null || i <= focus;
-// the whole building opens up: floors lifted apart so each can be seen into; a floor closes it again
-// 건물 전체 보기는 층을 벌려 각 층 안이 보이게 한다. 한 층을 보면 다시 닫힌다
-let ex = 0;
+// "spread floors" lifts the floors of the whole building apart so each can be seen into from above; off, the
+// building stands closed and is seen into through its glass. A floor of its own always stands closed.
+// "층 펼치기" 는 건물 전체의 층을 벌려 각 층 안을 위에서 보게 한다. 끄면 건물이 붙어 서고 유리 너머로 본다.
+// 한 층만 볼 때는 언제나 붙어 있다
+let ex = 0, spread = false;
+try { spread = localStorage.getItem('building-spread') === '1'; } catch (e) { /* private window / 사생활 보호 창 */ }
+function setSpread(on) {
+  spread = on; if (on) focus = null;
+  try { localStorage.setItem('building-spread', on ? '1' : '0'); } catch (e) { /* private window / 사생활 보호 창 */ }
+  applyFocus();
+}
 const lift = y => ex * EXPLODE * (y / FH);
 function applyFocus(instant) {
   for (const F of W.floors) { F.group.visible = floorShown(F.i); F.ceil.visible = false; }
-  const n = W.floors.length, top = n * FH + (n - 1) * EXPLODE;
+  const n = W.floors.length, top = n * FH + (spread ? (n - 1) * EXPLODE : 0);
   // far enough for the footprint (or the whole height) to fit the window / 바닥 (전체는 높이까지) 이 창에 들어올 만큼
   const fit = (w, h) => Math.max(h / 2 / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)), w / 2 / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / camera.aspect) * 1.12;
   const target = focus === null ? new THREE.Vector3(0, top * .45, 1.5) : new THREE.Vector3(0, focus * FH + .6, 1.5);
   const dist = focus === null ? fit(X1 - X0 + 8, top + 14) : fit(X1 - X0 + 8, (Z1 - Z0) * .82 + 6);
   const off = camera.position.clone().sub(controls.target); if (off.lengthSq() < 1) off.set(.62, .55, .78);
-  const sph = new THREE.Spherical().setFromVector3(off); sph.radius = dist; sph.phi = focus === null ? 1.08 : .78;   // the whole building from low, through the cut walls; a floor from above / 전체는 낮게, 잘린 벽으로. 한 층은 위에서
+  const sph = new THREE.Spherical().setFromVector3(off); sph.radius = dist; sph.phi = focus === null ? 1.1 : .78;   // the whole building from low, through the glass; a floor from above / 전체는 낮게, 유리 너머로. 한 층은 위에서
   const pos = target.clone().add(new THREE.Vector3().setFromSpherical(sph));
   if (instant) { controls.target.copy(target); camera.position.copy(pos); } else fly = { t: 0, from: [camera.position.clone(), controls.target.clone()], to: [pos, target] };
-  document.querySelectorAll('#floors button').forEach(btn => btn.setAttribute('aria-pressed', String(btn.dataset.f === String(focus))));
+  document.querySelectorAll('#floors button[data-f]').forEach(btn => btn.setAttribute('aria-pressed', String(btn.dataset.f === String(focus))));
+  const sp = $('#spread'); if (sp) sp.setAttribute('aria-pressed', String(spread));
 }
 let fly = null;
-function cutaway() {
-  const v = camera.position.clone().sub(new THREE.Vector3(0, 0, 0)); v.y = 0; v.normalize();
-  for (const F of W.floors) for (const s of F.sides) { const n = s.userData.n; s.visible = n[0] * v.x + n[2] * v.z < .28; }
-}
 function drawFloorBar() {
   const nav = $('#floors'); nav.innerHTML = '';
   const add = (f, num, name) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.f = String(f); b.innerHTML = `<span class="fl"><b>${num}</b><span>${name}</span></span><span class="ct"></span>`; b.onclick = () => { focus = f; applyFocus(); }; nav.append(b); };
   add(null, '⌂', tr('전체 보기', 'Whole building'));
+  // the whole building stands closed; this lifts the floors apart to see into each at once
+  // 건물 전체는 붙어 선다. 이걸 켜면 층을 벌려 각 층 안을 한꺼번에 본다
+  const sp = document.createElement('button'); sp.type = 'button'; sp.id = 'spread'; sp.className = 'spread';
+  sp.innerHTML = `<span class="fl"><b>⇕</b><span>${tr('층 펼치기', 'Spread floors')}</span></span>`; sp.title = tr('층 펼치기 (E)', 'Spread floors (E)');
+  sp.onclick = () => setSpread(!spread); nav.append(sp);
   for (const F of [...W.floors].reverse()) add(F.i, F.kind === 'roof' ? 'R' : `${F.i + 1}F`, F.label);
 }
 function counts() {
@@ -1095,7 +1105,7 @@ function counts() {
   for (const b of bees.values()) by[b.s.state in by ? b.s.state : 'idle']++;
   for (const k in by) $('#n-' + k).textContent = by[k];
   $('#n-honey').textContent = honey;
-  document.querySelectorAll('#floors button').forEach(btn => {
+  document.querySelectorAll('#floors button[data-f]').forEach(btn => {
     if (btn.dataset.f === 'null') return;
     const f = +btn.dataset.f, here = [...bees.values()].filter(b => (b.goal ? b.goal.floor : b.floor) === f);
     const r = here.filter(b => b.s.state === 'run').length, w = here.filter(b => b.s.state === 'wait').length;
@@ -1138,6 +1148,7 @@ canvas.addEventListener('click', e => {
 addEventListener('keydown', e => {
   if (e.target.closest && e.target.closest('input, textarea')) return;
   if (e.key === 'Escape' || e.key === '0') { focus = null; applyFocus(); }
+  else if (e.key === 'e' || e.key === 'E') setSpread(!spread);
   else if (/^[1-9]$/.test(e.key) && +e.key <= W.floors.length) { focus = +e.key - 1; applyFocus(); }
   else if (e.key === 'PageUp' || e.key === 'ArrowUp' && e.altKey) { focus = Math.min(W.floors.length - 1, (focus ?? -1) + 1); applyFocus(); }
   else if (e.key === 'PageDown' || e.key === 'ArrowDown' && e.altKey) { focus = focus === null ? W.floors.length - 1 : Math.max(0, focus - 1); applyFocus(); }
@@ -1182,10 +1193,9 @@ function frame() {
     camera.position.lerpVectors(fly.from[0], fly.to[0], e); controls.target.lerpVectors(fly.from[1], fly.to[1], e);
     if (fly.t >= 1) fly = null;
   }
-  ex += ((focus === null ? 1 : 0) - ex) * Math.min(1, dt * 5);
+  ex += ((focus === null && spread ? 1 : 0) - ex) * Math.min(1, dt * 5);
   for (const F of W.floors) F.group.position.y = lift(F.y);
   controls.update();
-  cutaway();
   if (t - codeAt > .12 && !reduced) { codeAt = t; for (const d of W.desks.values()) if (d.scr) d.scr.map.offset.y -= .012; }
   const dist = camera.position.distanceTo(controls.target);
   for (const b of bees.values()) {
@@ -1224,11 +1234,11 @@ function pong(t) {   // the ball flies while both ends are taken / 양쪽에 다
 }
 
 document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
-$('#hint').textContent = tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · Esc: whole');
+$('#hint').textContent = tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · E: 층 펼치기 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · E: spread · Esc: whole');
 camera.position.set(52, 46, 64); controls.target.set(0, 5, 3);
 { const f = /[#&]f=(\d+)/.exec(location.hash); if (f) focus = +f[1]; }   // #f=1 opens on a floor / #f=1 은 그 층으로 연다
 ground(); daylight(); setInterval(daylight, 60000);
 await poll(); setInterval(poll, 1500);
 document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
-$('#hint').textContent = tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · Esc: whole');
+$('#hint').textContent = tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · E: 층 펼치기 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · E: spread · Esc: whole');
 frame();
