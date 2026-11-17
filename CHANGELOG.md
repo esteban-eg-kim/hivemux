@@ -22,7 +22,8 @@
   colour. Name tags and room labels are larger.
 - 3D building: taller storeys and a skin of glass from slab to slab, so the whole building stands
   closed and every floor is seen into through it; "Spread floors" in the floor bar (or E) lifts the
-  floors apart as before, and is remembered. The mullions are hairlines and the canopy is glass.
+  floors apart as before, and is remembered. The mullions are hairlines, the canopy is glass, and so is the lift
+  shaft, rails and car seen riding through it, up to a glass head-house on the roof.
 
 - Bee office in floors: the campus was too wide to read without panning, so it is a building of
   floors now, each one screen: 1F rest (cafe, lounge, an indoor park, the lobby), 2F work (desk

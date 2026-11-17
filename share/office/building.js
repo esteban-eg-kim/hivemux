@@ -306,6 +306,16 @@ function glassWalls(p, x0, z0, x1, z1, h, doors, y = 0) {   // doors: [side, cen
   for (const [cx, cz] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]) block(p, .07, h, .07, C.frame, cx, y, cz, { cast: false });
 }
 
+// the lift shaft, glass all round with its rails, the car seen riding; the roof's has a glass lid
+// 엘리베이터 통로: 사방 유리와 레일, 오르내리는 칸이 보인다. 루프탑 것은 유리 뚜껑이 있다
+function shaft(fl, y, h, lid) {
+  const x0 = -1.3, x1 = 1.3, z0 = -9.9, z1 = -5.65, cz = (z0 + z1) / 2;
+  for (const [w, d, x, z] of [[.04, z1 - z0, x0, cz], [.04, z1 - z0, x1, cz], [x1 - x0, .04, 0, z0], [x1 - x0, .04, 0, z1]]) put(fl, boxG(w, h - .32, d), C.glassIn, x, y + (h - .32) / 2 + .02, z, { cast: false }).renderOrder = 2;
+  for (const x of [x0, x1]) for (const z of [z0, z1]) block(fl, .035, h, .035, C.mullion, x, y, z, { cast: false });
+  for (const sx of [-.9, .9]) block(fl, .05, h, .05, C.steel, sx, y, z0 + .15, { cast: false });
+  if (lid) { put(fl, boxG(x1 - x0, .05, z1 - z0), C.glassIn, 0, y + h, cz, { cast: false }).renderOrder = 2; for (const z of [z0, z1]) block(fl, x1 - x0, .04, .04, C.mullion, 0, y + h, z, { cast: false }); }
+}
+
 // the outer skin of a floor: glass from slab to slab between mullions, so the whole building can be seen into
 // 층의 겉: 슬래브에서 슬래브까지 멀리언 사이 통유리. 건물 전체가 들여다보인다
 function skin(fl, y, entrance) {
@@ -347,12 +357,9 @@ function build(p) {
     const finish = { lobby: C.stone, work: C.oak, team: C.teamFloor }[kind];
     const fm = put(fl, geo('floor', () => new THREE.PlaneGeometry(X1 - X0, Z1 - Z0)), finish, 0, y + .005, 0, { rx: -Math.PI / 2, cast: false }); fm.userData.floor = i;
     for (const x of [X0 + .4, -5.4, 5.4, X1 - .4]) for (const z of [Z0 + .4, Z1 - .4]) block(fl, .45, FH, .45, C.concrete, x, y, z);
-    for (const sx of [-1, 1]) block(fl, 1.3, FH, 4.4, C.concrete, sx * 1.95, y, -7.8);
-    block(fl, 2.6, FH, .3, C.concrete, 0, y, -9.85);
-    const front = put(fl, boxG(2.6, FH - .2, .05), C.glassIn, 0, y + (FH - .2) / 2, -5.65, { cast: false }); front.renderOrder = 2;
-    block(fl, 2.6, .4, .2, C.frame, 0, y + FH - .5, -5.65, { cast: false });
+    shaft(fl, y, FH);
     const num = canvasTex(128, 64, c => { c.fillStyle = '#2b2f36'; c.fillRect(0, 0, 128, 64); c.fillStyle = '#fff'; c.font = '700 40px -apple-system, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(`${i + 1}F`, 64, 34); });
-    put(fl, geo('num', () => new THREE.PlaneGeometry(.8, .4)), new THREE.MeshBasicMaterial({ map: num }), 1.95, y + 2.6, -5.54, { cast: false });
+    put(fl, geo('num', () => new THREE.PlaneGeometry(.8, .4)), new THREE.MeshBasicMaterial({ map: num }), 0, y + FH - .75, -5.6, { cast: false });
     grid.block(CORE.x0, CORE.z0, CORE.x1, CORE.z1, .2);
     for (const x of [X0 + .4, -5.4, 5.4, X1 - .4]) for (const z of [Z0 + .4, Z1 - .4]) grid.block(x, z, x, z, .4);
     // ceiling lights / 천장 조명
@@ -404,13 +411,10 @@ function buildRoof(i) {
   const slab = block(fl, X1 - X0 + .5, .3, Z1 - Z0 + .5, C.slab, 0, y - .3, 0); slab.userData.floor = i;
   const fm = put(fl, geo('floor', () => new THREE.PlaneGeometry(X1 - X0, Z1 - Z0)), ROOF.deck, 0, y + .005, 0, { rx: -Math.PI / 2, cast: false }); fm.userData.floor = i;
   // the lift's head-house, with the name on top / 엘리베이터 탑, 위에 이름
-  for (const sx of [-1, 1]) block(fl, 1.3, FH, 4.4, C.concrete, sx * 1.95, y, -7.8);
-  block(fl, 2.6, FH, .3, C.concrete, 0, y, -9.85); block(fl, 5.4, .3, 4.8, C.concrete, 0, y + FH, -7.8);
-  const front = put(fl, boxG(2.6, FH - .2, .05), C.glassIn, 0, y + (FH - .2) / 2, -5.65, { cast: false }); front.renderOrder = 2;
-  block(fl, 2.6, .4, .2, C.frame, 0, y + FH - .5, -5.65, { cast: false });
+  shaft(fl, y, FH, true);
   const sign = canvasTex(1024, 192, c => { c.clearRect(0, 0, 1024, 192); c.fillStyle = '#ffffff'; c.font = '800 140px ui-monospace, Menlo, monospace'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('hivemux', 512, 100); });
-  put(fl, geo('sign', () => new THREE.PlaneGeometry(6, 1.1)), new THREE.MeshBasicMaterial({ map: sign, transparent: true }), 0, y + FH + .95, -5.5, { cast: false });
-  block(fl, 6.2, .1, .15, C.frame, 0, y + FH + .3, -5.55);
+  put(fl, geo('sign', () => new THREE.PlaneGeometry(4.4, .8)), new THREE.MeshBasicMaterial({ map: sign, transparent: true, side: THREE.DoubleSide }), 0, y + FH + .55, -7.8, { cast: false });
+  for (const sx of [-1.1, 1.1]) block(fl, .04, .25, .04, C.mullion, sx, y + FH, -7.8, { cast: false });
   grid.block(CORE.x0, CORE.z0, CORE.x1, CORE.z1, .2);
   // a glass rail round the edge, each side its own group to cut away / 가장자리 유리 난간. 면마다 따로 잘라 낸다
   const sides = [];
