@@ -223,7 +223,7 @@ details.more > summary { cursor: pointer; font-size: 13px; font-weight: 700; col
 .hint.bad { color: var(--alert); }
 .tips { display: flex; flex-direction: column; gap: 8px; }
 .tips > b { font-size: 13px; color: var(--muted); }
-.tip { background: var(--honey-bg); border: 1px solid var(--line); border-left: 3px solid var(--honey); border-radius: 10px; padding: 10px 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 13px; }
+.tip { background: var(--honey-bg); border: 1px solid var(--honey-line, var(--line)); border-radius: 10px; padding: 10px 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 13px; }
 .tip span { flex: 1 1 260px; }
 .ok { font-size: 13px; color: var(--done-fg); font-weight: 600; }
 .foot { margin: 0; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
@@ -290,8 +290,6 @@ pre.prompt { background: var(--code-bg); color: var(--code-fg); max-height: 480p
 .offer { padding: 18px; display: flex; flex-direction: column; gap: 10px; }
 .offer b { font-size: 15px; } .offer p { margin: 0; font-size: 13px; color: var(--fg2); line-height: 1.55; }
 .offer .btn { align-self: flex-start; }
-.offer.dark { background: var(--code-bg); color: var(--code-fg); border-color: var(--code-bg); } .offer.dark p { color: var(--code-fg); opacity: .9; }
-.offer.dark .btn { background: var(--honey); color: #1b1f27; border-color: var(--honey); }
 
 /* ── the report tab / 리포트 탭 ── */
 .rep { display: flex; flex-direction: column; gap: 24px; }
@@ -351,7 +349,7 @@ td { padding: 8px 12px; border-bottom: 1px solid var(--line2); }
 .route .track i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--run); border-radius: 0 4px 4px 0; }
 @media (max-width: 640px) { .route .who { width: 130px; } .route .who .icon, .route .who .arrow { display: none; } }
 .waits { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-.waitask { display: flex; gap: 12px; border: 1px solid var(--line); border-left: 3px solid var(--wait); background: var(--wait-bg); border-radius: 10px; padding: 12px 14px; }
+.waitask { display: flex; gap: 12px; border: 1px solid var(--wait); background: var(--wait-bg); border-radius: 10px; padding: 12px 14px; }
 .waitask .sub { font-size: 13px; color: var(--fg2); }
 .rcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 12px; }
 .rc { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
@@ -391,7 +389,7 @@ td { padding: 8px 12px; border-bottom: 1px solid var(--line2); }
 .aimsg.bot { align-self: flex-start; background: var(--soft); border: 1px solid var(--line2); border-bottom-left-radius: 4px; }
 .aimsg code { font: 12.5px var(--f-mono); background: var(--soft2); padding: 1px 4px; border-radius: 4px; }
 .aimsg ul { margin: 4px 0; padding-left: 18px; }
-.aiplan { align-self: stretch; border: 1px solid var(--line); border-left: 3px solid var(--honey); background: var(--honey-bg); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.aiplan { align-self: stretch; border: 1px solid var(--honey-line, var(--line)); background: var(--honey-bg); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
 .aiplan .ch { display: flex; gap: 8px; align-items: baseline; }
 .aiplan .ch i { font-style: normal; font-weight: 700; font-size: 11px; padding: 1px 6px; border-radius: 6px; flex-shrink: 0; }
 .aiplan .add i { background: var(--done-bg); color: var(--done-fg); } .aiplan .del i { background: var(--wait-bg); color: var(--alert); } .aiplan .mod i { background: var(--run-bg); color: var(--run-fg); }
@@ -491,7 +489,6 @@ function icon(id, size = 32) {
   return `<span class="icon" style="width:${size}px;height:${size}px;background:${bg};color:${fg}" aria-hidden="true"><svg width="${Math.round(size * .56)}" height="${Math.round(size * .56)}" viewBox="0 0 24 24">${ICON[k]}</svg></span>`;
 }
 const ARROW = '<svg class="arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
-const SPARK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>';
 const MODELS = ['fable', 'opus', 'sonnet', 'haiku'], EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
 // what the service the roles run on can do (bin/hivemux-team PROVIDERS); a hivemux too old to say: no advisor
 // 역할이 도는 서비스가 할 수 있는 것 (bin/hivemux-team PROVIDERS). 알려 주지 않는 예전 hivemux: 어드바이저 없음
@@ -773,13 +770,13 @@ function renderStart(m) {
       <p class="foot">${tr('템플릿을 수정해도 원래 템플릿은 그대로 유지됩니다.', 'Editing the team leaves the template as it was.')}</p>
     </section>
     <aside class="col" aria-labelledby="h-help"><h2 class="sec" id="h-help">${tr('추천받기', 'Get help choosing')}</h2>
-      <div class="card offer dark"><span class="icon" style="width:40px;height:40px;background:var(--honey);color:#1b1f27" aria-hidden="true">${SPARK}</span>
+      <div class="card offer">
         <b>${tr('적합한 팀 구성이 확실하지 않은 경우', 'Not sure which team fits?')}</b>
         <p>${tr('세 가지 질문에 답하시면 역할, 모델, 노력 수준을 근거와 함께 추천합니다.', 'Answer three questions to receive recommended roles, models and effort levels, with reasons.')}</p>
-        <button class="btn" type="button" data-act="wizgo">${tr('추천 받기', 'Get a recommendation')}</button></div>
+        <button class="btn primary" type="button" data-act="wizgo">${tr('추천 받기', 'Get a recommendation')}</button></div>
       <div class="card offer"><b>${tr('AI 와 팀 구성', 'Build the team with AI')}</b>
         <p>${tr('프로젝트의 README 와 파일 구성을 읽고 팀을 제안합니다. 바뀌는 내용을 확인한 뒤 적용합니다.', "Reads the project's README and files and proposes a team; review the changes, then apply them.")}</p>
-        <button class="btn" type="button" data-act="ai">${SPARK}${tr('AI 와 팀 구성', 'Build the team with AI')}</button></div>
+        <button class="btn" type="button" data-act="ai">${tr('AI 와 팀 구성', 'Build the team with AI')}</button></div>
     </aside>`;
 }
 function modelsLine(roles) {
@@ -997,7 +994,7 @@ function renderSetup(m) {
           <div><span class="hint" id="addhint">${tr('세션 이름: 다른 역할이 이 이름으로 메시지를 보냅니다', 'Session name: other roles message it by this name')}</span><button class="btn" type="button" data-act="addcancel">${tr('취소', 'Cancel')}</button><button class="btn primary">${tr('추가', 'Add')}</button></div>
         </form>` : `<div class="acts">
           <button class="btn" type="button" data-act="addopen">＋ ${tr('역할 추가', 'Add a role')}</button>
-          <button class="btn" type="button" data-act="ai">${SPARK}${tr('AI 와 팀 구성', 'Build the team with AI')}</button>
+          <button class="btn" type="button" data-act="ai">${tr('AI 와 팀 구성', 'Build the team with AI')}</button>
           <button class="btn" type="button" data-act="tsave" title="${tr('다른 프로젝트에서도 이 팀을 고를 수 있게 합니다', 'Lets other projects pick this team')}">${tr('템플릿으로 저장', 'Save as template')}</button>
           ${running && off ? `<button class="btn primary" type="button" data-act="tup">▶ ${tr(`나머지 역할 시작 · ${off}`, `Start the other roles · ${off}`)}</button>` : ''}</div>`}
         <div class="tips" id="tips"></div>
