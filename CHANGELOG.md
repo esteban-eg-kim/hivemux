@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.66 — 2026-11-18
 
 - The classic drawn office is gone: the bee office is the 3D building, which has everything it had. Old
   `/classic` and `/2d` links open the building. Its own settings (Office look, Drawing, the 💡 lights, the
