@@ -2018,7 +2018,9 @@ const openAir = s => sky.rain ? ['pool', 'sun', 'fire', 'roof'].includes(s.kind)
 // 칸 안은 무엇을 하든 실내: 땅 위로 올라가 유리 안쪽. 늘 참/거짓: three.js 는 false 일 때만 숨기는데
 // W.floors[-1] 이 undefined 를 내서 소파의 벌 머리 위에 우산이 떴다
 const outdoors = b => (b.floor === -1 && !(b.y > 1 && b.pos.z < RES.zf + .5)) || (b.floor === 0 && !b.riding && (b.pos.x < X0 - .3 || b.pos.x > X1 + .3 || b.pos.z < Z0 - .3 || b.pos.z > Z1 + .3))
-  || (!!W.floors[b.floor] && W.floors[b.floor].kind === 'roof' && !(b.goal && b.goal.kind === 'pub' && b.arrived));
+  || (!!W.floors[b.floor] && W.floors[b.floor].kind === 'roof' && !underPub(b));
+// under the pub's glass roof, the bartender too / 펍 유리 지붕 아래. 바텐더도
+const underPub = b => { const P = W.pub; return !!P && b.pos.x > P.x0 && b.pos.x < P.x1 && b.pos.z > P.z0 && b.pos.z < P.z1; };
 
 // ── far out: zoom out and the world is a little planet, with puffy clouds, a moon and the stars ──────────
 // The office sits on top of the planet; the far lawn, road and trees fade as it rounds, the sky turns to
