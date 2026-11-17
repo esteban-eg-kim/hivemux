@@ -25,6 +25,15 @@ const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).
 
 // ── the renderer, the camera, the controls / 렌더러, 카메라, 조작 ──────────────────────────────────────────
 const canvas = $('#gl');
+// no WebGL 2 (a virtual machine without a GPU, an old browser): say so, not a blank window
+// WebGL 2 없음 (GPU 없는 가상 머신, 오래된 브라우저): 빈 창 대신 그렇다고 알린다
+if (!document.createElement('canvas').getContext('webgl2')) {
+  const p = document.createElement('p'); p.className = 'nogl';
+  p.textContent = tr('벌 사무실은 3D 그래픽(WebGL 2)이 필요한데, 이 컴퓨터나 브라우저에서 켜져 있지 않습니다. 사이드바는 그대로 쓸 수 있습니다.',
+    'The bee office needs 3D graphics (WebGL 2), which this computer or browser does not have turned on. The sidebar works as before.');
+  document.body.replaceChildren(p);   // the bar and panels around it would stay empty / 둘레의 막대와 패널은 빈 채로 남는다
+  throw new Error('WebGL 2 unavailable');
+}
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
 renderer.shadowMap.enabled = true;
@@ -1485,10 +1494,10 @@ panel.addEventListener('change', e => {
   }
 });
 panel.addEventListener('submit', e => { e.preventDefault(); const v = cityIn.value.trim(); if (v) savePlace(v); });
-// ── what the classic office had around the scene: the pop-out, the list and ranking, clocking out and in,
-// hand-offs, settings (shared with it in localStorage 'office-settings') and the window app's hooks
-// 이전 사무실이 장면 둘레에 두던 것: 튀어나오기, 목록과 순위, 퇴근·출근, 넘김, 설정 (localStorage 'office-settings'
-// 로 이전 사무실과 같이 쓴다), 창 앱 연결 ─────────────────────────────────────────────────────────────────
+// ── around the scene: the pop-out, the list and ranking, clocking out and in, hand-offs, the settings (localStorage
+// 'office-settings', the drawn office's old key, so nobody's are lost) and the window app's hooks
+// 장면 둘레: 튀어나오기, 목록과 순위, 퇴근·출근, 넘김, 설정 (localStorage 'office-settings': 예전 그린 사무실의
+// 키 그대로라 아무도 잃지 않는다), 창 앱 연결 ──────────────────────────────────────────────────────────────
 const SET = { pop: 'front', privacy: 'all', sound: 'off', sky: 'auto', side: 'right', follow: 'on', lights: 'on' };
 try { Object.assign(SET, JSON.parse(localStorage.getItem('office-settings') || '{}')); } catch (e) { /* private window / 사생활 보호 창 */ }
 const saveSet = () => { try { localStorage.setItem('office-settings', JSON.stringify({ ...JSON.parse(localStorage.getItem('office-settings') || '{}'), ...SET })); } catch (e) { /* private window / 사생활 보호 창 */ } };
@@ -1863,7 +1872,7 @@ function afterPoll(d) {
 }
 setInterval(() => { if (drawerOpen) renderList(); renderPop(); }, 1000);
 
-// the settings shared with the classic office / 이전 사무실과 같이 쓰는 설정
+// the settings / 설정
 for (const k of ['pop', 'privacy', 'sound', 'sky', 'side', 'follow', 'lights']) { const r = panel.querySelector(`input[name="${k}"][value="${SET[k]}"]`); if (r) r.checked = true; }
 panel.addEventListener('change', e => {
   if (e.target.id === 'top') return tell({ top: e.target.checked });
@@ -1919,8 +1928,8 @@ function sunAt(ms, lat, lon) {
   return { alt: Math.asin(Math.sin(la) * Math.sin(dec) + Math.cos(la) * Math.cos(dec) * Math.cos(ha)),
     az: Math.atan2(-Math.sin(ha), Math.tan(dec) * Math.cos(la) - Math.sin(la) * Math.cos(ha)) };
 }
-// "always day" or "always night" in the settings (shared with the classic office) holds the sun at noon or 11 pm
-// 설정의 "늘 낮" 이나 "늘 밤" (이전 사무실과 같이 쓴다) 은 해를 정오나 밤 11시에 둔다
+// "always day" or "always night" in the settings holds the sun at noon or 11 pm
+// 설정의 "늘 낮" 이나 "늘 밤" 은 해를 정오나 밤 11시에 둔다
 const skyMode = () => SET.sky || 'auto';
 function skyTime() { const m = skyMode(); if (m === 'auto') return Date.now(); const d = new Date(); d.setHours(m === 'day' ? 12 : 23, 0, 0, 0); return d.getTime(); }
 const mixHex = (a, b, k) => new THREE.Color(a).lerp(new THREE.Color(b), k);

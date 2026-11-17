@@ -25,17 +25,17 @@
   hivemux-office --build       build the window app now, quietly (hivemux setup runs it in the background)
                                창 앱을 지금 조용히 빌드 (hivemux setup 이 뒤에서 실행)
 
-The page (share/office/index.html) polls /state every second: this Mac's sessions, plus those of every
-Mac this one is connected to with hivemux connect (asked over the ssh connection hivemux-ports keeps).
-A bee works at its desk (run), runs to the question window in the boss room (wait), holds up a jar of
-honey (done, not seen), takes it to the honeycomb once seen, then rests in the lounge (idle). A task
-in plan mode (@claude_plan, from bin/hivemux-hook) plans in the meeting room; subagents
-(@claude_agents) stand by the desk as small helper bees.
-페이지(share/office/index.html)는 1초마다 /state 를 읽는다: 이 Mac 의 세션, 그리고 hivemux connect 로 붙어
-있는 Mac 마다의 세션 (hivemux-ports 가 유지하는 ssh 연결로 묻는다). 벌은 자리에서 일하고 (run), 사장실
-질문 창구로 뛰어가고 (wait), 꿀단지를 들고 있다가 (done, 안 봄) 보고 나면 벌집에 꿀을 채우고, 라운지에서
-쉰다 (idle). 계획 모드 (@claude_plan, bin/hivemux-hook 이 표시)면 회의실에서 계획을 세우고,
-서브에이전트 (@claude_agents)는 책상 옆의 작은 부사수 벌이 된다.
+The page (share/office/building.html, the 3D building in building.js) polls /state: this Mac's sessions,
+plus those of every Mac this one is connected to with hivemux connect (asked over the ssh connection
+hivemux-ports keeps). A bee works at its desk (run), raises its hand with a bubble and pops out in front
+(wait), holds up a jar of honey (done, not seen) and rests in the lobby or on the roof once seen (idle).
+A task in plan mode (@claude_plan, from bin/hivemux-hook) plans in the meeting room; subagents
+(@claude_agents) fly papers to and fro by the desk.
+페이지(share/office/building.html, 3D 건물은 building.js)는 /state 를 읽는다: 이 Mac 의 세션, 그리고
+hivemux connect 로 붙어 있는 Mac 마다의 세션 (hivemux-ports 가 유지하는 ssh 연결로 묻는다). 벌은 자리에서
+일하고 (run), 말풍선을 들고 손을 들다 앞으로 튀어나오고 (wait), 꿀단지를 들고 있다가 (done, 안 봄) 보고
+나면 로비나 옥상에서 쉰다 (idle). 계획 모드 (@claude_plan, bin/hivemux-hook 이 표시)면 회의실에서
+계획을 세우고, 서브에이전트 (@claude_agents)는 책상 옆에서 서류를 나른다.
 
 The window is a small native app (share/office/OfficeWindow.swift) built once with swiftc into
 $XDG_DATA_HOME/hivemux/hive/; without swiftc the page opens in the browser.
@@ -715,18 +715,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self.send(200, json.dumps(out if ok else {"ok": False, "text": ""}, ensure_ascii=False))
             ok, text = team_call(teams.final_prompt, q.get("project", ""), q.get("role", ""))
             return self.send(200, json.dumps({"ok": ok, "text": text if ok else ""}, ensure_ascii=False))
-        # one page: the office at an angle, or seen from above (/2d opens it that way; the page switches)
-        # 한 페이지: 비스듬히 본 사무실, 또는 위에서 본 모습 (/2d 는 그렇게 연다. 페이지에서 서로 바꾼다)
-        # the office is the 3D building (building.html); the classic drawn office stays at /classic
-        # 사무실은 3D 건물 (building.html). 예전에 그린 사무실은 /classic 에 남는다
+        # the office is the 3D building (building.html); the old addresses of the drawn office, gone, open it too
+        # 사무실은 3D 건물 (building.html). 없어진 예전 그린 사무실의 주소도 이것을 연다
         # /report (old links) is the team page, which opens on its Report tab / /report (예전 링크) 는 팀 화면. 리포트 탭으로 열린다
-        page = {"/": "building.html", "/classic": "index.html", "/index.html": "index.html", "/2d": "index.html", "/team": "team.html", "/report": "team.html", "/artifacts": "artifacts.html",
+        page = {"/": "building.html", "/classic": "building.html", "/index.html": "building.html", "/2d": "building.html", "/team": "team.html", "/report": "team.html", "/artifacts": "artifacts.html",
                 "/building": "building.html"}.get(path)
         if page:
             with open(os.path.join(SHARE, page), "rb") as f:
                 return self.send(200, f.read(), "text/html; charset=utf-8")
-        # the 3D scene under the office page, and the office as a building / 사무실 페이지 아래의 3D 장면, 건물로 본 사무실
-        if path in ("/office3d.js", "/building.js"):
+        # the office as a building / 건물로 본 사무실
+        if path == "/building.js":
             with open(os.path.join(SHARE, path[1:]), "rb") as f:
                 return self.send(200, f.read(), "text/javascript; charset=utf-8")
         if path.startswith("/vendor/"):    # three.js for the 3D office, served from share/office/vendor / 3D 사무실용 three.js

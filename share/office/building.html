@@ -205,6 +205,7 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
 .updrow button { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--fg); background: var(--fg); color: var(--panel); font: inherit; font-weight: 700; cursor: pointer; }
 /* a hand-off between team bees: what the letter says, over the one who gets it / 팀 벌 사이 넘김: 받는 벌 위에 편지 내용 */
 .say3d { max-width: 240px; padding: 5px 10px; border-radius: 10px; background: var(--panel); color: var(--fg); font: 600 12.5px var(--f-body); box-shadow: 0 3px 12px rgba(0, 0, 0, .18); transform: translateY(-40px); white-space: normal; text-align: center; }
+.nogl { position: fixed; inset: 0; margin: auto; height: fit-content; max-width: min(460px, calc(100vw - 32px)); padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--fg); font-size: 14px; line-height: 1.55; z-index: 50; }
 .lost { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); z-index: 40; background: var(--alert); color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 13px; max-width: calc(100vw - 32px); }
 .check { display: flex; gap: 8px; align-items: center; font-size: 13px; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .pop, .pop-card, .tb.hot { animation: none; } .pop-bee .ring { animation: none !important; } }
@@ -226,7 +227,6 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
   <button class="gear" id="gear" type="button" aria-expanded="false" aria-controls="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><i id="gear-dot" hidden></i></button>
   <a href="/team" data-t="팀|Team"></a>
   <a href="/artifacts" data-t="아티팩트|Artifacts"></a>
-  <a href="/classic" data-t="이전 사무실|Classic office"></a>
 </header>
 <form class="settings glass" id="settings" hidden>
   <div class="updrow" id="updrow" hidden><span id="updrow-t"></span><button type="button" id="updbtn" data-t="업데이트…|Update…"></button></div>

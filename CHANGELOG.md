@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- The classic drawn office is gone: the bee office is the 3D building, which has everything it had. Old
+  `/classic` and `/2d` links open the building. Its own settings (Office look, Drawing, the 💡 lights, the
+  2D view) went with it. Where there is no WebGL 2 (a virtual machine without a GPU), the office says so
+  instead of a blank window.
 - hivemux updates itself: `hivemux update` updates a Homebrew or script install in place (brew or git), runs
   setup again with the answers you gave the first time, reloads tmux and restarts the sidebars and the bee
   office; your sessions and Claudes keep running. Once a day it looks for a new version: the sidebar's bottom

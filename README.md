@@ -202,9 +202,6 @@ a look of its own, at work in a glass office building in 3D:
   project names for screen sharing, the real sun or always day or night, the
   office lights at night, going to the floor of a waiting bee, the list's side,
   and keep on top (`⌘T`).
-- The older drawn office is still there: the **Classic office** link at the
-  top. Its own settings (Office look, Drawing, the 💡 lights, the 2D view) are
-  only there.
 - A bee's name tag shows the name you gave its session (`hivemux` rename or
   Claude's `/rename`); bees with none show the project, numbered `api #1`,
   `api #2` among themselves.
@@ -245,11 +242,11 @@ changed meanwhile.
 The 🌙 **Clock out** button at the top of the office (or right-click on empty
 sidebar space → Clock everyone out…) stops your Claudes for the night, computer
 by computer or all at once. The bees clap, walk out along the path to the Hive
-Residence, fly up to their own flat and go in; the lamp comes on, and late at
-night they sleep. A Claude still working or waiting for you works overtime and
-goes once done. Clock in and every one comes back in the same conversation
-(`claude --resume`) while the bees fly down and walk back to work. A reboot
-while clocked out leaves them home.
+Residence, fly up to their own flat and go in; the lamp comes on, they watch
+TV, read or look at their phones, and late at night they sleep. A Claude still
+working or waiting for you works overtime and goes once done. Clock in and every
+one comes back in the same conversation (`claude --resume`) while the bees fly
+down and walk back to work. A reboot while clocked out leaves them home.
 
 One Claude or one project can also go home on its own while the rest work on:
 right-click its card → Clock this Claude out…, or a project's name → Clock this
