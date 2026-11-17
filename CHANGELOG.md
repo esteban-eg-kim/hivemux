@@ -15,6 +15,11 @@
   fly papers to and fro. Drag to turn, right-drag to move, wheel to zoom; the walls facing you are
   cut away. "Whole building" lifts the floors apart to see into each; the floor bar (or 1–9, Esc)
   opens one, with counts per floor and the waiting ones marked. A click on a bee opens its window.
+- 3D building: a rooftop to rest on, with a pool, sun loungers under umbrellas, a hot tub, a pub
+  under a pergola (a bartender, string lights, a neon sign), a fire pit and a lawn; resting bees
+  swim laps, sunbathe and have a beer there. Every bee now has a look of its own, kept across
+  restarts: a build and tone, hair, a hat, glasses, a beard or lashes, and clothes in its project's
+  colour. Name tags and room labels are larger.
 
 - Bee office in floors: the campus was too wide to read without panning, so it is a building of
   floors now, each one screen: 1F rest (cafe, lounge, an indoor park, the lobby), 2F work (desk

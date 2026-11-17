@@ -49,16 +49,16 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
 .floors .ct i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--c); margin-right: 3px; vertical-align: middle; }
 .hint { position: fixed; left: 16px; bottom: 16px; padding: 7px 12px; font-size: 12px; color: var(--muted); z-index: 3; }
 /* tags over the bees: the state's dot and the name; a waiting bee's bubble / 벌 위 이름표: 상태 점과 이름. 기다리는 벌의 말풍선 */
-.tag { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px 2px 6px; border-radius: 999px; background: var(--glass); color: var(--fg);
-  font: 600 11.5px var(--f-body); white-space: nowrap; box-shadow: 0 2px 8px rgba(20, 28, 45, .18); transform: translateY(-6px); }
-.tag i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
-.tag.lead::before { content: "★"; color: var(--honey); font-size: 11px; }
+.tag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px 3px 7px; border-radius: 999px; background: var(--glass); color: var(--fg);
+  font: 650 14px var(--f-body); white-space: nowrap; box-shadow: 0 2px 8px rgba(20, 28, 45, .18); transform: translateY(-6px); }
+.tag i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+.tag.lead::before { content: "★"; color: var(--honey); font-size: 13px; }
 .ask { pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 5px 10px 5px 6px; border-radius: 14px; background: var(--wait); color: #fff;
-  font: 700 12px var(--f-body); white-space: nowrap; box-shadow: 0 4px 14px rgba(224, 138, 0, .45); transform: translateY(-34px); animation: bob 1.4s ease-in-out infinite; }
-.ask b { display: inline-flex; width: 20px; height: 20px; border-radius: 50%; background: #fff; color: var(--wait); align-items: center; justify-content: center; font-size: 13px; }
+  font: 700 14px var(--f-body); white-space: nowrap; box-shadow: 0 4px 14px rgba(224, 138, 0, .45); transform: translateY(-34px); animation: bob 1.4s ease-in-out infinite; }
+.ask b { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; background: #fff; color: var(--wait); align-items: center; justify-content: center; font-size: 15px; }
 @keyframes bob { 50% { transform: translateY(-40px); } }
-.sign { padding: 3px 9px; border-radius: 7px; font: 700 11px var(--f-body); color: #fff; background: var(--c); white-space: nowrap; box-shadow: 0 2px 8px rgba(0, 0, 0, .18); }
-.room { padding: 4px 10px; border-radius: 8px; font: 700 12px var(--f-body); color: var(--fg); background: var(--glass); white-space: nowrap; box-shadow: 0 2px 8px rgba(0, 0, 0, .12); }
+.sign { padding: 4px 10px; border-radius: 7px; font: 700 13.5px var(--f-body); color: #fff; background: var(--c); white-space: nowrap; box-shadow: 0 2px 8px rgba(0, 0, 0, .18); }
+.room { padding: 5px 12px; border-radius: 8px; font: 700 14.5px var(--f-body); color: var(--fg); background: var(--glass); white-space: nowrap; box-shadow: 0 2px 8px rgba(0, 0, 0, .12); }
 .room small { font-weight: 600; color: var(--muted); margin-left: 6px; }
 .tip { position: fixed; z-index: 5; pointer-events: none; padding: 8px 11px; font-size: 12.5px; max-width: 260px; }
 .tip b { display: block; font-size: 13.5px; }

@@ -1,13 +1,15 @@
 // The bee office as a building, in real 3D (three.js, share/office/vendor; building.html is its frame). A glass
 // office of three storeys or more: the lobby (cafe, lounge, ping-pong, the plaza outside), the work floors (a desk
-// island per project, a meeting room, the boss's office) and the team floors (a glass room per team). Each Claude
-// is a bee: it types at its desk while it works, raises a question when it waits, carries a jar of honey when it is
-// done and goes down to the lobby to rest; the floors are joined by a glass elevator. Data: /state every 1.5 s.
+// island per project, a meeting room, the boss's office), the team floors (a glass room per team) and the rooftop
+// (a pool, a pub, a fire pit). Each Claude is a bee with a look of its own: it types at its desk while it works,
+// raises a question when it waits, carries a jar of honey when it is done and goes down to the lobby or up to the
+// roof to rest; the floors are joined by a glass elevator. Data: /state every 1.5 s.
 // Units are metres; y is up. The walls on the camera's side are cut away so the floors can be seen into.
 // 건물로 본 벌 사무실, 진짜 3D (three.js, share/office/vendor. building.html 이 틀). 3층 이상의 유리 사무실:
-// 로비 (카페, 라운지, 탁구, 바깥 광장), 작업층 (프로젝트마다 책상 섬, 회의실, 사장실), 팀층 (팀마다 유리방).
-// Claude 하나가 벌 하나다: 일하면 자기 책상에서 타이핑하고, 기다리면 손을 들고, 끝나면 꿀단지를 들고, 쉬면 로비로
-// 내려간다. 층 사이는 유리 엘리베이터. 자료: 1.5초마다 /state. 단위는 미터, y 가 위. 카메라 쪽 벽은 잘라 안을 본다.
+// 로비 (카페, 라운지, 탁구, 바깥 광장), 작업층 (프로젝트마다 책상 섬, 회의실, 사장실), 팀층 (팀마다 유리방),
+// 루프탑 (수영장, 펍, 불멍). Claude 하나가 생김새가 저마다 다른 벌 하나다: 일하면 자기 책상에서 타이핑하고,
+// 기다리면 손을 들고, 끝나면 꿀단지를 들고, 쉬면 로비나 루프탑으로 간다. 층 사이는 유리 엘리베이터.
+// 자료: 1.5초마다 /state. 단위는 미터, y 가 위. 카메라 쪽 벽은 잘라 안을 본다.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
@@ -115,7 +117,7 @@ const STRIPES = canvasTex(64, 256, (c, w, h) => {
 const BEE = { body: new THREE.MeshStandardMaterial({ map: STRIPES, roughness: .55 }), head: mat(0xffd34d, { roughness: .5 }), eye: mat(0x16130f, { roughness: .2 }),
   shine: new THREE.MeshBasicMaterial({ color: 0xffffff }), limb: mat(0x2a241d, { roughness: .6 }),
   wing: new THREE.MeshStandardMaterial({ color: 0xe9f6ff, roughness: .1, transparent: true, opacity: .55, side: THREE.DoubleSide, depthWrite: false }),
-  cheek: mat(0xff9e8a, { roughness: .8 }), cup: mat(0xffffff, { roughness: .4 }), paddle: mat(0xd63b3b, { roughness: .5 }), paper: mat(0xfafafa, { roughness: .9 }) };
+  cheek: mat(0xff9e8a, { roughness: .8 }), beer: mat(0xe0a020, { roughness: .15, transparent: true, opacity: .85 }), cup: mat(0xffffff, { roughness: .4 }), paddle: mat(0xd63b3b, { roughness: .5 }), paper: mat(0xfafafa, { roughness: .9 }) };
 
 // Everything that never moves in a group becomes one mesh per material: a floor is a few dozen draws, not thousands.
 // Kept apart: what changes (screens, the floor the mouse picks, things marked keep) and groups marked own (each
@@ -151,7 +153,7 @@ PODS.sort((a, b) => Math.abs(a.x) + Math.abs(a.z - 2.6) * 1.3 - (Math.abs(b.x) +
 const ROOMS = [{ x0: -15.6, x1: -0.6, z0: 2.4, z1: 9.6, door: -1 }, { x0: 0.6, x1: 15.6, z0: 2.4, z1: 9.6, door: -1 },
   { x0: -15.6, x1: -5.4, z0: -9.6, z1: -3.6, door: 1 }, { x0: 5.4, x1: 15.6, z0: -9.6, z1: -3.6, door: 1 }];
 
-const W = { floors: [], sig: '', desks: new Map(), rooms: new Map(), spots: [], grids: [], roof: null, honeyWall: null, jars: null, lift: null };
+const W = { floors: [], sig: '', desks: new Map(), rooms: new Map(), spots: [], grids: [], honeyWall: null, jars: null, lift: null };
 
 function plan(sessions) {
   const teams = new Map(), byProject = new Map();
@@ -332,7 +334,7 @@ function build(p) {
   // clear the old building / 예전 건물 치우기
   world.traverse(o => { if (o.isCSS2DObject && o.element) o.element.remove(); });
   world.clear();
-  W.floors = []; W.desks = new Map(); W.rooms = new Map(); W.spots = []; W.grids = [];
+  W.floors = []; W.desks = new Map(); W.rooms = new Map(); W.spots = []; W.grids = []; W.flames = [];
   const kinds = ['lobby', ...Array(p.work).fill('work'), ...Array(p.team).fill('team')];
   kinds.forEach((kind, i) => {
     const y = i * FH, fl = new THREE.Group(); fl.userData = { i, kind }; world.add(fl);
@@ -359,22 +361,156 @@ function build(p) {
     ({ lobby: buildLobby, work: buildWork, team: buildTeam })[kind](F, p, kinds.slice(0, i).filter(k => k === kind).length);
     bake(fl); sides.forEach(bake); bake(ceil);
   });
-  // the roof: parapet, solar panels, plant boxes, the name / 지붕: 난간, 태양광, 화단, 이름
-  const top = kinds.length * FH, roof = new THREE.Group(); world.add(roof); W.roof = roof;
-  block(roof, X1 - X0 + .5, .35, Z1 - Z0 + .5, C.slab, 0, top - .3, 0);
-  for (const [w, d, x, z] of [[X1 - X0 + .5, .3, 0, Z0], [X1 - X0 + .5, .3, 0, Z1], [.3, Z1 - Z0, X0, 0], [.3, Z1 - Z0, X1, 0]]) block(roof, w, .8, d, C.concrete, x, top, z);
-  for (let r = 0; r < 3; r++) for (let k = 0; k < 5; k++) put(roof, boxG(2.6, .08, 1.5), mat(0x23395e, { roughness: .25, metalness: .4 }), -13 + k * 3, top + .55, -6.5 + r * 2.3, { rx: -.35 });
-  block(roof, 3.2, 1.6, 2.6, C.concrete, 10, top, -6.5); block(roof, 2, .9, 2, C.steel, 13.5, top, -2.5);
-  for (const x of [6, 9.5, 13]) { block(roof, 3, .5, 1, C.woodDark, x, top, 6.5); put(roof, geo('hedge', () => new THREE.BoxGeometry(2.8, .5, .8)), C.leaf2, x, top + .7, 6.5); }
-  const sign = canvasTex(1024, 192, c => { c.clearRect(0, 0, 1024, 192); c.fillStyle = '#ffffff'; c.font = '800 140px ui-monospace, Menlo, monospace'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('hivemux', 512, 100); });
-  put(roof, geo('sign', () => new THREE.PlaneGeometry(8, 1.5)), new THREE.MeshBasicMaterial({ map: sign, transparent: true }), 0, top + 1.3, Z1 + .2, { cast: false });
-  block(roof, 8.4, .12, .2, C.frame, 0, top + .5, Z1 + .1);
+  buildRoof(kinds.length);
   // the lift car, riding the shaft / 엘리베이터 칸
   const car = new THREE.Group(); world.add(car); W.lift = car;
   block(car, 2.2, .1, 2.4, C.steel, 0, 0, 0); block(car, 2.2, .1, 2.4, C.steel, 0, 2.5, 0);
   for (const sx of [-1.07, 1.07]) block(car, .06, 2.5, 2.4, C.glassIn, sx, .05, 0, { cast: false });
   car.position.set(0, 0, LIFT.carZ); car.userData.y = 0;
-  bake(roof);
+}
+
+// ── the rooftop: a pool, sun loungers, a pub under a pergola, a fire pit; open to the sky ─────────────────
+// 루프탑: 수영장, 선베드, 퍼걸러 아래 펍, 불멍 자리. 하늘로 열려 있다
+const DECK = canvasTex(512, 512, (c, w, h) => {
+  for (let k = 0; k < 16; k++) { c.fillStyle = ['#b98a5e', '#a97b52', '#c29466', '#b08158'][k % 4]; c.fillRect(0, k * 32, w, 32); }
+  c.fillStyle = 'rgba(60, 38, 20, .55)'; for (let k = 0; k < 16; k++) { c.fillRect(0, k * 32, w, 2); c.fillRect(((k * 197) % 400) + 40, k * 32, 2, 32); }
+});
+DECK.wrapS = DECK.wrapT = THREE.RepeatWrapping; DECK.repeat.set(5, 3);
+const TILE = canvasTex(256, 256, (c, w, h) => {
+  c.fillStyle = '#7fd0e6'; c.fillRect(0, 0, w, h); c.strokeStyle = '#a9e3f1'; c.lineWidth = 3;
+  for (let k = 0; k <= 8; k++) { c.beginPath(); c.moveTo(k * 32, 0); c.lineTo(k * 32, h); c.moveTo(0, k * 32); c.lineTo(w, k * 32); c.stroke(); }
+});
+TILE.wrapS = TILE.wrapT = THREE.RepeatWrapping; TILE.repeat.set(4, 3);
+const RIPPLE = canvasTex(256, 256, (c, w, h) => {
+  c.clearRect(0, 0, w, h); c.strokeStyle = 'rgba(255, 255, 255, .55)'; c.lineWidth = 2.5;
+  let seed = 3; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let k = 0; k < 40; k++) { const x = r() * w, y = r() * h, l = 14 + r() * 26; c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + l / 2, y - 6, x + l, y); c.stroke(); }
+});
+RIPPLE.wrapS = RIPPLE.wrapT = THREE.RepeatWrapping; RIPPLE.repeat.set(3, 2);
+const ROOF = {
+  deck: new THREE.MeshStandardMaterial({ map: DECK, roughness: .8 }), tile: new THREE.MeshStandardMaterial({ map: TILE, roughness: .4 }),
+  water: new THREE.MeshStandardMaterial({ color: 0x3fb7dc, map: RIPPLE, roughness: .05, metalness: .1, transparent: true, opacity: .72, depthWrite: false, emissive: 0x0d5a78, emissiveIntensity: .15 }),
+  bulb: new THREE.MeshStandardMaterial({ color: 0xfff1c9, emissive: 0xffc96b, emissiveIntensity: .8 }),
+  flame: new THREE.MeshBasicMaterial({ color: 0xff8a2a, transparent: true, opacity: .9 }),
+  teak: mat(0x9a6a43, { roughness: .7 }), cushion: mat(0xf3ede2, { roughness: .95 }),
+};
+function buildRoof(i) {
+  const y = i * FH, fl = new THREE.Group(); fl.userData = { i, kind: 'roof' }; world.add(fl);
+  const ceil = new THREE.Group(); ceil.userData.own = true; fl.add(ceil);
+  const grid = new Grid(X0 + .3, Z0 + .3, X1 - .3, Z1 - .3); W.grids[i] = grid;
+  const S = (kind, x, z, look, pose, extra) => W.spots.push({ floor: i, kind, x, z, look, pose, ...extra });
+  const slab = block(fl, X1 - X0 + .5, .3, Z1 - Z0 + .5, C.slab, 0, y - .3, 0); slab.userData.floor = i;
+  const fm = put(fl, geo('floor', () => new THREE.PlaneGeometry(X1 - X0, Z1 - Z0)), ROOF.deck, 0, y + .005, 0, { rx: -Math.PI / 2, cast: false }); fm.userData.floor = i;
+  // the lift's head-house, with the name on top / 엘리베이터 탑, 위에 이름
+  for (const sx of [-1, 1]) block(fl, 1.3, FH, 4.4, C.concrete, sx * 1.95, y, -7.8);
+  block(fl, 2.6, FH, .3, C.concrete, 0, y, -9.85); block(fl, 5.4, .3, 4.8, C.concrete, 0, y + FH, -7.8);
+  const front = put(fl, boxG(2.6, FH - .2, .05), C.glassIn, 0, y + (FH - .2) / 2, -5.65, { cast: false }); front.renderOrder = 2;
+  block(fl, 2.6, .4, .2, C.frame, 0, y + FH - .5, -5.65, { cast: false });
+  const sign = canvasTex(1024, 192, c => { c.clearRect(0, 0, 1024, 192); c.fillStyle = '#ffffff'; c.font = '800 140px ui-monospace, Menlo, monospace'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('hivemux', 512, 100); });
+  put(fl, geo('sign', () => new THREE.PlaneGeometry(6, 1.1)), new THREE.MeshBasicMaterial({ map: sign, transparent: true }), 0, y + FH + .95, -5.5, { cast: false });
+  block(fl, 6.2, .1, .15, C.frame, 0, y + FH + .3, -5.55);
+  grid.block(CORE.x0, CORE.z0, CORE.x1, CORE.z1, .2);
+  // a glass rail round the edge, each side its own group to cut away / 가장자리 유리 난간. 면마다 따로 잘라 낸다
+  const sides = [];
+  for (const [n, ax, az, bx, bz] of [[[0, 0, -1], X0, Z0, X1, Z0], [[0, 0, 1], X0, Z1, X1, Z1], [[-1, 0, 0], X0, Z0, X0, Z1], [[1, 0, 0], X1, Z0, X1, Z1]]) {
+    const g = new THREE.Group(); g.userData = { n, own: true }; fl.add(g); sides.push(g);
+    const len = Math.hypot(bx - ax, bz - az), ry = -Math.atan2(bz - az, bx - ax), cx = (ax + bx) / 2, cz = (az + bz) / 2;
+    block(g, len + .3, .3, .3, C.concrete, cx, y, cz, { ry });
+    const gl = put(g, boxG(len, .9, .04), C.glass, cx, y + .75, cz, { ry, cast: false }); gl.renderOrder = 3;
+    block(g, len + .3, .07, .12, C.steel, cx, y + 1.2, cz, { ry, cast: false });
+  }
+  // the pool, raised a step, with a ladder and the loungers along the front / 한 단 높인 수영장, 사다리, 앞쪽 선베드
+  const pool = { x0: 3.6, x1: 14.6, z0: -1.4, z1: 5.4 }, px = (pool.x0 + pool.x1) / 2, pz = (pool.z0 + pool.z1) / 2, pw = pool.x1 - pool.x0, pd = pool.z1 - pool.z0;
+  put(fl, geo('ptile', () => new THREE.PlaneGeometry(pw, pd)), ROOF.tile, px, y + .02, pz, { rx: -Math.PI / 2, cast: false });
+  for (const [w, d, x, z] of [[pw + .7, .35, px, pool.z0 - .175], [pw + .7, .35, px, pool.z1 + .175], [.35, pd, pool.x0 - .175, pz], [.35, pd, pool.x1 + .175, pz]]) block(fl, w, .6, d, C.stone, x, y, z);
+  const water = put(fl, geo('water', () => new THREE.PlaneGeometry(pw, pd)), ROOF.water, px, y + .48, pz, { rx: -Math.PI / 2, cast: false }); water.userData.keep = true; water.renderOrder = 2;
+  for (const sx of [-.25, .25]) { put(fl, cylG(.035, .035, 1.1, 8), C.steel, pool.x0 + 1.4 + sx, y + .75, pool.z1 + .05); }
+  grid.block(pool.x0 - .35, pool.z0 - .35, pool.x1 + .35, pool.z1 + .35, .1);
+  for (const [x, z] of [[6, .8], [9.4, 3.6], [12.6, .6], [7.4, 3.9], [11.2, 2], [5.4, 3.4]]) S('pool', x, z, [1, 0], 'swim', { lap: true });
+  const towels = [0xe85d75, 0x4a7bd0, 0xf2c94c, 0x2fa37a, 0xf08a3c];
+  [4.4, 6.8, 9.2, 11.6, 14].forEach((x, k) => {
+    const L = new THREE.Group(); L.position.set(x, y, 7.9); fl.add(L);
+    block(L, .7, .28, 1.9, ROOF.teak, 0, 0, 0, { r: .04 }); block(L, .66, .08, 1.2, ROOF.cushion, 0, .28, -.32, { r: .03 });
+    block(L, .66, .08, .75, mat(towels[k], { roughness: .95 }), 0, .3, .5, { rx: -.75, r: .03 });
+    grid.block(x - .35, 6.95, x + .35, 8.85, .1);
+    S('sun', x, 6.95, [0, -1], 'lie', { seatY: .32 });
+  });
+  for (const [x, c] of [[5.6, 0xe85d75], [10.4, 0x38b2c9], [15.2, 0xf2c94c]]) {
+    put(fl, cylG(.035, .035, 2.4, 8), C.steel, x, y + 1.2, 8.6); put(fl, cylG(.15, .15, .05, 12), C.steel, x, y + .025, 8.6);
+    put(fl, geo('umb', () => new THREE.ConeGeometry(1.35, .45, 16)), mat(c, { roughness: .85, flatShading: true }), x, y + 2.45, 8.6);
+  }
+  // a hot tub at the back right / 뒤 오른쪽 자쿠지
+  put(fl, cylG(1.5, 1.6, .7, 32), C.stone, 10.5, y + .35, -6.8); const tub = put(fl, cylG(1.3, 1.3, .02, 32), ROOF.water, 10.5, y + .62, -6.8, { cast: false }); tub.userData.keep = true; tub.renderOrder = 2;
+  grid.block(10.5, -6.8, 10.5, -6.8, 1.6);
+  for (const a of [.3, 2.4, 4.4]) S('tub', 10.5 + Math.cos(a) * .7, -6.8 + Math.sin(a) * .7, [-Math.cos(a), -Math.sin(a)], 'swim', { sink: .1 });
+  for (const [x, z] of [[14.6, -8.6], [14.6, -3.6], [6.2, -9]]) plant(fl, x, z, 1.3, y);
+  // the pub under a pergola: a bar, stools, a back bar of bottles, high tables, string lights, a neon sign
+  // 퍼걸러 아래 펍: 바, 스툴, 술병 선반, 높은 테이블, 줄전구, 네온 간판
+  const pub = { x0: -15.4, x1: -4.4, z0: -9.4, z1: -2.6 };
+  for (const x of [pub.x0, pub.x1]) for (const z of [pub.z0, pub.z1]) block(fl, .2, 3, .2, ROOF.teak, x, y, z);
+  for (const z of [pub.z0, pub.z1]) block(fl, pub.x1 - pub.x0 + .4, .2, .2, ROOF.teak, (pub.x0 + pub.x1) / 2, y + 2.9, z);
+  for (let x = pub.x0; x <= pub.x1 + .01; x += 1.1) block(fl, .1, .14, pub.z1 - pub.z0 + .4, ROOF.teak, x, y + 3.1, (pub.z0 + pub.z1) / 2, { cast: false });
+  for (const x of [-13.2, -9.9, -6.6]) for (let k = 0; k <= 10; k++) {
+    const u = k / 10, z = pub.z0 + (pub.z1 - pub.z0) * u;
+    put(fl, sphG(.07, 8), ROOF.bulb, x, y + 2.85 - Math.sin(u * Math.PI) * .45, z, { cast: false });
+  }
+  put(fl, geo('rugpub', () => new THREE.PlaneGeometry(11, 6.8)), mat(0x6b4a33, { roughness: .9 }), (pub.x0 + pub.x1) / 2, y + .012, (pub.z0 + pub.z1) / 2, { rx: -Math.PI / 2, cast: false });
+  const bx = -9.9, bz = -7.1;
+  block(fl, 8.6, 1.1, .75, C.woodDark, bx, y, bz, { r: .04 }); block(fl, 8.9, .07, .95, C.dark, bx, y + 1.1, bz);
+  for (let k = 0; k < 4; k++) { put(fl, cylG(.03, .03, .32, 8), C.steel, bx - 1.2 + k * .8, y + 1.32, bz - .15); put(fl, cylG(.05, .05, .08, 8), mat([0xf2c94c, 0x2b2f36, 0xd94141, 0x2fa37a][k]), bx - 1.2 + k * .8, y + 1.5, bz - .15, { cast: false }); }
+  block(fl, 8.6, 2.2, .35, C.woodDark, bx, y, -9.25);
+  const bottles = [0x2f7a4a, 0x7a3b1f, 0xd9b46a, 0x2b4f8a, 0xb33a2a, 0xe8e4dc];
+  for (let r = 0; r < 3; r++) { block(fl, 8.4, .04, .3, C.oak, bx, y + .95 + r * .45, -9.05, { cast: false }); for (let k = 0; k < 22; k++) if ((k * 7 + r * 3) % 5) put(fl, cylG(.045, .05, .3, 8), mat(bottles[(k + r * 2) % bottles.length], { roughness: .2, transparent: true, opacity: .85 }), bx - 3.9 + k * .37, y + 1.12 + r * .45, -9.05, { cast: false }); }
+  const neon = canvasTex(512, 128, c => {
+    c.clearRect(0, 0, 512, 128); c.font = '800 78px -apple-system, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.shadowColor = '#ffb020'; c.shadowBlur = 24; c.fillStyle = '#ffd36b'; c.fillText('HONEY PUB', 256, 66); c.shadowBlur = 8; c.fillText('HONEY PUB', 256, 66);
+  });
+  put(fl, geo('neon', () => new THREE.PlaneGeometry(3.6, .9)), new THREE.MeshBasicMaterial({ map: neon, transparent: true, toneMapped: false }), bx, y + 2.35, -9.06, { cast: false });
+  grid.block(bx - 4.3, bz - .4, bx + 4.3, -9.6, .15);
+  for (let k = 0; k < 6; k++) {
+    const sx = bx - 3.5 + k * 1.4;
+    put(fl, cylG(.2, .2, .06, 16), mat(0x2b2f36), sx, y + .78, -6.1); put(fl, cylG(.03, .03, .78, 8), C.steel, sx, y + .39, -6.1); put(fl, cylG(.18, .18, .02, 12), C.steel, sx, y + .01, -6.1);
+    S('pub', sx, -6.1, [0, -1], 'beer', { seatY: .8 });
+  }
+  for (const tx of [-13.4, -9.9, -6.4]) {
+    put(fl, cylG(.38, .38, .05, 20), C.oak, tx, y + 1.08, -3.9); put(fl, cylG(.05, .05, 1.08, 8), C.frame, tx, y + .54, -3.9); put(fl, cylG(.25, .25, .03, 14), C.frame, tx, y + .015, -3.9);
+    grid.block(tx, -3.9, tx, -3.9, .45);
+    for (const sx of [-1, 1]) S('pub', tx + sx * .75, -3.9, [-sx, 0], 'beer');
+  }
+  // a fire pit with sofas round it, planters along the side / 불멍 자리와 둘레 소파, 옆 화단
+  const fx = -9.6, fz = 5.4;
+  put(fl, cylG(.85, .95, .45, 24), C.stone, fx, y + .225, fz); put(fl, cylG(.65, .65, .02, 20), C.dark, fx, y + .46, fz, { cast: false });
+  W.flames = W.flames || []; W.flames[i] = [];
+  for (let k = 0; k < 5; k++) { const f = put(fl, geo('flame', () => new THREE.ConeGeometry(.16, .55, 8)), ROOF.flame, fx + Math.cos(k * 1.3) * .25, y + .72, fz + Math.sin(k * 1.3) * .25, { cast: false }); f.userData.keep = true; W.flames[i].push(f); }
+  grid.block(fx, fz, fx, fz, 1);
+  for (const [a, w] of [[0, 2.6], [Math.PI / 2, 2.2], [Math.PI, 2.6], [-Math.PI / 2, 2.2]]) {
+    const ox = fx + Math.sin(a) * 2.3, oz = fz + Math.cos(a) * 2.3, so = new THREE.Group(); so.position.set(ox, y, oz); so.rotation.y = a + Math.PI; fl.add(so);
+    block(so, w, .4, .8, ROOF.teak, 0, 0, 0, { r: .05 }); block(so, w - .1, .12, .72, ROOF.cushion, 0, .4, 0, { r: .04 }); block(so, w, .5, .18, ROOF.teak, 0, .4, -.36, { r: .05 });
+    grid.block(ox, oz, ox, oz, w / 2);
+    for (const t of w > 2.4 ? [-.65, .65] : [0]) S('fire', ox + Math.cos(a) * t, oz - Math.sin(a) * t, [Math.sin(a + Math.PI), Math.cos(a + Math.PI)], 'sit', { seatY: .5 });
+  }
+  for (let z = -1; z <= 9; z += 2.5) { block(fl, .9, .5, 2.2, ROOF.teak, -15.2, y, z); put(fl, geo('hedge2', () => new THREE.BoxGeometry(.8, .55, 2.1)), C.leaf2, -15.2, y + .75, z); grid.block(-15.6, z - 1.1, -14.7, z + 1.1); }
+  for (const [x, z] of [[-3.6, 8.8], [2.4, 8.8], [-3.6, -1.8]]) plant(fl, x, z, 1.4, y);
+  // a patch of lawn with bean bags in the middle / 가운데 잔디와 빈백
+  put(fl, geo('lawn', () => new THREE.CircleGeometry(2.3, 40)), C.grass, -.6, y + .02, 5, { rx: -Math.PI / 2, cast: false });
+  for (const [a, c] of [[.4, 0xe85d75], [2.5, 0x4a7bd0], [4.5, 0xf2c94c]]) {
+    const x = -.6 + Math.cos(a) * 1.3, z = 5 + Math.sin(a) * 1.3;
+    put(fl, sphG(.55, 18), mat(c, { roughness: .95 }), x, y + .3, z, { s: [1, .6, 1] }); grid.block(x, z, x, z, .2);
+    S('roof', x, z, [-Math.cos(a), -Math.sin(a)], 'sit', { seatY: .4 });
+  }
+  for (const [x, z] of [[-1.6, 1.2], [1.4, 1.8], [1.8, -2.4]]) S('roof', x, z, [x > 0 ? 1 : -1, .5], 'chat');
+  const tags = [[tr('수영장', 'Pool'), px, pool.z0 - .2], [tr('꿀 펍', 'Honey pub'), bx, pub.z1], [tr('불멍', 'Fire pit'), fx, fz + 2.8]];
+  for (const [t, x, z] of tags) { const o = labelOf('room', escape(t)); o.position.set(x, y + 3.4, z); fl.add(o); o.userData.floorLabel = i; }
+  const F = { i, y, kind: 'roof', group: fl, ceil, sides, grid, label: tr('루프탑', 'Rooftop') };
+  W.floors.push(F);
+  // the bartender, always on / 언제나 있는 바텐더
+  if (!W.bartender) {
+    W.bartender = { key: 'bartender', col: new THREE.Color(0x2b2f36), phase: 0, legs: [], pos: { x: bx, z: -8.25 }, y, floor: i, facing: 0, arrived: true,
+      persona: { ...persona('bartender'), sex: 'm', face: 'mustache', hat: null, hair: 'side', glasses: null, wear: 'barman', size: 1.05, wide: 1.05 } };
+    makeBee(W.bartender); W.bartender.tag.visible = W.bartender.ask.visible = false; W.bartender.pick.forEach(m => { m.userData.bee = null; });
+  }
+  Object.assign(W.bartender, { y, floor: i, goal: { pose: 'bar', look: [0, 1] } });
+  bake(fl); sides.forEach(bake);
 }
 
 function buildLobby(F, p) {
@@ -561,20 +697,132 @@ const stateWord = st => ({ run: tr('일함', 'working'), wait: tr('기다림', '
 const escape = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 
 // ── bees / 벌 ─────────────────────────────────────────────────────────────────────────────────────────────
+// Every bee has a look of its own, drawn from its project and name, so it stays the same bee across restarts:
+// a tone, a build, hair, a hat, glasses, a beard, what it wears (in its project's colour).
+// 벌마다 자기 생김새가 있다. 프로젝트와 이름에서 정해져 다시 켜도 같은 벌이다: 색, 체격, 머리, 모자, 안경, 수염, 옷 (프로젝트 색).
+const rng = seed => {
+  let a = 2166136261; for (const ch of String(seed)) a = Math.imul(a ^ ch.charCodeAt(0), 16777619);
+  return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+};
+const HAIR = [0x2a1f1a, 0x4a2e1c, 0x7a4a28, 0xd9b46a, 0xb5452f, 0xe8e4dc, 0x3c3c44, 0x6d4aa0];
+const DYE = [0xe85d75, 0x4a7bd0, 0x2fa37a, 0x8b5cf6, 0xf08a3c, 0x2b2f36, 0xf4f1ea, 0xd94141, 0x38b2c9, 0xf2c94c];
+const TONES = [[0xffd34d, 0xffffff], [0xffc53a, 0xfff0d0], [0xffe27a, 0xfffbe8], [0xf4b13a, 0xffe2b8], [0xffd866, 0xf2f2ff]];
+function persona(seed) {
+  const r = rng(seed), one = list => list[Math.floor(r() * list.length)], u = r();
+  const sex = u < .46 ? 'f' : u < .92 ? 'm' : 'n';
+  return {
+    sex, tone: one(TONES), size: .9 + r() * .2, wide: .92 + r() * .18, eye: .066 + r() * .02,
+    hair: one(sex === 'f' ? ['ponytail', 'bun', 'pigtails', 'bob', 'bob'] : sex === 'm' ? [null, null, 'tuft', 'mohawk', 'side'] : [null, 'tuft', 'bun', 'side']), hairCol: one(HAIR),
+    hat: r() < .5 ? one(sex === 'f' ? ['bow', 'beret', 'sunhat', 'flower', 'beanie', 'cap'] : sex === 'm' ? ['cap', 'cap', 'beanie', 'top', 'fedora', 'headband', 'hardhat'] : ['beanie', 'cap', 'beret', 'headband', 'flower']) : null,
+    hatCol: one(DYE), backwards: r() < .3,
+    face: sex === 'm' && r() < .55 ? one(['beard', 'mustache', 'goatee', 'full']) : null,
+    glasses: r() < .4 ? one(['round', 'square', 'sun', 'half']) : null, glassCol: one([0x1d1d1f, 0x6b3e1f, 0xb8862f, 0xc0392b, 0x2f5fa0]),
+    lips: sex === 'f' && r() < .6,
+    wear: one(sex === 'f' ? ['scarf', 'skirt', 'skirt', 'necklace', 'vest', 'hoodie', 'backpack', 'overalls'] : ['scarf', 'tie', 'tie', 'bowtie', 'vest', 'hoodie', 'backpack', 'overalls']),
+  };
+}
+const dome = r => geo(`dome${r}`, () => new THREE.SphereGeometry(r, 22, 10, 0, Math.PI * 2, 0, Math.PI / 2));
+// puts on what the persona says; returns the top of the head with its hat, from the head's centre
+// 생김새대로 입히고 씌운다. 모자까지 친 머리 꼭대기 (머리 가운데부터) 를 돌려준다
+function dress(b, P, body, head) {
+  const nc = { cast: false }, M = c => mat(c, { roughness: .75 }), hat = M(P.hat === 'hardhat' ? 0xf2a900 : P.hatCol), hair = M(P.hairCol), own = mat(b.col.getHex(), { roughness: .8 });
+  let top = .27;
+  // the face: a smile (lips for some), lashes, glasses, a beard / 얼굴: 웃는 입 (어떤 벌은 입술), 속눈썹, 안경, 수염
+  put(head, geo(P.lips ? 'lips' : 'smile', () => new THREE.TorusGeometry(.05, P.lips ? .017 : .011, 6, 14, Math.PI)), P.lips ? mat(0xd9435e, { roughness: .4 }) : BEE.limb, 0, -.09, .245, { rz: Math.PI, rx: .3, ...nc });
+  if (P.sex === 'f') for (const sx of [-1, 1]) for (const k of [0, 1]) put(head, boxG(.05, .012, .012), BEE.limb, sx * (.14 + k * .03), .085 + P.eye * .5 - k * .025, .2, { rz: sx * (.5 + k * .4), ...nc });
+  if (P.glasses) {
+    const fz = .225 + P.eye + .012, fr = mat(P.glassCol, { roughness: .35, metalness: .3 }), sq = P.glasses === 'square' || P.glasses === 'half';
+    const ring = sq ? geo('gsq', () => new THREE.TorusGeometry(.1, .012, 6, 4).rotateZ(Math.PI / 4)) : geo('gro', () => new THREE.TorusGeometry(.088, .012, 8, 20));
+    const gy = P.glasses === 'half' ? .005 : .03;
+    for (const sx of [-1, 1]) {
+      put(head, ring, fr, sx * .1, gy, fz, { s: P.glasses === 'half' ? [1, .6, 1] : null, ...nc });
+      if (P.glasses === 'sun') put(head, geo('lens', () => new THREE.CircleGeometry(.086, 20)), mat(0x141820, { roughness: .1, metalness: .5 }), sx * .1, gy, fz - .003, nc);
+      block(head, .014, .014, .26, fr, sx * .225, gy - .007, fz - .13, { ry: -sx * .27, ...nc });
+    }
+    block(head, .06, .014, .014, fr, 0, gy, fz, nc);
+  }
+  if (P.face === 'beard' || P.face === 'full') {
+    put(head, geo('beard', () => new THREE.SphereGeometry(.285, 22, 10, 0, Math.PI, Math.PI * .6, Math.PI * .4)), hair, 0, 0, .005, nc);
+    put(head, sphG(.11, 14), hair, 0, -.23, .13, { s: [1.1, .9, .8], ...nc });
+  }
+  if (P.face === 'mustache' || P.face === 'full') for (const sx of [-1, 1]) put(head, geo('stache', () => new THREE.CapsuleGeometry(.024, .07, 4, 8)), hair, sx * .048, -.05, .262, { rz: sx * 1.2, ...nc });
+  if (P.face === 'goatee') put(head, geo('goatee', () => new THREE.ConeGeometry(.05, .13, 10)), hair, 0, -.29, .13, { rx: Math.PI - .4, ...nc });
+  // hair / 머리카락
+  const cap = geo('hcap', () => new THREE.SphereGeometry(.288, 24, 12, Math.PI * .85, Math.PI * 1.3, 0, Math.PI * .5));
+  const bang = () => put(head, geo('bang', () => new THREE.SphereGeometry(.286, 20, 6, Math.PI * .2, Math.PI * .6, 0, Math.PI * .26)), hair, 0, 0, 0, nc);
+  const spikes = list => list.forEach(([x, z, rz, rx]) => put(head, geo('spike', () => new THREE.ConeGeometry(.045, .14, 8)), hair, x, .29, z, { rz, rx, ...nc }));
+  if (P.hair === 'bob') { put(head, geo('bob', () => new THREE.SphereGeometry(.295, 24, 14, Math.PI * .85, Math.PI * 1.3, 0, Math.PI * .64)), hair, 0, 0, 0, nc); bang(); }
+  if (['ponytail', 'bun', 'pigtails', 'side'].includes(P.hair)) { put(head, cap, hair, 0, 0, 0, nc); bang(); }
+  if (P.hair === 'ponytail') { put(head, sphG(.07, 12), hair, 0, .1, -.29, nc); put(head, geo('tail', () => new THREE.CapsuleGeometry(.065, .2, 4, 10)), hair, 0, -.05, -.35, { rx: .35, ...nc }); }
+  if (P.hair === 'bun') put(head, sphG(.11, 14), hair, 0, .25, -.1, nc);
+  if (P.hair === 'pigtails') for (const sx of [-1, 1]) { put(head, sphG(.085, 12), hair, sx * .26, .02, -.08, nc); put(head, geo('tail', () => new THREE.CapsuleGeometry(.065, .2, 4, 10)), hair, sx * .3, -.12, -.1, { rz: sx * .3, s: [.8, .7, .8], ...nc }); }
+  if (P.hair === 'tuft' && !P.hat) spikes([[0, .02, 0, 0], [-.06, -.02, .5, 0], [.06, -.02, -.5, 0]]);
+  if (P.hair === 'mohawk' && !P.hat) spikes([[0, .12, 0, .5], [0, .04, 0, .2], [0, -.05, 0, -.1], [0, -.14, 0, -.5]]);
+  // a hat / 모자
+  const H = new THREE.Group(); head.add(H); if (P.backwards && P.hat === 'cap') H.rotation.y = Math.PI;
+  const disc = (r, h, y, m = hat) => put(H, cylG(r, r, h, 28), m, 0, y, 0, nc);
+  switch (P.hat) {
+    case 'cap': put(H, dome(.3), hat, 0, .02, 0, { s: [1, .9, 1] }); put(H, geo('brim', () => new THREE.CylinderGeometry(.2, .2, .02, 20, 1, false, -Math.PI / 2, Math.PI)), hat, 0, .07, .2, { rx: .12, ...nc }); put(H, sphG(.03, 8), hat, 0, .3, 0, nc); top = .31; break;
+    case 'beanie': put(H, dome(.3), hat, 0, 0, 0); put(H, geo('band', () => new THREE.TorusGeometry(.29, .04, 8, 28)), hat, 0, .04, 0, { rx: Math.PI / 2, ...nc }); put(H, sphG(.075, 12), M(0xffffff), 0, .33, 0, nc); top = .4; break;
+    case 'top': disc(.32, .02, .2); put(H, cylG(.19, .19, .36, 22), hat, 0, .38, 0); put(H, cylG(.195, .195, .06, 22), M(0xb33a2a), 0, .25, 0, nc); top = .58; break;
+    case 'fedora': disc(.4, .02, .17); put(H, cylG(.2, .23, .18, 22), hat, 0, .27, 0); put(H, cylG(.235, .235, .045, 22), BEE.limb, 0, .2, 0, nc); top = .38; break;
+    case 'beret': put(H, cylG(.28, .25, .07, 24), hat, .04, .24, 0, { rz: -.25 }); put(H, sphG(.025, 8), hat, .1, .3, 0, nc); top = .33; break;
+    case 'sunhat': disc(.5, .02, .15, hat); put(H, dome(.26), hat, 0, .12, 0); put(H, cylG(.262, .262, .05, 24), M(0xffffff), 0, .15, 0, nc); top = .38; break;
+    case 'headband': put(H, geo('hband', () => new THREE.TorusGeometry(.272, .032, 8, 28)), hat, 0, .1, 0, { rx: Math.PI / 2 - .15, ...nc }); break;
+    case 'hardhat': put(H, dome(.31), hat, 0, .02, 0, { s: [1, .88, 1] }); disc(.36, .025, .04); put(H, boxG(.05, .05, .5), hat, 0, .28, 0, nc); top = .32; break;
+    case 'bow': case 'flower': {
+      const g = new THREE.Group(); g.position.set(.16, .19, .08); g.rotation.set(-.3, .5, -.5); H.add(g);
+      if (P.hat === 'bow') { for (const sx of [-1, 1]) put(g, geo('bowc', () => new THREE.ConeGeometry(.07, .15, 12)), hat, sx * .075, 0, 0, { rz: sx * Math.PI / 2, ...nc }); put(g, sphG(.035, 10), hat, 0, 0, 0, nc); }
+      else { for (let k = 0; k < 5; k++) put(g, sphG(.05, 10), hat, Math.cos(k * 1.257) * .06, Math.sin(k * 1.257) * .06, 0, { s: [1, 1, .5], ...nc }); put(g, sphG(.035, 10), M(0xffd34d), 0, 0, .02, nc); }
+      break;
+    }
+  }
+  // what it wears, in its project's colour / 옷, 프로젝트 색
+  const shell = (t0, t1, open) => geo(`sh${t0},${t1},${open}`, () => new THREE.SphereGeometry(1, 28, 14, open ? Math.PI * .5 + .45 : 0, open ? Math.PI * 2 - .9 : Math.PI * 2, t0, t1 - t0));
+  const fit = [.355, .435, .325];
+  switch (P.wear) {
+    case 'scarf': put(body, geo('scarf', () => new THREE.TorusGeometry(.2, .05, 10, 24)), own, 0, .93, 0, { rx: Math.PI / 2 }); put(body, boxG(.09, .22, .03, .01), own, .1, .76, .25, { rz: .2, rx: -.3, ...nc }); break;
+    case 'tie': put(body, geo('collar', () => new THREE.TorusGeometry(.17, .03, 8, 20)), M(0xffffff), 0, .95, 0, { rx: Math.PI / 2, ...nc }); put(body, boxG(.075, .26, .02), own, 0, .76, .3, { rx: -.3, ...nc }); put(body, boxG(.08, .06, .035), own, 0, .9, .26, nc); break;
+    case 'bowtie': case 'barman':
+      for (const sx of [-1, 1]) put(body, geo('bowc', () => new THREE.ConeGeometry(.07, .15, 12)), P.wear === 'barman' ? BEE.limb : own, sx * .075, .93, .24, { rz: sx * Math.PI / 2, ...nc });
+      put(body, sphG(.035, 10), P.wear === 'barman' ? BEE.limb : own, 0, .93, .25, nc);
+      if (P.wear === 'barman') { block(body, .4, .44, .015, M(0xf4f1ea), 0, .28, .3, nc); for (const sx of [-1, 1]) block(body, .03, .3, .015, M(0xf4f1ea), sx * .14, .7, .27, { rx: -.3, ...nc }); }
+      break;
+    case 'vest': put(body, shell(0, 1.85, true), own, 0, .62, 0, { s: fit }); break;
+    case 'hoodie': put(body, shell(0, 1.62), own, 0, .62, 0, { s: fit }); put(body, geo('hood', () => new THREE.TorusGeometry(.17, .07, 8, 20)), own, 0, .98, -.12, { rx: Math.PI / 2 - .5, ...nc }); break;
+    case 'overalls': {
+      const denim = M(0x3b5b8c);
+      put(body, shell(1.55, Math.PI), denim, 0, .62, 0, { s: fit }); block(body, .26, .17, .02, denim, 0, .62, .305, nc);
+      for (const sx of [-1, 1]) block(body, .045, .3, .02, denim, sx * .11, .74, .28, { rx: -.35, ...nc });
+      put(body, sphG(.025, 8), own, .08, .74, .315, nc); break;
+    }
+    case 'skirt': put(body, geo('skirt', () => new THREE.CylinderGeometry(.29, .43, .26, 26, 1, true)), mat(b.col.getHex(), { roughness: .8, side: THREE.DoubleSide }), 0, .33, 0); break;
+    case 'necklace': put(body, geo('neck', () => new THREE.TorusGeometry(.2, .013, 6, 26)), mat(0xe8c56a, { roughness: .3, metalness: .7 }), 0, .95, .02, { rx: Math.PI / 2 - .25, ...nc }); put(body, sphG(.035, 10), own, 0, .9, .23, nc); break;
+    case 'backpack': block(body, .36, .38, .18, own, 0, .42, -.36, { r: .06 }); block(body, .3, .1, .2, own, 0, .7, -.36, { r: .04, ...nc }); break;
+  }
+  return top;
+}
+
 const bees = new Map();
+const TINT = new Map();
 function makeBee(b) {
+  const P = b.persona || persona(b.s ? `${b.s.project}/${b.s.name}` : b.key);
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  body.scale.set(P.size * P.wide, P.size, P.size * P.wide);
   const pick = [];
-  const torso = put(body, sphG(1, 28), BEE.body, 0, .62, 0, { s: [.34, .42, .31] }); torso.rotation.x = Math.PI; pick.push(torso);
+  const tk = P.tone.join();
+  if (!TINT.has(tk)) TINT.set(tk, { body: new THREE.MeshStandardMaterial({ map: STRIPES, color: P.tone[1], roughness: .55 }), head: mat(P.tone[0], { roughness: .5 }) });
+  const T = TINT.get(tk);
+  const torso = put(body, sphG(1, 28), T.body, 0, .62, 0, { s: [.34, .42, .31] }); torso.rotation.x = Math.PI; pick.push(torso);
   const head = new THREE.Group(); head.position.set(0, 1.13, .02); body.add(head);
-  pick.push(put(head, sphG(.27, 24), BEE.head, 0, 0, 0));
+  pick.push(put(head, sphG(.27, 24), T.head, 0, 0, 0));
   for (const sx of [-1, 1]) {
-    put(head, sphG(.075, 14), BEE.eye, sx * .1, .03, .225, { cast: false }); put(head, sphG(.025, 8), BEE.shine, sx * .1 + .02, .06, .29, { cast: false });
+    put(head, sphG(P.eye, 14), BEE.eye, sx * .1, .03, .225, { cast: false }); put(head, sphG(.025, 8), BEE.shine, sx * .1 + .02, .06, .22 + P.eye, { cast: false });
     put(head, sphG(.045, 10), BEE.cheek, sx * .17, -.07, .2, { cast: false, s: [1, .6, .5] });
     const ant = new THREE.Group(); ant.position.set(sx * .09, .22, 0); ant.rotation.z = -sx * .35; head.add(ant);
     put(ant, cylG(.012, .012, .26, 6), BEE.limb, 0, .13, 0, { cast: false }); put(ant, sphG(.04, 10), BEE.limb, 0, .27, 0, { cast: false });
   }
-  const scarf = put(body, geo('scarf', () => new THREE.TorusGeometry(.2, .05, 10, 24)), mat(b.col.getHex(), { roughness: .8 }), 0, .93, 0, { rx: Math.PI / 2 });
+  const top = dress(b, P, body, head);
   const wings = [];
   for (const sx of [-1, 1]) {
     const w = new THREE.Group(); w.position.set(sx * .12, .86, -.22); body.add(w);
@@ -593,18 +841,20 @@ function makeBee(b) {
   const hand = new THREE.Group(); hand.position.set(0, -.32, .08); arms[1].add(hand);
   const jar = new THREE.Group(); hand.add(jar); put(jar, cylG(.1, .1, .17, 16), C.honey, 0, 0, 0); put(jar, cylG(.105, .105, .04, 16), mat(0xb33a2a), 0, .1, 0);
   const cup = put(hand, cylG(.06, .05, .12, 12), BEE.cup, 0, 0, 0);
+  const mug = new THREE.Group(); hand.add(mug); put(mug, cylG(.065, .06, .16, 14), BEE.beer, 0, 0, 0, { cast: false }); put(mug, cylG(.068, .068, .04, 14), BEE.cup, 0, .09, 0, { cast: false });
   const paddle = new THREE.Group(); hand.add(paddle); put(paddle, cylG(.13, .13, .02, 16), BEE.paddle, 0, .12, 0, { rx: Math.PI / 2 }); put(paddle, cylG(.02, .02, .12, 6), C.woodDark, 0, 0, 0);
   const papers = block(hand, .22, .08, .28, BEE.paper, 0, -.02, .05);
   pick.forEach(m => { m.userData.bee = b; });
-  // the name tag and the question bubble / 이름표와 질문 말풍선
+  // the name tag and the question bubble, above the hat / 이름표와 질문 말풍선, 모자 위에
   // each in a wrapper: the label renderer owns the wrapper's transform, the inside keeps its own offset and bob
   // 감싸개 안에: 라벨 렌더러가 감싸개의 transform 을 쓰고, 안쪽은 자기 위치와 출렁임을 지킨다
   const wrap = el => { const w = document.createElement('div'); w.append(el); return new CSS2DObject(w); };
-  const tagEl = document.createElement('div'); tagEl.className = 'tag'; const tag = wrap(tagEl); tag.position.set(0, 1.62, 0); g.add(tag);
+  const above = (1.13 + top) * P.size + .22;
+  const tagEl = document.createElement('div'); tagEl.className = 'tag'; const tag = wrap(tagEl); tag.position.set(0, above, 0); g.add(tag);
   const askEl = document.createElement('div'); askEl.className = 'ask'; askEl.innerHTML = '<b>?</b><span></span>'; askEl.addEventListener('click', () => visit(b));
-  const ask = wrap(askEl); ask.position.set(0, 1.62, 0); g.add(ask);
+  const ask = wrap(askEl); ask.position.set(0, above, 0); g.add(ask);
   scene.add(g);
-  Object.assign(b, { g, body, head, wings, arms, feet: legs, jar, cup, paddle, papers, scarf, tag, tagEl, ask, askEl, pick });
+  Object.assign(b, { g, body, head, wings, arms, feet: legs, jar, cup, mug, paddle, papers, tag, tagEl, ask, askEl, pick, persona: P });
 }
 
 // where a bee belongs now: a floor, a point, how it looks and what it does there / 지금 벌이 있을 곳
@@ -678,17 +928,21 @@ function step(b, dt) {
 // the pose, every frame / 매 프레임 자세
 function animate(b, t, dt) {
   const st = b.goal && !b.legs.length ? b.goal.pose : 'walk', ph = t + b.phase;
-  const sit = ['type', 'sit'].includes(st) && b.arrived;
-  const seatY = sit ? (b.goal.seatY ?? .48) - .2 : 0;
-  b.g.position.set(b.pos.x, b.y + lift(b.y) + seatY, b.pos.z);
+  const here = b.arrived && !b.legs.length, sit = here && ['type', 'sit', 'beer'].includes(st) && b.goal.seatY !== undefined;
+  // in the water only the top half shows; a lap swimmer goes round its spot / 물속에서는 윗몸만. 랩 수영은 자리를 돈다
+  const swim = here && st === 'swim', lap = swim && b.goal.lap && !reduced ? ph * .35 : null;
+  const seatY = sit ? b.goal.seatY - .2 : here && st === 'lie' ? b.goal.seatY : swim ? -.3 + (b.goal.sink || 0) + Math.sin(ph * 2) * .03 : 0;
+  b.g.position.set(b.pos.x + (lap !== null ? Math.cos(lap) * .9 : 0), b.y + lift(b.y) + seatY, b.pos.z + (lap !== null ? Math.sin(lap) * .6 : 0));
   let face = b.facing;
   if (!b.legs.length && b.goal && b.goal.look) face = Math.atan2(b.goal.look[0], b.goal.look[1]);
+  if (lap !== null) face = Math.atan2(-Math.sin(lap) * .9, Math.cos(lap) * .6);
   if (st === 'pong' && b.arrived) face = Math.atan2(b.goal.look[0], b.goal.look[1]);
   b.g.rotation.y += (((face - b.g.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * Math.min(1, dt * 10);
   const [la, ra] = b.arms, [ll, rl] = b.feet, flap = reduced ? 0 : Math.sin(ph * (b.sprint && b.moving ? 60 : st === 'wait' ? 30 : 8)) * (b.sprint && b.moving ? .9 : st === 'wait' ? .5 : .15);
   b.wings[0].rotation.y = -.25 - flap; b.wings[1].rotation.y = .25 + flap;
-  b.body.position.y = 0; b.body.rotation.x = 0; la.rotation.set(0, 0, .15); ra.rotation.set(0, 0, -.15); ll.rotation.x = 0; rl.rotation.x = 0;
-  b.jar.visible = st === 'jar' && b.arrived; b.cup.visible = st === 'coffee' && b.arrived; b.paddle.visible = st === 'pong' && b.arrived; b.papers.visible = false;
+  b.body.position.y = 0; b.body.rotation.x = 0; b.body.rotation.z = 0; la.rotation.set(0, 0, .15); ra.rotation.set(0, 0, -.15); ll.rotation.x = 0; rl.rotation.x = 0;
+  b.jar.visible = st === 'jar' && b.arrived; b.cup.visible = st === 'coffee' && b.arrived; b.mug.visible = st === 'beer' && b.arrived; b.paddle.visible = st === 'pong' && b.arrived; b.papers.visible = false;
+  b.head.rotation.x = 0;
   if (reduced) return;
   if (b.moving || st === 'walk') {
     const w = Math.sin(ph * (b.sprint ? 18 : 9));
@@ -705,6 +959,10 @@ function animate(b, t, dt) {
   else if (st === 'coffee') { ra.rotation.x = -1.3 - Math.max(0, Math.sin(ph * .8)) * .5; b.head.rotation.x = 0; }
   else if (st === 'pong') { ra.rotation.x = -1 + Math.sin(ph * 3.2 + b.goal.pong * Math.PI) * .7; ra.rotation.z = -.4; b.body.position.y = Math.abs(Math.sin(ph * 3.2)) * .05; }
   else if (st === 'board') { ra.rotation.x = -1.9 + Math.sin(ph * 4) * .2; ra.rotation.z = -.2 + Math.cos(ph * 3) * .2; }
+  else if (st === 'beer') { ra.rotation.x = -1.2 - Math.max(0, Math.sin(ph * .7)) * .6; la.rotation.z = .25 + Math.max(0, Math.sin(ph * 1.9)) * .35; b.body.rotation.z = Math.sin(ph * 1.1) * .04; }
+  else if (st === 'lie') { b.body.rotation.x = -1.25; la.rotation.z = 2.6; ra.rotation.z = -2.6; b.head.rotation.x = .35; ll.rotation.x = rl.rotation.x = .15; }
+  else if (st === 'swim') { la.rotation.x = Math.sin(ph * 2.6) * 1.4 - .6; ra.rotation.x = -Math.sin(ph * 2.6) * 1.4 - .6; b.head.rotation.x = -.15; }
+  else if (st === 'bar') { ra.rotation.x = -1.25; ra.rotation.z = -.2 + Math.sin(ph * 3) * .35; la.rotation.x = -.9; b.body.rotation.z = Math.sin(ph * 1.5) * .03; }
   else if (st === 'chat') { b.body.rotation.z = Math.sin(ph * 1.2) * .05; la.rotation.z = .3 + Math.max(0, Math.sin(ph * 2.3)) * .5; }
 }
 
@@ -810,7 +1068,6 @@ let ex = 0;
 const lift = y => ex * EXPLODE * (y / FH);
 function applyFocus(instant) {
   for (const F of W.floors) { F.group.visible = floorShown(F.i); F.ceil.visible = false; }
-  if (W.roof) W.roof.visible = false;
   const n = W.floors.length, top = n * FH + (n - 1) * EXPLODE;
   // far enough for the footprint (or the whole height) to fit the window / 바닥 (전체는 높이까지) 이 창에 들어올 만큼
   const fit = (w, h) => Math.max(h / 2 / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)), w / 2 / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / camera.aspect) * 1.12;
@@ -831,7 +1088,7 @@ function drawFloorBar() {
   const nav = $('#floors'); nav.innerHTML = '';
   const add = (f, num, name) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.f = String(f); b.innerHTML = `<span class="fl"><b>${num}</b><span>${name}</span></span><span class="ct"></span>`; b.onclick = () => { focus = f; applyFocus(); }; nav.append(b); };
   add(null, '⌂', tr('전체 보기', 'Whole building'));
-  for (const F of [...W.floors].reverse()) add(F.i, `${F.i + 1}F`, F.label);
+  for (const F of [...W.floors].reverse()) add(F.i, F.kind === 'roof' ? 'R' : `${F.i + 1}F`, F.label);
 }
 function counts() {
   const by = { run: 0, wait: 0, done: 0, idle: 0 };
@@ -908,6 +1165,7 @@ function daylight() {
   SKY.redraw(dark);
   sun.intensity = dark ? .35 : 2.6; sun.color.set(dark ? 0x9fb3ff : 0xfff1dc); hemi.intensity = dark ? .45 : .9;
   C.light.emissiveIntensity = dark ? 2.2 : .5;
+  ROOF.bulb.emissiveIntensity = dark ? 3 : .8; ROOF.water.emissiveIntensity = dark ? .9 : .15;
   C.glass.color.set(dark ? 0x6d7f99 : 0xbfdbea);
   scene.fog = new THREE.Fog(dark ? 0x1c2440 : 0xdfe9f2, 140, 420);
 }
@@ -949,6 +1207,9 @@ function frame() {
   if (W.lift) W.lift.visible = ex < .02 && (focus === null || W.lift.position.y <= focus * FH + .1);
   animateHelpers(t);
   pong(t);
+  if (!reduced) { RIPPLE.offset.x = t * .02; RIPPLE.offset.y = Math.sin(t * .3) * .05; }
+  for (const list of W.flames) if (list) list.forEach((f, k) => { f.scale.set(1, .8 + Math.sin(t * 9 + k * 2) * .2 + Math.sin(t * 13 + k) * .1, 1); });
+  if (W.bartender) { const bt = W.bartender; animate(bt, t, dt); bt.g.visible = floorShown(bt.floor); }
   for (const F of W.floors) F.group.traverse(o => { if (o.isCSS2DObject && o.userData.floorLabel !== undefined) o.visible = focus === o.userData.floorLabel; });
   renderer.render(scene, camera); labels.render(scene, camera);
   requestAnimationFrame(frame);
