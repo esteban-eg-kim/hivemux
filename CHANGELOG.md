@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 3D building: each bee keeps a lane of its own on the path and at the residence door, so bees
+  going home no longer pile up on one spot; the mound under the campus takes the planet's colour.
 ## 0.1.64 — 2026-11-17
 
 - The bee office opens on the 3D building now; the drawn office stays at `/classic` ("Classic

@@ -230,7 +230,7 @@ function ground() {
   // a low mound of lawn under the campus: from far out the office and the flats sit on the planet instead of
   // floating where its surface curves away; near, the lawn covers it / 캠퍼스 아래 낮은 잔디 둔덕: 멀리서 보면
   // 사무실과 아파트가 행성 표면이 휘어 내려간 곳에 떠 있지 않고 그 위에 앉는다. 가까이서는 잔디가 덮는다
-  put(g, cylG(36, 46, 7, 64), C.grass, 13, -3.57, 9, { cast: false });
+  W.mound = put(g, cylG(36, 46, 7, 64), mat(0x76ae58, { roughness: 1 }), 13, -3.57, 9, { cast: false });   // the planet's land colour / 행성 땅 색
   W.lawn = put(g, geo('ground', () => new THREE.CircleGeometry(220, 64)), new THREE.MeshStandardMaterial({ color: 0x9fc483, roughness: 1, transparent: true }), 0, -.02, 0, { rx: -Math.PI / 2, cast: false });
   block(far, 80, .04, 7, C.road, 0, -.02, 31, { cast: false });
   block(g, 24, .06, 14, C.paving, 0, -.02, 17, { cast: false });
@@ -743,6 +743,9 @@ const escape = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&l
 // 퇴사한 벌의 칸은 신입이 들어올 때까지 팻말을 단 빈집이다.
 const RES = { x0: 27, zf: 6, cols: 6, r: 1.5, base: 4.2, depth: 3.2 };
 const HOMEWARD = [{ x: 10.8, z: 15 }, { x: 32.6, z: 15 }, { x: 32.6, z: 7.7 }];   // lobby to the residence door / 로비에서 아파트 문까지
+// each bee keeps a lane of its own across the path and the door, so they do not all pass through one point
+// 벌마다 길과 문에서 자기 줄을 지킨다. 모두 한 점을 지나며 겹치지 않게
+function way(b) { const o = ((hueOf(b.key) % 9) - 4) * .13, [A, B, D] = HOMEWARD; return [{ x: A.x, z: A.z + o }, { x: B.x + o, z: B.z + o }, { x: D.x + o, z: D.z }]; }
 function cellAt(n) {
   const col = n % RES.cols, row = Math.floor(n / RES.cols), h = Math.sqrt(3) * RES.r;
   const yc = RES.base + h / 2 + row * h + (col % 2) * h / 2;
@@ -824,7 +827,7 @@ const VACANT = new THREE.MeshBasicMaterial({ transparent: true, map: canvasTex(2
 }) });
 const lateNight = () => { const h = new Date(skyTime()).getHours(); return h >= 23 || h < 6; };   // "always day / night" too / "늘 낮 / 늘 밤" 도
 function homeGoal(b) {
-  const c = W.res && W.res.cells[b.house ?? -1], D = HOMEWARD[HOMEWARD.length - 1];
+  const c = W.res && W.res.cells[b.house ?? -1], D = way(b)[2];
   if (!c) return { floor: -1, x: D.x, y: 0, z: D.z + 1, look: [0, 1], pose: 'chat', key: 'door' };
   const z = lateNight();
   return { floor: -1, home: true, x: c.x, y: c.y, z: RES.zf - 1.45, look: [0, 1], pose: z ? 'lie' : 'sit', seatY: z ? .3 : .34, key: 'home' + (z ? 'z' : '') };
@@ -1052,7 +1055,7 @@ function lounge(b) {
 // 먼 끝이나 벽을 거치지 않고 있는 자리에서 이어 간다
 function onPath(b) {
   if (b.y > .1 || b.riding || !(b.floor === -1 || (b.floor === 0 && b.pos.x > X1 - .3))) return 0;
-  const [A, B, D] = HOMEWARD;
+  const [A, B, D] = way(b);
   if (Math.abs(b.pos.x - D.x) < .6 && b.pos.z >= D.z - .3 && b.pos.z <= B.z + .3) return 2;
   if (Math.abs(b.pos.z - A.z) < .6 && b.pos.x >= A.x - .3) return 1;
   return 0;
@@ -1065,7 +1068,7 @@ function route(b, goal) {
     if (from !== to.floor) { b.legs.push({ walk: from, to: LIFT }); b.legs.push({ ride: to.floor }); }
     b.legs.push({ walk: to.floor, to });
   };
-  const seg = onPath(b), A = HOMEWARD[0], D = HOMEWARD[HOMEWARD.length - 1];
+  const H = way(b), seg = onPath(b), A = H[0], D = H[2];
   const outOfFlat = () => { if (b.y > .1) b.legs.push({ line: { x: b.pos.x, y: b.y, z: RES.zf + .9 } }, { line: { x: b.pos.x, y: b.y, z: FLY_Z } }); };
   const intoFlat = () => {
     if (goal.y > .1) b.legs.push({ line: { x: D.x, y: 0, z: FLY_Z } }, { line: { x: goal.x, y: goal.y, z: FLY_Z }, fly: true }, { line: { x: goal.x, y: goal.y, z: RES.zf + .9 } });
@@ -1075,16 +1078,16 @@ function route(b, goal) {
     if (Math.abs(b.y - goal.y) > .1) { outOfFlat(); b.legs.push({ line: { x: goal.x, y: goal.y, z: FLY_Z }, fly: true }, { line: { x: goal.x, y: goal.y, z: RES.zf + .9 } }); }
     b.legs.push({ line: { x: goal.x, y: goal.y, z: goal.z } });
   } else if (goal.floor === -1) {   // home: clap, down to the lobby, out along the path, fly up and in / 퇴근: 박수, 로비로, 길 따라, 날아 올라 들어간다
-    if (seg) HOMEWARD.slice(seg).forEach(p => b.legs.push({ line: { x: p.x, y: 0, z: p.z }, floor: -1 }));
+    if (seg) H.slice(seg).forEach(p => b.legs.push({ line: { x: p.x, y: 0, z: p.z }, floor: -1 }));
     else {
       if (goal.home && !b.fresh) b.legs.push({ wait: 2, pose: 'clap' });
       inside(b.floor, { floor: 0, ...A });
-      HOMEWARD.slice(1).forEach(p => b.legs.push({ line: { x: p.x, y: 0, z: p.z }, floor: -1 }));
+      H.slice(1).forEach(p => b.legs.push({ line: { x: p.x, y: 0, z: p.z }, floor: -1 }));
     }
     intoFlat();
   } else if (b.floor === -1 || seg) {   // to work: out of the flat, down, along the path, into the lobby / 출근: 칸을 나와, 내려와, 길 따라, 로비로
     if (b.y > .1) { outOfFlat(); b.legs.push({ line: { x: D.x, y: 0, z: FLY_Z }, fly: true }, { line: { x: D.x, y: 0, z: D.z } }); }
-    const back = [...HOMEWARD].reverse().slice(1), from = seg === 1 ? back.length - 1 : 0;
+    const back = [...H].reverse().slice(1), from = seg === 1 ? back.length - 1 : 0;
     back.slice(from).forEach((p, k, a) => b.legs.push({ line: { x: p.x, y: 0, z: p.z }, floor: k === a.length - 1 ? 0 : -1 }));
     inside(0, goal);
   } else inside(b.floor, goal);
@@ -1885,8 +1888,9 @@ function daylight() {
   C.paving.roughness = .9 - .55 * wet; C.paving.color.copy(mixHex(0xe3ded4, 0xb9b4ab, wet * .6).lerp(new THREE.Color(0xf4f7fa), cover * .7));
   C.road.roughness = .9 - .6 * wet; C.road.color.copy(mixHex(0x5f646b, 0x43474d, wet));
   C.grass.color.copy(mixHex(0x9fc483, 0xf2f6f9, cover * .9));
+  if (W.mound) W.mound.material.color.copy(mixHex(0x76ae58, 0xf2f6f9, cover * .9));
   W.leaves.forEach((m, k) => m.color.copy(mixHex(k ? 0x3f8a4c : 0x4f9a5a, 0xf2f6f9, cover * .55)));
-  if (W.lawn) W.lawn.material.color.copy(mixHex(0x9fc483, 0xf2f6f9, cover * .9));
+  if (W.lawn) W.lawnCol = mixHex(0x9fc483, 0xf2f6f9, cover * .9);
   const fogC = sky.mid.clone().lerp(new THREE.Color(0xdfe9f2), day * .5 * (1 - sky.over));
   if (!W.fog) W.fog = new THREE.Fog(fogC, 140, 420);
   W.fog.color.copy(fogC); W.fog.near = sky.fog ? 22 : sky.rain || sky.snow ? 60 : 140; W.fog.far = sky.fog ? 120 : sky.rain || sky.snow ? 260 : 420;
@@ -2022,6 +2026,8 @@ function space(t, dt) {
   }
   away = turn;
   W.lawn.material.opacity = 1 - THREE.MathUtils.smoothstep(d, 180, 420); W.lawn.visible = W.lawn.material.opacity > .01;
+  // as it fades it takes the mound's colour, so no pale ring is left / 사라지면서 둔덕 색이 된다. 옅은 테두리가 남지 않게
+  if (W.lawnCol && W.mound) W.lawn.material.color.copy(W.lawnCol).lerp(W.mound.material.color, 1 - W.lawn.material.opacity);
   if (W.far) W.far.visible = k < .5;
   scene.fog = k > 0 ? null : W.fog;
   SKYMID.copy(sky.mid);
