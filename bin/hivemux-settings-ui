@@ -5,10 +5,10 @@
   ↑↓ choose / 고르기    ←→ or Enter or click: change / 바꾸기    Esc close / 닫기
 
 Changes apply at once and are saved in $XDG_DATA_HOME/hivemux (lang, anim, notify,
-sidebar-width, resize, editor, mac-name); the width a moment after the last ←→, so stepping through
+sidebar-width, resize, editor, mac-name, update); the width a moment after the last ←→, so stepping through
 the widths sends the screen once, not at every step (a screen from another computer).
 share/hivemux.tmux reads them back when tmux starts.
-바꾸면 바로 적용하고 $XDG_DATA_HOME/hivemux 에 (lang, anim, notify, sidebar-width, resize, editor, mac-name) 저장한다.
+바꾸면 바로 적용하고 $XDG_DATA_HOME/hivemux 에 (lang, anim, notify, sidebar-width, resize, editor, mac-name, update) 저장한다.
 폭은 마지막 ←→ 조금 뒤에: 폭을 넘겨 가도 화면이 걸음마다가 아니라 한 번 간다 (다른 컴퓨터에서 붙은 화면).
 
   hivemux-settings-ui --width   only the sidebar width: Narrow / Medium / Wide or a number, applied on Enter
@@ -64,6 +64,14 @@ def own_name():
     return computer_name() or os.uname().nodename.split(".")[0]
 
 
+def read(name):
+    try:
+        with open(os.path.join(DATA, name)) as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
 def save(name, value):
     os.makedirs(DATA, exist_ok=True)
     tmp = os.path.join(DATA, name + ".tmp")
@@ -105,6 +113,12 @@ def settings():
          {"live": 1, "release": 2}.get(tmux("show", "-gqv", "@hivemux-resize").strip(), 0)),
         ("editor", tr("편집기", "Editor"), eds, next((i for i, (k, _) in enumerate(eds) if k == ed), 0)),
         ("name", tr("이 컴퓨터 이름", "This computer's name"), [(nick, nick or own_name())], 0),
+        # hivemux's own updates (bin/hivemux-update): tell me (the sidebar's bottom line, the office), on its own, or never
+        # hivemux 자체 업데이트 (bin/hivemux-update): 알려 주기 (사이드바 아랫줄, 사무실), 알아서, 안 함
+        ("update", tr("hivemux 업데이트", "hivemux updates"), [("notify", tr("새 버전 알림", "tell me")),
+                                                           ("auto", tr("자동으로", "automatic")),
+                                                           ("off", tr("확인 안 함", "never check"))],
+         {"auto": 1, "off": 2}.get(read("update"), 0)),
     ]
 
 
@@ -130,6 +144,15 @@ def apply(key, value):
             except OSError:
                 pass
         tmux("refresh-client", "-S")
+    elif key == "update":
+        save("update", value)
+        # off: the notice goes now; on again: look at the next chance (bin/hivemux-update tick, from the sidebars)
+        # 끔: 알림을 바로 지운다. 다시 켬: 다음 기회에 확인한다 (bin/hivemux-update tick, 사이드바가 부른다)
+        for f in ("update-new",) if value == "off" else ("update-check",):
+            try:
+                os.remove(os.path.join(DATA, f))
+            except OSError:
+                pass
     elif key == "width":
         subprocess.run([os.path.join(HERE, "hivemux-border"), "set", value], stdin=subprocess.DEVNULL,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

@@ -55,6 +55,23 @@ APP_ICON = os.path.join(os.path.dirname(HERE), "share", "logo", "hivemux-app-ico
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux")
 OFFICE_DIR = os.path.join(DATA, "office")
 PORT_FILE = os.path.join(OFFICE_DIR, "port")
+# this copy's version: a page made by an older server reloads itself once it sees another (after hivemux update)
+# 이 사본의 버전: 예전 서버가 만든 페이지는 다른 버전을 보면 스스로 새로고침한다 (hivemux update 뒤)
+try:
+    VERSION = re.search(r'^VERSION="([^"]+)"', open(os.path.join(HERE, "hivemux")).read(), re.M).group(1)
+except (OSError, AttributeError):
+    VERSION = ""
+
+
+def update_info():
+    """A newer hivemux, when bin/hivemux-update has found one (Settings → Updates not Off): {"new", "auto"}
+    bin/hivemux-update 가 찾은 더 새 hivemux (설정 → 업데이트가 끔이 아닐 때): {"new", "auto"}"""
+    try:
+        new = open(os.path.join(DATA, "update-new")).read().strip()
+        mode = open(os.path.join(DATA, "update")).read().strip() if os.path.exists(os.path.join(DATA, "update")) else "notify"
+    except OSError:
+        return None
+    return {"new": new, "auto": mode == "auto"} if new and mode != "off" else None
 WINDOW_PID = os.path.join(OFFICE_DIR, "window.pid")
 APP_NAME = "hivemux office"   # the window app's file name, shown in the menu bar and the Dock / 창 앱 파일 이름. 메뉴 막대와 Dock 에 보인다
 ORDER_FILE = os.path.join(DATA, "session-order")
@@ -666,7 +683,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             Handler.last = time.time()
             local = snapshot()
             return self.send(200, json.dumps({"lang": local["lang"], "offices": [local] + Handler.remotes.list(), "nav": take_nav(),
-                                              "weather": Handler.weather.state(), "weatherPlace": place_setting()}))
+                                              "weather": Handler.weather.state(), "weatherPlace": place_setting(),
+                                              "version": VERSION, "update": update_info()}))
         if path == "/team/state":
             Handler.last = time.time()
             q = query(self.path)
@@ -731,7 +749,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self.send(403, "{}")
         if origin and origin not in (f"http://127.0.0.1:{self.server.server_port}", f"http://localhost:{self.server.server_port}"):
             return self.send(403, "{}")
-        if self.path not in ("/goto", "/shift", "/answer", "/nav", "/settings", "/artifacts/open", "/artifacts/prompt") and not self.path.startswith("/team/"):
+        if self.path not in ("/goto", "/shift", "/answer", "/nav", "/settings", "/update", "/artifacts/open", "/artifacts/prompt") and not self.path.startswith("/team/"):
             return self.send(404, "{}")
         try:
             n = int(self.headers.get("Content-Length") or 0)
@@ -750,6 +768,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self.send(400, "{}")
             set_place(place.strip())
             Handler.weather.wake.set()
+            return self.send(200, json.dumps({"ok": True}))
+        if self.path == "/update":      # the office's update button: bin/hivemux-update, which restarts this server
+            # 사무실의 업데이트 버튼: bin/hivemux-update. 이 서버도 다시 시작한다
+            if not update_info():
+                return self.send(200, json.dumps({"ok": False}))
+            subprocess.Popen([os.path.join(HERE, "hivemux-update"), "--bg"], start_new_session=True,
+                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return self.send(200, json.dumps({"ok": True}))
         if self.path.startswith("/team/"):
             return self.send(200, json.dumps(team_post(self.path[6:], req), ensure_ascii=False))
@@ -1371,6 +1396,16 @@ def main(argv):
         from_tmux(argv[1] if len(argv) > 1 else "")
     elif argv[:1] == ["--popup"]:
         open_window(popup=True)
+    elif argv[:1] == ["--restart"]:
+        # after an update (bin/hivemux-update): a running server starts again on the new code; none running, none started
+        # 업데이트 뒤 (bin/hivemux-update): 돌던 서버가 새 코드로 다시 시작한다. 안 돌았으면 띄우지 않는다
+        try:
+            port = int(open(PORT_FILE).read())
+        except (OSError, ValueError):
+            port = None
+        if port and ping(port):
+            stop_old(port)
+            start_server()
     elif argv[:1] == ["--build"]:
         sys.exit(0 if build() else 1)
     elif not argv:

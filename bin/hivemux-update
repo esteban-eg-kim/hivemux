@@ -1,0 +1,178 @@
+#!/bin/bash
+# Update hivemux itself to the newest release and reload it in place: tmux, the sidebars and the bee office pick up the
+# new version while the sessions and their Claudes keep running.
+# hivemux 자체를 최신 릴리즈로 업데이트하고 그 자리에서 다시 읽는다: tmux, 사이드바, 벌 사무실이 새 버전을 쓰고
+# 세션과 Claude 는 그대로 돈다.
+#   hivemux-update [--yes]        check, show what changed, ask, update (hivemux update)
+#   hivemux-update --check        only check: print the newer version, if there is one
+#   hivemux-update --popup <client>   the same as the first in a popup (sidebar: the update line, or the menu)
+#   hivemux-update tick           (from the sidebars, now and then) check once a day; with Settings → Updates →
+#                                 Automatic, update on its own once no Claude is working or waiting for you
+#   hivemux-update --bg           (from the bee office's button) update without asking, in the background
+# How: a Homebrew install updates with brew (from the tap), a git install (install.sh) with git pull; then
+# `hivemux setup --again` puts the same blocks and hooks back from the new version (the answers given last time,
+# no questions), reloads tmux and restarts the sidebars, and the office server starts again on the new code (its
+# page reloads itself on the new version). A source checkout of your own (a developer's) is left alone.
+# The newest version comes from hivemux.dev/version.json (GitHub's latest release if that does not answer);
+# what changed, from the release's CHANGELOG.md.
+# 방법: Homebrew 설치는 brew 로 (tap 에서), git 설치 (install.sh) 는 git pull 로. 그다음 `hivemux setup --again` 이
+# 새 버전으로 같은 블록과 훅을 다시 넣고 (지난번 답 그대로, 묻지 않는다) tmux 를 다시 읽고 사이드바를 다시 띄우며,
+# 사무실 서버도 새 코드로 다시 시작한다 (페이지는 새 버전을 보면 스스로 새로고침). 직접 받은 소스 폴더
+# (개발자의 것)는 건드리지 않는다. 최신 버전은 hivemux.dev/version.json 에서 (답이 없으면 GitHub 최신 릴리즈),
+# 바뀐 점은 그 릴리즈의 CHANGELOG.md 에서 읽는다.
+# All in functions, called on the last line: git pull or brew rewrites this very file while it runs, and bash reads
+# a script as it goes / 모두 함수 안에, 마지막 줄에서 부른다: git pull 이나 brew 가 실행 중인 이 파일을 바꾸는데
+# bash 는 스크립트를 읽어 가며 실행한다
+export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin"
+TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
+HM_ROOT="$(cd "$HM_BIN/.." && pwd)"
+case "$HM_ROOT" in */Cellar/hivemux/*/libexec) HM_ROOT="${HM_ROOT%%/Cellar/*}/opt/hivemux/libexec"; HM_BIN="$HM_ROOT/bin" ;; esac
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux"
+NEW_FILE="$DATA/update-new"           # the newer version, while there is one (the sidebars and the office read it) / 더 새 버전 (사이드바와 사무실이 읽는다)
+CHECKED="$DATA/update-check"          # when it last looked / 마지막으로 확인한 때
+LOG="$DATA/update.log"
+REPO=esteban-eg-kim/hivemux
+DAY=72000                             # 20 hours: once a day, give or take when the Mac wakes / 하루에 한 번쯤
+say() { local v="${HIVEMUX_LANG:-$("$TMUX_BIN" show -gqv @hivemux-lang 2>/dev/null)}"; if [[ "${v:-$LANG}" == ko* ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
+t() { "$TMUX_BIN" "$@" 2>/dev/null; }
+log() { mkdir -p "$DATA"; printf '%s %s\n' "$(date '+%F %T')" "$*" >> "$LOG"; }
+installed() { sed -n 's/^VERSION="\(.*\)"/\1/p' "$HM_BIN/hivemux" | head -1; }
+newer() { [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -1)" = "$1" ]; }   # newer <a> <b>: a > b
+
+# How this copy was installed: brew, git (install.sh: a sparse clone of bin, share, examples), or dev (a checkout of
+# your own, updated by hand) / 이 사본을 설치한 방법: brew, git (install.sh: bin, share, examples 만 받은 clone), dev (직접 받은 소스)
+kind() {
+  case "$HM_ROOT" in */opt/hivemux/libexec) echo brew; return ;; esac
+  if [ -e "$HM_ROOT/.git" ]; then
+    if [ "$(git -C "$HM_ROOT" config core.sparseCheckout)" = true ]; then echo git; else echo dev; fi
+  else echo other; fi
+}
+
+# The newest release (empty when offline); HIVEMUX_UPDATE_FEED: another feed (tests)
+# 최신 릴리즈 (인터넷이 없으면 빈 값). HIVEMUX_UPDATE_FEED: 다른 피드 (시험용)
+latest() {
+  local v
+  v="$(curl -fsSL -m 8 "${HIVEMUX_UPDATE_FEED:-https://hivemux.dev/version.json}" 2>/dev/null | sed -n 's/.*"version" *: *"\([0-9][0-9.]*\)".*/\1/p' | head -1)"
+  [ -n "$v" ] || v="$(curl -fsSL -m 8 "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null | sed -n 's/.*"tag_name" *: *"v\([0-9][0-9.]*\)".*/\1/p' | head -1)"
+  echo "$v"
+}
+
+# Look, remember when, and leave the newer version where the sidebars and the office find it; prints it
+# 확인하고, 언제 했는지 남기고, 더 새 버전을 사이드바와 사무실이 찾는 곳에 둔다. 그 버전을 출력
+check() {
+  local cur new
+  mkdir -p "$DATA"; : > "$CHECKED"
+  cur="$(installed)"; new="$(latest)"
+  [ -n "$new" ] || return 1
+  if newer "$new" "$cur"; then
+    [ "$(cat "$NEW_FILE" 2>/dev/null)" = "$new" ] || { echo "$new" > "$NEW_FILE"; log "found $new (have $cur)"; }
+    echo "$new"
+  else
+    rm -f "$NEW_FILE"
+  fi
+}
+
+# What changed from <cur> up to <new>, from the release's CHANGELOG.md / <cur> 다음부터 <new> 까지 바뀐 점
+changes() { # changes <cur> <new>
+  curl -fsSL -m 8 "https://raw.githubusercontent.com/$REPO/v$2/CHANGELOG.md" 2>/dev/null |
+    awk -v cur="$1" '/^## / { if (index($0, "## " cur " ") == 1 || $0 == "## " cur) exit; on = 1 } on'
+}
+
+# Settings → Updates: notify (the default), auto, off / 설정 → 업데이트: notify (기본), auto, off
+mode() { local m; m="$(cat "$DATA/update" 2>/dev/null)"; case "$m" in auto|off) echo "$m" ;; *) echo notify ;; esac; }
+
+# Every screen gets a line at the bottom for a few seconds / 화면마다 아래에 몇 초 동안 한 줄
+tell() { local c; for c in $(t list-clients -F '#{client_name}'); do t display -d 6000 -c "$c" "$1"; done; }
+
+# A Claude working or waiting for you: an automatic update waits for a quiet moment
+# 일하거나 나를 기다리는 Claude: 자동 업데이트는 조용한 때를 기다린다
+busy() { t list-panes -a -F '#{@claude_state}' | grep -qxE 'run|wait'; }
+
+# The update itself, without questions; 0 = done / 업데이트 자체. 묻지 않는다. 0 = 끝
+apply() { # apply <new>
+  local k tap cur; k="$(kind)"; cur="$(installed)"
+  log "update $cur -> $1 ($k)"
+  case "$k" in
+    brew)
+      # the tap alone, not all of Homebrew: seconds, not minutes / tap 만 받는다: 몇 분이 아니라 몇 초
+      tap="$(brew --repo esteban-eg-kim/tap 2>/dev/null)"
+      { [ -d "$tap/.git" ] && git -C "$tap" pull -q --ff-only; } || brew update -q
+      HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew upgrade -q esteban-eg-kim/tap/hivemux 2>&1 | grep -v '^$' ;;
+    git) git -C "$HM_ROOT" pull -q --ff-only || return 1 ;;
+    *) return 1 ;;
+  esac
+  [ "$(installed)" != "$cur" ] || { log "still $cur"; return 1; }
+  # the new version's setup and office server, from the same (version-free) path / 같은 경로 (버전 없는)의 새 setup 과 사무실 서버
+  "$HM_BIN/hivemux" setup --again 2>&1 | grep -E '✗|!' | sed 's/^ *//'
+  "$HM_BIN/hivemux-office" --restart >/dev/null 2>&1
+  rm -f "$NEW_FILE"
+  log "now $(installed)"
+}
+
+why_not() { # why_not <kind>: a copy this does not update / 업데이트하지 않는 사본
+  case "$1" in
+    dev) say "소스 폴더($HM_ROOT)에서 실행 중입니다. git pull 한 뒤 hivemux setup 을 실행하세요." \
+             "Running from a source checkout ($HM_ROOT): git pull there, then hivemux setup." ;;
+    *) say "이 설치는 자동으로 업데이트할 수 없습니다. 다시 설치하세요: curl -fsSL https://hivemux.dev/install.sh | bash" \
+           "This copy can't update itself. Install again: curl -fsSL https://hivemux.dev/install.sh | bash" ;;
+  esac
+}
+
+main() {
+  local k cur new
+  k="$(kind)"; cur="$(installed)"
+  case "$k" in brew|git) ;; *) echo "hivemux $cur"; why_not "$k"; echo; return 0 ;; esac
+  echo "$(say "최신 버전 확인 중…" "Checking for a new version…")"
+  new="$(check)" || { echo "$(say "최신 버전을 확인하지 못했습니다 (인터넷 연결을 확인하세요)." "Could not check the latest version (check the network).")"; return 1; }
+  [ -n "$new" ] || { echo "$(say "✓ 최신 버전입니다 ($cur)." "✓ Up to date ($cur).")"; return 0; }
+  echo "$(say "설치된 버전 $cur · 새 버전 $new" "Installed $cur · new $new")"
+  echo
+  changes "$cur" "$new" | head -n "${LINES_MAX:-200}"
+  echo
+  if [ "$YES" != 1 ]; then
+    [ -t 0 ] || return 0
+    echo "$(say "$cur → $new 로 업데이트할까요? 세션과 Claude 는 그대로 돌고, 사이드바와 벌 사무실만 새 버전으로 다시 뜹니다." \
+                "Update $cur → $new? Your sessions and Claudes keep running; the sidebars and the bee office come back on the new version.")"
+    "$HM_BIN/hivemux-confirm" "$(say "업데이트" "Update")" "$(say "나중에" "Later")" || return 0
+  fi
+  echo
+  if apply "$new"; then echo; echo "$(say "✓ hivemux $cur → $(installed)" "✓ hivemux $cur → $(installed)")"
+  else echo; echo "$(say "업데이트하지 못했습니다. 위 메시지와 $LOG 를 확인하세요." "The update did not go through; see the messages above and $LOG.")"; return 1; fi
+}
+
+# From the sidebars every few minutes: look once a day; update on its own if asked to, at a quiet moment
+# 사이드바가 몇 분마다: 하루에 한 번 확인. 자동이면 조용한 때 스스로 업데이트
+tick() {
+  local m k new lock="$DATA/update.lock"
+  m="$(mode)"; k="$(kind)"
+  [ "$m" != off ] || { rm -f "$NEW_FILE"; return 0; }
+  case "$k" in brew|git) ;; *) return 0 ;; esac
+  # one at a time, however many sidebars ask / 사이드바가 여럿 물어도 하나씩
+  mkdir -p "$DATA"; mkdir "$lock" 2>/dev/null || { [ -n "$(find "$lock" -maxdepth 0 -mmin +30 2>/dev/null)" ] && rm -rf "$lock" && mkdir "$lock" 2>/dev/null; } || return 0
+  trap "rm -rf '$lock'" EXIT          # expanded now: at exit this function's locals are gone / 지금 펼친다: 끝날 때는 지역 변수가 없다
+  if [ ! -f "$CHECKED" ] || [ $(( $(date +%s) - $(stat -f %m "$CHECKED" 2>/dev/null || stat -c %Y "$CHECKED") )) -ge $DAY ]; then
+    new="$(check)"
+  else
+    new="$(cat "$NEW_FILE" 2>/dev/null)"
+  fi
+  [ -n "$new" ] && [ "$m" = auto ] && ! busy || return 0
+  local cur; cur="$(installed)"
+  if apply "$new" >/dev/null 2>&1; then tell "$(say "🐝 hivemux 를 $cur → $(installed) 로 업데이트했습니다" "🐝 hivemux updated $cur → $(installed)")"; fi
+}
+
+case "${1:-}" in
+  --check) [ "$(kind)" = brew ] || [ "$(kind)" = git ] || { why_not "$(kind)"; echo; exit 0; }; new="$(check)"; [ -n "$new" ] && echo "$new"; exit 0 ;;
+  tick) tick; exit 0 ;;
+  --bg) n="$(cat "$NEW_FILE" 2>/dev/null)"; [ -n "$n" ] || n="$(check)"; [ -n "$n" ] || exit 0
+        cur="$(installed)"; apply "$n" >/dev/null 2>&1 && tell "$(say "🐝 hivemux 를 $cur → $(installed) 로 업데이트했습니다" "🐝 hivemux updated $cur → $(installed)")"; exit 0 ;;
+  --popup)                          # from the sidebar: in a popup on that screen / 사이드바: 그 화면의 팝업에서
+    "$HM_BIN/hivemux-modal" "${2:-}" -E -w 80 -h 24 -b rounded \
+      -T "#[fg=#e6e9ef,bold] $(say "hivemux 업데이트" "Update hivemux") " -S "fg=#5aa9ff" -s "bg=#1e2128" \
+      "$(printf '%q ' "$HM_BIN/hivemux-update" --ui)"; exit 0 ;;
+  --ui) LINES_MAX=12 main; echo; "$HM_BIN/hivemux-confirm" --one "$(say "닫기" "Close")"; exit 0 ;;
+  -h|--help) sed -n '4,10p' "$0"; exit 0 ;;
+  --yes|-y) YES=1 main; exit $? ;;
+  "") main; exit $? ;;
+  *) sed -n '4,10p' "$0" >&2; exit 2 ;;
+esac

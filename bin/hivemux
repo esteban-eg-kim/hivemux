@@ -50,6 +50,8 @@ Usage:
   hivemux account list | add <name> | use <name> [-s <project>] | remove <name>
                        more than one Claude login: switch all projects or one project to another account
                        (its Claudes restart in the same conversation)
+  hivemux update [--yes] [--check]  update hivemux to the newest release (Homebrew or git install) and reload it in
+                       place: tmux, the sidebars and the bee office pick up the new version, your sessions keep running
   hivemux version
   hm [dir] [name]      open (or jump to) a project: one tmux session per folder
 
@@ -275,9 +277,21 @@ terminal() {
   if [ "$off" = 1 ]; then term_off "$name"; else term_on "$name"; fi
 }
 
+again() {
+  local blk; blk="$(sed -n "/^$BEGIN\$/,/^$END\$/p" "$TMUX_CONF" 2>/dev/null)"
+  HLANG="$(printf '%s\n' "$blk" | sed -n 's/^set -g @hivemux-lang //p' | head -1)"
+  if printf '%s\n' "$blk" | grep -q 'keys\.tmux'; then KEYS=yes; else KEYS=no; fi
+  # Remote Control stays as it is either way: setup only ever turns it on / Remote Control 은 어느 쪽이든 그대로: setup 은 켜기만 한다
+  REMOTE=no
+  if grep -qF "hivemux-attach" "$GHOSTTY_CONF" 2>/dev/null; then GHOSTTY=yes; else GHOSTTY=no; fi
+}
+
 setup() {
   YES=0; KEYS=ask; GHOSTTY=ask; REMOTE=ask; HLANG=""
   for a in "$@"; do case "$a" in
+    # an update (bin/hivemux-update): the answers given last time, read back from what setup wrote, and no questions
+    # 업데이트 (bin/hivemux-update): 지난번 답을 setup 이 써 둔 데서 읽어 그대로, 묻지 않는다
+    --again) YES=1; again ;;
     --yes|-y) YES=1 ;; --lang=*) HLANG="${a#--lang=}" ;; --no-keys) KEYS=no ;; --no-ghostty) GHOSTTY=no ;; --no-remote) REMOTE=no ;;
     *) echo "unknown option: $a" >&2; exit 2 ;; esac; done
   mkdir -p "$DATA"
@@ -504,6 +518,7 @@ case "${1:-help}" in
   open) shift; exec "$HM_BIN/hivemux-show" "$@" ;;
   office) shift; exec "$HM_BIN/hivemux-office" "$@" ;;
   update-claude) shift; exec "$HM_BIN/hivemux-claude-update" "$@" ;;
+  update|upgrade) shift; exec "$HM_BIN/hivemux-update" "$@" ;;
   team) shift; exec "$HM_BIN/hivemux-team" "$@" ;;
   account) shift; exec "$HM_BIN/hivemux-account" "$@" ;;
   version|-v|--version) echo "hivemux $VERSION" ;;

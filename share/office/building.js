@@ -1250,6 +1250,9 @@ async function poll() {
   // the weather and where it is (null while the server is still asking: keep what there is) / 날씨와 그 곳 (서버가 아직 묻는 중이면 null: 있는 것을 둔다)
   if (d.weather && JSON.stringify(d.weather) !== poll.wx) { poll.wx = JSON.stringify(d.weather); WX = d.weather; daylight(); }
   PLACE = { set: d.weatherPlace ?? '', asking: d.weather === null }; placePanel();
+  // hivemux updated under this page (hivemux update): the new server's page, not this one / 이 페이지 아래에서 hivemux 가 업데이트됨: 새 서버의 페이지로
+  if (d.version) { if (poll.ver && poll.ver !== d.version) { location.reload(); return; } poll.ver = d.version; }
+  UPD = d.update || null; updChip();
   document.documentElement.lang = L;
   const list = [], home = [], cells = [], wasOff = shiftOff;
   honey = 0; shiftOff = false;
@@ -1422,6 +1425,7 @@ addEventListener('keydown', e => {
   // Esc 는 맨 위의 것부터 닫는다: 튀어나온 카드 (1분 기다린다), 퇴근 카드, 설정, 목록
   if (e.key === 'Escape' && pop) { snooze.set(pop.key, Date.now() + 60000); closePop(); return; }
   if (e.key === 'Escape' && !$('#shift').hidden) { $('#shift').hidden = true; return; }
+  if (e.key === 'Escape' && !$('#upd').hidden) { $('#upd').hidden = true; return; }
   if (e.key === 'Escape' && !panel.hidden) { openPanel(false); return; }
   if (e.target.closest && e.target.closest('input, textarea')) return;
   if (e.metaKey || e.ctrlKey) return;
@@ -1763,6 +1767,37 @@ async function shiftMac(o, to) {
 }
 $('#shiftbtn').addEventListener('click', askShift);
 $('#shift-no').addEventListener('click', () => { $('#shift').hidden = true; });
+
+// a newer hivemux (bin/hivemux-update found it): a chip at the top, and a card that updates from here; the server goes
+// away for a moment and the page reloads on the new version (poll) / 더 새 hivemux (bin/hivemux-update 가 찾음): 위의 칩과
+// 여기서 업데이트하는 카드. 서버가 잠깐 사라졌다가 페이지가 새 버전으로 새로고침된다 (poll)
+let UPD = null, updating = 0;   // when the update was asked for / 업데이트를 요청한 때
+function updChip() {
+  if (updating && Date.now() - updating > 180000) updating = 0;   // it did not go through: offer it again / 안 됐다: 다시 권한다
+  // a dot on ⚙ and a row at the top of its panel: the top bar has no room for more / ⚙ 위 점과 그 패널 맨 위 줄: 위 막대에는 자리가 없다
+  $('#gear-dot').hidden = !UPD; $('#updrow').hidden = !UPD;
+  if (!UPD) return;
+  $('#updrow-t').textContent = updating ? tr('hivemux 업데이트 중…', 'Updating hivemux…') : tr(`hivemux ${UPD.new} 이 나왔어요`, `hivemux ${UPD.new} is out`);
+  $('#gear').setAttribute('aria-label', tr(`설정 · hivemux ${UPD.new} 나옴`, `Settings · hivemux ${UPD.new} is out`));
+}
+$('#updbtn').addEventListener('click', () => {
+  if (!UPD) return;
+  $('#upd-q').textContent = tr(`hivemux ${UPD.new} 이 나왔어요 (지금 ${poll.ver})`, `hivemux ${UPD.new} is out (you have ${poll.ver})`);
+  $('#upd-n').textContent = updating ? tr('업데이트하는 중이에요. 끝나면 이 화면이 새 버전으로 다시 열려요.', 'Updating. This page opens again on the new version when it is done.')
+    : tr('업데이트해도 세션과 Claude 는 그대로 돌아요. 사이드바와 이 화면만 새 버전으로 다시 떠요. 바뀐 점은 hivemux.dev 변경 기록에 있어요.',
+      'Your sessions and Claudes keep running; only the sidebars and this page come back on the new version. What changed is in the changelog on hivemux.dev.');
+  $('#upd-go').disabled = !!updating; $('#upd-no').textContent = updating ? tr('닫기', 'Close') : tr('나중에', 'Later');
+  $('#upd').hidden = false; $('#upd-go').focus();
+});
+$('#upd-no').addEventListener('click', () => { $('#upd').hidden = true; });
+$('#upd-go').addEventListener('click', async () => {
+  updating = Date.now(); $('#upd-go').disabled = true; $('#upd-no').textContent = tr('닫기', 'Close'); updChip();
+  $('#upd-n').textContent = tr('업데이트하는 중이에요. 끝나면 이 화면이 새 버전으로 다시 열려요.', 'Updating. This page opens again on the new version when it is done.');
+  try {
+    const r = await (await fetch('/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).json();
+    if (!r.ok) { updating = 0; $('#upd').hidden = true; updChip(); }
+  } catch (e) { /* the server is restarting / 서버가 다시 시작하는 중 */ }
+});
 
 // hand-offs between team bees: a letter flies over, then what it says shows above the one who gets it
 // 팀 벌 사이 넘김: 편지가 날아가고, 받는 벌 위에 내용이 뜬다

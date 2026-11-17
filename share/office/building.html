@@ -194,7 +194,15 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
 .mac button.out { background: var(--night); border-color: var(--night); color: #fff; }
 .mac button.in { background: var(--wait); border-color: var(--wait); color: #1b1f27; }
 .mac.all { justify-content: flex-end; border-style: dashed; }
-.shift-act { display: flex; justify-content: flex-end; margin-top: 12px; }
+.shift-act { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.shift-act button.go { background: var(--fg); border-color: var(--fg); color: var(--panel); }
+.shift-act button:disabled { opacity: .55; cursor: default; }
+/* a newer hivemux: a chip in the top bar, and a card to update from here / 더 새 hivemux: 위 막대의 칩과 여기서 업데이트하는 카드 */
+.gear { position: relative; }
+.gear i { position: absolute; top: -3px; right: -3px; width: 9px; height: 9px; border-radius: 50%; background: var(--run); border: 2px solid var(--panel); }
+.updrow { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; }
+.updrow span { flex: 1; min-width: 0; }
+.updrow button { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--fg); background: var(--fg); color: var(--panel); font: inherit; font-weight: 700; cursor: pointer; }
 /* a hand-off between team bees: what the letter says, over the one who gets it / 팀 벌 사이 넘김: 받는 벌 위에 편지 내용 */
 .say3d { max-width: 240px; padding: 5px 10px; border-radius: 10px; background: var(--panel); color: var(--fg); font: 600 12.5px var(--f-body); box-shadow: 0 3px 12px rgba(0, 0, 0, .18); transform: translateY(-40px); white-space: normal; text-align: center; }
 .lost { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); z-index: 40; background: var(--alert); color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 13px; max-width: calc(100vw - 32px); }
@@ -215,12 +223,13 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
   <button class="chip wx" id="wx" type="button" hidden></button>
   <button class="tb" id="shiftbtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="shift-ico" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span id="shift-t"></span></button>
   <button class="tb" id="listbtn" type="button" aria-expanded="false" aria-controls="drawer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01" stroke-width="3"/></svg><b id="list-n">0</b><i id="list-dot" hidden></i></button>
-  <button class="gear" id="gear" type="button" aria-expanded="false" aria-controls="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
+  <button class="gear" id="gear" type="button" aria-expanded="false" aria-controls="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><i id="gear-dot" hidden></i></button>
   <a href="/team" data-t="팀|Team"></a>
   <a href="/artifacts" data-t="아티팩트|Artifacts"></a>
   <a href="/classic" data-t="이전 사무실|Classic office"></a>
 </header>
 <form class="settings glass" id="settings" hidden>
+  <div class="updrow" id="updrow" hidden><span id="updrow-t"></span><button type="button" id="updbtn" data-t="업데이트…|Update…"></button></div>
   <fieldset>
     <legend data-t="기다리는 세션이 생기면|When a session needs you"></legend>
     <div class="seg">
@@ -313,6 +322,7 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
     </div>
   </div>
 </div>
+<div class="shift" id="upd" hidden><div class="shift-card" role="dialog" aria-labelledby="upd-q"><p id="upd-q"></p><p class="sub" id="upd-n"></p><div class="shift-act"><button type="button" id="upd-no" data-t="나중에|Later"></button><button type="button" class="go" id="upd-go" data-t="업데이트|Update"></button></div></div></div>
 <div class="shift" id="shift" hidden><div class="shift-card"><p id="shift-q"></p><p class="sub" id="shift-n"></p><div class="macs" id="shift-macs"></div><div class="shift-act"><button type="button" id="shift-no" data-t="닫기|Close"></button></div></div></div>
 <script type="importmap">{ "imports": { "three": "/vendor/three.module.min.js", "three/addons/": "/vendor/addons/" } }</script>
 <script type="module" src="/building.js"></script>

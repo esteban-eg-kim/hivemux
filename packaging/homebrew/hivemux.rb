@@ -24,6 +24,7 @@ class Hivemux < Formula
     <<~EOS
       Finish the setup (adds hivemux to ~/.tmux.conf, Ghostty and Claude Code hooks):
         hivemux setup
+      Later updates: hivemux update (or click the update line at the bottom of the sidebar).
       Guide: https://hivemux.dev/docs/
     EOS
   end

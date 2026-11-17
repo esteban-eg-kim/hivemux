@@ -70,6 +70,9 @@ macOS and Linux (on Linux, `Option` is `Alt`).
 - **Survives everything.** tmux keeps sessions alive when the terminal closes;
   tmux-resurrect restores layouts after a reboot and hivemux runs
   `claude --resume <id>` in the right pane.
+- **Updates itself.** Once a day hivemux looks for a new version; the sidebar's
+  bottom line and the bee office's ⚙ say so, and a click updates it in place
+  (`hivemux update`), sessions and Claudes still running. Or let it update on its own.
 - **Claude Code updates.** Right-click → Update Claude (or `hivemux update-claude`)
   checks for a newer version and, once you confirm, updates Claude Code (with
   brew if it came from Homebrew; up to date, it just says so), then restarts each
@@ -400,14 +403,20 @@ the Option keys.
 ### Update
 
 ```sh
-brew update && brew upgrade hivemux && hivemux setup    # Homebrew
-curl -fsSL https://hivemux.dev/install.sh | bash   # git install: same command
+hivemux update    # --yes: no question; --check: only look
 ```
 
-`hivemux setup` again is safe: it replaces its own blocks and hooks (a new version
-may add hooks), reloads the running tmux and restarts the sidebars, so you keep
-working in the same sessions. Claude sessions started before the update pick up
-new hooks once restarted. Claude Code itself: right-click → Update Claude
+hivemux looks for a new version once a day. When one is out, the sidebar's bottom
+line becomes "0.1.x · update hivemux" and the bee office's ⚙ gets a dot; click
+either (or right-click → Update hivemux) to see what changed and update in place.
+It updates with brew (Homebrew install) or git (script install), runs `hivemux setup`
+again with the answers you gave the first time, reloads tmux and restarts the
+sidebars and the bee office, so you keep working in the same sessions. Settings →
+hivemux updates: Tell me (default), Automatic (at a moment when no Claude is working
+or waiting for you) or Never check. Claude sessions started before the update pick
+up new hooks once restarted. Up to 0.1.65, which has no `hivemux update`, update
+once by hand: `brew update && brew upgrade hivemux && hivemux setup` (Homebrew) or
+the install command again (git install). Claude Code itself: right-click → Update Claude
 (`hivemux update-claude`, `--yes` to skip the question). `hivemux version` shows the installed version; see
 [CHANGELOG.md](CHANGELOG.md) for what changed.
 
@@ -429,7 +438,7 @@ new hooks once restarted. Claude Code itself: right-click → Update Claude
 | `Option+1` … `9` | jump to that Claude (any session) |
 | `Option+0` / `prefix Space` | oldest waiting Claude, else oldest unseen finished one |
 | click card / project name | jump · double click a card: rename. A project whose Claude windows are all closed stays listed ("no Claude") until you close it |
-| right click | menu. On a task: go to, rename, move up/down, clock this Claude out, close Claude, new Claude, new project. On a clocked-out (dimmed) card: clock in, go to, close Claude. On a project name: rename, Team…, close project, account for this project, clock this project out / in, new Claude, new project. On empty space: new project. Every menu ends with Open path…, Ports…, Bee office, Artifacts…, (on empty space: Clock everyone out / in…), Update Claude…, Switch account…, Connect to…, Sidebar width… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes. A popup that asks starts on Cancel, so `Enter` alone never confirms |
+| right click | menu. On a task: go to, rename, move up/down, clock this Claude out, close Claude, new Claude, new project. On a clocked-out (dimmed) card: clock in, go to, close Claude. On a project name: rename, Team…, close project, account for this project, clock this project out / in, new Claude, new project. On empty space: new project. Every menu ends with Open path…, Ports…, Bee office, Artifacts…, (on empty space: Clock everyone out / in…), Update Claude…, Update hivemux…, Switch account…, Connect to…, Sidebar width… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes. A popup that asks starts on Cancel, so `Enter` alone never confirms |
 | menu → Team… | the project's team page in the bee office window: set up, start and stop a team, send the lead a goal (see [Teams](#teams)) |
 | menu → Close Claude | asks, then closes that Claude: its pane, or its window when nothing else is in it; a project's last window keeps its shell. Not resumed again, like `/exit`; `claude --resume` still continues the conversation |
 | menu → New project | folder browser in the middle: `Enter` starts the selected folder (like `hm`), `→` / `←` in and out, type to filter, `Ctrl+N` new folder |

@@ -554,7 +554,7 @@ claude -c
       <div class="key"><span class="combo">사이드바 카드 클릭</span><span class="d">그 Claude로 이동</span></div>
       <div class="key"><span class="combo">프로젝트 이름 클릭</span><span class="d">그 프로젝트로 이동. Claude 창을 모두 닫은 프로젝트도 "Claude 없음"으로 남고, 오른쪽 클릭 → 프로젝트 닫기로 정리합니다</span></div>
       <div class="key"><span class="combo">카드 더블클릭</span><span class="d">작업 이름 바꾸기</span></div>
-      <div class="key"><span class="combo">오른쪽 클릭</span><span class="d">메뉴. 작업 카드: 이동, 이름 바꾸기, 위로 / 아래로 옮기기, 이 Claude 퇴근, Claude 닫기, 이 프로젝트에 새 Claude, 새 프로젝트. 퇴근한 카드: 출근, 이동, Claude 닫기. 프로젝트 이름 줄: 이름 바꾸기, 팀, 프로젝트 닫기, 이 프로젝트 계정, 이 프로젝트 퇴근 / 출근, 새 Claude, 새 프로젝트. 빈 곳: 새 프로젝트, 모두 퇴근하기 / 모두 출근하기. 모든 메뉴 맨 아래에 경로 열기, 포트 목록, 벌 사무실, 아티팩트, Claude 업데이트, 계정 전환, 원격 연결, 사이드바 폭, 설정. 마우스를 올리면 강조되고 클릭하면 실행. <kbd>↑</kbd> <kbd>↓</kbd>와 <kbd>Enter</kbd>, 괄호 안 글자로도 고름. <kbd>Esc</kbd>나 바깥 클릭으로 닫힘</span></div>
+      <div class="key"><span class="combo">오른쪽 클릭</span><span class="d">메뉴. 작업 카드: 이동, 이름 바꾸기, 위로 / 아래로 옮기기, 이 Claude 퇴근, Claude 닫기, 이 프로젝트에 새 Claude, 새 프로젝트. 퇴근한 카드: 출근, 이동, Claude 닫기. 프로젝트 이름 줄: 이름 바꾸기, 팀, 프로젝트 닫기, 이 프로젝트 계정, 이 프로젝트 퇴근 / 출근, 새 Claude, 새 프로젝트. 빈 곳: 새 프로젝트, 모두 퇴근하기 / 모두 출근하기. 모든 메뉴 맨 아래에 경로 열기, 포트 목록, 벌 사무실, 아티팩트, Claude 업데이트, hivemux 업데이트, 계정 전환, 원격 연결, 사이드바 폭, 설정. 마우스를 올리면 강조되고 클릭하면 실행. <kbd>↑</kbd> <kbd>↓</kbd>와 <kbd>Enter</kbd>, 괄호 안 글자로도 고름. <kbd>Esc</kbd>나 바깥 클릭으로 닫힘</span></div>
       <div class="key"><span class="combo">메뉴 → Claude 닫기</span><span class="d">확인을 받은 뒤 그 Claude를 닫습니다. 같은 창에 다른 칸이 있으면 그 칸만, 프로젝트에 다른 창이 있으면 그 창을 닫고, 프로젝트의 마지막 창이면 Claude만 끄고 셸은 남깁니다(창을 닫으면 프로젝트가 닫히므로). <code>/exit</code>처럼 직접 닫은 것이라 재부팅이나 출근 때 다시 띄우지 않고, 벌 사무실의 그 벌은 퇴사합니다. 대화는 남아 <code>claude --resume</code>으로 이어갈 수 있습니다</span></div>
       <div class="key"><span class="combo">메뉴 → 새 프로젝트</span><span class="d">가운데 폴더 탐색 창이 열림. <kbd>Enter</kbd>는 고른 폴더에서 <code>hm</code>처럼 시작, <kbd>→</kbd> / <kbd>←</kbd>는 폴더 안 / 상위로, 글자를 치면 걸러 보기 (<code>.</code>으로 시작하면 숨김 폴더도), <kbd>Ctrl</kbd>+<kbd>N</kbd>은 새 폴더</span></div>
       <div class="key"><span class="combo">메뉴 → 사이드바 폭</span><span class="d">좁게 24 / 보통 32 / 넓게 44 또는 직접 정한 폭(<kbd>←</kbd> <kbd>→</kbd>). 고르는 동안은 바뀌지 않고 <kbd>Enter</kbd>나 클릭으로 한 번 적용. 느린 연결에서도 끌지 않고 바꿈</span></div>
@@ -870,8 +870,8 @@ ls -la ~/.local/share/hivemux/backups/</pre></div>
 curl -fsSL https://hivemux.dev/install.sh | bash
 <span class="cmt"># 또는 Homebrew (macOS 전용)</span>
 brew install esteban-eg-kim/tap/hivemux &amp;&amp; hivemux setup
-<span class="cmt"># 업데이트 (git 설치는 위 설치 명령을 다시 실행)</span>
-brew update &amp;&amp; brew upgrade hivemux &amp;&amp; hivemux setup
+<span class="cmt"># hivemux 를 그 자리에서 업데이트 (사이드바 업데이트 줄을 눌러도 됨. 0.1.65 까지: brew upgrade hivemux &amp;&amp; hivemux setup)</span>
+hivemux update
 <span class="cmt"># Claude Code 업데이트 (칸마다 Claude 를 새 버전으로 다시 시작)</span>
 hivemux update-claude
 <span class="cmt"># 다른 Claude 계정에 로그인하고 바꿔 쓰기 (-s 프로젝트: 그 프로젝트만)</span>

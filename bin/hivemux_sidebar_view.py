@@ -254,6 +254,52 @@ def clocked_out():
         except OSError:
             _shift[:] = [m, False]
     return _shift[1]
+# A newer hivemux (bin/hivemux-update leaves it there; Settings → Updates off: none). The sidebars also ask it to look
+# now and then: once a day, and with automatic updates on, at a quiet moment
+# 더 새 hivemux (bin/hivemux-update 가 남긴다. 설정 → 업데이트가 끔이면 없다). 사이드바가 가끔 확인도 시킨다:
+# 하루에 한 번, 자동 업데이트면 조용한 때
+UPDATE_NEW = os.path.join(os.path.dirname(ORDER_FILE), "update-new")
+UPDATE_BTN = None    # row of the "update" line / "업데이트" 줄
+_update = [None, ""]
+_update_tick = [0.0]
+
+
+def update_new():
+    """The newer version, read again only when the file changes / 더 새 버전. 파일이 바뀔 때만 다시 읽는다"""
+    try:
+        m = os.stat(UPDATE_NEW).st_mtime
+    except OSError:
+        return ""
+    if m != _update[0]:
+        try:
+            with open(UPDATE_NEW) as f:
+                _update[:] = [m, f.read().strip()]
+        except OSError:
+            _update[:] = [m, ""]
+    return _update[1]
+
+
+def update_tick():
+    """Every 5 minutes, have bin/hivemux-update look if it is due (it keeps to once a day, one at a time)
+    5분마다 bin/hivemux-update 에게 때가 됐으면 확인하게 한다 (하루에 한 번, 한 번에 하나는 그쪽이 지킨다)"""
+    now = time.time()
+    if now - _update_tick[0] < 300:
+        return
+    _update_tick[0] = now
+    data = os.path.dirname(ORDER_FILE)
+    try:
+        due = now - os.stat(os.path.join(data, "update-check")).st_mtime > 72000
+    except OSError:
+        due = True
+    try:
+        auto = open(os.path.join(data, "update")).read().strip() == "auto"
+    except OSError:
+        auto = False
+    if due or (auto and update_new()):
+        subprocess.Popen([os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-update"), "tick"],
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+
 OFFWORK_FILE = os.path.join(os.path.dirname(ORDER_FILE), "offwork.tsv")
 _offwork = [None, []]
 
@@ -723,8 +769,15 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
     else:
         k.put(" ⌥0 ", C["text"], C["card_hi"], True).put(tr("  기다리는 작업", "  next waiting"), C["text3"])
     lines.append(k)
+    global UPDATE_BTN
+    UPDATE_BTN = None
+    new = update_new()
     if dragging:
         lines.append(L().put("  ").put(" ↕ ", C["bg"], C["run"], True).put(tr("  놓을 곳에서 떼기", "  release to drop"), C["run"]))
+    elif new:
+        # a newer hivemux: a click opens the update (bin/hivemux-update) / 더 새 hivemux: 누르면 업데이트 (bin/hivemux-update)
+        UPDATE_BTN = len(lines)
+        lines.append(L().put("  ").put(f" {new} ", C["bg"], C["run"], True).put(tr("  hivemux 업데이트", "  update hivemux"), C["run"]))
     else:
         lines.append(L().put("  ").put(" ⌥1-9 ", C["text"], C["card_hi"], True).put(tr("  이동 · 우클릭 메뉴", "  jump · r-click menu"), C["text3"]))
     # Rightmost column: resize grip, a 7-row pill at the vertical middle
@@ -921,6 +974,8 @@ def menu(y, pid=None, sess=None, items=(), homes=()):
     if empty and not clocked_out() and items:
         rows.append((tr("모두 퇴근하기…", "Clock everyone out…"), "h", lambda: bg_run(shift, "--popup", "off", client)))
     rows += [(tr("Claude 업데이트…", "Update Claude…"), "u", lambda: bg_run(os.path.join(here, "hivemux-claude-update"), "--popup", client)),
+             (tr(f"hivemux 업데이트 ({update_new()})…", f"Update hivemux ({update_new()})…") if update_new() else tr("hivemux 업데이트…", "Update hivemux…"),
+              "v", lambda: bg_run(os.path.join(here, "hivemux-update"), "--popup", client)),
              (tr("계정 전환…", "Switch account…"), "a", lambda: bg_run(os.path.join(here, "hivemux-account"), "--popup", client)),
              None, (tr("원격 연결…", "Connect to…"), "c", lambda: bg_run(os.path.join(here, "hivemux-connect"), "--pick", client)),
              # narrow / medium / wide in one go: no drag over a slow connection / 좁게 / 보통 / 넓게를 한 번에: 느린 연결에서 끌지 않고
@@ -1287,7 +1342,7 @@ def paint_resting(painted, scroll):
     한참 만에 돌아간 창이 그 화면을 보이다가 새 화면으로 튀었다. 보이는 사이드바 하나(칸 번호가 가장
     작은 것)가 그 칸들에 그려 준다. 보여 줄 것이 바뀌었거나 시간 표시가 15초 지났을 때만, 바뀐 줄만
     (매초 모두 그리면 CPU 코어의 10분의 1을 썼다) (painted: 칸 -> (크기, 줄들, 보여 준 것, 시각))"""
-    global SCROLL, SCROLL_TO, OFFICE_BTN, SHIFT_BTN
+    global SCROLL, SCROLL_TO, OFFICE_BTN, SHIFT_BTN, UPDATE_BTN
     side = [p for p in PANES if p["pane_title"] == "hivemux-sidebar"]
     live = [p["pane_id"] for p in side if not p["@hivemux-rest"] and p["window_active"] == "1"
             and p["session_attached"] not in ("", "0")]
@@ -1310,12 +1365,12 @@ def paint_resting(painted, scroll):
         if old and old[0] == size and old[2] == sig and now - old[3] < 15:
             continue
         with RENDER_LOCK:
-            keep = SCROLL, SCROLL_TO, OFFICE_BTN, SHIFT_BTN
+            keep = SCROLL, SCROLL_TO, OFFICE_BTN, SHIFT_BTN, UPDATE_BTN
             try:
                 SCROLL, SCROLL_TO = scroll, None       # as it will start when woken / 깨어날 때처럼
                 lines, _ = render(items, current, *size, cur_sess, sessions, homes)
             finally:
-                SCROLL, SCROLL_TO, OFFICE_BTN, SHIFT_BTN = keep
+                SCROLL, SCROLL_TO, OFFICE_BTN, SHIFT_BTN, UPDATE_BTN = keep
         # the rows that changed, but all of them every 15 seconds: rows it took as unchanged may not be
         # what the pane shows (the sidebar drew there itself while awake)
         # 바뀐 줄만, 단 15초마다 모두: 안 바뀌었다고 본 줄이 칸에 보이는 것과 다를 수 있다 (깨어 있던
@@ -1504,6 +1559,7 @@ def main():
     try:
         while True:
             nowf = time.time()
+            update_tick()
             # the poll runs on its own thread (poller below): its tmux calls and the screen checks of running
             # panes take 80-100 ms, and done here they stopped the animation for that long every second
             # 읽기는 자기 스레드에서 돈다 (아래 poller): tmux 호출과 작업 중인 칸 화면 확인에 80~100ms 가 들어,
@@ -1747,6 +1803,11 @@ def main():
                             goto(pid)
                     continue
                 if kind != "M" or x >= w_now:   # grip column: tmux handles the drag (see hivemux.tmux) / 오른쪽 끝 핸들: 끌기는 tmux 가 처리한다
+                    continue
+                if b == 0 and UPDATE_BTN is not None and row == UPDATE_BTN:
+                    DRAG, released = None, True     # update hivemux / hivemux 업데이트
+                    bg_run(os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-update"), "--popup",
+                           active_client(tmux("display", "-p", "-t", ME, "#{session_name}").strip()))
                     continue
                 if b == 0 and SHIFT_BTN is not None and row == SHIFT_BTN:
                     DRAG, released = None, True     # clock in / 출근

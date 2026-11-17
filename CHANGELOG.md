@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- hivemux updates itself: `hivemux update` updates a Homebrew or script install in place (brew or git), runs
+  setup again with the answers you gave the first time, reloads tmux and restarts the sidebars and the bee
+  office; your sessions and Claudes keep running. Once a day it looks for a new version: the sidebar's bottom
+  line turns into "0.1.x · update hivemux" and the bee office's ⚙ gets a dot, and a click shows what changed
+  and updates. Settings → hivemux updates: Tell me (default), Automatic (at a moment when no Claude is
+  working or waiting for you) or Never check. Right-click → Update hivemux… too. A source checkout is left alone.
+- `hivemux setup --again`: setup with the answers given last time, no questions (what `hivemux update` runs).
 - Team page: a long role name in the flow of work wraps onto a second line instead of being cut off.
 
 ## 0.1.65 — 2026-11-17

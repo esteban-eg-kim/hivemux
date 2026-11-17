@@ -545,7 +545,7 @@ claude -c
       <div class="key"><span class="combo">Click a card</span><span class="d">Jump to that Claude</span></div>
       <div class="key"><span class="combo">Click a project name</span><span class="d">Go to that project. A project whose Claude windows are all closed stays as "no Claude"; right-click → Close project to clear it</span></div>
       <div class="key"><span class="combo">Double-click a card</span><span class="d">Rename the task</span></div>
-      <div class="key"><span class="combo">Right click</span><span class="d">Menu. On a task: go to, rename, move up / down, clock this Claude out, close Claude, new Claude in this project, new project. On a card at home: clock in, go to, close Claude. On a project name: rename, Team…, close project, account for this project, clock this project out / in, new Claude, new project. On empty space: new project, clock everyone out / in. Every menu ends with Open path, Ports, Bee office, Artifacts, Update Claude, Switch account, Connect to…, Sidebar width and Settings. Hover highlights, a click runs; <kbd>↑</kbd> <kbd>↓</kbd> and <kbd>Enter</kbd> or the letter shown also choose. <kbd>Esc</kbd> or a click outside closes it</span></div>
+      <div class="key"><span class="combo">Right click</span><span class="d">Menu. On a task: go to, rename, move up / down, clock this Claude out, close Claude, new Claude in this project, new project. On a card at home: clock in, go to, close Claude. On a project name: rename, Team…, close project, account for this project, clock this project out / in, new Claude, new project. On empty space: new project, clock everyone out / in. Every menu ends with Open path, Ports, Bee office, Artifacts, Update Claude, Update hivemux, Switch account, Connect to…, Sidebar width and Settings. Hover highlights, a click runs; <kbd>↑</kbd> <kbd>↓</kbd> and <kbd>Enter</kbd> or the letter shown also choose. <kbd>Esc</kbd> or a click outside closes it</span></div>
       <div class="key"><span class="combo">Menu → Close Claude</span><span class="d">Asks, then closes that Claude: just its pane when its window has other panes, its window when the project has other windows; the project's last window keeps its shell, since closing it would close the project. It is closed on purpose, as with <code>/exit</code>: not resumed after a reboot or on clocking in, and its bee leaves the office. The conversation stays; <code>claude --resume</code> continues it</span></div>
       <div class="key"><span class="combo">Menu → New project</span><span class="d">A folder browser opens in the middle. <kbd>Enter</kbd> starts in the selected folder like <code>hm</code>, <kbd>→</kbd> / <kbd>←</kbd> move in and out, typing filters (start with <code>.</code> for hidden folders), <kbd>Ctrl</kbd>+<kbd>N</kbd> makes a new folder</span></div>
       <div class="key"><span class="combo">Menu → Sidebar width</span><span class="d">Narrow 24 / Medium 32 / Wide 44 or a width of your own (<kbd>←</kbd> <kbd>→</kbd>). Nothing changes while you choose; <kbd>Enter</kbd> or a click applies it once, so it works without a drag over a slow connection</span></div>
@@ -862,8 +862,8 @@ ls -la ~/.local/share/hivemux/backups/</pre></div>
 curl -fsSL https://hivemux.dev/install.sh | bash
 <span class="cmt"># or Homebrew (macOS only)</span>
 brew install esteban-eg-kim/tap/hivemux &amp;&amp; hivemux setup
-<span class="cmt"># update (git install: run the install command above again)</span>
-brew update &amp;&amp; brew upgrade hivemux &amp;&amp; hivemux setup
+<span class="cmt"># update hivemux in place (or click the sidebar's update line; up to 0.1.65: brew upgrade hivemux &amp;&amp; hivemux setup)</span>
+hivemux update
 <span class="cmt"># update Claude Code (each pane's Claude restarts on the new version)</span>
 hivemux update-claude
 <span class="cmt"># log in to another Claude account and switch to it (-s project: that project only)</span>
