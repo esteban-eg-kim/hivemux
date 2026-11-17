@@ -93,7 +93,7 @@ macOS and Linux (on Linux, `Option` is `Alt`).
 ## Teams
 
 <p align="center">
-  <img src="docs/office/team-en.jpg" alt="The team page: a web &amp; app team's roles with their level, state and context, and the box for the lead's next goal" width="880">
+  <img src="docs/office/team-en.jpg" alt="The hivemux team page on its Progress tab: a web and app team&#39;s roles in flow order with their state and context, the box for the lead&#39;s next goal, the flow of work and the questions waiting for you" width="880">
 </p>
 
 A team is a few Claudes with roles in one project, each in its own window,

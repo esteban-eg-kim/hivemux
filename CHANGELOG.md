@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Team page: a long role name in the flow of work wraps onto a second line instead of being cut off.
+
 ## 0.1.65 — 2026-11-17
 
 - Team page: a new look on warm paper, with three tabs under the team's name: Progress (the roles
