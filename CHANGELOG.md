@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 3D building: the office turns its lights on when it gets dark or the weather turns grey (rain,
+  snow, heavy cloud), so it stays bright inside; Settings → Office lights at night → Off keeps it
+  dark. The flats' walls no longer flicker where two cells met.
 - 3D building: each bee keeps a lane of its own on the path and at the residence door, so bees
   going home no longer pile up on one spot; the mound under the campus takes the planet's colour.
 ## 0.1.64 — 2026-11-17

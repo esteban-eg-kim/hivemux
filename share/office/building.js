@@ -154,7 +154,7 @@ PODS.sort((a, b) => Math.abs(a.x) + Math.abs(a.z - 2.6) * 1.3 - (Math.abs(b.x) +
 const ROOMS = [{ x0: -15.6, x1: -0.6, z0: 2.4, z1: 9.6, door: -1 }, { x0: 0.6, x1: 15.6, z0: 2.4, z1: 9.6, door: -1 },
   { x0: -15.6, x1: -5.4, z0: -9.6, z1: -3.6, door: 1 }, { x0: 5.4, x1: 15.6, z0: -9.6, z1: -3.6, door: 1 }];
 
-const W = { leaves: [], floors: [], sig: '', desks: new Map(), rooms: new Map(), spots: [], grids: [], honeyWall: null, jars: null, lift: null };
+const W = { leaves: [], lamps: [], floors: [], sig: '', desks: new Map(), rooms: new Map(), spots: [], grids: [], honeyWall: null, jars: null, lift: null };
 
 function plan(sessions) {
   const teams = new Map(), byProject = new Map();
@@ -372,11 +372,14 @@ function build(p) {
   });
   world.clear();
   building = true;
-  W.floors = []; W.desks = new Map(); W.rooms = new Map(); W.spots = []; W.grids = []; W.flames = [];
+  W.floors = []; W.lamps = []; W.desks = new Map(); W.rooms = new Map(); W.spots = []; W.grids = []; W.flames = [];
   const kinds = ['lobby', ...Array(p.work).fill('work'), ...Array(p.team).fill('team')];
   kinds.forEach((kind, i) => {
     const y = i * FH, fl = new THREE.Group(); fl.userData = { i, kind }; world.add(fl);
     const ceil = new THREE.Group(); ceil.userData.own = true; fl.add(ceil);
+    // the office's own light, on when it gets dark or grey outside (daylight()): an office is bright inside
+    // 사무실 조명: 바깥이 어둡거나 흐리면 켜진다 (daylight()). 사무실 안은 밝다
+    for (const lx of [-8, 8]) { const l = new THREE.PointLight(0xfff0d8, 0, 30, 1); l.position.set(lx, y + FH - 1, 0); fl.add(l); W.lamps.push(l); }
     const grid = new Grid(X0 + .3, Z0 + .3, X1 - .3, kind === 'lobby' ? 25 : Z1 - .3); W.grids[i] = grid;
     // the slab, its floor, columns, the core with the glass lift / 슬래브, 바닥, 기둥, 유리 엘리베이터가 있는 코어
     const slab = block(fl, X1 - X0 + .5, .3, Z1 - Z0 + .5, C.slab, 0, y - .3, 0); slab.userData.floor = i;
@@ -404,6 +407,7 @@ function build(p) {
   for (const sx of [-1.07, 1.07]) block(car, .06, 2.5, 2.4, C.glassIn, sx, .05, 0, { cast: false });
   car.position.set(0, 0, LIFT.carZ); car.userData.y = 0;
   building = false;
+  officeLamps();
 }
 
 // ── the rooftop: a pool, sun loungers, a pub under a pergola, a fire pit; open to the sky ─────────────────
@@ -798,16 +802,18 @@ function buildResidence(cells) {
   bench(g, xc - 3, back - 2.6, Math.PI); bench(g, xc + 3, back - 2.6, Math.PI);
   // the cells: hexagonal tubes in a honeycomb, glass at both ends for the view, a rug of its own, a bed and a lamp
   // 칸: 벌집처럼 엇갈린 육각 통. 전망을 위해 앞뒤 유리, 저마다 다른 러그, 침대와 등
-  const tube = geo('hextube', () => new THREE.CylinderGeometry(RES.r, RES.r, RES.depth, 6, 1, true).rotateX(Math.PI / 2).rotateZ(Math.PI / 6));
-  const rim = geo('hexrim', () => new THREE.RingGeometry(RES.r - .02, RES.r + .14, 6));
-  const pane = geo('hexpane', () => new THREE.CircleGeometry(RES.r, 6));
+  // each tube a little inside its hexagon, so two cells never share one wall plane (it flickered); the rim covers the gap
+  // 통은 육각형보다 조금 안쪽: 두 칸이 같은 벽 면을 나누지 않게 (깜빡였다). 틈은 테두리가 덮는다
+  const tube = geo('hextube', () => new THREE.CylinderGeometry(RES.r - .05, RES.r - .05, RES.depth, 6, 1, true).rotateX(Math.PI / 2).rotateZ(Math.PI / 6));
+  const rim = geo('hexrim', () => new THREE.RingGeometry(RES.r - .09, RES.r + .14, 6));
+  const pane = geo('hexpane', () => new THREE.CircleGeometry(RES.r - .05, 6));
   const shell = mat(0xf7f3ea, { roughness: .6, side: THREE.DoubleSide }), honeyRim = mat(0xf2b632, { roughness: .35, metalness: .3, side: THREE.DoubleSide });
   for (let k = 0; k < rows * RES.cols; k++) {
     const c = cellAt(k), who = cells[k];
-    put(g, tube, shell, c.x, c.yc, RES.zf - RES.depth / 2);
+    put(g, tube, shell, c.x, c.yc, RES.zf - RES.depth / 2, { cast: false });
     put(g, rim, honeyRim, c.x, c.yc, RES.zf + .01, { cast: false });
     put(g, pane, C.glass, c.x, c.yc, back, { cast: false }).renderOrder = 3; put(g, rim, honeyRim, c.x, c.yc, back - .01, { cast: false });
-    block(g, 1.4, .02, 2.4, mat(WALLS[k % WALLS.length], { roughness: 1 }), c.x, c.y + .01, RES.zf - 1.6, { cast: false });
+    block(g, 1.4, .02, 2.4, mat(WALLS[k % WALLS.length], { roughness: 1 }), c.x, c.y + .045, RES.zf - 1.6, { cast: false });
     block(g, .8, .32, 1.5, ROOF.cushion, c.x, c.y, RES.zf - 2.2);
     block(g, .82, .08, 1.5, mat(WALLS[(k + 2) % WALLS.length], { roughness: .95 }), c.x, c.y + .32, RES.zf - 2.2, { cast: false });
     if (k % 3 === 1) plant(g, c.x - .5, RES.zf - 2.9, .6, c.y + .02);
@@ -1881,6 +1887,8 @@ function daylight() {
   scene.environmentIntensity = .06 + .29 * day;   // the room's soft light, too, else the night stays bright / 방의 은은한 빛도. 아니면 밤이 밝다
   const lit = 1 - day * (1 - sky.over * .45);     // how much the lamps show / 등이 얼마나 보이나
   C.light.emissiveIntensity = SET.lights === 'off' ? .5 * (1 - lit) : .5 + 1.7 * lit;   // lights off: a dark office at night / 조명 끔: 밤에는 어두운 사무실
+  W.lampK = SET.lights === 'off' ? 0 : Math.min(1, Math.max(1 - day, sky.over * .9, sky.rain || sky.snow ? .85 : 0));
+  officeLamps();
   ROOF.bulb.emissiveIntensity = .8 + 2.2 * lit; ROOF.water.emissiveIntensity = .15 + .75 * (1 - day);
   C.glass.color.copy(mixHex(0x6d7f99, 0xbfdbea, day));
   // wet paving and road in the rain, snow on the lawns / 비에 젖은 바닥과 길, 잔디 위의 눈
@@ -1900,6 +1908,8 @@ function daylight() {
   clouds.children.forEach((c, i) => { c.visible = i < n; });
   weatherChip();
 }
+// the office's lamps, also on a building just built / 사무실 등. 막 지은 건물에도
+function officeLamps() { for (const l of W.lamps) l.intensity = (W.lampK || 0) * 26; }
 // what the weather is, in words and a picture / 날씨를 말과 그림으로
 function weatherWord(c) {
   return c === 0 ? [night ? '🌙' : '☀️', tr('맑음', 'Clear')] : c <= 2 ? [night ? '☁️' : '🌤️', tr('구름 조금', 'Partly cloudy')] : c === 3 ? ['☁️', tr('흐림', 'Cloudy')]
