@@ -737,17 +737,32 @@ function buildResidence(cells) {
   block(g, xB - xA, .25, front - back + .2, C.white, xc, RES.base - .25, (front + back) / 2);
   for (const [x0, x1] of [[xA, door - 1.1], [door + 1.1, xB]]) put(g, boxG(x1 - x0, RES.base - .3, .05), C.glass, (x0 + x1) / 2, (RES.base - .3) / 2, front, { cast: false }).renderOrder = 3;
   for (const x of [xA, xB]) put(g, boxG(.05, RES.base - .3, front - back), C.glass, x, (RES.base - .3) / 2, (front + back) / 2, { cast: false }).renderOrder = 3;
-  block(g, 3, 1.6, .3, mat(0xb8862f, { roughness: .5, metalness: .4 }), xc - 3.5, 0, back + .2);
+  block(g, .3, 1.6, 2.4, mat(0xb8862f, { roughness: .5, metalness: .4 }), xA + .3, 0, (front + back) / 2);
   block(g, 2.4, .45, .9, C.sofa, xc + 3.5, 0, back + .7, { r: .08 });
   const name = canvasTex(1024, 160, c => { c.clearRect(0, 0, 1024, 160); c.fillStyle = '#3b2a12'; c.font = '800 96px -apple-system, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('HIVE RESIDENCE', 512, 84); });
   put(g, geo('resname', () => new THREE.PlaneGeometry(7, 1.1)), new THREE.MeshBasicMaterial({ map: name, transparent: true }), door, RES.base - .85, front + .04, { cast: false });
-  // the tower behind the cells, a roof garden on top / 칸 뒤의 탑, 꼭대기 정원
-  block(g, xB - xA, top, 5, C.white, xc, 0, back - 2.5);
-  for (const x of [xA - .02, xB + .02]) for (let k = 0; k < rows; k++) block(g, .04, .9, 4.4, C.glass, x, RES.base + .8 + k * h, back - 2.5, { cast: false });
-  block(g, xB - xA + .2, .4, front - back + 5.2, C.concrete, xc, top, (front + back - 5) / 2);
-  for (let k = 0; k < 5; k++) put(g, geo('bush', () => new THREE.IcosahedronGeometry(.45, 1)), k % 2 ? C.leaf : C.leaf2, xA + 2 + k * 2.8, top + .7, back - 1.5 - (k % 2) * 2, { s: [1.4, 1.2, 1.4] });
-  // the cells: hexagonal tubes in a honeycomb, glass in front, a wall of its own at the back, a bed and a lamp
-  // 칸: 벌집처럼 엇갈린 육각 통. 앞은 유리, 뒤는 저마다 다른 벽, 침대와 등
+  // nothing behind the cells but the view: glass at both ends, a glass lift at the side, a roof garden on top
+  // and a pond out back / 칸 뒤에는 전망뿐: 앞뒤 유리, 옆의 유리 엘리베이터, 꼭대기 정원, 뒤뜰 연못
+  put(g, boxG(xB - xA, RES.base - .3, .05), C.glass, xc, (RES.base - .3) / 2, back, { cast: false }).renderOrder = 3;
+  block(g, xB - xA + .2, .3, front - back + .2, C.white, xc, top, (front + back) / 2);
+  for (const [x0, x1] of [[xA, xB]]) for (const z of [back, front]) block(g, x1 - x0, .7, .06, C.glass, (x0 + x1) / 2, top + .3, z, { cast: false });
+  for (let k = 0; k < 6; k++) put(g, geo('bush', () => new THREE.IcosahedronGeometry(.45, 1)), k % 2 ? C.leaf : C.leaf2, xA + 1.6 + k * 2.4, top + .65, (back + front) / 2 - .6 + (k % 2) * 1.2, { s: [1.2, 1, 1.2] });
+  for (const x of [xc - 1.5, xc + 1.5]) { block(g, .7, .28, 1.8, ROOF.teak, x, top + .3, front - 1.3, { r: .04 }); block(g, .66, .08, 1.1, ROOF.cushion, x, top + .58, front - 1.6, { r: .03 }); }
+  const lx = xB + 1.6, lz0 = back + .3, lz1 = RES.zf - .3;
+  for (const [w, d, x, z] of [[.04, lz1 - lz0, lx - 1.2, (lz0 + lz1) / 2], [.04, lz1 - lz0, lx + 1.2, (lz0 + lz1) / 2], [2.4, .04, lx, lz0], [2.4, .04, lx, lz1]]) put(g, boxG(w, top + .3, d), C.glassIn, x, (top + .3) / 2, z, { cast: false }).renderOrder = 2;
+  for (const x of [lx - 1.2, lx + 1.2]) for (const z of [lz0, lz1]) block(g, .035, top + .3, .035, C.mullion, x, 0, z, { cast: false });
+  for (const sx of [-.7, .7]) block(g, .05, top + .3, .05, C.steel, lx + sx, 0, lz0 + .15, { cast: false });
+  block(g, 2.2, .1, 2, C.steel, lx, RES.base + h * 1.5, (lz0 + lz1) / 2, { cast: false }); block(g, 2.2, .1, 2, C.steel, lx, RES.base + h * 1.5 + 2.4, (lz0 + lz1) / 2, { cast: false });
+  for (const sx of [-1.05, 1.05]) block(g, .05, 2.4, 2, C.glassIn, lx + sx, RES.base + h * 1.5 + .1, (lz0 + lz1) / 2, { cast: false });
+  put(g, boxG(2.6, .05, lz1 - lz0 + .2), C.glassIn, lx, top + .3, (lz0 + lz1) / 2, { cast: false }).renderOrder = 2;
+  const pz = back - 9;
+  put(g, geo('pond', () => new THREE.CircleGeometry(5.5, 40)), mat(0x5aa9d6, { roughness: .08, metalness: .2 }), xc, .03, pz, { rx: -Math.PI / 2, cast: false, s: [1.5, 1, 1] });
+  put(g, geo('pondrim', () => new THREE.RingGeometry(5.5, 6.1, 40)), C.stone, xc, .035, pz, { rx: -Math.PI / 2, cast: false, s: [1.5, 1, 1] });
+  for (let k = 0; k < 9; k++) { const a = k * .7 + .3; put(g, cylG(.03, .03, 1.1, 5), C.leaf2, xc + Math.cos(a) * 8.6, .55, pz + Math.sin(a) * 5.7, { cast: false }); }
+  for (const [x, z, s2] of [[xc - 6, pz + 3.5, 1], [xc + 7, pz - 2, .8], [xc + 2, pz + 5.2, .6]]) put(g, geo('rock', () => new THREE.DodecahedronGeometry(.6, 0)), C.stone, x, .3 * s2, z, { s: [s2, s2 * .7, s2] });
+  bench(g, xc - 3, back - 2.6, Math.PI); bench(g, xc + 3, back - 2.6, Math.PI);
+  // the cells: hexagonal tubes in a honeycomb, glass at both ends for the view, a rug of its own, a bed and a lamp
+  // 칸: 벌집처럼 엇갈린 육각 통. 전망을 위해 앞뒤 유리, 저마다 다른 러그, 침대와 등
   const tube = geo('hextube', () => new THREE.CylinderGeometry(RES.r, RES.r, RES.depth, 6, 1, true).rotateX(Math.PI / 2).rotateZ(Math.PI / 6));
   const rim = geo('hexrim', () => new THREE.RingGeometry(RES.r - .02, RES.r + .14, 6));
   const pane = geo('hexpane', () => new THREE.CircleGeometry(RES.r, 6));
@@ -756,7 +771,8 @@ function buildResidence(cells) {
     const c = cellAt(k), who = cells[k];
     put(g, tube, shell, c.x, c.yc, RES.zf - RES.depth / 2);
     put(g, rim, honeyRim, c.x, c.yc, RES.zf + .01, { cast: false });
-    put(g, pane, mat(WALLS[k % WALLS.length], { roughness: .9 }), c.x, c.yc, back + .02, { cast: false });
+    put(g, pane, C.glass, c.x, c.yc, back, { cast: false }).renderOrder = 3; put(g, rim, honeyRim, c.x, c.yc, back - .01, { cast: false });
+    block(g, 1.4, .02, 2.4, mat(WALLS[k % WALLS.length], { roughness: 1 }), c.x, c.y + .01, RES.zf - 1.6, { cast: false });
     block(g, .8, .32, 1.5, ROOF.cushion, c.x, c.y, RES.zf - 2.2);
     block(g, .82, .08, 1.5, mat(WALLS[(k + 2) % WALLS.length], { roughness: .95 }), c.x, c.y + .32, RES.zf - 2.2, { cast: false });
     if (k % 3 === 1) plant(g, c.x - .5, RES.zf - 2.9, .6, c.y + .02);

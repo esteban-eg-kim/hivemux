@@ -29,7 +29,8 @@
   along the path, fly up to their own flat and go in (the lamp comes on; late at night they sleep);
   clocked in, they fly down and walk back to work, and the view widens to show both while clocked
   out. A bee that left leaves its flat empty with a sign. "Hive Residence" in the floor bar (or H)
-  looks at it. Bees are now known by their id, so a bee keeps its look and flat across restarts.
+  looks at it. Bees are now known by their id, so a bee keeps its look and flat across restarts The flats are glass at both
+  ends with a pond out back, a glass lift at the side and a roof garden, so every flat has a view.
 
 - Bee office in floors: the campus was too wide to read without panning, so it is a building of
   floors now, each one screen: 1F rest (cafe, lounge, an indoor park, the lobby), 2F work (desk
