@@ -6,12 +6,18 @@
   with their state and context against the diet line, the goal for the lead, the flow of work and
   what waits for you), Setup (the team mode, an org chart you can drag to reorder the flow, and the
   chosen role's settings) and Report (the day's report, now part of the team page; `/report` links
-  open this tab). The top bar keeps only Office | Team, with what waits for you and Stop team.
+  open this tab). The top bar keeps only Office | Team, with what waits for you and Stop team. The
+  team mode shows Custom when the levels were set role by role.
 - 3D building: the office turns its lights on when it gets dark or the weather turns grey (rain,
   snow, heavy cloud), so it stays bright inside; Settings → Office lights at night → Off keeps it
   dark. The flats' walls no longer flicker where two cells met.
 - 3D building: each bee keeps a lane of its own on the path and at the residence door, so bees
   going home no longer pile up on one spot; the mound under the campus takes the planet's colour.
+- 3D building: bees at home watch TV, read a book or look at their phones, a few minutes each, and
+  sleep late at night; the honey pub has a glass roof over its pergola that keeps the rain off.
+- 3D building fixes: no umbrellas over bees at home or under the pub's roof (the bartender too);
+  a bee that has got where it was going stops walking on the spot.
+
 ## 0.1.64 — 2026-11-17
 
 - The bee office opens on the 3D building now; the drawn office stays at `/classic` ("Classic
