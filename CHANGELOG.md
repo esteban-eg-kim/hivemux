@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.1.64 — 2026-11-17
 
 - The bee office opens on the 3D building now; the drawn office stays at `/classic` ("Classic
