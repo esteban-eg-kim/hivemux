@@ -35,6 +35,8 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; background: color-mix(in srgb, var(--fg) 6%, transparent); white-space: nowrap; }
 .chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
 .chip b { font-family: var(--f-mono); }
+.chip.wx { font-weight: 600; cursor: default; }
+.chip.wx span { color: var(--fg2); }
 /* the floor bar: the whole building, then each floor top down with what happens there / 층 표시줄: 건물 전체, 그리고 위층부터 각 층에서 일어나는 일 */
 .floors { position: fixed; right: 16px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; padding: 8px; z-index: 3; width: 196px; }
 .floors button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; border: 1px solid transparent; background: transparent;
@@ -78,6 +80,7 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
   <span class="chip" style="--c: var(--done)"><i></i><span data-t="끝남|Done"></span> <b id="n-done">0</b></span>
   <span class="chip" style="--c: var(--sleep)"><i></i><span data-t="쉼|Resting"></span> <b id="n-idle">0</b></span>
   <span class="chip" style="--c: var(--honey)"><i></i><span data-t="오늘 꿀|Honey today"></span> <b id="n-honey">0</b></span>
+  <span class="chip wx" id="wx" hidden></span>
   <a href="/team" data-t="팀|Team"></a>
   <a href="/" data-t="이전 사무실|Classic office"></a>
 </header>

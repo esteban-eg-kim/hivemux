@@ -298,6 +298,139 @@ def shift(busy):
             "home": home, "overtime": overtime}
 
 
+# ── the weather where you are / 지금 있는 곳의 날씨 ─────────────────────────────
+# The building shows the sun where it really is and the weather outside (share/office/building.js). Where you are
+# comes from your IP (ipinfo.io, else ipapi.co), or from a place set in Settings (bin/hivemux-settings-ui, the file
+# weather-place: a place name, or "off"); the weather from Open-Meteo (no key). Asked every half hour while the
+# server runs, kept in office/weather.json so a new server starts with it; offline the page goes on without it.
+# 건물은 해를 실제 자리에, 바깥 날씨를 그대로 보인다 (share/office/building.js). 있는 곳은 IP 로 (ipinfo.io, 안 되면
+# ipapi.co), 또는 설정에서 정한 곳으로 (bin/hivemux-settings-ui, 파일 weather-place: 곳 이름 또는 "off"). 날씨는
+# Open-Meteo (키 없음). 서버가 도는 동안 30분마다 묻고 office/weather.json 에 둔다: 새 서버도 그것으로 시작한다.
+# 인터넷이 없으면 페이지는 날씨 없이 그대로 간다.
+PLACE_FILE = os.path.join(DATA, "weather-place")
+WEATHER_FILE = os.path.join(OFFICE_DIR, "weather.json")
+WEATHER_EVERY, PLACE_EVERY = 1800, 3 * 3600     # the weather, and where you are by IP / 날씨, IP 로 찾은 곳
+OFF_WORDS = {"off", "끄기", "끔"}
+
+
+def get_json(url, timeout=8):
+    req = urllib.request.Request(url, headers={"User-Agent": "hivemux", "Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode())
+
+
+def geocode(name, near=None):
+    """(name, lat, lon) of a place name: a town, not a hill of the same name ("부산" is also a mountain), and a
+    short Korean name with its 시 / 특별시 / 광역시 too ("서울" alone finds nothing); near (lat, lon): the one
+    closest to it, for the name of the town your IP is in
+    곳 이름의 (이름, 위도, 경도): 같은 이름의 산이 아니라 도시 ("부산"은 산이기도 하다), 짧은 한국어 이름은 시 /
+    특별시 / 광역시 를 붙여서도 ("서울"만으로는 없다). near (위도, 경도): 그에 가장 가까운 곳, IP 가 있는 도시 이름용"""
+    found = []
+    for q in [name] + ([name + s for s in ("시", "특별시", "광역시")] if re.search("[가-힣]", name) and not near else []):
+        try:
+            found += get_json("https://geocoding-api.open-meteo.com/v1/search?" + urllib.parse.urlencode(
+                {"name": q, "count": 10, "language": lang()})).get("results") or []
+        except (OSError, ValueError):
+            continue
+    towns = [r for r in found if str(r.get("feature_code", "")).startswith("PPL")] or found
+    if near:
+        towns = [r for r in towns if abs(r["latitude"] - near[0]) + abs(r["longitude"] - near[1]) < .6]
+        towns.sort(key=lambda r: abs(r["latitude"] - near[0]) + abs(r["longitude"] - near[1]))
+    else:
+        towns.sort(key=lambda r: -(r.get("population") or 0))
+    return (towns[0]["name"], towns[0]["latitude"], towns[0]["longitude"]) if towns else None
+
+
+def locate():
+    """(name, lat, lon) of where this computer's IP is / 이 컴퓨터의 IP 가 있는 곳"""
+    for url, pick in (("https://ipinfo.io/json", lambda d: (d["city"], *map(float, d["loc"].split(",")))),
+                      ("https://ipapi.co/json/", lambda d: (d["city"], float(d["latitude"]), float(d["longitude"])))):
+        try:
+            name, lat, lon = pick(get_json(url))
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        local = geocode(name, (lat, lon)) if lang() == "ko" else None   # "Seoul" → "서울특별시"
+        return (local[0] if local else name), lat, lon
+    return None
+
+
+def place_setting():
+    try:
+        with open(PLACE_FILE) as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+class Weather(threading.Thread):
+    """The weather now, asked for every half hour, and at once when the place in Settings changes
+    지금 날씨. 30분마다, 그리고 설정의 곳이 바뀌면 바로 묻는다"""
+    def __init__(self):
+        super().__init__(daemon=True)
+        self.wake = threading.Event()
+        self.tried, self.failed = None, 0    # the place last asked for, and when that failed / 마지막으로 물은 곳, 그것이 실패한 때
+        try:
+            with open(WEATHER_FILE) as f:
+                self.now = json.load(f)
+        except (OSError, ValueError):
+            self.now = {}
+
+    def state(self):
+        """for /state: None while it is not known yet / /state 용: 아직 모르면 None"""
+        want, now = place_setting(), self.now
+        if want.lower() in OFF_WORDS:
+            return {"off": True}
+        if want != now.get("want"):
+            if want != self.tried:
+                self.wake.set()
+            return None
+        if now.get("missing"):
+            return {"missing": True, "want": want}
+        return {k: v for k, v in now.items() if k not in ("want", "placed")}
+
+    def run(self):
+        while True:
+            try:
+                self.update()
+            except Exception:       # never the server's end / 서버를 끝내지 않는다
+                pass
+            self.wake.wait(60)
+            self.wake.clear()
+
+    def update(self):
+        want, cur, t = place_setting(), self.now, time.time()
+        if want.lower() in OFF_WORDS:
+            return
+        same = cur.get("want") == want
+        if same and t - cur.get("at", 0) < WEATHER_EVERY or want == self.tried and t - self.failed < 300:
+            return
+        self.tried, self.failed = want, t      # until it works: offline, it asks every 5 minutes / 될 때까지: 인터넷이 없으면 5분마다
+        if same and cur.get("lat") is not None and (want or t - cur.get("placed", 0) < PLACE_EVERY):
+            place, placed = (cur["place"], cur["lat"], cur["lon"]), cur.get("placed", t)
+        else:
+            place, placed = geocode(want) if want else locate(), t
+        if not place:      # no such place: said once, asked again in half an hour / 그런 곳이 없다: 한 번 말하고 30분 뒤 다시
+            self.now = {"want": want, "at": int(t), "missing": True}
+            return
+        name, lat, lon = place
+        d = get_json("https://api.open-meteo.com/v1/forecast?" + urllib.parse.urlencode({
+            "latitude": round(lat, 3), "longitude": round(lon, 3), "timezone": "auto", "forecast_days": 1, "timeformat": "unixtime",
+            "current": "temperature_2m,weather_code,cloud_cover,rain,showers,snowfall,wind_speed_10m,is_day",
+            "daily": "sunrise,sunset"}))
+        c, day = d["current"], d.get("daily") or {}
+        self.now = {"want": want, "auto": not want, "place": name, "lat": lat, "lon": lon, "placed": placed, "at": int(t),
+                    "temp": c.get("temperature_2m"), "code": c.get("weather_code"), "cloud": c.get("cloud_cover"),
+                    "rain": (c.get("rain") or 0) + (c.get("showers") or 0), "snow": c.get("snowfall") or 0,
+                    "wind": c.get("wind_speed_10m") or 0, "day": c.get("is_day"),
+                    "sunrise": (day.get("sunrise") or [None])[0], "sunset": (day.get("sunset") or [None])[0]}
+        self.failed = 0
+        os.makedirs(OFFICE_DIR, exist_ok=True)
+        tmp = WEATHER_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(self.now, f, ensure_ascii=False)
+        os.replace(tmp, WEATHER_FILE)
+
+
 # ── answering from the office / 사무실에서 답하기 ──────────────────────────────
 
 RS = "\t"     # (bin/hivemux-hook) not \x1e: splitlines() breaks there / \x1e 은 안 된다: splitlines() 가 나눈다
@@ -487,7 +620,7 @@ class Remotes(threading.Thread):
 # ── server / 서버 ────────────────────────────────────────────────────
 
 class Handler(http.server.BaseHTTPRequestHandler):
-    remotes = None
+    remotes = weather = None
     last = time.time()
     nav = None          # (path, time): a page to go to, asked by --team while the window is open / --team 이 연 창에 요청한 페이지
 
@@ -518,7 +651,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == "/state":
             Handler.last = time.time()
             local = snapshot()
-            return self.send(200, json.dumps({"lang": local["lang"], "offices": [local] + Handler.remotes.list(), "nav": take_nav()}))
+            return self.send(200, json.dumps({"lang": local["lang"], "offices": [local] + Handler.remotes.list(), "nav": take_nav(),
+                                              "weather": Handler.weather.state()}))
         if path == "/team/state":
             Handler.last = time.time()
             q = query(self.path)
@@ -899,6 +1033,8 @@ def serve():
         f.write(str(srv.server_port))
     Handler.remotes = Remotes()
     Handler.remotes.start()
+    Handler.weather = Weather()
+    Handler.weather.start()
 
     # quits once no page has asked for a while, but not while the office window is open: a window that is
     # minimized or hidden stops asking (macOS pauses its page) and expects the server when it comes back

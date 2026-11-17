@@ -153,7 +153,7 @@ PODS.sort((a, b) => Math.abs(a.x) + Math.abs(a.z - 2.6) * 1.3 - (Math.abs(b.x) +
 const ROOMS = [{ x0: -15.6, x1: -0.6, z0: 2.4, z1: 9.6, door: -1 }, { x0: 0.6, x1: 15.6, z0: 2.4, z1: 9.6, door: -1 },
   { x0: -15.6, x1: -5.4, z0: -9.6, z1: -3.6, door: 1 }, { x0: 5.4, x1: 15.6, z0: -9.6, z1: -3.6, door: 1 }];
 
-const W = { floors: [], sig: '', desks: new Map(), rooms: new Map(), spots: [], grids: [], honeyWall: null, jars: null, lift: null };
+const W = { leaves: [], floors: [], sig: '', desks: new Map(), rooms: new Map(), spots: [], grids: [], honeyWall: null, jars: null, lift: null };
 
 function plan(sessions) {
   const teams = new Map(), byProject = new Map();
@@ -248,7 +248,8 @@ function ground() {
   trunks.forEach(([x, z, s], i) => ti.setMatrixAt(i, m4.compose(new THREE.Vector3(x, 1.1 * s, z), new THREE.Quaternion(), new THREE.Vector3(s, 2.2 * s, s))));
   ti.castShadow = true; far.add(ti);
   split.forEach((list, k) => {
-    const ci = new THREE.InstancedMesh(cg, k ? C.leaf2 : C.leaf, list.length);
+    // their own leaves, so snow whitens the trees outside and not the plants indoors / 자기 잎: 눈은 바깥 나무만 하얗게, 실내 화분은 그대로
+    const ci = new THREE.InstancedMesh(cg, W.leaves[k] = (k ? C.leaf2 : C.leaf).clone(), list.length);
     list.forEach(([x, z, s, r], i) => ci.setMatrixAt(i, m4.compose(new THREE.Vector3(x, 1.7 + s * 1.1, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, r * 6, 0)), new THREE.Vector3(s * 1.2, s * 1.45, s * 1.2))));
     ci.castShadow = ci.receiveShadow = true; far.add(ci);
   });
@@ -725,6 +726,7 @@ function buildResidence(cells) {
   const n = Math.max(cells.length, 12), rows = Math.ceil(n / RES.cols), h = Math.sqrt(3) * RES.r;
   const xA = RES.x0 - RES.r - .6, xB = RES.x0 + (RES.cols - 1) * 1.5 * RES.r + RES.r + .6, xc = (xA + xB) / 2;
   const top = RES.base + rows * h + h / 2 + .3, back = RES.zf - RES.depth, front = RES.zf + 1, door = HOMEWARD[2].x;
+  W.res.box = [xA, xB, back - .3, front, top];   // where rain and snow stop on its roof / 비와 눈이 지붕에서 멈추는 곳
   // the ground: the path from the plaza, the forecourt, a playground and a garden / 바닥: 광장에서 오는 길, 앞마당, 놀이터, 정원
   block(g, door - HOMEWARD[0].x + 2.4, .05, 2.4, C.paving, (HOMEWARD[0].x + door) / 2, -.02, 15, { cast: false });
   block(g, xB - xA + 4, .05, 16.5 - front, C.paving, xc, -.025, (front + 16.5) / 2, { cast: false });
@@ -955,6 +957,10 @@ function makeBee(b) {
   const mug = new THREE.Group(); hand.add(mug); put(mug, cylG(.065, .06, .16, 14), BEE.beer, 0, 0, 0, { cast: false }); put(mug, cylG(.068, .068, .04, 14), BEE.cup, 0, .09, 0, { cast: false });
   const paddle = new THREE.Group(); hand.add(paddle); put(paddle, cylG(.13, .13, .02, 16), BEE.paddle, 0, .12, 0, { rx: Math.PI / 2 }); put(paddle, cylG(.02, .02, .12, 6), C.woodDark, 0, 0, 0);
   const papers = block(hand, .22, .08, .28, BEE.paper, 0, -.02, .05);
+  // an umbrella over the head, out in the rain / 비 오는 바깥에서 머리 위의 우산
+  const umbrella = new THREE.Group(); umbrella.visible = false; g.add(umbrella); umbrella.position.set(.12, (1.13 + top) * P.size + .2, .05); umbrella.rotation.z = -.12;
+  put(umbrella, geo('brolly', () => new THREE.SphereGeometry(.72, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2.6)), mat(DYE[hueOf(b.key) % DYE.length], { roughness: .6, side: THREE.DoubleSide, flatShading: true }), 0, -.3, 0, { s: [1, .7, 1] });
+  put(umbrella, cylG(.018, .018, (1.13 + top) * P.size - .25, 6), C.frame, 0, -((1.13 + top) * P.size - .25) / 2, 0, { cast: false });
   pick.forEach(m => { m.userData.bee = b; });
   // the name tag and the question bubble, above the hat / 이름표와 질문 말풍선, 모자 위에
   // each in a wrapper: the label renderer owns the wrapper's transform, the inside keeps its own offset and bob
@@ -965,7 +971,7 @@ function makeBee(b) {
   const askEl = document.createElement('div'); askEl.className = 'ask'; askEl.innerHTML = '<b>?</b><span></span>'; askEl.addEventListener('click', () => visit(b));
   const ask = wrap(askEl); ask.position.set(0, above, 0); g.add(ask);
   scene.add(g);
-  Object.assign(b, { g, body, head, wings, arms, feet: legs, jar, cup, mug, paddle, papers, tag, tagEl, ask, askEl, pick, persona: P });
+  Object.assign(b, { g, body, head, wings, arms, feet: legs, jar, cup, mug, paddle, papers, umbrella, tag, tagEl, ask, askEl, pick, persona: P });
 }
 
 // where a bee belongs now: a floor, a point, how it looks and what it does there / 지금 벌이 있을 곳
@@ -999,9 +1005,9 @@ function decide(b) {
 // a resting spot of its own, kept a few minutes, then another / 자기 쉬는 자리. 몇 분 지키다 다른 곳으로
 function lounge(b) {
   const now = performance.now();
-  if (!b.spot || now > b.spotUntil || !W.spots.includes(b.spot)) {
+  if (!b.spot || now > b.spotUntil || !W.spots.includes(b.spot) || openAir(b.spot)) {
     if (b.spot) b.spot.by = null;
-    const free = W.spots.filter(s => !s.by), pref = hueOf(b.key) % Math.max(1, free.length);
+    const free = W.spots.filter(s => !s.by && !openAir(s)), pref = hueOf(b.key) % Math.max(1, free.length);
     b.spot = free.length ? free[(pref + Math.floor(now / 60000)) % free.length] : null;
     if (b.spot) b.spot.by = b;
     b.spotUntil = now + (120 + Math.random() * 180) * 1000;
@@ -1087,6 +1093,7 @@ function animate(b, t, dt) {
   b.body.position.y = 0; b.body.rotation.x = 0; b.body.rotation.z = 0; la.rotation.set(0, 0, .15); ra.rotation.set(0, 0, -.15); ll.rotation.x = 0; rl.rotation.x = 0;
   b.jar.visible = st === 'jar' && b.arrived; b.cup.visible = st === 'coffee' && b.arrived; b.mug.visible = st === 'beer' && b.arrived; b.paddle.visible = st === 'pong' && b.arrived; b.papers.visible = false;
   b.head.rotation.x = 0;
+  if (b.umbrella) b.umbrella.visible = sky.rain > 0 && outdoors(b) && st !== 'swim';
   if (reduced) return;
   if (b.flying) {   // wings a blur, legs hanging / 날갯짓, 다리는 늘어뜨리고
     const f = Math.sin(ph * 60) * .9; b.wings[0].rotation.y = -.25 - f; b.wings[1].rotation.y = .25 + f;
@@ -1150,6 +1157,8 @@ async function poll() {
   let d;
   try { d = await (await fetch('/state', { cache: 'no-store' })).json(); } catch (e) { return; }
   if (d.lang) L = d.lang;
+  // the weather and where it is (null while the server is still asking: keep what there is) / 날씨와 그 곳 (서버가 아직 묻는 중이면 null: 있는 것을 둔다)
+  if (d.weather && JSON.stringify(d.weather) !== poll.wx) { poll.wx = JSON.stringify(d.weather); WX = d.weather; daylight(); }
   document.documentElement.lang = L;
   const list = [], home = [], cells = [], wasOff = shiftOff;
   honey = 0; shiftOff = false;
@@ -1329,25 +1338,148 @@ async function visit(b) {
 }
 function toast(text) { const t = $('#toast'); t.textContent = text; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => { t.hidden = true; }, 2600); }
 
-// ── day and night / 낮과 밤 ──────────────────────────────────────────────────────────────────────────────
-let night = null;
-const SKY = canvasTex(4, 256, (c, w, h, dark) => {
+// ── the sun where it really is, and the weather outside / 실제 자리의 해, 그리고 바깥 날씨 ───────────────────
+// The sun's height and direction from the date and where you are (the weather's place from bin/hivemux-office:
+// your IP or the place in Settings; before it comes, a guess from the time zone), north up the -z axis, so the
+// front of the building faces south: dawn, dusk and short winter days as they are outside. The weather (Open-Meteo)
+// greys the sky, brings rain, snow, fog or thunder, wets the paving, sends the bees out with umbrellas and off the
+// open roof, and thins the planet's clouds on a clear day.
+// 해의 높이와 방향은 날짜와 있는 곳으로 정한다 (bin/hivemux-office 의 날씨 위치: IP 또는 설정에서 정한 곳. 오기 전에는
+// 시간대로 어림한다). 북쪽은 -z, 그래서 건물 앞이 남쪽이다: 새벽, 노을, 짧은 겨울 낮이 바깥 그대로다. 날씨 (Open-Meteo) 는
+// 하늘을 흐리게 하고, 비, 눈, 안개, 천둥을 내리고, 바닥을 적시고, 벌들은 우산을 쓰고 지붕 위 바깥 자리를 비운다.
+// 맑은 날은 행성의 구름도 적다.
+let night = null, WX = null, skyKey = '';
+const sky = { day: 1, over: 0, rain: 0, snow: 0, fog: 0, storm: false, wind: 0, mid: new THREE.Color(0xbcd7ee) };
+const SKIES = {   // top, middle, horizon / 위, 가운데, 지평선
+  day: ['#7fb2e5', '#bcd7ee', '#eef3f6'], night: ['#0b1020', '#1c2440', '#3a3550'], dusk: ['#46619a', '#e3a184', '#ffd29a'],
+  grey: ['#93a0ad', '#bfc8d1', '#dfe4e9'], greyNight: ['#14171e', '#20242d', '#2c2f38'],
+};
+const SKY = canvasTex(4, 256, (c, w, h, stops = SKIES.day) => {
   const g = c.createLinearGradient(0, 0, 0, h);
-  if (dark) { g.addColorStop(0, '#0b1020'); g.addColorStop(.6, '#1c2440'); g.addColorStop(1, '#3a3550'); }
-  else { g.addColorStop(0, '#7fb2e5'); g.addColorStop(.55, '#bcd7ee'); g.addColorStop(1, '#eef3f6'); }
+  g.addColorStop(0, stops[0]); g.addColorStop(.55, stops[1]); g.addColorStop(1, stops[2]);
   c.fillStyle = g; c.fillRect(0, 0, w, h);
 });
 scene.background = SKY;
-function daylight() {
-  const h = new Date().getHours(), dark = h >= 19 || h < 6;
-  if (dark === night) return; night = dark;
-  SKY.redraw(dark);
-  sun.intensity = dark ? .35 : 2.6; sun.color.set(dark ? 0x9fb3ff : 0xfff1dc); hemi.intensity = dark ? .45 : .9;
-  C.light.emissiveIntensity = dark ? 2.2 : .5;
-  ROOF.bulb.emissiveIntensity = dark ? 3 : .8; ROOF.water.emissiveIntensity = dark ? .9 : .15;
-  C.glass.color.set(dark ? 0x6d7f99 : 0xbfdbea);
-  W.fog = new THREE.Fog(dark ? 0x1c2440 : 0xdfe9f2, 140, 420); scene.fog = W.fog;
+// the sun's height above the horizon and its bearing from north (radians), the usual short formulas
+// 해의 고도와 북쪽에서 잰 방위 (라디안), 흔히 쓰는 짧은 공식
+function sunAt(ms, lat, lon) {
+  const r = Math.PI / 180, d = (ms - 946728000000) / 86400000, g = (357.529 + .98560028 * d) * r;
+  const L = (280.459 + .98564736 * d + 1.915 * Math.sin(g) + .02 * Math.sin(2 * g)) * r, e = (23.439 - .00000036 * d) * r;
+  const ra = Math.atan2(Math.cos(e) * Math.sin(L), Math.cos(L)), dec = Math.asin(Math.sin(e) * Math.sin(L));
+  const ha = ((18.697374558 + 24.06570982441908 * d) % 24) * 15 * r + lon * r - ra, la = lat * r;
+  return { alt: Math.asin(Math.sin(la) * Math.sin(dec) + Math.cos(la) * Math.cos(dec) * Math.cos(ha)),
+    az: Math.atan2(-Math.sin(ha), Math.tan(dec) * Math.cos(la) - Math.sin(la) * Math.cos(ha)) };
 }
+const mixHex = (a, b, k) => new THREE.Color(a).lerp(new THREE.Color(b), k);
+const RAINY = c => (c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95, SNOWY = c => (c >= 71 && c <= 77) || c === 85 || c === 86;
+function daylight() {
+  const fresh = WX && !WX.off && !WX.missing && Date.now() / 1000 - (WX.at || 0) < 3 * 3600, w = fresh ? WX : {};
+  const lat = WX && WX.lat !== undefined ? WX.lat : 36, lon = WX && WX.lon !== undefined ? WX.lon : -new Date().getTimezoneOffset() / 4;
+  const { alt, az } = sunAt(Date.now(), lat, lon), S = THREE.MathUtils.smoothstep;
+  const code = w.code ?? 0;
+  sky.rain = RAINY(code) || w.rain > 0 ? Math.min(1, .35 + (w.rain || .5) / 4) : 0;
+  sky.snow = SNOWY(code) || w.snow > 0 ? Math.min(1, .4 + (w.snow || .3) / 2) : 0;
+  sky.storm = code >= 95; sky.fog = code === 45 || code === 48 ? 1 : 0; sky.wind = Math.min(40, w.wind || 0);
+  sky.over = Math.min(1, Math.max((w.cloud ?? 20) / 100 * .75, sky.rain || sky.snow ? .9 : 0, sky.fog * .8));
+  const day = sky.day = S(alt, -.1, .1), dusk = Math.exp(-(((alt - .02) / .1) ** 2)) * (1 - sky.over * .8);
+  night = day < .5;
+  // the sky: night to day, a glow near the horizon at both ends of the day, greyer with clouds
+  // 하늘: 밤에서 낮으로, 하루 양 끝의 지평선 노을, 구름이 끼면 더 잿빛
+  const stops = [0, 1, 2].map(i => mixHex(SKIES.night[i], SKIES.day[i], day).lerp(new THREE.Color(SKIES.dusk[i]), dusk * (i ? 1 : .5))
+    .lerp(mixHex(SKIES.greyNight[i], SKIES.grey[i], day), sky.over * .85));
+  sky.mid.copy(stops[1]);
+  const key = stops.map(c => c.getHexString()).join();
+  if (key !== skyKey) { skyKey = key; SKY.redraw(stops.map(c => '#' + c.getHexString())); }
+  // the light: the sun by day (warm when low, soft through clouds), a pale moon by night, never quite at the horizon
+  // so the shadows stay on the ground / 빛: 낮은 해 (낮으면 따뜻하게, 구름이면 부드럽게), 밤은 옅은 달. 그림자가 땅에
+  // 남도록 지평선까지 내려가지는 않는다
+  const sunI = 2.6 * S(alt, -.03, .22) * (1 - sky.over * .62), moonI = .35 * (1 - day);
+  const up = sunI >= moonI, el = Math.max(.32, up ? alt : .9), bear = up ? az : az + Math.PI;
+  sun.position.set(Math.sin(bear) * Math.cos(el) * 90, Math.sin(el) * 90, -Math.cos(bear) * Math.cos(el) * 90);
+  sun.intensity = Math.max(sunI, moonI);
+  sun.color.copy(up ? mixHex(0xffa25c, 0xfff1dc, S(alt, .02, .45)).lerp(new THREE.Color(0xe6edf5), sky.over * .7) : new THREE.Color(0x9fb3ff));
+  hemi.intensity = .18 + .72 * day + .35 * day * sky.over;
+  scene.environmentIntensity = .06 + .29 * day;   // the room's soft light, too, else the night stays bright / 방의 은은한 빛도. 아니면 밤이 밝다
+  const lit = 1 - day * (1 - sky.over * .45);     // how much the lamps show / 등이 얼마나 보이나
+  C.light.emissiveIntensity = .5 + 1.7 * lit;
+  ROOF.bulb.emissiveIntensity = .8 + 2.2 * lit; ROOF.water.emissiveIntensity = .15 + .75 * (1 - day);
+  C.glass.color.copy(mixHex(0x6d7f99, 0xbfdbea, day));
+  // wet paving and road in the rain, snow on the lawns / 비에 젖은 바닥과 길, 잔디 위의 눈
+  const wet = sky.rain ? 1 : 0, cover = sky.snow ? 1 : 0;
+  C.paving.roughness = .9 - .55 * wet; C.paving.color.copy(mixHex(0xe3ded4, 0xb9b4ab, wet * .6).lerp(new THREE.Color(0xf4f7fa), cover * .7));
+  C.road.roughness = .9 - .6 * wet; C.road.color.copy(mixHex(0x5f646b, 0x43474d, wet));
+  C.grass.color.copy(mixHex(0x9fc483, 0xf2f6f9, cover * .9));
+  W.leaves.forEach((m, k) => m.color.copy(mixHex(k ? 0x3f8a4c : 0x4f9a5a, 0xf2f6f9, cover * .55)));
+  if (W.lawn) W.lawn.material.color.copy(mixHex(0x9fc483, 0xf2f6f9, cover * .9));
+  const fogC = sky.mid.clone().lerp(new THREE.Color(0xdfe9f2), day * .5 * (1 - sky.over));
+  if (!W.fog) W.fog = new THREE.Fog(fogC, 140, 420);
+  W.fog.color.copy(fogC); W.fog.near = sky.fog ? 22 : sky.rain || sky.snow ? 60 : 140; W.fog.far = sky.fog ? 120 : sky.rain || sky.snow ? 260 : 420;
+  if (scene.fog) scene.fog = W.fog;
+  // the planet's clouds: few on a clear day / 행성의 구름: 맑으면 적게
+  const n = WX && !WX.off ? 5 + Math.round(17 * Math.min(1, (w.cloud ?? 40) / 100 + (sky.rain || sky.snow ? .5 : 0))) : clouds.children.length;
+  clouds.children.forEach((c, i) => { c.visible = i < n; });
+  weatherChip();
+}
+// what the weather is, in words and a picture / 날씨를 말과 그림으로
+function weatherWord(c) {
+  return c === 0 ? [night ? '🌙' : '☀️', tr('맑음', 'Clear')] : c <= 2 ? [night ? '☁️' : '🌤️', tr('구름 조금', 'Partly cloudy')] : c === 3 ? ['☁️', tr('흐림', 'Cloudy')]
+    : c <= 48 ? ['🌫️', tr('안개', 'Fog')] : c <= 57 ? ['🌦️', tr('이슬비', 'Drizzle')] : c <= 67 || (c >= 80 && c <= 82) ? ['🌧️', tr('비', 'Rain')]
+    : c <= 77 || c === 85 || c === 86 ? ['🌨️', tr('눈', 'Snow')] : ['⛈️', tr('뇌우', 'Thunderstorm')];
+}
+function weatherChip() {
+  const el = $('#wx');
+  if (!WX || WX.off) { el.hidden = true; return; }
+  el.hidden = false;
+  const how = tr('설정 › 날씨 위치에서 바꿀 수 있어요', 'Change it in Settings › Weather place');
+  if (WX.missing) { el.innerHTML = `⚠️ <span>${escape(tr(`'${WX.want}' 을(를) 찾지 못했어요`, `Can't find '${WX.want}'`))}</span>`; el.title = how; return; }
+  const [icon, word] = weatherWord(WX.code ?? 0), temp = WX.temp !== undefined && WX.temp !== null ? `${Math.round(WX.temp)}°` : '';
+  el.innerHTML = `${icon} <b>${temp}</b> <span>${escape(WX.place || '')}</span>`;
+  el.title = `${word} · ${WX.place || ''} (${WX.auto ? tr('IP 로 찾은 곳', 'found by IP') : tr('설정에서 정한 곳', 'set in Settings')})\n${how}`;
+}
+// rain as short streaks and snow as flakes, in a box round the middle of the view; none lands inside the office or
+// the flats, it stops on their roofs / 비는 짧은 줄, 눈은 송이. 화면 가운데 둘레 상자 안에 내린다. 사무실과 아파트
+// 안에는 내리지 않고 지붕에서 멈춘다
+const RAIN_N = 4000, SNOW_N = 1600, SPAN = 74, TALL = 44;
+const fall = (n, per) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(n * per * 3), 3)); return g; };
+const rain = new THREE.LineSegments(fall(RAIN_N, 2), new THREE.LineBasicMaterial({ color: 0x7f96b0, transparent: true, opacity: .55, depthWrite: false }));
+const FLAKE = canvasTex(32, 32, (c, w) => { const g = c.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.5, 'rgba(255,255,255,.8)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(0, 0, w, w); });
+const snow = new THREE.Points(fall(SNOW_N, 1), new THREE.PointsMaterial({ map: FLAKE, size: .6, transparent: true, depthWrite: false, color: 0xffffff }));
+for (const p of [rain, snow]) { p.frustumCulled = false; p.visible = false; p.userData.keep = true; scene.add(p); }
+const drops = { rain: [], snow: [] };
+function landing(x, z) {   // where a drop stops: a roof, or the ground / 떨어진 것이 멈추는 곳: 지붕 또는 땅
+  if (x > X0 - .6 && x < X1 + .6 && z > Z0 - .6 && z < Z1 + .6) { const F = W.floors[W.floors.length - 1]; return F ? lift(F.y) + .1 : 0; }
+  const R = W.res && W.res.box; if (R && x > R[0] && x < R[1] && z > R[2] && z < R[3]) return R[4];
+  return 0;
+}
+function drop(p, top) { const c = controls.target; p.x = c.x + (Math.random() - .5) * SPAN; p.z = c.z + (Math.random() - .5) * SPAN; p.floor = landing(p.x, p.z); p.y = top ? p.floor + TALL * (.6 + Math.random() * .4) : p.floor + Math.random() * TALL; p.s = .7 + Math.random() * .6; }
+let flashAt = 0, flash = 0;
+function weather(t, dt, near) {
+  const wind = reduced ? 0 : sky.wind / 40 * 6;
+  for (const [kind, obj, N, speed, len] of [['rain', rain, RAIN_N, 26, .75], ['snow', snow, SNOW_N, 1.6, 0]]) {
+    const n = near && !reduced ? Math.round(N * sky[kind]) : 0, list = drops[kind];
+    obj.visible = n > 0;
+    if (!n) continue;
+    while (list.length < n) { const p = {}; drop(p, false); list.push(p); }
+    const a = obj.geometry.attributes.position.array, c = controls.target;
+    for (let i = 0; i < n; i++) {
+      const p = list[i];
+      p.y -= speed * p.s * dt; p.x += wind * dt * (kind === 'snow' ? .5 : 1) + (kind === 'snow' ? Math.sin(t * 1.3 + i) * .4 * dt : 0);
+      if (p.y < p.floor || Math.abs(p.x - c.x) > SPAN / 2 || Math.abs(p.z - c.z) > SPAN / 2) drop(p, true);
+      if (kind === 'rain') { a.set([p.x, p.y, p.z, p.x - wind * .03, p.y + len, p.z], i * 6); }
+      else a.set([p.x, p.y, p.z], i * 3);
+    }
+    obj.geometry.setDrawRange(0, kind === 'rain' ? n * 2 : n);
+    obj.geometry.attributes.position.needsUpdate = true;
+  }
+  // thunder: now and then the sky lights up / 천둥: 가끔 하늘이 번쩍인다
+  if (sky.storm && !reduced && t > flashAt) { flashAt = t + 5 + Math.random() * 12; flash = 1; }
+  if (flash > 0) { flash = Math.max(0, flash - dt * 6); hemi.intensity = .18 + .72 * sky.day + .35 * sky.day * sky.over + flash * 3 * (Math.random() > .3 ? 1 : .2); }
+}
+// open to the sky: no swimming, sunbathing, fire pit or roof lawn in the rain; no pool or loungers in the snow
+// 하늘이 뚫린 곳: 비 오면 수영, 일광욕, 화롯가, 옥상 잔디는 쉰다. 눈 오면 수영장과 선베드
+const openAir = s => sky.rain ? ['pool', 'sun', 'fire', 'roof'].includes(s.kind) : sky.snow ? ['pool', 'sun'].includes(s.kind) : false;
+const outdoors = b => b.floor === -1 || (b.floor === 0 && !b.riding && (b.pos.x < X0 - .3 || b.pos.x > X1 + .3 || b.pos.z < Z0 - .3 || b.pos.z > Z1 + .3))
+  || (W.floors[b.floor] && W.floors[b.floor].kind === 'roof' && !(b.goal && b.goal.kind === 'pub' && b.arrived));
 
 // ── far out: zoom out and the world is a little planet, with puffy clouds, a moon and the stars ──────────
 // The office sits on top of the planet; the far lawn, road and trees fade as it rounds, the sky turns to
@@ -1407,7 +1539,7 @@ function space(t, dt) {
   W.lawn.material.opacity = 1 - THREE.MathUtils.smoothstep(d, 180, 420); W.lawn.visible = W.lawn.material.opacity > .01;
   if (W.far) W.far.visible = k < .5;
   scene.fog = k > 0 ? null : W.fog;
-  SKYMID.set(night ? 0x1c2440 : 0xbcd7ee);
+  SKYMID.copy(sky.mid);
   if (k > 0) { scene.background = bg.lerpColors(SKYMID, SPACE, k); } else scene.background = SKY;
   stars.material.opacity = k; stars.visible = k > 0;
   haze.material.opacity = k * .45;
@@ -1432,6 +1564,7 @@ function frame() {
   for (const F of W.floors) F.group.position.y = lift(F.y);
   space(t, dt);
   controls.update();
+  weather(t, dt, camera.position.distanceTo(controls.target) < 200);
   if (t - codeAt > .12 && !reduced) { codeAt = t; for (const d of W.desks.values()) if (d.scr) d.scr.map.offset.y -= .012; }
   const dist = camera.position.distanceTo(controls.target);
   for (const b of bees.values()) {
@@ -1473,7 +1606,7 @@ document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.datase
 $('#hint').textContent = tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · E: 층 펼치기 · H: 아파트 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · E: spread · H: residence · Esc: whole');
 camera.position.set(52, 46, 64); controls.target.set(0, 5, 3);
 { const f = /[#&]f=(\d+)/.exec(location.hash); if (f) focus = +f[1]; }   // #f=1 opens on a floor / #f=1 은 그 층으로 연다
-ground(); daylight(); setInterval(daylight, 60000);
+ground(); daylight(); setInterval(daylight, 20000);
 await poll(); setInterval(poll, 1500);
 document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
 $('#hint').textContent = tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · E: 층 펼치기 · H: 아파트 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · E: spread · H: residence · Esc: whole');

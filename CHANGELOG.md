@@ -34,6 +34,13 @@
 - 3D building: zoom out far enough and the world becomes a little planet with the office on top:
   the far lawn and trees fade, the sky turns to space with stars, puffy clouds float round the
   planet, a moon goes by, and the view turns round the planet's middle; zoom in to come back down.
+- 3D building: the real sun and weather where you are. The sun stands where it really is for the
+  date and place (dawn, a warm dusk, short winter days, a dark night with the lamps on), and the
+  weather from Open-Meteo shows outside: grey skies, rain with wet paving and bees under umbrellas
+  (the pool, loungers, fire pit and roof lawn empty), snow on the lawns and trees, fog, lightning;
+  the planet has fewer clouds on a clear day. A chip at the top shows the temperature and the place.
+  The place is found from your IP by default; Settings › "Weather place" takes a city instead
+  (empty goes back to the IP, "off" turns the weather off).
 
 - Bee office in floors: the campus was too wide to read without panning, so it is a building of
   floors now, each one screen: 1F rest (cafe, lounge, an indoor park, the lobby), 2F work (desk
