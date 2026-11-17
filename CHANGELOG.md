@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.1.65 — 2026-11-17
 
 - Team page: a new look on warm paper, with three tabs under the team's name: Progress (the roles
