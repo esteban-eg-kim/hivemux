@@ -36,9 +36,9 @@ const labels = new CSS2DRenderer({ element: $('#labels') });
 const scene = new THREE.Scene();
 scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), .04).texture;
 scene.environmentIntensity = .35;
-const camera = new THREE.PerspectiveCamera(32, 1, .5, 900);
+const camera = new THREE.PerspectiveCamera(32, 1, .5, 20000);
 const controls = new OrbitControls(camera, canvas);
-Object.assign(controls, { enableDamping: true, dampingFactor: .08, minDistance: 9, maxDistance: 170, maxPolarAngle: Math.PI * .47, screenSpacePanning: false, zoomToCursor: true });
+Object.assign(controls, { enableDamping: true, dampingFactor: .08, minDistance: 9, maxDistance: 2600, maxPolarAngle: Math.PI * .47, screenSpacePanning: false, zoomToCursor: true });
 controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
 
 const hemi = new THREE.HemisphereLight(0xeaf3ff, 0xb59a74, .9);
@@ -223,9 +223,11 @@ const world = new THREE.Group(); scene.add(world);
 const labelOf = (cls, html, c) => { const el = document.createElement('div'); el.className = cls; el.innerHTML = html; if (c) el.style.setProperty('--c', c); return new CSS2DObject(el); };
 
 function ground() {
-  const g = new THREE.Group();
-  put(g, geo('ground', () => new THREE.CircleGeometry(220, 64)), C.grass, 0, -.02, 0, { rx: -Math.PI / 2, cast: false });
-  block(g, 80, .04, 7, C.road, 0, -.02, 31, { cast: false });
+  // what lies far out (the lawn, the road, trees, lamps) fades when the world becomes a planet (space())
+  // 멀리 있는 것 (잔디, 길, 나무, 가로등) 은 세상이 행성이 되면 사라진다 (space())
+  const g = new THREE.Group(), far = new THREE.Group(); g.add(far); W.far = far;
+  W.lawn = put(g, geo('ground', () => new THREE.CircleGeometry(220, 64)), new THREE.MeshStandardMaterial({ color: 0x9fc483, roughness: 1, transparent: true }), 0, -.02, 0, { rx: -Math.PI / 2, cast: false });
+  block(far, 80, .04, 7, C.road, 0, -.02, 31, { cast: false });
   block(g, 24, .06, 14, C.paving, 0, -.02, 17, { cast: false });
   block(g, 4.4, .06, 4, C.paving, 0, -.02, 26, { cast: false });
   // a lawn either side and a fountain on the plaza / 광장 양옆 잔디와 분수
@@ -244,15 +246,15 @@ function ground() {
   const tg = cylG(.16, .22, 1, 6), cg = geo('crown', () => new THREE.IcosahedronGeometry(1, 0)), m4 = new THREE.Matrix4();
   const ti = new THREE.InstancedMesh(tg, C.trunk, trunks.length), split = [tops.filter(t => t[4]), tops.filter(t => !t[4])];
   trunks.forEach(([x, z, s], i) => ti.setMatrixAt(i, m4.compose(new THREE.Vector3(x, 1.1 * s, z), new THREE.Quaternion(), new THREE.Vector3(s, 2.2 * s, s))));
-  ti.castShadow = true; g.add(ti);
+  ti.castShadow = true; far.add(ti);
   split.forEach((list, k) => {
     const ci = new THREE.InstancedMesh(cg, k ? C.leaf2 : C.leaf, list.length);
     list.forEach(([x, z, s, r], i) => ci.setMatrixAt(i, m4.compose(new THREE.Vector3(x, 1.7 + s * 1.1, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, r * 6, 0)), new THREE.Vector3(s * 1.2, s * 1.45, s * 1.2))));
-    ci.castShadow = ci.receiveShadow = true; g.add(ci);
+    ci.castShadow = ci.receiveShadow = true; far.add(ci);
   });
   for (const [x, z, ry] of [[-4.6, 13.6, 0], [4.6, 13.6, 0], [-4.6, 21.4, Math.PI], [4.6, 21.4, Math.PI]]) bench(g, x, z, ry);
   // street lamps along the road / 길가 가로등
-  for (let x = -36; x <= 36; x += 12) { put(g, cylG(.06, .08, 4, 8), C.frame, x, 2, 27); put(g, sphG(.22, 12), C.light, x, 4.1, 27, { cast: false }); }
+  for (let x = -36; x <= 36; x += 12) { put(far, cylG(.06, .08, 4, 8), C.frame, x, 2, 27); put(far, sphG(.22, 12), C.light, x, 4.1, 27, { cast: false }); }
   scene.add(g);
 }
 
@@ -1344,7 +1346,74 @@ function daylight() {
   C.light.emissiveIntensity = dark ? 2.2 : .5;
   ROOF.bulb.emissiveIntensity = dark ? 3 : .8; ROOF.water.emissiveIntensity = dark ? .9 : .15;
   C.glass.color.set(dark ? 0x6d7f99 : 0xbfdbea);
-  scene.fog = new THREE.Fog(dark ? 0x1c2440 : 0xdfe9f2, 140, 420);
+  W.fog = new THREE.Fog(dark ? 0x1c2440 : 0xdfe9f2, 140, 420); scene.fog = W.fog;
+}
+
+// ── far out: zoom out and the world is a little planet, with puffy clouds, a moon and the stars ──────────
+// The office sits on top of the planet; the far lawn, road and trees fade as it rounds, the sky turns to
+// space and the view turns round the planet's middle instead of the building.
+// 멀리: 계속 줌을 줄이면 세상이 작은 행성이 된다. 몽글몽글한 구름, 달, 별. 사무실은 행성 꼭대기에 있다. 둥글어지면서
+// 먼 잔디, 길, 나무는 사라지고, 하늘은 우주가 되고, 화면은 건물 대신 행성 가운데를 돈다.
+const PLANET = 300, GLOBE_C = new THREE.Vector3(0, -PLANET - .08, 0);
+const EARTH = canvasTex(1024, 512, (c, w, h) => {
+  c.fillStyle = '#3d8fd1'; c.fillRect(0, 0, w, h);
+  let seed = 11; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const blob = (u, v, size, col) => { c.fillStyle = col; for (let k = 0; k < 14; k++) { c.beginPath(); c.arc(u * w + (r() - .5) * size * 1.6, v * h + (r() - .5) * size, size * (.35 + r() * .5), 0, 7); c.fill(); } };
+  const lands = [[.25, .5, 120]]; for (let k = 0; k < 9; k++) lands.push([r(), .2 + r() * .6, 40 + r() * 70]);
+  for (const [u, v, s2] of lands) blob(u, v, s2 * 1.12, '#e9d9a6');
+  for (const [u, v, s2] of lands) blob(u, v, s2, '#8cc06c');
+  for (const [u, v, s2] of lands) blob(u + .01, v, s2 * .5, '#6fa957');
+});
+const globe = new THREE.Group(); globe.position.copy(GLOBE_C); scene.add(globe);
+put(globe, new THREE.SphereGeometry(PLANET, 96, 64), new THREE.MeshStandardMaterial({ map: EARTH, roughness: .9 }), 0, 0, 0, { rx: -Math.PI / 2, cast: false });
+const haze = put(globe, new THREE.SphereGeometry(PLANET * 1.06, 64, 40), new THREE.MeshBasicMaterial({ color: 0x5aa8ff, transparent: true, opacity: 0, side: THREE.BackSide, depthWrite: false, blending: THREE.AdditiveBlending }), 0, 0, 0, { cast: false, receive: false });
+// puffy clouds round the planet, never over the office / 행성을 도는 몽글몽글한 구름. 사무실 위는 비운다
+const clouds = new THREE.Group(); globe.add(clouds);
+{
+  let seed = 5; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const puff = mat(0xffffff, { roughness: 1, flatShading: true }), up = new THREE.Vector3(0, 1, 0);
+  for (let k = 0; k < 22; k++) {
+    const th = (.3 + r() * 2.4), ph = r() * Math.PI * 2, rad = PLANET + 50 + r() * 25;
+    const dir = new THREE.Vector3(Math.sin(th) * Math.cos(ph), Math.cos(th), Math.sin(th) * Math.sin(ph));
+    const cl = new THREE.Group(); cl.position.copy(dir).multiplyScalar(rad); cl.quaternion.setFromUnitVectors(up, dir); clouds.add(cl);
+    const n = 4 + Math.floor(r() * 3), s2 = 5 + r() * 6;
+    for (let q = 0; q < n; q++) put(cl, sphG(1, 10), puff, (q - n / 2) * s2 * .7, (q % 2) * s2 * .3, (r() - .5) * s2 * .6, { s: [s2 * (.7 + r() * .5), s2 * (.6 + r() * .3), s2 * (.7 + r() * .4)], cast: false });
+  }
+}
+const moon = put(scene, new THREE.SphereGeometry(PLANET * .27, 48, 32), mat(0xe9e4d6, { roughness: 1 }), 0, 0, 0, { cast: false });
+const stars = (() => {
+  let seed = 9; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const pos = [], col = [];
+  for (let k = 0; k < 2200; k++) {
+    const th = Math.acos(2 * r() - 1), ph = r() * Math.PI * 2, rad = 7000 + r() * 4000, warm = r();
+    pos.push(Math.sin(th) * Math.cos(ph) * rad, Math.cos(th) * rad, Math.sin(th) * Math.sin(ph) * rad);
+    col.push(1, .9 + warm * .1, .8 + (1 - warm) * .2);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  const p = new THREE.Points(g, new THREE.PointsMaterial({ size: 2.2, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: 0, depthWrite: false }));
+  scene.add(p); return p;
+})();
+const SPACE = new THREE.Color(0x05070f), SKYMID = new THREE.Color(), bg = new THREE.Color();
+const anchor = new THREE.Vector3();   // where the view turns round on the ground / 땅에서 화면이 도는 곳
+let away = 0;
+function space(t, dt) {
+  const d = camera.position.distanceTo(controls.target), k = THREE.MathUtils.smoothstep(d, 200, 750), turn = THREE.MathUtils.smoothstep(d, 260, 1100);
+  if (away === 0 || fly) anchor.copy(controls.target);
+  if (!fly && (turn > 0 || away > 0)) {   // the view's middle slides to the planet's / 화면 가운데가 행성 가운데로
+    const want = anchor.clone().lerp(GLOBE_C, turn), delta = want.sub(controls.target);
+    controls.target.add(delta); camera.position.add(delta);
+  }
+  away = turn;
+  W.lawn.material.opacity = 1 - THREE.MathUtils.smoothstep(d, 180, 420); W.lawn.visible = W.lawn.material.opacity > .01;
+  if (W.far) W.far.visible = k < .5;
+  scene.fog = k > 0 ? null : W.fog;
+  SKYMID.set(night ? 0x1c2440 : 0xbcd7ee);
+  if (k > 0) { scene.background = bg.lerpColors(SKYMID, SPACE, k); } else scene.background = SKY;
+  stars.material.opacity = k; stars.visible = k > 0;
+  haze.material.opacity = k * .45;
+  if (!reduced) { clouds.rotation.y += dt * .006; globe.rotation.y = 0; }
+  const ma = t * .02; moon.position.set(GLOBE_C.x + Math.cos(ma) * PLANET * 3.2, GLOBE_C.y + PLANET * .9, GLOBE_C.z + Math.sin(ma) * PLANET * 3.2); moon.visible = k > .2;
+  const near = Math.max(.5, d / 400); if (Math.abs(near - camera.near) > .05) { camera.near = near; camera.updateProjectionMatrix(); }
 }
 
 // ── the loop / 루프 ─────────────────────────────────────────────────────────────────────────────────────
@@ -1361,6 +1430,7 @@ function frame() {
   }
   ex += ((focus === null && spread ? 1 : 0) - ex) * Math.min(1, dt * 5);
   for (const F of W.floors) F.group.position.y = lift(F.y);
+  space(t, dt);
   controls.update();
   if (t - codeAt > .12 && !reduced) { codeAt = t; for (const d of W.desks.values()) if (d.scr) d.scr.map.offset.y -= .012; }
   const dist = camera.position.distanceTo(controls.target);
@@ -1373,7 +1443,7 @@ function frame() {
     const st = b.s.state;
     b.tag.visible = shown && (b === hover || (focus !== null && b.floor === focus && (st !== 'idle' || dist < 30)) || (focus === null && st !== 'idle' && st !== 'home' && dist < 55));
     if (b.tag.visible) { const key = `${st}|${b.s.lead}|${b.s.label}`; if (b.tagKey !== key) { b.tagKey = key; b.tagEl.className = 'tag' + (b.s.lead ? ' lead' : ''); b.tagEl.style.setProperty('--c', css({ run: '--run', wait: '--wait', done: '--done' }[st] || '--sleep')); b.tagEl.innerHTML = `<i></i>${escape(b.s.team ? roleName(b.s) : b.s.label || b.s.name)}`; } }
-    b.ask.visible = shown && st === 'wait' && (focus === null || b.floor === focus);
+    b.ask.visible = shown && st === 'wait' && (focus === null || b.floor === focus) && dist < 320;
     if (b.ask.visible) b.askEl.querySelector('span').textContent = b.s.team ? roleName(b.s) : (b.s.label || b.s.name);
     // the screen in front lights up while it works there / 앞의 화면은 거기서 일하는 동안 켜진다
     const d = W.desks.get(b.key), scr = d && (d.screen || d.laptop), on = st === 'run' && b.arrived && b.goal && b.goal.pose === 'type';

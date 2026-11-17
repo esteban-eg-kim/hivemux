@@ -31,6 +31,9 @@
   out. A bee that left leaves its flat empty with a sign. "Hive Residence" in the floor bar (or H)
   looks at it. Bees are now known by their id, so a bee keeps its look and flat across restarts The flats are glass at both
   ends with a pond out back, a glass lift at the side and a roof garden, so every flat has a view.
+- 3D building: zoom out far enough and the world becomes a little planet with the office on top:
+  the far lawn and trees fade, the sky turns to space with stars, puffy clouds float round the
+  planet, a moon goes by, and the view turns round the planet's middle; zoom in to come back down.
 
 - Bee office in floors: the campus was too wide to read without panning, so it is a building of
   floors now, each one screen: 1F rest (cafe, lounge, an indoor park, the lobby), 2F work (desk
