@@ -23,6 +23,12 @@ macOS and Linux (on Linux, `Option` is `Alt`).
   card per Claude showing live state and elapsed time. Running cards glow,
   waiting cards pulse amber, and the one you are in has a white line on each
   side. Widen the sidebar for 2 or 3 columns; a long list scrolls with the wheel.
+- **Teams.** Give a project a team of Claudes with roles (research, planning,
+  design, dev, QA, marketing), each in its own window, handing work to each
+  other by name. Tell the lead the goal; it plans and hands the work out. Set
+  it up on the team page from a template or three questions, follow the
+  hand-offs in the sidebar and the bee office, and read each day's report. See
+  [Teams](#teams).
 - **Notifications.** A desktop notification when a task needs input or finishes,
   except the one you are looking at. Turn it off in Settings.
 - **Jump anywhere.** `Option+1..9`, `Option+0` (oldest waiting), or click a card.
@@ -32,8 +38,9 @@ macOS and Linux (on Linux, `Option` is `Alt`).
   yet (green). A waiting one blinks until you answer, a finished one for its
   first 10 seconds. Click a badge to go there; a finished one leaves once you
   look at it.
-- **Bee office.** Every Claude session as a bee in a little office: watch who
-  works, who waits for you, and who is done at a glance. See [The bee office](#the-bee-office).
+- **Bee office.** Every Claude session as a bee in a glass office building in
+  3D: watch who works, who waits for you, and who is done at a glance, and
+  answer a waiting one right there. See [The bee office](#the-bee-office).
 - **More than one Claude account.** Hit a usage limit? Log in to another
   account once and switch to it, for every project or for one; each Claude
   restarts on it in the same conversation, and the status line shows
@@ -48,8 +55,8 @@ macOS and Linux (on Linux, `Option` is `Alt`).
   count). A resting card shows how much context the Claude carries (`142K`).
   In the bee office, click the waiting bee's bubble and press the answer there.
 - **Clock out, clock in.** Stop every Claude for the night and bring them all
-  back in the morning, in the same conversations, while the bees go home to a
-  village and walk back to work.
+  back in the morning, in the same conversations, while the bees go home to
+  their flats in the Hive Residence and come back to work.
 - **Task names.** Shows Claude's own conversation title. Double-click a card
   (or right-click → Rename) to rename it; hivemux sends `/rename` to that Claude (waits if it is busy).
 - **Your order.** Drag a card to reorder tasks, or a project header to reorder
@@ -83,39 +90,126 @@ macOS and Linux (on Linux, `Option` is `Alt`).
 - **Polite installer.** Adds marked blocks to your configs and removes exactly
   those on `hivemux uninstall`.
 
+## Teams
+
+<p align="center">
+  <img src="docs/office/team-en.jpg" alt="The team page: a web &amp; app team's roles with their level, state and context, and the box for the lead's next goal" width="880">
+</p>
+
+A team is a few Claudes with roles in one project, each in its own window,
+passing work to each other by name with Claude Code's messages between
+sessions. One role is the lead: you give it the team's goal, it plans and hands
+the work out, and the roles pass what they finish down the flow.
+
+- **Set one up.** Right-click a project's name → **Team…** (or the **Team** link
+  at the top of the bee office) opens the team page. Pick a template, or answer
+  three questions (what you are building, what you already have, what matters
+  most) and the wizard suggests the roles with a reason for each. **Build the
+  team with AI** opens a chat that answers questions about the team from the
+  project's README and files, and applies the changes it proposes in one click.
+  From a terminal: `hivemux team use web-app`, then `hivemux team up`.
+- **The web & app template**: Research, Planning (the lead), Design, Dev (in its
+  own git worktree), QA (read-only) and Marketing.
+- **Roles without knowing the models.** Each role takes a level (Light,
+  Standard, Careful, Best) and hivemux sets its model, effort, advisor (a
+  stronger model it asks before settling an approach) and subagent model for
+  that kind of role; or set them by hand. The page's header runs the whole team
+  as Save, Balanced or Quality and shows what changes first. A role can also
+  work in its own worktree (branch `team/<role>`), be read-only (it writes only
+  its notes, questions and reports), own folders, and have its own prompt, with
+  a preview of the final one.
+- **Start it.** Start and stop the team or one role on the page. Getting
+  started lists the roles stopped at Claude's folder trust question and answers
+  them with one button; then a box sends the lead the goal, with example goals
+  (`hivemux team goal "…"` does the same).
+- **Hand-offs.** Every message from one role to another is logged. The team
+  page lists the recent ones, the project's box in the sidebar shows the last
+  one for half an hour (`✉ Planning → Dev · 2m`), and in the bee office a letter
+  flies from one bee to the other. In the sidebar the roles sit together under
+  `◆ <team name>`, the lead marked ★, the project's other Claudes after them.
+- **Questions for you.** Roles write what they need from you to
+  `.hivemux/questions.md`; the team page shows the open ones, each with **Mark
+  as answered**, and typing into a role's window marks its questions answered.
+- **Diets.** hivemux notes how much context each Claude carries. A role past its
+  line (120K tokens, 160K for dev) brings its notes up to date when it rests,
+  `/clear`s and carries on from the notes under the same name, so the others
+  keep messaging it. The page shows each role's context against its line and
+  has a **Diet now** button.
+- **The day's report.** The **Report** tab of the team page (or `hivemux team
+  report`): time worked, hand-offs, tasks done, tokens and diets; a timeline of
+  who worked and waited when, with the hand-offs as arrows between roles; where
+  the work went; what waited on you; each role's day (files, commits, tokens,
+  honey); what got made. A small model writes the day's story on request; copy
+  it as Markdown or save it as PDF.
+- **In the bee office** a team gets a glass room on a team floor: the roles round
+  a long table in flow order, the lead at its head, and a whiteboard with the
+  flow, each role's state and its context. A working role types at its seat, a
+  waiting one stands by it with a hand up, and a finished one takes its jar of
+  honey to the lead.
+- **It keeps.** `hivemux team down` stops the roles and keeps their
+  conversations; after a reboot, clocking in or a Claude update each role
+  resumes with its model, effort and prompt. The team lives in the project's
+  `.hivemux/` (`team.toml` and a prompt per role); `hivemux team save <id>`
+  keeps it as your own template. Teams on a computer connected with `hivemux
+  connect` show on the team page and the report too (`⇄ <computer> · <project>`).
+
+<p align="center">
+  <img src="docs/office/teamfloor-en.jpg" alt="A team floor in the 3D bee office: a glass room with the roles round a long table, the lead at its head and the whiteboard" width="880">
+</p>
+
 ## The bee office
 
 <p align="center">
-  <img src="docs/office/office-en.gif" alt="The bee office: bees typing at desks, one running to the question window" width="880">
+  <img src="docs/office/office-en.gif" alt="The bee office: a glass building in 3D with bees typing at their desks and one waiting with a question" width="880">
 </p>
 
 The 🐝 button at the top of the sidebar (or `prefix B`, the right-click menu,
-`hivemux office`) opens a window where every Claude session is a bee:
+`hivemux office`) opens a window where every Claude session is a bee, each with
+a look of its own, at work in a glass office building in 3D:
 
-- **Working** bees type at their desks, with tiny helper bees beside them for
-  subagents. A Claude in plan mode plans at the meeting room whiteboard.
-- **Waiting** bees run to the question window in the boss room, line up, and pop
-  out in front of the window when one has waited a while.
-- **Done** bees hold up a jar of honey; once you have looked, they fill a cell of
-  the honeycomb and rest in the lounge. A full comb goes into a jar on a shelf.
+- **The building.** A lobby with the cafe, the lounge, ping-pong and the honey
+  wall, opening onto the plaza; work floors with a desk island per project, a
+  meeting room and the boss's office; team floors with a glass room per team
+  (see [Teams](#teams)); a rooftop with a pool, a hot tub, a pub and a fire pit;
+  and across the plaza the Hive Residence, a flat for every bee. A glass lift
+  carries the bees between floors.
+- **Working** bees type at their desks (their screens scroll code) while their
+  subagents fly papers to and fro. A Claude in plan mode plans at the meeting
+  room whiteboard.
+- **Waiting** bees raise their hand with a bubble saying why. The one that has
+  waited longest pops out in front with its question and the choices to answer
+  it there, with a buzz if you like.
+- **Done** bees hold up a jar of honey; once you have looked, they go down to
+  the lobby or up to the roof to rest. The honey wall in the lobby fills a cell
+  for every task finished today, and a full comb puts a jar on the shelf under it.
+- **Moving around.** Drag to turn, right-drag to move, wheel to zoom; the walls
+  facing you are cut away. The floor bar on the right lists the floors with how
+  many bees work, wait and are done on each: click one (or `1`–`9`) to open it,
+  `Esc` for the whole building, `E` to spread the floors apart, `H` for the Hive
+  Residence. Zoom far out and the office sits on a little planet in space.
+- **The real sun and weather.** The sun stands where it really is for the date
+  and place, and the weather shows outside: rain with puddles and umbrellas,
+  snow, fog, lightning. A chip at the top shows the temperature and the place,
+  found from your IP; ⚙ → Weather place (or a click on the chip) takes a city
+  instead or turns the weather off.
 - Click a bee to jump to its session. The ☰ button (or `L`) opens the session
-  list as a drawer, right or left (Settings); its **Honey** tab ranks bees by the
-  honey they made today, this week and this month, and the month's best hangs
-  on the wall in a frame.
-- The office is a glass building in 3D: a lobby, work floors, team floors and a
-  rooftop with a pool and a pub, and the Hive Residence next door where bees go
-  home when you clock out. Drag to turn, right-drag to move, wheel to zoom; zoom
-  far out and it sits on a tiny planet. The floor bar on the right (or 1–9, Esc)
-  opens one floor; `E` spreads the floors apart. The sun and the weather are the
-  real ones where you are (Settings ⚙ → Weather place). The older drawn office is
-  still there: the **Classic office** link at the top.
+  list as a drawer; its **Honey** tab ranks bees by the honey they made today,
+  this week and this month.
+- The ⚙ settings: pop out in front or just line up, sound, hiding task or
+  project names for screen sharing, the real sun or always day or night, the
+  office lights at night, going to the floor of a waiting bee, the list's side,
+  and keep on top (`⌘T`).
+- The older drawn office is still there: the **Classic office** link at the
+  top. Its own settings (Office look, Drawing, the 💡 lights, the 2D view) are
+  only there.
 - A bee's name tag shows the name you gave its session (`hivemux` rename or
   Claude's `/rename`); bees with none show the project, numbered `api #1`,
   `api #2` among themselves.
-- The **Artifacts** link at the top lists every artifact your Claudes
-  published (see [Artifacts](#artifacts)).
-- Computers connected with `hivemux connect` get desks of their own, on a
-  carpet of their color with a name plaque on the wall.
+- The **Team** link at the top opens the team page (see [Teams](#teams)), and
+  **Artifacts** lists every artifact your Claudes published (see
+  [Artifacts](#artifacts)).
+- The bees of computers connected with `hivemux connect` work in the same
+  building; the list groups the sessions by computer.
 - Without the Swift compiler for the window app (always so on Linux), it opens
   as an app window in Chrome, Chromium, Edge, Brave, Vivaldi or Whale (no tabs
   or address bar), else in the default browser. On a Linux server with no
@@ -125,7 +219,7 @@ The 🐝 button at the top of the sidebar (or `prefix B`, the right-click menu,
 
 <p align="center">
   <img src="docs/office/list-en.jpg" alt="The session list drawer" width="430">
-  <img src="docs/office/plan-en.jpg" alt="The 2D view, from above" width="430">
+  <img src="docs/office/plan-en.jpg" alt="One floor of the building, seen from above" width="430">
 </p>
 
 ### Answering from the office
@@ -142,15 +236,17 @@ changed meanwhile.
 ### Clock out, clock in
 
 <p align="center">
-  <img src="docs/office/shift-en.gif" alt="Clocking out: the bees clap and walk home to the village" width="880">
+  <img src="docs/office/shift-en.gif" alt="Clocking out: the bees clap and go home to their flats in the Hive Residence" width="880">
 </p>
 
-The 🌙 **Clock out** button (or right-click on empty sidebar space → Clock
-everyone out…) stops your Claudes for the night, computer by computer or all at once. The
-bees clap and walk past the yard to their own houses. A Claude still working or
-waiting for you works overtime and goes once done. Clock in and every one comes
-back in the same conversation (`claude --resume`) while the bees walk to work.
-A reboot while clocked out leaves them home.
+The 🌙 **Clock out** button at the top of the office (or right-click on empty
+sidebar space → Clock everyone out…) stops your Claudes for the night, computer
+by computer or all at once. The bees clap, walk out along the path to the Hive
+Residence, fly up to their own flat and go in; the lamp comes on, and late at
+night they sleep. A Claude still working or waiting for you works overtime and
+goes once done. Clock in and every one comes back in the same conversation
+(`claude --resume`) while the bees fly down and walk back to work. A reboot
+while clocked out leaves them home.
 
 One Claude or one project can also go home on its own while the rest work on:
 right-click its card → Clock this Claude out…, or a project's name → Clock this
@@ -159,22 +255,18 @@ clock in"); right-click it → Clock in brings it back in the same conversation
 (a plain click does nothing, so a slip while picking a project is harmless).
 Clocking everyone in brings it back too.
 
-Off work the bees go out before bed: beer on the terrace of the Honey Pot pub
-(or darts inside), a ball game or a bench in the park, or home. From 11 pm
-everyone sleeps. Every house is different outside and in; hover one to look in
-and see who lives there, click to keep it open.
-
 <p align="center">
-  <img src="docs/office/village-en.jpg" alt="The village, the pub and the park" width="430">
-  <img src="docs/office/inside-en.jpg" alt="Looking inside the houses and the pub" width="430">
+  <img src="docs/office/village-en.jpg" alt="The Hive Residence, a flat for every bee" width="430">
+  <img src="docs/office/inside-en.jpg" alt="Bees at home in their flats" width="430">
 </p>
 
-A bee is a project and the Claude's name in it, so it stays the same bee across
-`/clear` and new conversations. A new name is hired and walks in as new;
-closing that Claude (`/exit`, right-click its card → Close Claude…, or its
-window for ten minutes) or its project is leaving: the bee holds up a box of
-its things and walks out by the elevator saying goodbye. The same name coming
-back is rehired, into the same house.
+A bee is a project and the Claude's name in it, so it stays the same bee, with
+the same look and flat, across `/clear`, new conversations and restarts. A new
+name is hired; closing that Claude (`/exit`, right-click its card → Close
+Claude…, or its window for ten minutes) or its project is leaving, and its flat
+stays empty with a sign until a newcomer moves in. The same name coming back is
+rehired, into its old flat if it is still free. The honey ranking marks who left
+and how often a bee was rehired.
 
 ## More than one Claude account
 
@@ -337,7 +429,8 @@ new hooks once restarted. Claude Code itself: right-click → Update Claude
 | `Option+1` … `9` | jump to that Claude (any session) |
 | `Option+0` / `prefix Space` | oldest waiting Claude, else oldest unseen finished one |
 | click card / project name | jump · double click a card: rename. A project whose Claude windows are all closed stays listed ("no Claude") until you close it |
-| right click | menu. On a task: go to, rename, move up/down, clock this Claude out, close Claude, new Claude, new project. On a clocked-out (dimmed) card: clock in, go to, close Claude. On a project name: rename, close project, account for this project, clock this project out / in, new Claude, new project. On empty space: new project. Every menu ends with Open path…, Ports…, Bee office, Artifacts…, (on empty space: Clock everyone out / in…), Update Claude…, Switch account…, Connect to… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes. A popup that asks starts on Cancel, so `Enter` alone never confirms |
+| right click | menu. On a task: go to, rename, move up/down, clock this Claude out, close Claude, new Claude, new project. On a clocked-out (dimmed) card: clock in, go to, close Claude. On a project name: rename, Team…, close project, account for this project, clock this project out / in, new Claude, new project. On empty space: new project. Every menu ends with Open path…, Ports…, Bee office, Artifacts…, (on empty space: Clock everyone out / in…), Update Claude…, Switch account…, Connect to…, Sidebar width… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes. A popup that asks starts on Cancel, so `Enter` alone never confirms |
+| menu → Team… | the project's team page in the bee office window: set up, start and stop a team, send the lead a goal (see [Teams](#teams)) |
 | menu → Close Claude | asks, then closes that Claude: its pane, or its window when nothing else is in it; a project's last window keeps its shell. Not resumed again, like `/exit`; `claude --resume` still continues the conversation |
 | menu → New project | folder browser in the middle: `Enter` starts the selected folder (like `hm`), `→` / `←` in and out, type to filter, `Ctrl+N` new folder |
 | menu → Sidebar width | Narrow 24 / Medium 32 / Wide 44 or a width of your own, applied once on Enter |
@@ -487,6 +580,7 @@ with its path pasted for Claude to read. Several at once, no folders, up to
 | Claude Code hooks | write session id and state onto the tmux pane (`hivemux-hook`) |
 | sidebar | reads that state every second and draws the board (`hivemux-sidebar-view`) |
 | bee office | a small local server (`hivemux-office`) serves the office page to its window; `hivemux-bees` keeps the roster and the honey ledger, `hivemux-shift` clocks out and in |
+| teams | `hivemux-team` keeps a project's team in its `.hivemux/` and starts each role's Claude with its model, effort and prompt; the hook logs hand-offs and puts a role past its line on a diet |
 | accounts | `hivemux-claude` starts Claude on the project's account; `hivemux-account` adds and switches them, `hivemux-artifacts` reads the artifacts from the transcripts |
 
 On restore, `hivemux-panes` maps saved panes to Claude session ids and types
