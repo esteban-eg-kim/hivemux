@@ -9,6 +9,13 @@
   a button at the top; team hand-offs flying as letters; a banner and a restart when the server is
   lost; and the settings: pop out or line up, sound, hiding task or project names, day or night,
   office lights at night, following a waiting bee to its floor, the list's side, keep on top.
+- 3D building fixes: rain and snow stop on the office roof instead of falling through to the floors;
+  no umbrellas inside the flats; clocking out or in no longer moves the bees on overtime to other
+  desks or rebuilds the building (which also leaked GPU memory); a bee turned round on the path goes
+  on from where it is instead of through the lobby's glass wall; bees fly up to the lower flats out
+  in front, clear of the lobby roof; sleeping follows "always day / night"; a flat's lamp comes on as
+  its bee gets in; lightning lights the sky; bees are not drawn from the planet; a desk island's
+  divider is as long as the desks on its side.
 - 3D building: puddles with rings on the plaza and the path to the flats in the rain, snowflakes that
   show against the snow, and the campus on a low mound so it sits on the planet when zoomed out.
 - Team template (web & app): the roles that capture or measure screens now start headless Chrome

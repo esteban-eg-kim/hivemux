@@ -74,9 +74,10 @@ function put(parent, g, m, x, y, z, o = {}) {
 }
 // a box from its floor corner: x, z its centre, y its bottom / 바닥 기준 상자: x, z 는 가운데, y 는 밑면
 const block = (p, w, h, d, m, x, y, z, o = {}) => put(p, boxG(w, h, d, o.r || 0), m, x, y + h / 2, z, o);
+let building = false;   // inside build(): textures made now belong to this building / build() 안: 지금 만드는 텍스처는 이 건물 것
 const canvasTex = (w, h, draw) => {
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  const t = new THREE.CanvasTexture(cv); t.perBuild = building; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
   t.cv = cv; t.redraw = (...a) => { draw(cv.getContext('2d'), w, h, ...a); t.needsUpdate = true; }; t.redraw();
   return t;
 };
@@ -361,8 +362,16 @@ function skin(fl, y, entrance) {
 
 function build(p) {
   // clear the old building / 예전 건물 치우기
-  world.traverse(o => { if (o.isCSS2DObject && o.element) o.element.remove(); });
+  // and its GPU memory: the geometry (three.js uploads a shared one again when next drawn) and the textures drawn
+  // for this building only / 그리고 GPU 메모리: 형상 (같이 쓰는 형상은 다음에 그릴 때 three.js 가 다시 올린다) 과
+  // 이 건물만을 위해 그린 텍스처
+  world.traverse(o => {
+    if (o.isCSS2DObject && o.element) o.element.remove();
+    if (o.geometry) o.geometry.dispose();
+    for (const m of [].concat(o.material || [])) if (m.map && m.map.perBuild) m.map.dispose();
+  });
   world.clear();
+  building = true;
   W.floors = []; W.desks = new Map(); W.rooms = new Map(); W.spots = []; W.grids = []; W.flames = [];
   const kinds = ['lobby', ...Array(p.work).fill('work'), ...Array(p.team).fill('team')];
   kinds.forEach((kind, i) => {
@@ -394,6 +403,7 @@ function build(p) {
   block(car, 2.2, .1, 2.4, C.steel, 0, 0, 0); block(car, 2.2, .1, 2.4, C.steel, 0, 2.5, 0);
   for (const sx of [-1.07, 1.07]) block(car, .06, 2.5, 2.4, C.glassIn, sx, .05, 0, { cast: false });
   car.position.set(0, 0, LIFT.carZ); car.userData.y = 0;
+  building = false;
 }
 
 // ── the rooftop: a pool, sun loungers, a pub under a pergola, a fire pit; open to the sky ─────────────────
@@ -625,7 +635,9 @@ function buildWork(F, p, nth) {
       const P = PODS[(hh - first) >> 1], sx = hh % 2 ? 1 : -1, sz = n % 2 ? 1 : -1;
       if (!used.has(P)) { used.add(P); put(g, geo('carpet', () => new THREE.PlaneGeometry(3.9, 3.9)), mat(0xb9c0cb, { roughness: 1 }), P.x, y + .01, P.z, { rx: -Math.PI / 2, cast: false }); }
       if (n % 2 === 0) {
-        block(g, .025, .42, 3, mat(col.getHex(), { roughness: .8 }), P.x + sx * .014, y + .76, P.z, { cast: false });
+        // as long as the desks on this side: one desk, half the island / 이쪽 책상만큼: 책상 하나면 섬의 반
+        const pair = n + 1 < pr.list.length;
+        block(g, .025, .42, pair ? 3 : 1.5, mat(col.getHex(), { roughness: .8 }), P.x + sx * .014, y + .76, pair ? P.z : P.z - .8, { cast: false });
         if (n === 0) { const o = labelOf('sign', escape(pr.name), `#${col.getHexString()}`); o.position.set(P.x + sx * .9, y + 2.2, P.z); g.add(o); o.userData.floorLabel = F.i; }
       }
       const look = [-sx, 0], dz = P.z + sz * .8, seat = { x: P.x + sx * 1.35, z: dz };
@@ -742,7 +754,7 @@ function buildResidence(cells) {
   const n = Math.max(cells.length, 12), rows = Math.ceil(n / RES.cols), h = Math.sqrt(3) * RES.r;
   const xA = RES.x0 - RES.r - .6, xB = RES.x0 + (RES.cols - 1) * 1.5 * RES.r + RES.r + .6, xc = (xA + xB) / 2;
   const top = RES.base + rows * h + h / 2 + .3, back = RES.zf - RES.depth, front = RES.zf + 1, door = HOMEWARD[2].x;
-  W.res.box = [xA, xB, back - .3, front, top];   // where rain and snow stop on its roof / 비와 눈이 지붕에서 멈추는 곳
+  W.res.box = [xA, xB + 3.2, back - .3, front, top];   // with the lift tower at the side / 옆 엘리베이터 탑까지   // where rain and snow stop on its roof / 비와 눈이 지붕에서 멈추는 곳
   // the ground: the path from the plaza, the forecourt, a playground and a garden / 바닥: 광장에서 오는 길, 앞마당, 놀이터, 정원
   block(g, door - HOMEWARD[0].x + 2.4, .05, 2.4, C.paving, (HOMEWARD[0].x + door) / 2, -.02, 15, { cast: false });
   block(g, xB - xA + 4, .05, 16.5 - front, C.paving, xc, -.025, (front + 16.5) / 2, { cast: false });
@@ -810,7 +822,7 @@ const VACANT = new THREE.MeshBasicMaterial({ transparent: true, map: canvasTex(2
   c.fillStyle = '#fffaf0'; c.fillRect(0, 0, 256, 96); c.strokeStyle = '#b33a2a'; c.lineWidth = 6; c.strokeRect(4, 4, 248, 88);
   c.fillStyle = '#b33a2a'; c.font = '800 46px -apple-system, "Apple SD Gothic Neo", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(L === 'ko' ? '빈집' : 'VACANT', 128, 50);
 }) });
-const lateNight = () => { const h = new Date().getHours(); return h >= 23 || h < 6; };
+const lateNight = () => { const h = new Date(skyTime()).getHours(); return h >= 23 || h < 6; };   // "always day / night" too / "늘 낮 / 늘 밤" 도
 function homeGoal(b) {
   const c = W.res && W.res.cells[b.house ?? -1], D = HOMEWARD[HOMEWARD.length - 1];
   if (!c) return { floor: -1, x: D.x, y: 0, z: D.z + 1, look: [0, 1], pose: 'chat', key: 'door' };
@@ -1034,30 +1046,47 @@ function lounge(b) {
 
 // a route: walk to the lift, ride, walk on; home and back by the path, flying up to the flat
 // 경로: 엘리베이터까지 걷고, 타고, 다시 걷는다. 집은 길을 따라 걷고 자기 칸까지 날아 오른다
+// where a bee is on the path between the lobby and the flats: 1 on the stretch along the plaza, 2 on the one up to
+// the door, 0 off it. A bee turned round there goes on from where it is, not from the far end or through a wall
+// 로비와 아파트 사이 길에서 벌이 있는 곳: 1 은 광장 옆 구간, 2 는 문까지 구간, 0 은 길 밖. 거기서 돌아서는 벌은
+// 먼 끝이나 벽을 거치지 않고 있는 자리에서 이어 간다
+function onPath(b) {
+  if (b.y > .1 || b.riding || !(b.floor === -1 || (b.floor === 0 && b.pos.x > X1 - .3))) return 0;
+  const [A, B, D] = HOMEWARD;
+  if (Math.abs(b.pos.x - D.x) < .6 && b.pos.z >= D.z - .3 && b.pos.z <= B.z + .3) return 2;
+  if (Math.abs(b.pos.z - A.z) < .6 && b.pos.x >= A.x - .3) return 1;
+  return 0;
+}
+// the flats are flown to and from out in front, clear of the lobby's roof slab / 칸으로는 앞쪽 바깥에서 날아 오르내린다. 로비 지붕 슬래브에 닿지 않게
+const FLY_Z = RES.zf + 1.8;
 function route(b, goal) {
   b.legs = [];
   const inside = (from, to) => {
     if (from !== to.floor) { b.legs.push({ walk: from, to: LIFT }); b.legs.push({ ride: to.floor }); }
     b.legs.push({ walk: to.floor, to });
   };
-  if (b.floor === -1 && goal.floor === -1) {
-    if (Math.abs(b.y - goal.y) > .1) {
-      if (b.pos.z < RES.zf + .5) b.legs.push({ line: { x: b.pos.x, y: b.y, z: RES.zf + .9 } });
-      b.legs.push({ line: { x: goal.x, y: goal.y, z: RES.zf + .9 }, fly: true });
-    }
+  const seg = onPath(b), A = HOMEWARD[0], D = HOMEWARD[HOMEWARD.length - 1];
+  const outOfFlat = () => { if (b.y > .1) b.legs.push({ line: { x: b.pos.x, y: b.y, z: RES.zf + .9 } }, { line: { x: b.pos.x, y: b.y, z: FLY_Z } }); };
+  const intoFlat = () => {
+    if (goal.y > .1) b.legs.push({ line: { x: D.x, y: 0, z: FLY_Z } }, { line: { x: goal.x, y: goal.y, z: FLY_Z }, fly: true }, { line: { x: goal.x, y: goal.y, z: RES.zf + .9 } });
     b.legs.push({ line: { x: goal.x, y: goal.y, z: goal.z } });
-  }
-  else if (b.floor === -1) {   // to work: out of the flat, down, along the path, into the lobby / 출근: 칸을 나와, 내려와, 길 따라, 로비로
-    const D = HOMEWARD[HOMEWARD.length - 1];
-    if (b.y > .1) b.legs.push({ line: { x: b.pos.x, y: b.y, z: RES.zf + .9 } }, { line: { x: D.x, y: 0, z: D.z }, fly: true });
-    [...HOMEWARD].reverse().slice(1).forEach((p, k, a) => b.legs.push({ line: { x: p.x, y: 0, z: p.z }, floor: k === a.length - 1 ? 0 : -1 }));
-    inside(0, goal);
+  };
+  if (b.floor === -1 && goal.floor === -1 && !seg) {   // flat to flat / 칸에서 칸으로
+    if (Math.abs(b.y - goal.y) > .1) { outOfFlat(); b.legs.push({ line: { x: goal.x, y: goal.y, z: FLY_Z }, fly: true }, { line: { x: goal.x, y: goal.y, z: RES.zf + .9 } }); }
+    b.legs.push({ line: { x: goal.x, y: goal.y, z: goal.z } });
   } else if (goal.floor === -1) {   // home: clap, down to the lobby, out along the path, fly up and in / 퇴근: 박수, 로비로, 길 따라, 날아 올라 들어간다
-    if (goal.home && !b.fresh) b.legs.push({ wait: 2, pose: 'clap' });
-    inside(b.floor, { floor: 0, ...HOMEWARD[0] });
-    HOMEWARD.slice(1).forEach(p => b.legs.push({ line: { x: p.x, y: 0, z: p.z }, floor: -1 }));
-    if (goal.y > .1) b.legs.push({ line: { x: goal.x, y: goal.y, z: RES.zf + .9 }, fly: true });
-    b.legs.push({ line: { x: goal.x, y: goal.y, z: goal.z } });
+    if (seg) HOMEWARD.slice(seg).forEach(p => b.legs.push({ line: { x: p.x, y: 0, z: p.z }, floor: -1 }));
+    else {
+      if (goal.home && !b.fresh) b.legs.push({ wait: 2, pose: 'clap' });
+      inside(b.floor, { floor: 0, ...A });
+      HOMEWARD.slice(1).forEach(p => b.legs.push({ line: { x: p.x, y: 0, z: p.z }, floor: -1 }));
+    }
+    intoFlat();
+  } else if (b.floor === -1 || seg) {   // to work: out of the flat, down, along the path, into the lobby / 출근: 칸을 나와, 내려와, 길 따라, 로비로
+    if (b.y > .1) { outOfFlat(); b.legs.push({ line: { x: D.x, y: 0, z: FLY_Z }, fly: true }, { line: { x: D.x, y: 0, z: D.z } }); }
+    const back = [...HOMEWARD].reverse().slice(1), from = seg === 1 ? back.length - 1 : 0;
+    back.slice(from).forEach((p, k, a) => b.legs.push({ line: { x: p.x, y: 0, z: p.z }, floor: k === a.length - 1 ? 0 : -1 }));
+    inside(0, goal);
   } else inside(b.floor, goal);
   b.path = null;
 }
@@ -1169,6 +1198,7 @@ function animateHelpers(t) {
 
 // ── data / 자료 ──────────────────────────────────────────────────────────────────────────────────────────
 let honey = 0, first = true, sessionsNow = [], shiftOff = false;
+const KNOWN = new Map();   // each bee as last seen at work / 일할 때 마지막으로 본 각 벌
 async function poll() {
   let d;
   try { d = await (await fetch('/state', { cache: 'no-store' })).json(); } catch (e) { lostServer(false); return; }
@@ -1186,14 +1216,17 @@ async function poll() {
     const now = o.now || Date.now() / 1000, at = o.ssh || o.host || '', roster = o.bees || {}, sh = o.shift || {};
     // a bee is known by its id (project and name), so it keeps its look and its flat / 벌은 id (프로젝트와 이름) 로 안다. 생김새와 집이 그대로다
     for (const s of o.sessions || []) list.push({ ...s, key: `${at}|${s.bee || s.pane}`, ssh: o.ssh, host: o.host, age: Math.max(0, now - (s.at || now)) });
-    for (const id of sh.home || []) { const r = roster[id] || {}; home.push({ key: `${at}|${id}`, bee: id, name: r.name || id.split('/').pop(), project: r.project || id.split('/')[0], state: 'home', ssh: o.ssh, host: o.host, age: 0 }); }
+    // a bee at home keeps what it was at work (its team, its order), so the plan and the others' desks stay
+    // 집에 간 벌은 일할 때의 자기 (팀, 순서) 를 지닌다. 그래서 배치와 다른 벌의 책상이 그대로다
+    for (const id of sh.home || []) { const r = roster[id] || {}, k = `${at}|${id}`; home.push({ ...(KNOWN.get(k) || {}), key: k, bee: id, name: (KNOWN.get(k) || {}).name || r.name || id.split('/').pop(), project: r.project || id.split('/')[0], state: 'home', ssh: o.ssh, host: o.host, age: 0, why: null, menu: null }); }
     for (const [id, r] of Object.entries(roster)) if (r.house !== null && r.house !== undefined) cells.push({ key: `${at}|${id}`, ...r, oi });
     shiftOff ||= sh.state === 'off';
   });
   cells.sort((a, b) => a.house - b.house || a.oi - b.oi);
   W.cells = cells; const flat = new Map(cells.map((c, k) => [c.key, k]));
+  for (const s of list) KNOWN.set(s.key, s);
   sessionsNow = list;
-  const p = plan(list);
+  const p = plan([...list, ...home]);
   const sig = JSON.stringify([p.work, p.team, p.projects.map(x => [x.name, x.list.map(s => s.key)]), p.teams.map(t => [t.key, t.members.map(s => s.key)]), cells.map(c => c.left ? 1 : 0)]);
   if (sig !== W.sig) {
     W.sig = sig; build(p);
@@ -1890,14 +1923,16 @@ const snow = new THREE.Points(fall(SNOW_N, 1), new THREE.PointsMaterial({ map: F
 for (const p of [rain, snow]) { p.frustumCulled = false; p.visible = false; p.userData.keep = true; scene.add(p); }
 const drops = { rain: [], snow: [] };
 function landing(x, z) {   // where a drop stops: a roof, or the ground / 떨어진 것이 멈추는 곳: 지붕 또는 땅
-  if (x > X0 - .6 && x < X1 + .6 && z > Z0 - .6 && z < Z1 + .6) { const F = W.floors[W.floors.length - 1]; return F ? lift(F.y) + .1 : 0; }
+  if (x > X0 - .6 && x < X1 + .6 && z > Z0 - .6 && z < Z1 + .6) { const F = W.floors[W.floors.length - 1]; return F ? F.y + lift(F.y) + .1 : 0; }
   const R = W.res && W.res.box; if (R && x > R[0] && x < R[1] && z > R[2] && z < R[3]) return R[4];
   return 0;
 }
 function drop(p, top) { const c = controls.target; p.x = c.x + (Math.random() - .5) * SPAN; p.z = c.z + (Math.random() - .5) * SPAN; p.floor = landing(p.x, p.z); p.y = top ? p.floor + TALL * (.6 + Math.random() * .4) : p.floor + Math.random() * TALL; p.s = .7 + Math.random() * .6; }
-let flashAt = 0, flash = 0;
+let flashAt = 0, flash = 0, frameN = 0;
+const FLASH_SKY = new THREE.Color(0xe9eef7);
 function weather(t, dt, near) {
   const wind = reduced ? 0 : sky.wind / 40 * 6;
+  frameN++;
   for (const [kind, obj, N, speed, len] of [['rain', rain, RAIN_N, 26, .75], ['snow', snow, SNOW_N, 1.6, 0]]) {
     const n = near && !reduced ? Math.round(N * sky[kind]) : 0, list = drops[kind];
     obj.visible = n > 0;
@@ -1907,6 +1942,8 @@ function weather(t, dt, near) {
     for (let i = 0; i < n; i++) {
       const p = list[i];
       p.y -= speed * p.s * dt; p.x += wind * dt * (kind === 'snow' ? .5 : 1) + (kind === 'snow' ? Math.sin(t * 1.3 + i) * .4 * dt : 0);
+      // the roof under it now, as the wind carries it / 바람에 밀려 온 지금 자리의 지붕
+      if ((i + frameN) % 8 === 0) p.floor = landing(p.x, p.z);
       if (p.y < p.floor || Math.abs(p.x - c.x) > SPAN / 2 || Math.abs(p.z - c.z) > SPAN / 2) drop(p, true);
       if (kind === 'rain') { a.set([p.x, p.y, p.z, p.x - wind * .03, p.y + len, p.z], i * 6); }
       else a.set([p.x, p.y, p.z], i * 3);
@@ -1920,12 +1957,13 @@ function weather(t, dt, near) {
   }
   // thunder: now and then the sky lights up / 천둥: 가끔 하늘이 번쩍인다
   if (sky.storm && !reduced && t > flashAt) { flashAt = t + 5 + Math.random() * 12; flash = 1; }
+  if (flash > .4 && scene.background === SKY) scene.background = FLASH_SKY;   // space() puts the sky back next frame / 다음 프레임에 space() 가 하늘을 되돌린다
   if (flash > 0) { flash = Math.max(0, flash - dt * 6); hemi.intensity = .18 + .72 * sky.day + .35 * sky.day * sky.over + flash * 3 * (Math.random() > .3 ? 1 : .2); }
 }
 // open to the sky: no swimming, sunbathing, fire pit or roof lawn in the rain; no pool or loungers in the snow
 // 하늘이 뚫린 곳: 비 오면 수영, 일광욕, 화롯가, 옥상 잔디는 쉰다. 눈 오면 수영장과 선베드
 const openAir = s => sky.rain ? ['pool', 'sun', 'fire', 'roof'].includes(s.kind) : sky.snow ? ['pool', 'sun'].includes(s.kind) : false;
-const outdoors = b => b.floor === -1 || (b.floor === 0 && !b.riding && (b.pos.x < X0 - .3 || b.pos.x > X1 + .3 || b.pos.z < Z0 - .3 || b.pos.z > Z1 + .3))
+const outdoors = b => (b.floor === -1 && !(b.goal && b.goal.home && !b.legs.length)) || (b.floor === 0 && !b.riding && (b.pos.x < X0 - .3 || b.pos.x > X1 + .3 || b.pos.z < Z0 - .3 || b.pos.z > Z1 + .3))
   || (W.floors[b.floor] && W.floors[b.floor].kind === 'roof' && !(b.goal && b.goal.kind === 'pub' && b.arrived));
 
 // ── far out: zoom out and the world is a little planet, with puffy clouds, a moon and the stars ──────────
@@ -1999,7 +2037,7 @@ function space(t, dt) {
 function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); labels.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); }
 addEventListener('resize', resize); resize();
 const clock = new THREE.Clock();
-let codeAt = 0;
+let codeAt = 0, lampAt = 0;
 function frame() {
   const dt = Math.min(.05, clock.getDelta()), t = clock.elapsedTime;
   if (fly) {
@@ -2019,7 +2057,7 @@ function frame() {
     if (!b.legs.length && b.goal && !b.arrived) b.arrived = true;
     animate(b, t, dt);
     const shown = b.riding ? focus === null || b.y <= focus * FH + .1 : floorShown(b.floor);
-    b.g.visible = shown;
+    b.g.visible = shown && dist < 700;   // too small to see from the planet / 행성에서는 너무 작다
     const st = b.s.state;
     b.tag.visible = shown && (b === hover || (focus !== null && b.floor === focus && (st !== 'idle' || dist < 30)) || (focus === null && st !== 'idle' && st !== 'home' && dist < 55));
     if (b.tag.visible) { const key = `${st}|${b.s.lead}|${b.s.label}|${SET.privacy}`; if (b.tagKey !== key) { b.tagKey = key; b.tagEl.className = 'tag' + (b.s.lead ? ' lead' : ''); b.tagEl.style.setProperty('--c', css({ run: '--run', wait: '--wait', done: '--done' }[st] || '--sleep')); b.tagEl.innerHTML = `<i></i>${escape(tagName(b.s))}`; } }
@@ -2033,6 +2071,7 @@ function frame() {
   if (W.lift) W.lift.visible = ex < .02 && (focus === null || W.lift.position.y <= focus * FH + .1);
   animateHelpers(t);
   flyLetters(dt); drawPop(t, dt);
+  if (t - lampAt > .3) { lampAt = t; homeLights(); }   // the lamp comes on as the bee gets in / 벌이 들어오면 바로 불이 켜진다
   pong(t);
   if (!reduced) { RIPPLE.offset.x = t * .02; RIPPLE.offset.y = Math.sin(t * .3) * .05; }
   for (const list of W.flames) if (list) list.forEach((f, k) => { f.scale.set(1, .8 + Math.sin(t * 9 + k * 2) * .2 + Math.sin(t * 13 + k) * .1, 1); });
