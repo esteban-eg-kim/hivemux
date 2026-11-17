@@ -257,7 +257,7 @@ Clocking everyone in brings it back too.
 
 <p align="center">
   <img src="docs/office/village-en.jpg" alt="The Hive Residence, a flat for every bee" width="430">
-  <img src="docs/office/inside-en.jpg" alt="Bees at home in their flats" width="430">
+  <img src="docs/office/inside-en.jpg" alt="The rooftop: the pool, sun loungers and the pub" width="430">
 </p>
 
 A bee is a project and the Claude's name in it, so it stays the same bee, with

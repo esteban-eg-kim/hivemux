@@ -97,7 +97,7 @@ Claude 하나나 프로젝트 하나만 먼저 퇴근시킬 수도 있습니다.
 
 <p align="center">
   <img src="docs/office/village-ko.jpg" alt="벌마다 한 집씩 있는 벌집 아파트" width="430">
-  <img src="docs/office/inside-ko.jpg" alt="자기 집에서 쉬는 벌들" width="430">
+  <img src="docs/office/inside-ko.jpg" alt="루프탑: 수영장, 선베드, 펍" width="430">
 </p>
 
 벌 한 마리는 "프로젝트 + Claude 이름"이라 `/clear`, 새 대화, 다시 시작을 거쳐도 생김새와 집이 그대로인 같은 벌입니다. 새 이름이 생기면 신입으로 입사하고, 그 Claude를 닫거나(`/exit`, 카드 오른쪽 클릭 → Claude 닫기…, 또는 창을 닫고 10분) 프로젝트를 닫으면 퇴사합니다. 퇴사한 벌의 집은 신입이 들어올 때까지 팻말을 단 빈집으로 남습니다. 같은 이름으로 돌아오면 재입사하고, 예전 집이 비어 있으면 그 집으로 돌아갑니다. 꿀 순위에는 퇴사한 벌과 재입사 횟수가 표시됩니다.
