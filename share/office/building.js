@@ -670,6 +670,8 @@ function buildTeam(F, p, nth) {
       chair(g, st.x, st.z, st.look, y, st.head ? mat(0xb8862f) : C.dark);
       const off = st.head ? .8 : .55, lx = st.x + st.look[0] * off, lz = st.z + st.look[1] * off, l = new THREE.Group(); l.position.set(lx, y + .77, lz); l.rotation.y = Math.atan2(st.look[0], st.look[1]); g.add(l);
       block(l, .4, .02, .28, C.steel, 0, 0, 0); const scr = put(l, geo('lap', () => new THREE.PlaneGeometry(.38, .24)), C.screenOff, 0, .14, .16, { rx: .25, ry: Math.PI, cast: false }); scr.userData.keep = true;
+      // the lid behind the screen, what the bees across the table see / 화면 뒤의 덮개: 맞은편 벌이 보는 쪽
+      put(l, boxG(.4, .26, .015), C.steel, 0, .14, .172, { rx: .25 }); put(l, geo('lapLogo', () => new THREE.CircleGeometry(.03, 16)), C.honey, 0, .14, .1825, { rx: .25, cast: false });
       laptops.push(scr);
     });
     const bx = tx0 - 1.3, board = canvasTex(640, 400, drawBoard);

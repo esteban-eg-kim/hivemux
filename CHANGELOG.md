@@ -41,7 +41,8 @@
   the planet has fewer clouds on a clear day. A chip at the top shows the temperature and the place.
   The place is found from your IP by default; the building's settings (⚙ at the top, or a click on
   the weather) take a city instead, or turn the weather off, and hold the sky at day or night.
-- 3D building: the team table's laptops lean back toward their bee, not over the keyboard.
+- 3D building: the team table's laptops lean back toward their bee, not over the keyboard, and
+  have a lid with a honey logo for the bees across the table.
 
 - Bee office in floors: the campus was too wide to read without panning, so it is a building of
   floors now, each one screen: 1F rest (cafe, lounge, an indoor park, the lobby), 2F work (desk
