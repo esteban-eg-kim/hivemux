@@ -118,7 +118,7 @@ const STRIPES = canvasTex(64, 256, (c, w, h) => {
 const BEE = { body: new THREE.MeshStandardMaterial({ map: STRIPES, roughness: .55 }), head: mat(0xffd34d, { roughness: .5 }), eye: mat(0x16130f, { roughness: .2 }),
   shine: new THREE.MeshBasicMaterial({ color: 0xffffff }), limb: mat(0x2a241d, { roughness: .6 }),
   wing: new THREE.MeshStandardMaterial({ color: 0xe9f6ff, roughness: .1, transparent: true, opacity: .55, side: THREE.DoubleSide, depthWrite: false }),
-  cheek: mat(0xff9e8a, { roughness: .8 }), beer: mat(0xe0a020, { roughness: .15, transparent: true, opacity: .85 }), cup: mat(0xffffff, { roughness: .4 }), paddle: mat(0xd63b3b, { roughness: .5 }), paper: mat(0xfafafa, { roughness: .9 }) };
+  cheek: mat(0xff9e8a, { roughness: .8 }), beer: mat(0xe0a020, { roughness: .15, transparent: true, opacity: .85 }), cup: mat(0xffffff, { roughness: .4 }), paddle: mat(0xd63b3b, { roughness: .5 }), paper: mat(0xfafafa, { roughness: .9 }), phone: new THREE.MeshBasicMaterial({ color: 0xcfe8ff }) };
 
 // Everything that never moves in a group becomes one mesh per material: a floor is a few dozen draws, not thousands.
 // Kept apart: what changes (screens, the floor the mouse picks, things marked keep) and groups marked own (each
@@ -820,30 +820,39 @@ function buildResidence(cells) {
     const glass = put(g, pane, C.glass, c.x, c.yc, RES.zf, { cast: false }); glass.renderOrder = 3;
     const glow = put(g, pane, RES_GLOW, c.x, c.yc, RES.zf - .04, { cast: false }); glow.userData.keep = true; glow.visible = false; glow.renderOrder = 2;
     const lamp = put(g, sphG(.12, 12), C.light, c.x, c.yc + .95, RES.zf - 2, { cast: false }); lamp.userData.keep = true;
+    // a little TV on a stand by the sofa, turned to it and half to the glass, so the screen shows from outside too
+    // 소파 옆 받침 위 작은 TV. 소파 쪽으로, 반쯤 유리 쪽으로 돌아 있어 밖에서도 화면이 보인다
+    const set = new THREE.Group(); set.position.set(c.x + TV.x, c.y + .02, RES.zf + TV.z); set.rotation.y = Math.atan2(-TV.x, -TV.z - 1.45); g.add(set);
+    block(set, .26, .26, .2, C.woodDark, 0, 0, 0); block(set, .5, .3, .04, C.frame, 0, .26, 0);
+    const tv = put(set, geo('tvscr', () => new THREE.PlaneGeometry(.44, .25)), C.screenOff, 0, .41, .022, { cast: false }); tv.userData.keep = true;
     if (who && who.left) { const sign = put(g, geo('vacant', () => new THREE.PlaneGeometry(1.3, .5)), VACANT, c.x, c.yc - .1, RES.zf - .08, { cast: false }); sign.userData.keep = true; }
-    W.res.cells.push({ ...c, glow, lamp, who });
+    W.res.cells.push({ ...c, glow, lamp, tv, who });
   }
 // the lit windows and the vacancy signs stay apart; the rest is baked / 불 켜진 창과 빈집 팻말은 따로, 나머지는 굽는다
   bake(g);
 }
+const TV = { x: .6, z: -2 }, TV_ON = new THREE.MeshBasicMaterial({ color: 0x9cc8f0 });
 const RES_GLOW = new THREE.MeshBasicMaterial({ color: 0xffd68a, transparent: true, opacity: .35, depthWrite: false, side: THREE.DoubleSide });
 const VACANT = new THREE.MeshBasicMaterial({ transparent: true, map: canvasTex(256, 96, c => {
   c.fillStyle = '#fffaf0'; c.fillRect(0, 0, 256, 96); c.strokeStyle = '#b33a2a'; c.lineWidth = 6; c.strokeRect(4, 4, 248, 88);
   c.fillStyle = '#b33a2a'; c.font = '800 46px -apple-system, "Apple SD Gothic Neo", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(L === 'ko' ? '빈집' : 'VACANT', 128, 50);
 }) });
 const lateNight = () => { const h = new Date(skyTime()).getHours(); return h >= 23 || h < 6; };   // "always day / night" too / "늘 낮 / 늘 밤" 도
+const HOME_DO = ['tv', 'read', 'phone'];
 function homeGoal(b) {
   const c = W.res && W.res.cells[b.house ?? -1], D = way(b)[2];
   if (!c) return { floor: -1, x: D.x, y: 0, z: D.z + 1, look: [0, 1], pose: 'chat', key: 'door' };
-  const z = lateNight();
-  return { floor: -1, home: true, x: c.x, y: c.y, z: RES.zf - 1.45, look: [0, 1], pose: z ? 'lie' : 'sit', seatY: z ? .3 : .34, key: 'home' + (z ? 'z' : '') };
+  // awake, a bee watches TV, reads or plays on its phone, a few minutes each / 깨어 있으면 TV, 책, 휴대폰을 몇 분씩 돌아가며
+  const pose = lateNight() ? 'lie' : HOME_DO[(hueOf(b.key) + Math.floor(Date.now() / 240000)) % HOME_DO.length];
+  return { floor: -1, home: true, x: c.x, y: c.y, z: RES.zf - 1.45, look: pose === 'tv' ? [TV.x, TV.z + 1.45] : [0, 1], pose, seatY: pose === 'lie' ? .3 : .34, key: 'home' + pose };
 }
 // the lamps: on in a flat with its bee at home and awake / 등: 벌이 집에 있고 깨어 있는 칸만 켜진다
 function homeLights() {
   if (!W.res) return;
   const lit = new Set();
   for (const b of bees.values()) if (b.goal && b.goal.home && b.arrived && b.goal.pose !== 'lie') lit.add(b.house);
-  W.res.cells.forEach((c, k) => { const on = lit.has(k); c.glow.visible = on; c.lamp.material = on ? C.light : C.screenOff; });
+  const tv = new Set([...bees.values()].filter(b => b.goal && b.goal.home && b.arrived && b.goal.pose === 'tv').map(b => b.house));
+  W.res.cells.forEach((c, k) => { const on = lit.has(k); c.glow.visible = on; c.lamp.material = on ? C.light : C.screenOff; c.tv.material = tv.has(k) ? TV_ON : C.screenOff; });
 }
 
 // ── bees / 벌 ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -994,6 +1003,17 @@ function makeBee(b) {
   const mug = new THREE.Group(); hand.add(mug); put(mug, cylG(.065, .06, .16, 14), BEE.beer, 0, 0, 0, { cast: false }); put(mug, cylG(.068, .068, .04, 14), BEE.cup, 0, .09, 0, { cast: false });
   const paddle = new THREE.Group(); hand.add(paddle); put(paddle, cylG(.13, .13, .02, 16), BEE.paddle, 0, .12, 0, { rx: Math.PI / 2 }); put(paddle, cylG(.02, .02, .12, 6), C.woodDark, 0, 0, 0);
   const papers = block(hand, .22, .08, .28, BEE.paper, 0, -.02, .05);
+  // at home: an open book in both hands, a phone in the right, held up to the face / 집에서: 두 손에 펼친 책, 얼굴 앞에 든 휴대폰
+  const book = new THREE.Group(); book.position.set(0, .66, .4); book.rotation.x = .6; book.visible = false; body.add(book);
+  const cover = mat(DYE[(hueOf(b.key) + 3) % DYE.length], { roughness: .7 });
+  for (const sx of [-1, 1]) {
+    const half = new THREE.Group(); half.rotation.y = sx * .3; book.add(half);
+    put(half, geo('bkcover', () => new THREE.BoxGeometry(.17, .24, .012)), cover, sx * .085, 0, 0, { cast: false });
+    put(half, geo('bkpage', () => new THREE.BoxGeometry(.155, .22, .01)), BEE.paper, sx * .08, 0, -.011, { cast: false });
+  }
+  const phone = new THREE.Group(); phone.position.set(.05, .78, .38); phone.rotation.x = .75; phone.visible = false; body.add(phone);
+  put(phone, geo('phone', () => new THREE.BoxGeometry(.13, .22, .02)), cover, 0, 0, 0, { cast: false });
+  put(phone, geo('phonescr', () => new THREE.PlaneGeometry(.11, .19)), BEE.phone, 0, 0, -.011, { ry: Math.PI, cast: false });
   // an umbrella over the head, out in the rain / 비 오는 바깥에서 머리 위의 우산
   const umbrella = new THREE.Group(); umbrella.visible = false; g.add(umbrella); umbrella.position.set(.12, (1.13 + top) * P.size + .2, .05); umbrella.rotation.z = -.12;
   put(umbrella, geo('brolly', () => new THREE.SphereGeometry(.72, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2.6)), mat(DYE[hueOf(b.key) % DYE.length], { roughness: .6, side: THREE.DoubleSide, flatShading: true }), 0, -.3, 0, { s: [1, .7, 1] });
@@ -1008,7 +1028,7 @@ function makeBee(b) {
   const askEl = document.createElement('div'); askEl.className = 'ask'; askEl.innerHTML = '<b>?</b><span></span>'; askEl.addEventListener('click', () => openPop(b, true));
   const ask = wrap(askEl); ask.position.set(0, above, 0); g.add(ask);
   scene.add(g);
-  Object.assign(b, { g, body, head, wings, arms, feet: legs, jar, cup, mug, paddle, papers, umbrella, tag, tagEl, ask, askEl, pick, persona: P });
+  Object.assign(b, { g, body, head, wings, arms, feet: legs, jar, cup, mug, paddle, papers, book, phone, umbrella, tag, tagEl, ask, askEl, pick, persona: P });
 }
 
 // where a bee belongs now: a floor, a point, how it looks and what it does there / 지금 벌이 있을 곳
@@ -1132,7 +1152,7 @@ function step(b, dt) {
 // the pose, every frame / 매 프레임 자세
 function animate(b, t, dt) {
   const st = b.legs.length ? b.legs[0].pose || 'walk' : b.goal ? b.goal.pose : 'walk', ph = t + b.phase;
-  const here = b.arrived && !b.legs.length, sit = here && ['type', 'sit', 'beer'].includes(st) && b.goal.seatY !== undefined;
+  const here = b.arrived && !b.legs.length, sit = here && ['type', 'sit', 'beer', 'tv', 'read', 'phone'].includes(st) && b.goal.seatY !== undefined;
   // in the water only the top half shows; a lap swimmer goes round its spot / 물속에서는 윗몸만. 랩 수영은 자리를 돈다
   const swim = here && st === 'swim', lap = swim && b.goal.lap && !reduced ? ph * .35 : null;
   const seatY = sit ? b.goal.seatY - .2 : here && st === 'lie' ? b.goal.seatY : swim ? -.3 + (b.goal.sink || 0) + Math.sin(ph * 2) * .03 : 0;
@@ -1146,6 +1166,7 @@ function animate(b, t, dt) {
   b.wings[0].rotation.y = -.25 - flap; b.wings[1].rotation.y = .25 + flap;
   b.body.position.y = 0; b.body.rotation.x = 0; b.body.rotation.z = 0; la.rotation.set(0, 0, .15); ra.rotation.set(0, 0, -.15); ll.rotation.x = 0; rl.rotation.x = 0;
   b.jar.visible = st === 'jar' && b.arrived; b.cup.visible = st === 'coffee' && b.arrived; b.mug.visible = st === 'beer' && b.arrived; b.paddle.visible = st === 'pong' && b.arrived; b.papers.visible = false;
+  b.book.visible = st === 'read' && here; b.phone.visible = st === 'phone' && here;
   b.head.rotation.x = 0;
   if (b.umbrella) b.umbrella.visible = sky.rain > 0 && outdoors(b) && st !== 'swim';
   if (reduced) return;
@@ -1171,6 +1192,9 @@ function animate(b, t, dt) {
   else if (st === 'pong') { ra.rotation.x = -1 + Math.sin(ph * 3.2 + b.goal.pong * Math.PI) * .7; ra.rotation.z = -.4; b.body.position.y = Math.abs(Math.sin(ph * 3.2)) * .05; }
   else if (st === 'board') { ra.rotation.x = -1.9 + Math.sin(ph * 4) * .2; ra.rotation.z = -.2 + Math.cos(ph * 3) * .2; }
   else if (st === 'beer') { ra.rotation.x = -1.2 - Math.max(0, Math.sin(ph * .7)) * .6; la.rotation.z = .25 + Math.max(0, Math.sin(ph * 1.9)) * .35; b.body.rotation.z = Math.sin(ph * 1.1) * .04; }
+  else if (st === 'tv') { la.rotation.x = ra.rotation.x = -.35; b.head.rotation.x = -.05; b.body.position.y = Math.max(0, Math.sin(ph * .4) - .9) * .4 * Math.abs(Math.sin(ph * 9)); }   // now and then a laugh / 가끔 웃음
+  else if (st === 'read') { la.rotation.set(-1.05, 0, -.2); ra.rotation.set(-1.05, 0, .2); b.head.rotation.x = .35 + Math.sin(ph * .5) * .04; }
+  else if (st === 'phone') { ra.rotation.set(-1.2 + Math.sin(ph * 9) * .03, 0, .35); la.rotation.set(-1, 0, -.25); b.head.rotation.x = .4; }
   else if (st === 'lie') { b.body.rotation.x = -1.25; la.rotation.z = 2.6; ra.rotation.z = -2.6; b.head.rotation.x = .35; ll.rotation.x = rl.rotation.x = .15; }
   else if (st === 'swim') { la.rotation.x = Math.sin(ph * 2.6) * 1.4 - .6; ra.rotation.x = -Math.sin(ph * 2.6) * 1.4 - .6; b.head.rotation.x = -.15; }
   else if (st === 'bar') { ra.rotation.x = -1.25; ra.rotation.z = -.2 + Math.sin(ph * 3) * .35; la.rotation.x = -.9; b.body.rotation.z = Math.sin(ph * 1.5) * .03; }
@@ -1977,8 +2001,12 @@ function weather(t, dt, near) {
 // open to the sky: no swimming, sunbathing, fire pit or roof lawn in the rain; no pool or loungers in the snow
 // 하늘이 뚫린 곳: 비 오면 수영, 일광욕, 화롯가, 옥상 잔디는 쉰다. 눈 오면 수영장과 선베드
 const openAir = s => sky.rain ? ['pool', 'sun', 'fire', 'roof'].includes(s.kind) : sky.snow ? ['pool', 'sun'].includes(s.kind) : false;
-const outdoors = b => (b.floor === -1 && !(b.goal && b.goal.home && !b.legs.length)) || (b.floor === 0 && !b.riding && (b.pos.x < X0 - .3 || b.pos.x > X1 + .3 || b.pos.z < Z0 - .3 || b.pos.z > Z1 + .3))
-  || (W.floors[b.floor] && W.floors[b.floor].kind === 'roof' && !(b.goal && b.goal.kind === 'pub' && b.arrived));
+// in a flat is indoors whatever the bee is doing there: up off the ground and behind the glass. Always a boolean:
+// three.js hides only on false, and W.floors[-1] made it undefined, an umbrella over a bee on its sofa
+// 칸 안은 무엇을 하든 실내: 땅 위로 올라가 유리 안쪽. 늘 참/거짓: three.js 는 false 일 때만 숨기는데
+// W.floors[-1] 이 undefined 를 내서 소파의 벌 머리 위에 우산이 떴다
+const outdoors = b => (b.floor === -1 && !(b.y > 1 && b.pos.z < RES.zf + .5)) || (b.floor === 0 && !b.riding && (b.pos.x < X0 - .3 || b.pos.x > X1 + .3 || b.pos.z < Z0 - .3 || b.pos.z > Z1 + .3))
+  || (!!W.floors[b.floor] && W.floors[b.floor].kind === 'roof' && !(b.goal && b.goal.kind === 'pub' && b.arrived));
 
 // ── far out: zoom out and the world is a little planet, with puffy clouds, a moon and the stars ──────────
 // The office sits on top of the planet; the far lawn, road and trees fade as it rounds, the sky turns to
@@ -2066,6 +2094,7 @@ function frame() {
   space(t, dt);
   controls.update();
   weather(t, dt, camera.position.distanceTo(controls.target) < 200);
+  if (!reduced) TV_ON.color.setHSL(.58 + Math.sin(t * .7) * .1, .45, .62 + Math.sin(t * 5.3) * Math.sin(t * 2.1) * .1);
   if (t - codeAt > .12 && !reduced) { codeAt = t; for (const d of W.desks.values()) if (d.scr) d.scr.map.offset.y -= .012; }
   const dist = camera.position.distanceTo(controls.target);
   for (const b of bees.values()) {
