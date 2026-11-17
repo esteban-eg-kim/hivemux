@@ -372,7 +372,7 @@ function build(p) {
   });
   world.clear();
   building = true;
-  W.floors = []; W.lamps = []; W.desks = new Map(); W.rooms = new Map(); W.spots = []; W.grids = []; W.flames = [];
+  W.floors = []; W.pub = null; W.lamps = []; W.desks = new Map(); W.rooms = new Map(); W.spots = []; W.grids = []; W.flames = [];
   const kinds = ['lobby', ...Array(p.work).fill('work'), ...Array(p.team).fill('team')];
   kinds.forEach((kind, i) => {
     const y = i * FH, fl = new THREE.Group(); fl.userData = { i, kind }; world.add(fl);
@@ -412,6 +412,7 @@ function build(p) {
 
 // ── the rooftop: a pool, sun loungers, a pub under a pergola, a fire pit; open to the sky ─────────────────
 // 루프탑: 수영장, 선베드, 퍼걸러 아래 펍, 불멍 자리. 하늘로 열려 있다
+const PUB_ROOF = 4.2;
 const DECK = canvasTex(512, 512, (c, w, h) => {
   for (let k = 0; k < 16; k++) { c.fillStyle = ['#b98a5e', '#a97b52', '#c29466', '#b08158'][k % 4]; c.fillRect(0, k * 32, w, 32); }
   c.fillStyle = 'rgba(60, 38, 20, .55)'; for (let k = 0; k < 16; k++) { c.fillRect(0, k * 32, w, 2); c.fillRect(((k * 197) % 400) + 40, k * 32, 2, 32); }
@@ -434,6 +435,7 @@ const ROOF = {
   bulb: new THREE.MeshStandardMaterial({ color: 0xfff1c9, emissive: 0xffc96b, emissiveIntensity: .8 }),
   flame: new THREE.MeshBasicMaterial({ color: 0xff8a2a, transparent: true, opacity: .9 }),
   teak: mat(0x9a6a43, { roughness: .7 }), cushion: mat(0xf3ede2, { roughness: .95 }),
+  glass: new THREE.MeshStandardMaterial({ color: 0xcfe6f0, roughness: .05, metalness: .2, transparent: true, opacity: .28, depthWrite: false, side: THREE.DoubleSide }),
 };
 function buildRoof(i) {
   const y = i * FH, fl = new THREE.Group(); fl.userData = { i, kind: 'roof' }; world.add(fl);
@@ -488,6 +490,13 @@ function buildRoof(i) {
   for (const x of [pub.x0, pub.x1]) for (const z of [pub.z0, pub.z1]) block(fl, .2, 3, .2, ROOF.teak, x, y, z);
   for (const z of [pub.z0, pub.z1]) block(fl, pub.x1 - pub.x0 + .4, .2, .2, ROOF.teak, (pub.x0 + pub.x1) / 2, y + 2.9, z);
   for (let x = pub.x0; x <= pub.x1 + .01; x += 1.1) block(fl, .1, .14, pub.z1 - pub.z0 + .4, ROOF.teak, x, y + 3.1, (pub.z0 + pub.z1) / 2, { cast: false });
+  // a glass roof high over the pergola, so the pub stays dry in the rain / 퍼걸러 위 높이 유리 지붕: 비가 와도 펍은 젖지 않는다
+  const top = y + PUB_ROOF;
+  for (const x of [pub.x0, pub.x1]) for (const z of [pub.z0, pub.z1]) block(fl, .12, top - y - 3.1, .12, C.frame, x, y + 3.1, z);
+  for (const z of [pub.z0 - .3, pub.z1 + .3]) block(fl, pub.x1 - pub.x0 + .8, .08, .08, C.frame, (pub.x0 + pub.x1) / 2, top, z, { cast: false });
+  for (let x = pub.x0 - .4; x <= pub.x1 + .41; x += (pub.x1 - pub.x0 + .8) / 5) block(fl, .06, .06, pub.z1 - pub.z0 + .6, C.frame, x, top + .05, (pub.z0 + pub.z1) / 2, { cast: false });
+  put(fl, geo('pubglass', () => new THREE.PlaneGeometry(pub.x1 - pub.x0 + .8, pub.z1 - pub.z0 + .6)), ROOF.glass, (pub.x0 + pub.x1) / 2, top + .1, (pub.z0 + pub.z1) / 2, { rx: -Math.PI / 2, cast: false }).renderOrder = 3;
+  W.pub = { x0: pub.x0 - .4, x1: pub.x1 + .4, z0: pub.z0 - .3, z1: pub.z1 + .3, h: PUB_ROOF + .1 };
   for (const x of [-13.2, -9.9, -6.6]) for (let k = 0; k <= 10; k++) {
     const u = k / 10, z = pub.z0 + (pub.z1 - pub.z0) * u;
     put(fl, sphG(.07, 8), ROOF.bulb, x, y + 2.85 - Math.sin(u * Math.PI) * .45, z, { cast: false });
@@ -1961,7 +1970,10 @@ const snow = new THREE.Points(fall(SNOW_N, 1), new THREE.PointsMaterial({ map: F
 for (const p of [rain, snow]) { p.frustumCulled = false; p.visible = false; p.userData.keep = true; scene.add(p); }
 const drops = { rain: [], snow: [] };
 function landing(x, z) {   // where a drop stops: a roof, or the ground / 떨어진 것이 멈추는 곳: 지붕 또는 땅
-  if (x > X0 - .6 && x < X1 + .6 && z > Z0 - .6 && z < Z1 + .6) { const F = W.floors[W.floors.length - 1]; return F ? F.y + lift(F.y) + .1 : 0; }
+  if (x > X0 - .6 && x < X1 + .6 && z > Z0 - .6 && z < Z1 + .6) {
+    const F = W.floors[W.floors.length - 1], P = W.pub, dry = P && F && F.kind === 'roof' && x > P.x0 && x < P.x1 && z > P.z0 && z < P.z1;
+    return F ? F.y + lift(F.y) + (dry ? P.h : .1) : 0;
+  }
   const R = W.res && W.res.box; if (R && x > R[0] && x < R[1] && z > R[2] && z < R[3]) return R[4];
   return 0;
 }
@@ -2098,7 +2110,7 @@ function frame() {
   if (t - codeAt > .12 && !reduced) { codeAt = t; for (const d of W.desks.values()) if (d.scr) d.scr.map.offset.y -= .012; }
   const dist = camera.position.distanceTo(controls.target);
   for (const b of bees.values()) {
-    if (b.legs.length) step(b, dt);
+    if (b.legs.length) step(b, dt); else b.moving = false;   // the last step left it set: walking on the spot / 마지막 걸음이 남긴 값: 제자리 걸음
     if (!b.legs.length && b.goal && !b.arrived) b.arrived = true;
     animate(b, t, dt);
     const shown = b.riding ? focus === null || b.y <= focus * FH + .1 : floorShown(b.floor);
