@@ -22,6 +22,7 @@
   --bg: #0e1117; --panel: #1a1d24; --line: #2b303b; --fg: #e1e6f0; --fg2: #c3c9d4; --muted: #9aa3b2;
   --run: #5aa9ff; --wait: #f5a524; --done: #3ecf8e; --sleep: #6b7385; --glass: rgba(26, 29, 36, .82); color-scheme: dark } }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; overflow: hidden; }
 body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
 #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
@@ -35,7 +36,24 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; background: color-mix(in srgb, var(--fg) 6%, transparent); white-space: nowrap; }
 .chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
 .chip b { font-family: var(--f-mono); }
-.chip.wx { font-weight: 600; cursor: default; }
+.chip.wx { font-weight: 600; cursor: pointer; border: 0; color: inherit; font-family: inherit; }
+.gear { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--fg2); cursor: pointer; padding: 0; }
+.gear:hover, .gear[aria-expanded="true"] { border-color: var(--muted); }
+.gear svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* the building's settings: the weather's place and day or night / 건물 설정: 날씨 위치와 낮·밤 */
+.settings { position: fixed; left: 16px; top: 76px; z-index: 4; width: min(320px, calc(100vw - 32px)); padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+.settings fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.settings legend { font-size: 11.5px; font-weight: 700; letter-spacing: .04em; color: var(--muted); margin-bottom: 7px; padding: 0; }
+.seg { display: flex; flex-wrap: wrap; gap: 4px; }
+.seg label { position: relative; }
+.seg input { position: absolute; opacity: 0; }
+.seg span { display: block; padding: 5px 10px; border: 1px solid var(--line); border-radius: 7px; font-size: 12.5px; cursor: pointer; background: var(--panel); }
+.seg input:checked + span { border-color: var(--run); background: color-mix(in srgb, var(--run) 14%, var(--panel)); }
+.seg input:focus-visible + span { outline: 2px solid var(--run); outline-offset: 1px; }
+.city { display: flex; gap: 6px; }
+.city input { flex: 1; min-width: 0; padding: 6px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--fg); font: inherit; font-size: 13px; }
+.city button { padding: 6px 12px; border-radius: 7px; border: 1px solid var(--run); background: var(--run); color: #fff; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.settings p { margin: 0; font-size: 12px; color: var(--muted); }
 .chip.wx span { color: var(--fg2); }
 /* the floor bar: the whole building, then each floor top down with what happens there / 층 표시줄: 건물 전체, 그리고 위층부터 각 층에서 일어나는 일 */
 .floors { position: fixed; right: 16px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; padding: 8px; z-index: 3; width: 196px; }
@@ -80,10 +98,31 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
   <span class="chip" style="--c: var(--done)"><i></i><span data-t="끝남|Done"></span> <b id="n-done">0</b></span>
   <span class="chip" style="--c: var(--sleep)"><i></i><span data-t="쉼|Resting"></span> <b id="n-idle">0</b></span>
   <span class="chip" style="--c: var(--honey)"><i></i><span data-t="오늘 꿀|Honey today"></span> <b id="n-honey">0</b></span>
-  <span class="chip wx" id="wx" hidden></span>
+  <button class="chip wx" id="wx" type="button" hidden></button>
+  <button class="gear" id="gear" type="button" aria-expanded="false" aria-controls="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
   <a href="/team" data-t="팀|Team"></a>
   <a href="/" data-t="이전 사무실|Classic office"></a>
 </header>
+<form class="settings glass" id="settings" hidden>
+  <fieldset>
+    <legend data-t="날씨 위치|Weather place"></legend>
+    <div class="seg">
+      <label><input type="radio" name="place" value="auto"><span data-t="자동 (IP)|Auto (IP)"></span></label>
+      <label><input type="radio" name="place" value="city"><span data-t="도시 정하기|Pick a city"></span></label>
+      <label><input type="radio" name="place" value="off"><span data-t="끄기|Off"></span></label>
+    </div>
+    <div class="city" id="city" hidden><input id="city-in" maxlength="64" autocomplete="off"><button type="submit" data-t="저장|Save"></button></div>
+    <p id="place-note"></p>
+  </fieldset>
+  <fieldset>
+    <legend data-t="낮과 밤|Day and night"></legend>
+    <div class="seg">
+      <label><input type="radio" name="sky" value="auto"><span data-t="실제 해 따라|Follow the sun"></span></label>
+      <label><input type="radio" name="sky" value="day"><span data-t="늘 낮|Always day"></span></label>
+      <label><input type="radio" name="sky" value="night"><span data-t="늘 밤|Always night"></span></label>
+    </div>
+  </fieldset>
+</form>
 <nav class="floors glass" id="floors" aria-label="층"></nav>
 <div class="hint glass" id="hint"></div>
 <div class="tip glass" id="tip" hidden></div>

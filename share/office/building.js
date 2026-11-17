@@ -669,7 +669,7 @@ function buildTeam(F, p, nth) {
     seats.forEach(st => {
       chair(g, st.x, st.z, st.look, y, st.head ? mat(0xb8862f) : C.dark);
       const off = st.head ? .8 : .55, lx = st.x + st.look[0] * off, lz = st.z + st.look[1] * off, l = new THREE.Group(); l.position.set(lx, y + .77, lz); l.rotation.y = Math.atan2(st.look[0], st.look[1]); g.add(l);
-      block(l, .4, .02, .28, C.steel, 0, 0, 0); const scr = put(l, geo('lap', () => new THREE.PlaneGeometry(.38, .24)), C.screenOff, 0, .14, .16, { rx: -.25, ry: Math.PI, cast: false }); scr.userData.keep = true;
+      block(l, .4, .02, .28, C.steel, 0, 0, 0); const scr = put(l, geo('lap', () => new THREE.PlaneGeometry(.38, .24)), C.screenOff, 0, .14, .16, { rx: .25, ry: Math.PI, cast: false }); scr.userData.keep = true;
       laptops.push(scr);
     });
     const bx = tx0 - 1.3, board = canvasTex(640, 400, drawBoard);
@@ -1159,6 +1159,7 @@ async function poll() {
   if (d.lang) L = d.lang;
   // the weather and where it is (null while the server is still asking: keep what there is) / 날씨와 그 곳 (서버가 아직 묻는 중이면 null: 있는 것을 둔다)
   if (d.weather && JSON.stringify(d.weather) !== poll.wx) { poll.wx = JSON.stringify(d.weather); WX = d.weather; daylight(); }
+  PLACE = { set: d.weatherPlace ?? '', asking: d.weather === null }; placePanel();
   document.documentElement.lang = L;
   const list = [], home = [], cells = [], wasOff = shiftOff;
   honey = 0; shiftOff = false;
@@ -1321,6 +1322,7 @@ canvas.addEventListener('click', e => {
   if (h && h.floor !== undefined && focus === null) { focus = h.floor; applyFocus(); }
 });
 addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !panel.hidden) { openPanel(false); return; }
   if (e.target.closest && e.target.closest('input, textarea')) return;
   if (e.key === 'Escape' || e.key === '0') { focus = null; view = 'office'; applyFocus(); }
   else if (e.key === 'h' || e.key === 'H') { focus = null; view = view === 'home' ? 'office' : 'home'; applyFocus(); }
@@ -1336,6 +1338,50 @@ async function visit(b) {
     if (!r.ok) toast(tr('세션을 띄울 터미널 화면이 없어요', 'No terminal screen to show it on'));
   } catch (e) { toast(tr('hivemux 와 연결이 끊겼어요', 'Lost hivemux')); }
 }
+// ── the building's settings: the weather's place (kept by bin/hivemux-office) and day or night
+// 건물 설정: 날씨 위치 (bin/hivemux-office 가 둔다) 와 낮·밤 ─────────────────────────────────────────────────
+let PLACE = { set: '', asking: false };
+const panel = $('#settings'), gear = $('#gear'), cityIn = $('#city-in');
+const OFF_WORDS = ['off', '끄기', '끔'];
+function openPanel(on) { panel.hidden = !on; gear.setAttribute('aria-expanded', String(on)); if (on) placePanel(true); }
+gear.addEventListener('click', () => openPanel(panel.hidden));
+$('#wx').addEventListener('click', () => openPanel(true));
+function placePanel(fresh) {
+  if (panel.hidden) return;
+  const set = PLACE.set, mode = !set ? 'auto' : OFF_WORDS.includes(set.toLowerCase()) ? 'off' : 'city';
+  const picked = panel.querySelector('input[name="place"]:checked');
+  // what you are typing stays until it is saved / 치는 중인 것은 저장할 때까지 둔다
+  if (fresh || !picked || (picked.value !== 'city' && picked.value !== mode)) panel.querySelector(`input[name="place"][value="${mode}"]`).checked = true;
+  const now = panel.querySelector('input[name="place"]:checked').value;
+  $('#city').hidden = now !== 'city';
+  if (fresh && mode === 'city') cityIn.value = set;
+  const sky = panel.querySelector(`input[name="sky"][value="${skyMode()}"]`); if (sky) sky.checked = true;
+  const at = WX && !WX.off && !WX.missing ? `${WX.place}${WX.temp !== undefined && WX.temp !== null ? ` · ${Math.round(WX.temp)}°` : ''}` : '';
+  $('#place-note').textContent = now === 'off' ? tr('날씨 없이 실제 해만 따라요.', 'No weather; the sun still follows the time.')
+    : now === 'city' && mode !== 'city' ? tr('도시 이름을 쓰고 저장하세요 (예: 부산, Tokyo).', 'Type a city and save (e.g. Paris, Tokyo).')
+    : PLACE.asking ? tr('날씨를 가져오는 중…', 'Getting the weather…')
+    : WX && WX.missing ? tr(`'${set}' 을(를) 찾지 못했어요.`, `Can't find '${set}'.`)
+    : mode === 'auto' ? tr(`IP 로 찾은 곳: ${at || '아직 모름'}`, `Found by IP: ${at || 'not yet'}`) : at;
+}
+async function savePlace(place) {
+  try {
+    const r = await fetch('/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ place }) });
+    if (!r.ok) throw new Error();
+    PLACE = { set: place, asking: !OFF_WORDS.includes(place.toLowerCase()) }; placePanel();
+  } catch (e) { toast(tr('설정을 저장하지 못했어요', 'Could not save the setting')); }
+}
+panel.addEventListener('change', e => {
+  if (e.target.name === 'place') {
+    if (e.target.value === 'auto') savePlace('');
+    else if (e.target.value === 'off') savePlace('off');
+    else { $('#city').hidden = false; cityIn.focus(); placePanel(); }
+  } else if (e.target.name === 'sky') {
+    let o = {}; try { o = JSON.parse(localStorage.getItem('office-settings') || '{}'); } catch (err) { /* private window / 사생활 보호 창 */ }
+    o.sky = e.target.value; try { localStorage.setItem('office-settings', JSON.stringify(o)); } catch (err) { /* private window / 사생활 보호 창 */ }
+    daylight();
+  }
+});
+panel.addEventListener('submit', e => { e.preventDefault(); const v = cityIn.value.trim(); if (v) savePlace(v); });
 function toast(text) { const t = $('#toast'); t.textContent = text; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => { t.hidden = true; }, 2600); }
 
 // ── the sun where it really is, and the weather outside / 실제 자리의 해, 그리고 바깥 날씨 ───────────────────
@@ -1370,12 +1416,16 @@ function sunAt(ms, lat, lon) {
   return { alt: Math.asin(Math.sin(la) * Math.sin(dec) + Math.cos(la) * Math.cos(dec) * Math.cos(ha)),
     az: Math.atan2(-Math.sin(ha), Math.tan(dec) * Math.cos(la) - Math.sin(la) * Math.cos(ha)) };
 }
+// "always day" or "always night" in the settings (shared with the classic office) holds the sun at noon or 11 pm
+// 설정의 "늘 낮" 이나 "늘 밤" (이전 사무실과 같이 쓴다) 은 해를 정오나 밤 11시에 둔다
+const skyMode = () => { try { return JSON.parse(localStorage.getItem('office-settings') || '{}').sky || 'auto'; } catch (e) { return 'auto'; } };
+function skyTime() { const m = skyMode(); if (m === 'auto') return Date.now(); const d = new Date(); d.setHours(m === 'day' ? 12 : 23, 0, 0, 0); return d.getTime(); }
 const mixHex = (a, b, k) => new THREE.Color(a).lerp(new THREE.Color(b), k);
 const RAINY = c => (c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95, SNOWY = c => (c >= 71 && c <= 77) || c === 85 || c === 86;
 function daylight() {
   const fresh = WX && !WX.off && !WX.missing && Date.now() / 1000 - (WX.at || 0) < 3 * 3600, w = fresh ? WX : {};
   const lat = WX && WX.lat !== undefined ? WX.lat : 36, lon = WX && WX.lon !== undefined ? WX.lon : -new Date().getTimezoneOffset() / 4;
-  const { alt, az } = sunAt(Date.now(), lat, lon), S = THREE.MathUtils.smoothstep;
+  const { alt, az } = sunAt(skyTime(), lat, lon), S = THREE.MathUtils.smoothstep;
   const code = w.code ?? 0;
   sky.rain = RAINY(code) || w.rain > 0 ? Math.min(1, .35 + (w.rain || .5) / 4) : 0;
   sky.snow = SNOWY(code) || w.snow > 0 ? Math.min(1, .4 + (w.snow || .3) / 2) : 0;
@@ -1430,7 +1480,7 @@ function weatherChip() {
   const el = $('#wx');
   if (!WX || WX.off) { el.hidden = true; return; }
   el.hidden = false;
-  const how = tr('설정 › 날씨 위치에서 바꿀 수 있어요', 'Change it in Settings › Weather place');
+  const how = tr('눌러서 위치를 바꿀 수 있어요', 'Click to change the place');
   if (WX.missing) { el.innerHTML = `⚠️ <span>${escape(tr(`'${WX.want}' 을(를) 찾지 못했어요`, `Can't find '${WX.want}'`))}</span>`; el.title = how; return; }
   const [icon, word] = weatherWord(WX.code ?? 0), temp = WX.temp !== undefined && WX.temp !== null ? `${Math.round(WX.temp)}°` : '';
   el.innerHTML = `${icon} <b>${temp}</b> <span>${escape(WX.place || '')}</span>`;

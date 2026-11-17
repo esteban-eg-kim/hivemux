@@ -300,11 +300,11 @@ def shift(busy):
 
 # ── the weather where you are / 지금 있는 곳의 날씨 ─────────────────────────────
 # The building shows the sun where it really is and the weather outside (share/office/building.js). Where you are
-# comes from your IP (ipinfo.io, else ipapi.co), or from a place set in Settings (bin/hivemux-settings-ui, the file
-# weather-place: a place name, or "off"); the weather from Open-Meteo (no key). Asked every half hour while the
+# comes from your IP (ipinfo.io, else ipapi.co), or from a place set in the building's settings (POST /settings, the
+# file weather-place: a place name, or "off"); the weather from Open-Meteo (no key). Asked every half hour while the
 # server runs, kept in office/weather.json so a new server starts with it; offline the page goes on without it.
 # 건물은 해를 실제 자리에, 바깥 날씨를 그대로 보인다 (share/office/building.js). 있는 곳은 IP 로 (ipinfo.io, 안 되면
-# ipapi.co), 또는 설정에서 정한 곳으로 (bin/hivemux-settings-ui, 파일 weather-place: 곳 이름 또는 "off"). 날씨는
+# ipapi.co), 또는 건물 화면 설정에서 정한 곳으로 (POST /settings, 파일 weather-place: 곳 이름 또는 "off"). 날씨는
 # Open-Meteo (키 없음). 서버가 도는 동안 30분마다 묻고 office/weather.json 에 둔다: 새 서버도 그것으로 시작한다.
 # 인터넷이 없으면 페이지는 날씨 없이 그대로 간다.
 PLACE_FILE = os.path.join(DATA, "weather-place")
@@ -362,9 +362,23 @@ def place_setting():
         return ""
 
 
+def set_place(place):
+    """a city, "off", or empty for the IP again / 도시, "off", 또는 비우면 다시 IP 로"""
+    if place:
+        os.makedirs(DATA, exist_ok=True)
+        with open(PLACE_FILE + ".tmp", "w") as f:
+            f.write(place + "\n")
+        os.replace(PLACE_FILE + ".tmp", PLACE_FILE)
+    else:
+        try:
+            os.remove(PLACE_FILE)
+        except OSError:
+            pass
+
+
 class Weather(threading.Thread):
-    """The weather now, asked for every half hour, and at once when the place in Settings changes
-    지금 날씨. 30분마다, 그리고 설정의 곳이 바뀌면 바로 묻는다"""
+    """The weather now, asked for every half hour, and at once when the place set changes
+    지금 날씨. 30분마다, 그리고 정한 곳이 바뀌면 바로 묻는다"""
     def __init__(self):
         super().__init__(daemon=True)
         self.wake = threading.Event()
@@ -652,7 +666,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             Handler.last = time.time()
             local = snapshot()
             return self.send(200, json.dumps({"lang": local["lang"], "offices": [local] + Handler.remotes.list(), "nav": take_nav(),
-                                              "weather": Handler.weather.state()}))
+                                              "weather": Handler.weather.state(), "weatherPlace": place_setting()}))
         if path == "/team/state":
             Handler.last = time.time()
             q = query(self.path)
@@ -714,7 +728,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self.send(403, "{}")
         if origin and origin not in (f"http://127.0.0.1:{self.server.server_port}", f"http://localhost:{self.server.server_port}"):
             return self.send(403, "{}")
-        if self.path not in ("/goto", "/shift", "/answer", "/nav", "/artifacts/open", "/artifacts/prompt") and not self.path.startswith("/team/"):
+        if self.path not in ("/goto", "/shift", "/answer", "/nav", "/settings", "/artifacts/open", "/artifacts/prompt") and not self.path.startswith("/team/"):
             return self.send(404, "{}")
         try:
             n = int(self.headers.get("Content-Length") or 0)
@@ -727,6 +741,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if str(req.get("path", "")).startswith("/"):
                 Handler.nav = (str(req["path"]), time.time())
             return self.send(200, "{}")
+        if self.path == "/settings":    # the building page's settings: the weather's place / 건물 화면 설정: 날씨 위치
+            place = req.get("place")
+            if not isinstance(place, str) or len(place) > 64 or "\n" in place:
+                return self.send(400, "{}")
+            set_place(place.strip())
+            Handler.weather.wake.set()
+            return self.send(200, json.dumps({"ok": True}))
         if self.path.startswith("/team/"):
             return self.send(200, json.dumps(team_post(self.path[6:], req), ensure_ascii=False))
         if self.path.startswith("/artifacts/"):

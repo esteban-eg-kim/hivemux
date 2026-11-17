@@ -18,13 +18,9 @@ share/hivemux.tmux reads them back when tmux starts.
 the bee office and the other Mac (hivemux connect) show it.
 "이 Mac 이름"은 직접 친다 (Enter 로 고치고 Enter 로 저장, Esc 취소. 비우면 Mac 원래 이름): 벌 사무실과
 상대 Mac (hivemux connect)이 이 이름을 보인다.
-"Weather place" is typed in the same way (saved as weather-place): a city for the bee building's sun and weather
-(bin/hivemux-office); empty finds it from the IP, "off" shows none.
-"날씨 위치"도 같이 직접 친다 (weather-place 에 저장): 벌 사무실 건물의 해와 날씨의 도시 (bin/hivemux-office).
-비우면 IP 로 찾고, "off" 면 날씨를 보이지 않는다.
 tmux 가 시작할 때 share/hivemux.tmux 가 다시 읽는다.
 """
-import json, os, re, select, shutil, subprocess, sys, termios, time, tty, unicodedata
+import os, re, select, shutil, subprocess, sys, termios, time, tty, unicodedata
 
 TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -78,34 +74,11 @@ def save(name, value):
 
 WIDTHS = list(range(24, 50, 2))
 PRESETS = [(24, ("좁게", "Narrow")), (32, ("보통", "Medium")), (44, ("넓게", "Wide"))]
-TYPED = ("name", "place")   # typed in, not picked / 고르지 않고 직접 친다
 SETTLE = 0.6          # seconds after the last ←→ on the width / 폭의 마지막 ←→ 뒤 이만큼 기다렸다가 적용
-
-
-def place_shown(place):
-    """the place as set, "off", or "Auto" with the place the IP found (bin/hivemux-office keeps it)
-    정한 곳, "끄기", 또는 "자동"과 IP 로 찾은 곳 (bin/hivemux-office 가 둔다)"""
-    if place.lower() in ("off", "끄기", "끔"):
-        return tr("끄기", "off")
-    if place:
-        return place
-    try:
-        with open(os.path.join(DATA, "office", "weather.json")) as f:
-            found = json.load(f)
-        found = found.get("place") if found.get("auto") else ""
-    except (OSError, ValueError):
-        found = ""
-    return tr("자동", "Auto") + (f" · {found}" if found else "")
 
 
 def settings():
     """(key, label, values, current index) / (키, 이름, 값 목록, 지금 값 번호)"""
-    place = ""
-    try:
-        with open(os.path.join(DATA, "weather-place")) as f:
-            place = f.read().strip()
-    except OSError:
-        pass
     anim = tmux("show", "-gqv", "@hivemux-anim").strip() != "off"
     notify = tmux("show", "-gqv", "@hivemux-notify").strip() != "off"
     try:
@@ -132,9 +105,6 @@ def settings():
          {"live": 1, "release": 2}.get(tmux("show", "-gqv", "@hivemux-resize").strip(), 0)),
         ("editor", tr("편집기", "Editor"), eds, next((i for i, (k, _) in enumerate(eds) if k == ed), 0)),
         ("name", tr("이 컴퓨터 이름", "This computer's name"), [(nick, nick or own_name())], 0),
-        # where the bee building's sun and weather are (bin/hivemux-office): from the IP, a place, or off
-        # 벌 사무실 건물의 해와 날씨의 곳 (bin/hivemux-office): IP 로, 정한 곳, 또는 끄기
-        ("place", tr("날씨 위치", "Weather place"), [(place, place_shown(place))], 0),
     ]
 
 
@@ -160,15 +130,6 @@ def apply(key, value):
             except OSError:
                 pass
         tmux("refresh-client", "-S")
-    elif key == "place":
-        # empty: from the IP again / 비우면 다시 IP 로
-        if value:
-            save("weather-place", value)
-        else:
-            try:
-                os.remove(os.path.join(DATA, "weather-place"))
-            except OSError:
-                pass
     elif key == "width":
         subprocess.run([os.path.join(HERE, "hivemux-border"), "set", value], stdin=subprocess.DEVNULL,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -181,7 +142,7 @@ def main():
     out = sys.stdout
     out.write("\x1b[?25l\x1b[?1000h\x1b[?1006h")
     sel, msg = 0, ""
-    edit = None                            # the name or place being typed / 치고 있는 이름이나 곳
+    edit = None                            # the name being typed / 치고 있는 이름
     pending, due = None, 0                 # a width shown but not applied yet / 보이기만 하고 아직 적용하지 않은 폭
     try:
         while True:
@@ -201,7 +162,7 @@ def main():
                 rows_y[y] = i
                 v = values[cur][1]
                 on = i == sel
-                if on and edit is not None and key in TYPED:
+                if on and edit is not None and key == "name":
                     # the end of what is typed, if it is longer than the column / 열보다 길면 친 것의 끝
                     shown = edit
                     while width(shown) > cols - vx - 3:
@@ -219,13 +180,8 @@ def main():
             hint = (f"{fg(TEXT)}↑↓{fg(T3)} {tr('고르기', 'choose')}   {fg(TEXT)}←→{fg(T3)} {tr('바꾸기', 'change')}   "
                     f"{fg(TEXT)}Esc{fg(T3)} {tr('닫기', 'close')}")
             if edit is not None:
-                empty = tr("비우면 자동(IP) · off 는 끄기", "empty: by IP · off: none") if items[sel][0] == "place" else \
-                    tr("비우면 원래 이름", "empty: the computer’s own name")
                 hint = (f"{fg(TEXT)}Enter{fg(T3)} {tr('저장', 'save')}   {fg(TEXT)}Esc{fg(T3)} {tr('취소', 'cancel')}   "
-                        f"{fg(T3)}{empty}")
-            elif items[sel][0] == "place":
-                hint = (f"{fg(TEXT)}Enter{fg(T3)} {tr('위치 고치기', 'edit the place')}   {fg(T3)}"
-                        f"{tr('도시 이름 (예: 부산). 건물의 해와 날씨', 'a city (e.g. Paris): the building’s sun and weather')}")
+                        f"{fg(T3)}{tr('비우면 원래 이름', 'empty: the computer’s own name')}")
             elif items[sel][0] == "name":
                 hint = (f"{fg(TEXT)}Enter{fg(T3)} {tr('이름 고치기', 'edit the name')}   {fg(T3)}"
                         f"{tr('벌 사무실과 원격 화면에 보입니다', 'shown in the bee office and on remote screens')}")
@@ -241,7 +197,7 @@ def main():
             for ch in re.findall(r"\x1b\[<\d+;\d+;\d+[Mm]|\x1b\[[0-9;]*[A-Za-z~]|\x1bO[A-Za-z]|\x1b|[\s\S]", data):
                 if edit is not None:
                     if ch in ("\r", "\n"):
-                        apply(items[sel][0], edit.strip())
+                        apply("name", edit.strip())
                         edit = None
                     elif ch in ("\x1b", "\x03"):
                         edit = None
@@ -278,7 +234,7 @@ def main():
                     step = -1
                 elif ch in ("\x1b[C", "\x1bOC", "l", "\r", "\n", " "):
                     step = 1
-                if step and key in TYPED:
+                if step and key == "name":
                     edit = values[0][0]
                     step = 0
                 if step:

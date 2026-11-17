@@ -39,8 +39,9 @@
   weather from Open-Meteo shows outside: grey skies, rain with wet paving and bees under umbrellas
   (the pool, loungers, fire pit and roof lawn empty), snow on the lawns and trees, fog, lightning;
   the planet has fewer clouds on a clear day. A chip at the top shows the temperature and the place.
-  The place is found from your IP by default; Settings › "Weather place" takes a city instead
-  (empty goes back to the IP, "off" turns the weather off).
+  The place is found from your IP by default; the building's settings (⚙ at the top, or a click on
+  the weather) take a city instead, or turn the weather off, and hold the sky at day or night.
+- 3D building: the team table's laptops lean back toward their bee, not over the keyboard.
 
 - Bee office in floors: the campus was too wide to read without panning, so it is a building of
   floors now, each one screen: 1F rest (cafe, lounge, an indoor park, the lobby), 2F work (desk
