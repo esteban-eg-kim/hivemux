@@ -90,7 +90,7 @@ const C = {
   carpet: mat(0xcfd4dc, { roughness: 1 }), teamFloor: mat(0xd6dfe0, { roughness: .95 }),
   glass: new THREE.MeshStandardMaterial({ color: 0xbfdbea, roughness: .05, metalness: .15, transparent: true, opacity: .13, depthWrite: false, side: THREE.DoubleSide }),
   glassIn: new THREE.MeshStandardMaterial({ color: 0xd9eef7, roughness: .05, metalness: .1, transparent: true, opacity: .16, depthWrite: false, side: THREE.DoubleSide }),
-  frame: mat(0x3a3f47, { roughness: .4, metalness: .5 }), leaf: mat(0x4f9a5a, { roughness: .8, flatShading: true }), leaf2: mat(0x3f8a4c, { roughness: .8, flatShading: true }),
+  frame: mat(0x3a3f47, { roughness: .4, metalness: .5 }), mullion: mat(0xc9d0d6, { roughness: .3, metalness: .6 }), leaf: mat(0x4f9a5a, { roughness: .8, flatShading: true }), leaf2: mat(0x3f8a4c, { roughness: .8, flatShading: true }),
   trunk: mat(0x7a5638, { roughness: .9 }), pot: mat(0xb8714b, { roughness: .8 }), grass: mat(0x9fc483, { roughness: 1 }), paving: mat(0xe3ded4, { roughness: .9 }),
   road: mat(0x5f646b, { roughness: .9 }), sofa: mat(0x5b78ad, { roughness: .9 }), sofa2: mat(0xd77a4a, { roughness: .9 }), green: mat(0x2f8f5b, { roughness: .6 }),
   screenOff: mat(0x15181d, { roughness: .3, metalness: .2 }), honey: mat(0xf2b632, { roughness: .3, emissive: 0x6b4300, emissiveIntensity: .25 }),
@@ -316,15 +316,17 @@ function skin(fl, y, entrance) {
     const gap = entrance && n[2] === 1 ? 2.6 : 0;
     if (gap) {
       for (const sx of [-1, 1]) { const l = (len - gap * 2) / 2; const m = put(g, boxG(l, FH - .32, .05), C.glass, sx * (gap + l / 2), y + (FH - .32) / 2 + .02, cz, { cast: false }); m.renderOrder = 3; }
-      block(g, gap * 2, .25, .3, C.frame, 0, y + 3.05, cz, { cast: false });   // the canopy / 차양
-      block(g, gap * 2 + 1.2, .12, 2.2, C.frame, 0, y + 3.3, cz + 1, { cast: false });
+      block(g, gap * 2, .05, .05, C.mullion, 0, y + 3.05, cz, { cast: false });   // a glass canopy over the doors / 문 위 유리 차양
+      put(g, boxG(gap * 2 + 1.2, .04, 2.2), C.glassIn, 0, y + 3.3, cz + 1, { cast: false }).renderOrder = 3;
+      for (const sx of [-1, 1]) block(g, gap * 2 + 1.2, .05, .05, C.mullion, 0, y + 3.28, cz + 1 + sx * 1.08, { cast: false });
     } else { const m = put(g, boxG(len, FH - .32, .05), C.glass, cx, y + (FH - .32) / 2 + .02, cz, { ry, cast: false }); m.renderOrder = 3; }
-    for (let k = 0; k <= Math.round(len / 2.2); k++) {
-      const t = k / Math.round(len / 2.2), mx = ax + (bx - ax) * t, mz = az + (bz - az) * t;
+    // hairline mullions, as glass walls have now / 요즘 통유리처럼 머리카락만 한 멀리언
+    for (let k = 0; k <= Math.round(len / 3.2); k++) {
+      const t = k / Math.round(len / 3.2), mx = ax + (bx - ax) * t, mz = az + (bz - az) * t;
       if (gap && Math.abs(mx) < gap - .05) continue;
-      block(g, .08, FH - .3, .12, C.frame, mx, y, mz, { ry, cast: false });
+      block(g, .025, FH - .3, .035, C.mullion, mx, y, mz, { ry, cast: false });
     }
-    for (const fy of [y, y + FH - .42]) block(g, len + .1, .12, .14, C.frame, cx, fy, cz, { ry, cast: false });   // sill and head / 아래위 틀
+    for (const fy of [y, y + FH - .34]) block(g, len, .04, .05, C.mullion, cx, fy, cz, { ry, cast: false });   // sill and head / 아래위 틀
   };
   mk([0, 0, -1], X0, Z0, X1, Z0); mk([0, 0, 1], X0, Z1, X1, Z1); mk([-1, 0, 0], X0, Z0, X0, Z1); mk([1, 0, 0], X1, Z0, X1, Z1);
   return sides;
