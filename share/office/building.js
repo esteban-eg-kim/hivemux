@@ -2151,7 +2151,7 @@ function space(t, dt) {
 const GAP0 = X1 + 1.5, GAP1 = RES.x0 - RES.r - 1, GAP = 3.5;
 const squeeze = x => x <= GAP0 ? x : x >= GAP1 ? x - (GAP1 - GAP0 - GAP) : GAP0 + (x - GAP0) * GAP / (GAP1 - GAP0);
 const FX0 = X0 - 2.5, FX1 = squeeze(RES.x0 + (RES.cols - 1) * 1.5 * RES.r + RES.r + 2.5), PLAZA_Z = 26;
-const flat = { svg: $('#flat'), k: 20, ox: 0, gy: 600, band: 100, order: '', tagsAt: 0, skyAt: 0, comb: -1 };
+const flat = { svg: $('#flat'), k: 20, ox: 0, gy: 600, band: 100, order: '', tagsAt: 0, skyAt: 0, comb: -1, labels: [] };
 const hex = c => '#' + new THREE.Color(c).getHexString();
 const ink = 'stroke="#2a241d" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"';
 const sxOf = x => flat.ox + (squeeze(x) - FX0) * flat.k;
@@ -2182,7 +2182,7 @@ function flatScene() {
   const bar = VW > 900 ? 250 : 0;   // the floor bar on the right / 오른쪽 층 표시줄
   flat.k = Math.min((VW - 32 - bar) / (FX1 - FX0), (VH - 96 - 110) / Math.max(top, resTop));
   flat.ox = (VW - bar - (FX1 - FX0) * flat.k) / 2; flat.gy = VH - 110; flat.band = FH * flat.k;
-  const k = flat.k, gy = flat.gy, out = [];
+  const k = flat.k, gy = flat.gy, out = []; flat.labels = [];
   const R = (x0, y0, x1, y1, fill, extra = '') => `<rect x="${sxOf(x0)}" y="${syOf(y1)}" width="${(x1 - x0) * k}" height="${(y1 - y0) * k}" fill="${fill}" ${extra}/>`;
   const T = (x, y, text, cls = 'f-l', anchor = 'middle') => `<text x="${sxOf(x)}" y="${syOf(y)}" class="${cls}" text-anchor="${anchor}">${escape(text)}</text>`;
   // sky, sun or moon, clouds, hills, the ground and the plaza / 하늘, 해나 달, 구름, 언덕, 땅과 광장
@@ -2219,13 +2219,17 @@ function flatScene() {
       // the meeting room and the boss's office at the back / 뒤쪽의 회의실과 사장실
       out.push(`<g transform="translate(0 ${deep(-7.2)})">` + R(-15.6, y, -6.4, y + 2.9, 'rgba(127,179,200,.12)', 'stroke="#7fb3c8" stroke-width="2.4"') + R(-15.3, y + 1.2, -12.6, y + 2.5, '#fff', ink) +
         `<path d="M${sxOf(-15)} ${syOf(y + 2.1)} h${k * 1.6} M${sxOf(-15)} ${syOf(y + 1.75)} h${k * 2.1} M${sxOf(-15)} ${syOf(y + 1.45)} h${k * 1.2}" stroke="#2f7fe0" stroke-width="2.4"/>` +
-        T(-9.4, y + 2.35, tr('회의실', 'Meeting room'), 'f-s') +
-        R(6.4, y, 15.6, y + 2.9, 'rgba(242,182,50,.10)', 'stroke="#c48a10" stroke-width="2.4"') + R(10.4, y, 12.8, y + .76, '#8d6544', ink) + T(9, y + 2.35, tr('사장실', "Boss's office"), 'f-s') + '</g>');
+        T(-15.3, y + .3, tr('회의실', 'Meeting room'), 'f-s', 'start') +
+        R(6.4, y, 15.6, y + 2.9, 'rgba(242,182,50,.10)', 'stroke="#c48a10" stroke-width="2.4"') + R(7, y, 9.4, y + .76, '#8d6544', ink) + T(15.3, y + .3, tr('사장실', "Boss's office"), 'f-s', 'end') + '</g>');
     } else if (F.kind === 'team') {
       for (const room of W.rooms.values()) if (room.floor === F.i) {
         const xs = room.seats.map(t => t.x), x0 = Math.min(...xs) - 3, x1 = Math.max(...xs) + 1;
         out.push(`<g transform="translate(0 ${deep(room.seats[0].z)})">${R(x0, y, x1, y + 2.9, 'rgba(127,179,200,.12)', 'stroke="#7fb3c8" stroke-width="2.4"')}` +
-          R(x0 + .4, y + 1.1, x0 + 2.7, y + 2.6, '#fff', ink) + T(x0 + 1.55, y + 1.7, [...room.team.name].length > 9 ? [...room.team.name].slice(0, 8).join('') + '…' : room.team.name, 'f-s') + T((x0 + x1) / 2, y + 3.3, room.team.project, 'f-s') + '</g>');
+          R(x0 + .4, y + 1.1, x0 + 2.7, y + 2.6, '#fff', ink) + `<path d="M${sxOf(x0 + .7)} ${syOf(y + 2.2)} h${k * 1.4} M${sxOf(x0 + .7)} ${syOf(y + 1.85)} h${k * 1.8} M${sxOf(x0 + .7)} ${syOf(y + 1.5)} h${k * 1}" stroke="#2f7fe0" stroke-width="2.4"/>` +
+          '</g>');
+        // the team's name above its room, drawn with the name tags so they step over it / 방 위의 팀 이름. 이름표와 함께 그려 이름표가 넘어간다
+        const text = `${room.team.name} · ${room.team.project}`;
+        flat.labels.push({ x0: sxOf(x0 + .3), x1: sxOf(x0 + .3) + [...text].length * 6.6 + 4, y: syOf(y + 3.1) + deep(room.seats[0].z), text });
       }
     } else if (F.kind === 'roof') {
       out.push(R(X0, y, X1, y + .3, '#b98a5e', ink) + `<path d="M${sxOf(X0)} ${syOf(y + 1.2)} H${sxOf(X1)}" stroke="#9fb8c8" stroke-width="3"/>`);
@@ -2234,7 +2238,7 @@ function flatScene() {
       // the pub under its glass roof, and the fire pit / 유리 지붕 아래 펍, 불멍 자리
       out.push(`<g transform="translate(0 ${deep(-6)})">`);
       out.push(`<path d="M${sxOf(-15.4)} ${syOf(y)} V${syOf(y + PUB_ROOF)} M${sxOf(-4.4)} ${syOf(y)} V${syOf(y + PUB_ROOF)}" stroke="#9a6a43" stroke-width="5"/><path d="M${sxOf(-15.8)} ${syOf(y + PUB_ROOF)} H${sxOf(-4)}" stroke="#9fb8c8" stroke-width="5"/><path d="M${sxOf(-15.8)} ${syOf(y + PUB_ROOF) + 3} H${sxOf(-4)}" stroke="#2a241d" stroke-width="1.6"/>`);
-      out.push(R(-14.2, y, -5.6, y + 1.1, '#8d6544', ink) + `<text x="${sxOf(-9.9)}" y="${syOf(y + PUB_ROOF - .7)}" class="f-l" text-anchor="middle">HONEY PUB</text>` + '</g>');
+      out.push(R(-14.2, y, -5.6, y + 1.1, '#8d6544', ink) + `<text x="${sxOf(-9.9)}" y="${syOf(y + PUB_ROOF + .45)}" class="f-l f-roofsign" text-anchor="middle">HONEY PUB</text>` + '</g>');
       out.push(`<ellipse cx="${sxOf(-9.6)}" cy="${syOf(y) + 2}" rx="${.7 * k}" ry="5" fill="#c9c4ba" ${ink}/><path d="M${sxOf(-9.6) - 6} ${syOf(y) - 1} q6 -18 12 0z" fill="#ff8a2a"/>`);
     }
   }
@@ -2287,10 +2291,8 @@ function flatFrame(t, dt) {
       for (const b of list) b.f2.tx = Math.min(right, Math.max(left, b.f2.tx));
       if (!moved) break;
     }
-    // neighbours' name tags take turns up and down / 이웃 이름표는 번갈아 위아래
-    list.forEach((b, n) => { b.f2.lift = n % 2 && list.length > 1 ? 21 : 0; });
   }
-  for (const b of all) if (!rows.has(b.f2.row) || b.moving) b.f2.lift = 0;
+  for (const b of all) b.f2.lift = 0;
   const ease = Math.min(1, dt * 7);
   for (const b of all) {
     const f = b.f2;
@@ -2316,12 +2318,18 @@ function flatFrame(t, dt) {
   // name tags and why a bee waits, a few times a second / 이름표와 기다리는 까닭, 1초에 몇 번
   if (t - flat.tagsAt > .25) {
     flat.tagsAt = t;
-    const tags = [];
-    for (const b of bees.values()) {
+    // what is taken, per level: room names first, then each tag as it goes / 높이마다 차지한 곳: 방 이름 먼저, 그다음 이름표마다
+    const tags = flat.labels.map(l => `<text x="${l.x0}" y="${l.y}" class="f-s">${escape(l.text)}</text>`), taken = flat.labels.map(l => ({ level: 0, y: l.y + 8, x0: l.x0, x1: l.x1 }));
+    const shown = [...bees.values()].filter(b => b.f2).sort((a, c) => a.f2.x - c.f2.x);
+    for (const b of shown) {
       const st = b.s.state, f = b.f2; if (!f || st === 'home' || (st === 'idle' && b !== hover)) continue;
       if (st === 'run' && b !== hover && focus !== f.row && (rows.get(f.row) || []).length > 6) continue;
       const full = (b.s.lead ? '★ ' : '') + tagName(b.s), name = [...full].length > 14 ? [...full].slice(0, 13).join('') + '…' : full;
-      const w = Math.max(30, [...name].length * 7 + 18), y = f.y - 104 * f.s - (f.lift || 0);
+      const w = Math.max(30, [...name].length * 7 + 18), base = f.y - 104 * f.s;
+      let level = 0;
+      while (level < 3 && taken.some(e => e.level === level && Math.abs(e.y - base) < 30 && e.x0 < f.x + w / 2 + 4 && e.x1 > f.x - w / 2 - 4)) level++;
+      taken.push({ level, y: base, x0: f.x - w / 2, x1: f.x + w / 2 });
+      const y = base - level * 21;
       const c = { run: '#2f7fe0', wait: '#e8890c', done: '#2fa37a' }[st] || '#8a90a0';
       tags.push(`<g transform="translate(${f.x} ${y})" class="f-tag"><rect x="${-w / 2}" y="-15" width="${w}" height="19" rx="9.5" fill="#fff" stroke="${c}" stroke-width="1.8"/><text x="0" y="-1.5" text-anchor="middle">${escape(name)}</text></g>`);
       const why = st === 'wait' && whyOf(b.s);
