@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.67 — 2026-11-18
 
 - The bee office in 2D: a cartoon cross-section of the same building (every floor, the roof and the Hive
   Residence on one screen) with flat cartoon bees doing what the 3D ones do: typing, waiting with a hand up,
