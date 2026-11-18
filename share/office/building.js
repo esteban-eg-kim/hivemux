@@ -25,16 +25,15 @@ const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).
 
 // ── the renderer, the camera, the controls / 렌더러, 카메라, 조작 ──────────────────────────────────────────
 const canvas = $('#gl');
-// no WebGL 2 (a virtual machine without a GPU, an old browser): say so, not a blank window
-// WebGL 2 없음 (GPU 없는 가상 머신, 오래된 브라우저): 빈 창 대신 그렇다고 알린다
-if (!document.createElement('canvas').getContext('webgl2')) {
-  const p = document.createElement('p'); p.className = 'nogl';
-  p.textContent = tr('벌 사무실은 3D 그래픽(WebGL 2)이 필요한데, 이 컴퓨터나 브라우저에서 켜져 있지 않습니다. 사이드바는 그대로 쓸 수 있습니다.',
-    'The bee office needs 3D graphics (WebGL 2), which this computer or browser does not have turned on. The sidebar works as before.');
-  document.body.replaceChildren(p);   // the bar and panels around it would stay empty / 둘레의 막대와 패널은 빈 채로 남는다
-  throw new Error('WebGL 2 unavailable');
-}
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+// 2D or 3D: the building is drawn as a flat cartoon cross-section (the "2D" section below) where there is no
+// WebGL 2 (a virtual machine without a GPU, an old browser) or when Settings → View says 2D. Everything else, the
+// data, where each bee goes, the cards, runs the same; only the drawing differs
+// 2D 냐 3D 냐: WebGL 2 가 없거나 (GPU 없는 가상 머신, 오래된 브라우저) 설정 → 보기가 2D 면 건물을 평면 카툰 단면으로
+// 그린다 (아래 "2D" 절). 나머지, 자료와 벌이 갈 곳과 카드는 똑같이 돈다. 그리는 것만 다르다
+const GL2 = !!document.createElement('canvas').getContext('webgl2');
+const FLAT = !GL2 || (() => { try { return JSON.parse(localStorage.getItem('office-settings') || '{}').view === '2d'; } catch (e) { return false; } })();
+const noGL = c => ({ domElement: c, shadowMap: {}, setPixelRatio() {}, setSize() {}, render() {} });   // stands in for a renderer in 2D / 2D 에서 렌더러 대신
+const renderer = FLAT ? noGL(canvas) : new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -43,7 +42,7 @@ renderer.toneMappingExposure = 1.05;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 const labels = new CSS2DRenderer({ element: $('#labels') });
 const scene = new THREE.Scene();
-scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), .04).texture;
+if (!FLAT) scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), .04).texture;
 scene.environmentIntensity = .35;
 const camera = new THREE.PerspectiveCamera(32, 1, .5, 20000);
 const controls = new OrbitControls(camera, canvas);
@@ -1283,7 +1282,7 @@ async function poll() {
   const p = plan([...list, ...home]);
   const sig = JSON.stringify([p.work, p.team, p.projects.map(x => [x.name, x.list.map(s => s.key)]), p.teams.map(t => [t.key, t.members.map(s => s.key)]), cells.map(c => c.left ? 1 : 0)]);
   if (sig !== W.sig) {
-    W.sig = sig; build(p);
+    W.sig = sig; build(p); if (FLAT) flatScene();
     for (const b of bees.values()) { b.spot = null; b.goalKey = ''; }
     for (const s of W.spots) s.by = null;
     drawFloorBar(); if (focus !== null && focus >= W.floors.length) focus = null; applyFocus(true);
@@ -1409,8 +1408,8 @@ function pickAt(e) {
   const f = ray.intersectObjects(floors, false)[0];
   return f ? { floor: f.object.userData.floor } : null;
 }
-canvas.addEventListener('pointermove', e => {
-  const h = pickAt(e), b = h && h.bee;
+canvas.addEventListener('pointermove', e => { const h = pickAt(e); showTip(h && h.bee, e); });
+function showTip(b, e) {
   hover = b || null; canvas.style.cursor = b ? 'pointer' : '';
   const tip = $('#tip');
   if (!b) { tip.hidden = true; return; }
@@ -1420,7 +1419,7 @@ canvas.addEventListener('pointermove', e => {
   tip.innerHTML = `<b>${escape(tagName(s))}</b><span>${escape(SET.privacy === 'name' ? '' : where)}</span>${taskOf(s) && s.label ? `<span>${escape(taskOf(s))}</span>` : ''}<span>${stateWord(s.state)} · ${age}${s.agents ? tr(` · 부사수 ${s.agents}`, ` · ${s.agents} helpers`) : ''}</span><span>${act}</span>`;
   tip.hidden = false;
   tip.style.left = Math.min(innerWidth - tip.offsetWidth - 10, e.clientX + 14) + 'px'; tip.style.top = Math.min(innerHeight - tip.offsetHeight - 10, e.clientY + 14) + 'px';
-});
+}
 canvas.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; });
 canvas.addEventListener('click', e => {
   if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
@@ -1498,7 +1497,7 @@ panel.addEventListener('submit', e => { e.preventDefault(); const v = cityIn.val
 // 'office-settings', the drawn office's old key, so nobody's are lost) and the window app's hooks
 // 장면 둘레: 튀어나오기, 목록과 순위, 퇴근·출근, 넘김, 설정 (localStorage 'office-settings': 예전 그린 사무실의
 // 키 그대로라 아무도 잃지 않는다), 창 앱 연결 ──────────────────────────────────────────────────────────────
-const SET = { pop: 'front', privacy: 'all', sound: 'off', sky: 'auto', side: 'right', follow: 'on', lights: 'on' };
+const SET = { view: '3d', pop: 'front', privacy: 'all', sound: 'off', sky: 'auto', side: 'right', follow: 'on', lights: 'on' };
 try { Object.assign(SET, JSON.parse(localStorage.getItem('office-settings') || '{}')); } catch (e) { /* private window / 사생활 보호 창 */ }
 const saveSet = () => { try { localStorage.setItem('office-settings', JSON.stringify({ ...JSON.parse(localStorage.getItem('office-settings') || '{}'), ...SET })); } catch (e) { /* private window / 사생활 보호 창 */ } };
 // the window app (share/office/OfficeWindow.swift): bring it forward, keep it on top, start the server again
@@ -1528,7 +1527,7 @@ const ageNow = s => s.age + (Date.now() - fetchedAt) / 1000;
 const popEl = $('#pop'), snooze = new Map();
 let pop = null, popAsked = false, popMenu = '', answering = false;
 // the bee itself, turning slowly, drawn by a small renderer of its own / 그 벌 자체를 작은 렌더러로 천천히 돌려 그린다
-const popR = new THREE.WebGLRenderer({ canvas: $('#popcv'), antialias: true, alpha: true });
+const popR = FLAT ? noGL($('#popcv')) : new THREE.WebGLRenderer({ canvas: $('#popcv'), antialias: true, alpha: true });
 popR.outputColorSpace = THREE.SRGBColorSpace; popR.toneMapping = THREE.ACESFilmicToneMapping;
 const popScene = new THREE.Scene(), popCam = new THREE.PerspectiveCamera(30, 1, .1, 50);
 popScene.add(new THREE.HemisphereLight(0xffffff, 0xb59a74, 1.4)); { const l = new THREE.DirectionalLight(0xfff1dc, 2.2); l.position.set(2, 4, 5); popScene.add(l); }
@@ -1538,6 +1537,7 @@ function popModel(b) {
   if (popBee) { popScene.remove(popBee.g); popBee = null; }
   const m = { key: b.key, s: b.s, persona: b.persona, col: b.col, phase: 0, legs: [], pos: { x: 0, z: 0 }, y: 0, floor: -1, facing: 0, arrived: true, goal: { pose: 'wait' } };
   makeBee(m); scene.remove(m.g); popScene.add(m.g); popBee = m;
+  if (FLAT) $('#pop2d').innerHTML = BEE2D.pose.waiting(look2d(b));
 }
 function maybePop() {
   if (SET.pop !== 'front') { if (pop && !popAsked) closePop(); return; }   // one opened by a click stays / 클릭으로 연 카드는 둔다
@@ -1639,7 +1639,7 @@ function buzz() {
   } catch (e) { /* no sound / 소리 없음 */ }
 }
 function drawPop(t, dt) {
-  if (!pop || !popBee || popEl.hidden) return;
+  if (FLAT || !pop || !popBee || popEl.hidden) return;
   const r = popR.domElement, w = r.clientWidth * devicePixelRatio;
   if (w && r.width !== w) { popR.setSize(r.clientWidth, r.clientHeight, false); popR.setPixelRatio(devicePixelRatio); }
   animate(popBee, t, dt); popBee.g.rotation.y = reduced ? 0 : Math.sin(t * .8) * .5;
@@ -1873,11 +1873,12 @@ function afterPoll(d) {
 setInterval(() => { if (drawerOpen) renderList(); renderPop(); }, 1000);
 
 // the settings / 설정
-for (const k of ['pop', 'privacy', 'sound', 'sky', 'side', 'follow', 'lights']) { const r = panel.querySelector(`input[name="${k}"][value="${SET[k]}"]`); if (r) r.checked = true; }
+for (const k of ['view', 'pop', 'privacy', 'sound', 'sky', 'side', 'follow', 'lights']) { const r = panel.querySelector(`input[name="${k}"][value="${SET[k]}"]`); if (r) r.checked = true; }
 panel.addEventListener('change', e => {
   if (e.target.id === 'top') return tell({ top: e.target.checked });
   if (!(e.target.name in SET)) return;
   SET[e.target.name] = e.target.value; saveSet(); applySide();
+  if (e.target.name === 'view') { location.reload(); return; }
   if (e.target.name === 'sound' && e.target.value === 'on') buzz();
   if (e.target.name === 'sky' || e.target.name === 'lights') daylight();
   for (const b of bees.values()) b.tagKey = '';
@@ -2135,6 +2136,237 @@ function space(t, dt) {
   const near = Math.max(.5, d / 400); if (Math.abs(near - camera.near) > .05) { camera.near = near; camera.updateProjectionMatrix(); }
 }
 
+// ── 2D: the building as a cartoon cross-section ─────────────────────────────────────────────────────────
+// The same building and the same bees, seen from the front like a doll's house: x stays x, height stays height,
+// and depth lifts what is further back a little up its floor. Bees are the cartoon bees of bees2d.js, a pose for
+// what each one does (animate()'s pose), facing the way it goes. Bees sitting still on a floor are spread so they
+// don't stand on each other; walking ones keep their real place. Bees on the plaza, in front of the building,
+// stand on the strip below it. No WebGL: SVG only.
+// 2D: 건물을 카툰 단면으로. 같은 건물과 같은 벌을 인형의 집처럼 앞에서 본다: x 는 x, 높이는 높이, 깊이는 뒤에 있는
+// 것을 그 층에서 조금 올린다. 벌은 bees2d.js 의 카툰 벌로, 하는 일에 맞는 자세 (animate() 의 자세) 로 가는 쪽을
+// 본다. 한 층에 가만히 있는 벌은 서로 겹치지 않게 벌리고, 걷는 벌은 제자리 그대로. 건물 앞 광장의 벌은 건물 아래
+// 띠에 선다. WebGL 없이 SVG 만.
+// the open ground between the building and the residence is drawn narrower: the picture is wide enough as it is
+// 건물과 아파트 사이 빈 땅은 좁혀 그린다: 그림은 그대로도 넓다
+const GAP0 = X1 + 1.5, GAP1 = RES.x0 - RES.r - 1, GAP = 3.5;
+const squeeze = x => x <= GAP0 ? x : x >= GAP1 ? x - (GAP1 - GAP0 - GAP) : GAP0 + (x - GAP0) * GAP / (GAP1 - GAP0);
+const FX0 = X0 - 2.5, FX1 = squeeze(RES.x0 + (RES.cols - 1) * 1.5 * RES.r + RES.r + 2.5), PLAZA_Z = 26;
+const flat = { svg: $('#flat'), k: 20, ox: 0, gy: 600, band: 100, order: '', tagsAt: 0, skyAt: 0, comb: -1 };
+const hex = c => '#' + new THREE.Color(c).getHexString();
+const ink = 'stroke="#2a241d" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"';
+const sxOf = x => flat.ox + (squeeze(x) - FX0) * flat.k;
+const syOf = y => flat.gy - y * flat.k;
+const back = z => (Z1 - Math.min(Z1, Math.max(Z0, z))) / (Z1 - Z0);   // 0 at the front glass, 1 at the back wall / 앞 유리 0, 뒷벽 1
+// a 3D bee's look as a cartoon bee: its tone, hair, hat and glasses, a shirt in its project's colour
+// 3D 벌의 생김새를 카툰 벌로: 피부, 머리, 모자, 안경, 프로젝트 색 셔츠
+function look2d(b) {
+  const P = b.persona || persona(b.key), hats = { beanie: 'beanie', beret: 'beanie', cap: 'cap', sunhat: 'cap', fedora: 'cap', top: 'cap', hardhat: 'cap' };
+  return { tone: hex(P.tone[0]), hair: { tuft: 1, mohawk: 1, side: 2, bob: 2, ponytail: 2, pigtails: 2, bun: 3 }[P.hair] || 0, hairColor: hex(P.hairCol),
+    hat: hats[P.hat] || '', hatColor: hex(P.hatCol), glasses: !!P.glasses, shirt: b.col ? hex(b.col) : '#4a7bd0' };
+}
+// what a bee is doing, as a cartoon pose / 벌이 하는 일을 카툰 자세로
+function pose2d(b) {
+  if (b.flying || b.moving || b.riding) return 'walking';
+  const st = b.legs.length ? b.legs[0].pose || 'walk' : b.goal ? b.goal.pose : 'walk';
+  return { type: 'typing', wait: 'waiting', jar: 'done', coffee: 'resting', sit: 'resting', beer: 'beer', bar: 'standing', chat: 'chat', board: 'board',
+    pong: 'pong', swim: 'swim', clap: 'clapping', tv: 'tv', read: 'reading', phone: 'phone', walk: 'walking',
+    lie: b.goal && b.goal.home ? 'sleeping' : 'resting' }[st] || 'standing';
+}
+// The scene that only changes with the building: the sky, the ground, the floors and what is in them, the
+// residence. Drawn again when the building changes (poll()) or the window does
+// 건물이 바뀔 때만 바뀌는 장면: 하늘, 땅, 층과 그 안의 것, 아파트. 건물이 바뀌거나 (poll()) 창이 바뀌면 다시 그린다
+function flatScene() {
+  if (!W.floors.length) return;
+  const VW = innerWidth, VH = innerHeight, top = W.floors.length * FH + 1.6;
+  const resTop = W.res && W.res.cells.length ? Math.max(...W.res.cells.map(c => c.yc)) + RES.r * 1.2 : 0;
+  const bar = VW > 900 ? 250 : 0;   // the floor bar on the right / 오른쪽 층 표시줄
+  flat.k = Math.min((VW - 32 - bar) / (FX1 - FX0), (VH - 96 - 110) / Math.max(top, resTop));
+  flat.ox = (VW - bar - (FX1 - FX0) * flat.k) / 2; flat.gy = VH - 110; flat.band = FH * flat.k;
+  const k = flat.k, gy = flat.gy, out = [];
+  const R = (x0, y0, x1, y1, fill, extra = '') => `<rect x="${sxOf(x0)}" y="${syOf(y1)}" width="${(x1 - x0) * k}" height="${(y1 - y0) * k}" fill="${fill}" ${extra}/>`;
+  const T = (x, y, text, cls = 'f-l', anchor = 'middle') => `<text x="${sxOf(x)}" y="${syOf(y)}" class="${cls}" text-anchor="${anchor}">${escape(text)}</text>`;
+  // sky, sun or moon, clouds, hills, the ground and the plaza / 하늘, 해나 달, 구름, 언덕, 땅과 광장
+  out.push(`<rect id="f-sky" x="0" y="0" width="${VW}" height="${VH}" fill="#bfe3f5"/><g id="f-sun"></g>`);
+  for (const [cx, cy, sc] of [[VW * .18, 150, 1], [VW * .5, 120, .8], [VW * .78, 210, .7]]) out.push(`<path class="f-cloud" d="M${cx - 50 * sc} ${cy} q0 -26 26 -26 q8 -22 34 -18 q22 -10 34 12 q24 0 24 32z" fill="#fff" ${ink}/>`);
+  out.push(`<path id="f-hill" d="M0 ${gy - 30} q${VW * .12} -60 ${VW * .25} -8 q${VW * .16} -70 ${VW * .33} 0 q${VW * .18} -60 ${VW * .42} -8 V${gy} H0z" fill="#b5d79a"/>`);
+  out.push(`<rect id="f-grass" x="0" y="${gy}" width="${VW}" height="${VH - gy}" fill="#9fc483"/><path d="M0 ${gy} H${VW}" ${ink}/>`);
+  out.push(`<rect x="0" y="${gy + 14}" width="${VW}" height="70" fill="#e3ded4"/><path d="M0 ${gy + 14} H${VW} M0 ${gy + 84} H${VW}" stroke="#2a241d" stroke-width="1.6"/>`);
+  // the building: a band per floor, the slabs, the columns, the lift shaft / 건물: 층마다 띠, 슬래브, 기둥, 엘리베이터 통로
+  const fills = { lobby: '#f9f2e2', work: '#f6f1e6', team: '#eef3f1' };
+  W.floors.forEach(F => {
+    const y = F.y;
+    if (F.kind !== 'roof') {
+      out.push(`<g class="f-band" data-f="${F.i}">` + R(X0, y, X1, y + FH, fills[F.kind] || '#f6f1e6') +
+        [X0 + .4, -5.4, 5.4, X1 - .4].map(x => R(x - .22, y, x + .22, y + FH, '#e4dccb')).join('') +
+        R(-2.6, y, 2.6, y + FH, '#dfe8ee', ink) + [-11, -5, 5, 11].map(x => `<path d="M${sxOf(x)} ${syOf(y + FH)} v8" stroke="#2a241d" stroke-width="2"/><path class="f-lamp" d="M${sxOf(x) - 9} ${syOf(y + FH) + 16} q9 -11 18 0z" fill="#fff4d6" ${ink}/>`).join('') +
+        `<text x="${sxOf(X0 + .8)}" y="${syOf(y + FH) + 18}" class="f-l">${F.i + 1}F ${escape(F.label || '')}</text></g>`);
+    }
+    out.push(R(X0 - .3, y - .3, X1 + .3, y, '#c9bba2', ink));
+  });
+  const roofY = W.floors[W.floors.length - 1].y;
+  out.push(`<rect x="${sxOf(X0)}" y="${syOf(roofY)}" width="${(X1 - X0) * k}" height="${roofY * k}" fill="none" ${ink}/>`);
+  // per kind of floor / 층 종류마다
+  for (const F of W.floors) {
+    const y = F.y, deep = z => -back(z) * flat.band * .22;
+    if (F.kind === 'lobby') {
+      out.push(R(-16, y, -14.2, y + 1.05, '#8d6544', ink) + R(-16.2, y + 1.05, -14, y + 1.25, '#2b2f36') + T(-15.6, y + 2.2, 'HONEY CAFE', 'f-l', 'start'));
+      // the honey wall at the back: today's honey in its comb (flatFrame) / 뒤쪽 꿀 벽: 오늘의 꿀이 벌집에 (flatFrame)
+      out.push(`<g transform="translate(0 ${deep(-5.7)})"><g id="f-comb">${R(-7.9, y + 1.2, -2.9, y + 3.3, '#3b2a12', ink)}</g></g>`);
+      out.push(`<g transform="translate(0 ${deep(-6.6)})">` + R(-11.97, y + .74, -9.23, y + .82, '#2f8f5b', ink) + [-11.8, -9.4].map(x => R(x - .05, y, x + .05, y + .74, '#2a241d')).join('') + '</g>');
+      out.push(`<g transform="translate(0 ${deep(4.6)})">` + R(-1.8, y, 1.8, y + 1.05, '#fff', ink) + '</g>');
+      out.push(`<g transform="translate(0 ${deep(2.1)})">` + R(8.9, y, 11.9, y + .55, '#5b78ad', ink) + R(8.9, y, 9.2, y + 1, '#5b78ad', ink) + R(11.6, y, 11.9, y + 1, '#5b78ad', ink) + '</g>');
+    } else if (F.kind === 'work') {
+      // the meeting room and the boss's office at the back / 뒤쪽의 회의실과 사장실
+      out.push(`<g transform="translate(0 ${deep(-7.2)})">` + R(-15.6, y, -6.4, y + 2.9, 'rgba(127,179,200,.12)', 'stroke="#7fb3c8" stroke-width="2.4"') + R(-15.3, y + 1.2, -12.6, y + 2.5, '#fff', ink) +
+        `<path d="M${sxOf(-15)} ${syOf(y + 2.1)} h${k * 1.6} M${sxOf(-15)} ${syOf(y + 1.75)} h${k * 2.1} M${sxOf(-15)} ${syOf(y + 1.45)} h${k * 1.2}" stroke="#2f7fe0" stroke-width="2.4"/>` +
+        T(-9.4, y + 2.35, tr('회의실', 'Meeting room'), 'f-s') +
+        R(6.4, y, 15.6, y + 2.9, 'rgba(242,182,50,.10)', 'stroke="#c48a10" stroke-width="2.4"') + R(10.4, y, 12.8, y + .76, '#8d6544', ink) + T(9, y + 2.35, tr('사장실', "Boss's office"), 'f-s') + '</g>');
+    } else if (F.kind === 'team') {
+      for (const room of W.rooms.values()) if (room.floor === F.i) {
+        const xs = room.seats.map(t => t.x), x0 = Math.min(...xs) - 3, x1 = Math.max(...xs) + 1;
+        out.push(`<g transform="translate(0 ${deep(room.seats[0].z)})">${R(x0, y, x1, y + 2.9, 'rgba(127,179,200,.12)', 'stroke="#7fb3c8" stroke-width="2.4"')}` +
+          R(x0 + .4, y + 1.1, x0 + 2.7, y + 2.6, '#fff', ink) + T(x0 + 1.55, y + 1.7, [...room.team.name].length > 9 ? [...room.team.name].slice(0, 8).join('') + '…' : room.team.name, 'f-s') + T((x0 + x1) / 2, y + 3.3, room.team.project, 'f-s') + '</g>');
+      }
+    } else if (F.kind === 'roof') {
+      out.push(R(X0, y, X1, y + .3, '#b98a5e', ink) + `<path d="M${sxOf(X0)} ${syOf(y + 1.2)} H${sxOf(X1)}" stroke="#9fb8c8" stroke-width="3"/>`);
+      out.push(R(3.6, y + .3, 14.6, y + .9, '#7fd0e6', ink) + R(9.2, y + .3, 11.8, y + 1, '#c9c4ba', ink));
+      out.push(R(-2.6, y, 2.6, y + FH * .62, '#dfe8ee', ink) + T(0, y + FH * .62 + .6, 'hivemux', 'f-l f-roofsign'));
+      // the pub under its glass roof, and the fire pit / 유리 지붕 아래 펍, 불멍 자리
+      out.push(`<g transform="translate(0 ${deep(-6)})">`);
+      out.push(`<path d="M${sxOf(-15.4)} ${syOf(y)} V${syOf(y + PUB_ROOF)} M${sxOf(-4.4)} ${syOf(y)} V${syOf(y + PUB_ROOF)}" stroke="#9a6a43" stroke-width="5"/><path d="M${sxOf(-15.8)} ${syOf(y + PUB_ROOF)} H${sxOf(-4)}" stroke="#9fb8c8" stroke-width="5"/><path d="M${sxOf(-15.8)} ${syOf(y + PUB_ROOF) + 3} H${sxOf(-4)}" stroke="#2a241d" stroke-width="1.6"/>`);
+      out.push(R(-14.2, y, -5.6, y + 1.1, '#8d6544', ink) + `<text x="${sxOf(-9.9)}" y="${syOf(y + PUB_ROOF - .7)}" class="f-l" text-anchor="middle">HONEY PUB</text>` + '</g>');
+      out.push(`<ellipse cx="${sxOf(-9.6)}" cy="${syOf(y) + 2}" rx="${.7 * k}" ry="5" fill="#c9c4ba" ${ink}/><path d="M${sxOf(-9.6) - 6} ${syOf(y) - 1} q6 -18 12 0z" fill="#ff8a2a"/>`);
+    }
+  }
+  // the Hive Residence: a cell per bee and its base with the name / 벌집 아파트: 벌마다 칸, 이름 붙은 바닥
+  if (W.res && W.res.cells.length) {
+    const xs = W.res.cells.map(c => c.x), base = RES.base;
+    out.push(R(Math.min(...xs) - RES.r - .4, 0, Math.max(...xs) + RES.r + .4, base, '#fffaf0', ink) + T((Math.min(...xs) + Math.max(...xs)) / 2, base / 2 - .3, 'HIVE RESIDENCE'));
+    W.res.cells.forEach((c, n) => {
+      const pts = [0, 1, 2, 3, 4, 5].map(j => `${sxOf(c.x) + RES.r * Math.cos(Math.PI / 3 * j) * k},${syOf(c.yc + RES.r * Math.sin(Math.PI / 3 * j))}`).join(' ');
+      out.push(`<polygon class="f-cell" data-n="${n}" points="${pts}" fill="#f7f3ea" stroke="#c48a10" stroke-width="${Math.max(3, k * .22)}"/>`);
+      if (c.who && c.who.left) out.push(T(c.x, c.yc - .2, tr('빈집', 'VACANT'), 'f-vac'));
+    });
+  }
+  for (const x of [X0 - 1.6, X1 + 3, FX1 - 1]) out.push(`<path d="M${sxOf(x)} ${gy} v-26" stroke="#7a5638" stroke-width="7"/><circle cx="${sxOf(x)}" cy="${gy - 40}" r="20" fill="#4f9a5a" ${ink}/><circle cx="${sxOf(x) - 13}" cy="${gy - 30}" r="12" fill="#3f8a4c" ${ink}/>`);
+  out.push(`<g id="f-rain"></g><g id="f-bees"></g><g id="f-tags"></g>`);
+  flat.svg.setAttribute('viewBox', `0 0 ${VW} ${VH}`);
+  flat.svg.innerHTML = out.join('');
+  for (const b of bees.values()) if (b.f2) b.f2.el = null, b.f2.art = '';
+  if (W.bartender && W.bartender.f2) W.bartender.f2.el = null, W.bartender.f2.art = '';
+  flat.order = ''; flat.skyAt = 0; flat.comb = -1; flat.tagsAt = 0;
+}
+// where a bee stands on the picture, before spreading / 벌이 그림에서 설 자리 (벌리기 전)
+function place2d(b) {
+  const inside = b.riding || (b.floor >= 0 && b.pos.x > X0 - .2 && b.pos.x < X1 + .2 && b.pos.z > Z0 - .2 && b.pos.z < Z1 + .2);
+  if (inside) return { x: sxOf(b.pos.x), y: syOf(b.y) - (b.riding ? 0 : back(b.pos.z) * flat.band * .22), row: b.riding ? 'lift' : b.floor, z: b.pos.z, s: 1 };
+  if (b.y > .2) return { x: sxOf(b.pos.x), y: syOf(b.y), row: 'res', z: 0, s: .55 };     // up at or in a flat / 칸에 있거나 오르내리는 중
+  const u = Math.min(1, Math.max(0, (b.pos.z - Z1) / (PLAZA_Z - Z1)));                       // the plaza, in front / 앞의 광장
+  return { x: sxOf(b.pos.x), y: flat.gy + 20 + u * 58, row: 'plaza', z: 30 + b.pos.z, s: .92 };
+}
+function flatFrame(t, dt) {
+  const layer = $('#f-bees'); if (!layer) return;
+  const all = [...bees.values()]; if (W.bartender) all.push(W.bartender);
+  const size = flat.band * .52 / 100, rows = new Map();
+  for (const b of all) {
+    const p = place2d(b);
+    if (!b.f2) b.f2 = { x: p.x, y: p.y, el: null, art: '' };
+    Object.assign(b.f2, { tx: p.x, ty: p.y, row: p.row, z: p.z, s: p.s * size * (typeof p.row === 'number' ? .9 + .1 * (1 - back(p.z)) : 1) });
+    // only bees standing or sitting still are spread; one walking keeps its place / 가만히 있는 벌만 벌린다. 걷는 벌은 제자리
+    if (!b.moving && !b.riding && typeof p.row === 'number') { if (!rows.has(p.row)) rows.set(p.row, []); rows.get(p.row).push(b); }
+  }
+  const gap = 66 * size, left = sxOf(X0 + .9), right = sxOf(X1 - .9);
+  for (const list of rows.values()) {
+    list.sort((a, c) => a.f2.tx - c.f2.tx);
+    for (let it = 0; it < 40; it++) {
+      let moved = false;
+      for (let n = 1; n < list.length; n++) {
+        const a = list[n - 1].f2, c = list[n].f2, d = c.tx - a.tx;
+        if (d < gap - .5) { const push = (gap - d) / 2; a.tx -= push; c.tx += push; moved = true; }
+      }
+      for (const b of list) b.f2.tx = Math.min(right, Math.max(left, b.f2.tx));
+      if (!moved) break;
+    }
+    // neighbours' name tags take turns up and down / 이웃 이름표는 번갈아 위아래
+    list.forEach((b, n) => { b.f2.lift = n % 2 && list.length > 1 ? 21 : 0; });
+  }
+  for (const b of all) if (!rows.has(b.f2.row) || b.moving) b.f2.lift = 0;
+  const ease = Math.min(1, dt * 7);
+  for (const b of all) {
+    const f = b.f2;
+    f.x += (f.tx - f.x) * ease; f.y += (f.ty - f.y) * ease;
+    if (Math.hypot(f.tx - f.x, f.ty - f.y) > 300) { f.x = f.tx; f.y = f.ty; }   // a jump across the picture: no gliding / 그림을 가로지르는 이동: 미끄러지지 않고
+    const pose = pose2d(b), left = b.moving || b.flying ? Math.sin(b.facing) < -.1 : !!(b.goal && b.goal.look && b.goal.look[0] < -.1);
+    const art = `${pose}|${left}`;
+    if (!f.el) { f.el = document.createElementNS('http://www.w3.org/2000/svg', 'g'); f.el.setAttribute('class', 'f-bee'); if (b.s) f.el.dataset.bee = b.key; }
+    if (f.art !== art) {
+      f.art = art; f.left = left;
+      f.el.innerHTML = BEE2D.pose[pose](b.s ? look2d(b) : { tone: '#ffd34d', hair: 2, hairColor: '#2a1f1a', hat: '', glasses: false, shirt: '#2b2f36' }).replace('<svg ', '<svg width="110" height="100" ');
+    }
+    f.el.setAttribute('transform', f.left ? `translate(${f.x + 45 * f.s} ${f.y - 100 * f.s}) scale(${-f.s} ${f.s})` : `translate(${f.x - 45 * f.s} ${f.y - 100 * f.s}) scale(${f.s})`);
+    f.el.style.opacity = focus === null || f.row === focus || f.row === 'lift' ? '' : '.3';
+  }
+  // further back first / 뒤에 있는 것부터
+  const order = all.slice().sort((a, c) => a.f2.y - c.f2.y), sig = order.map(b => b.key).join();
+  if (sig !== flat.order) {
+    flat.order = sig;
+    for (const b of order) layer.append(b.f2.el);
+    for (const el of [...layer.children]) if (!order.some(b => b.f2.el === el)) el.remove();
+  }
+  // name tags and why a bee waits, a few times a second / 이름표와 기다리는 까닭, 1초에 몇 번
+  if (t - flat.tagsAt > .25) {
+    flat.tagsAt = t;
+    const tags = [];
+    for (const b of bees.values()) {
+      const st = b.s.state, f = b.f2; if (!f || st === 'home' || (st === 'idle' && b !== hover)) continue;
+      if (st === 'run' && b !== hover && focus !== f.row && (rows.get(f.row) || []).length > 6) continue;
+      const full = (b.s.lead ? '★ ' : '') + tagName(b.s), name = [...full].length > 14 ? [...full].slice(0, 13).join('') + '…' : full;
+      const w = Math.max(30, [...name].length * 7 + 18), y = f.y - 104 * f.s - (f.lift || 0);
+      const c = { run: '#2f7fe0', wait: '#e8890c', done: '#2fa37a' }[st] || '#8a90a0';
+      tags.push(`<g transform="translate(${f.x} ${y})" class="f-tag"><rect x="${-w / 2}" y="-15" width="${w}" height="19" rx="9.5" fill="#fff" stroke="${c}" stroke-width="1.8"/><text x="0" y="-1.5" text-anchor="middle">${escape(name)}</text></g>`);
+      const why = st === 'wait' && whyOf(b.s);
+      if (why) tags.push(`<g transform="translate(${f.x + 14} ${y - 22})" class="f-why" data-bee="${b.key}"><rect x="0" y="-18" width="${[...why.label].length * 9 + 34}" height="22" rx="8" fill="#fff" stroke="#e8890c" stroke-width="2"/><text x="8" y="-2.5">${why.icon} ${escape(why.label)}</text></g>`);
+    }
+    $('#f-tags').innerHTML = tags.join('');
+    // the honey wall fills with today's honey / 꿀 벽이 오늘의 꿀만큼 찬다
+    const comb = $('#f-comb'), F = W.floors.find(F => F.kind === 'lobby');
+    if (comb && F && flat.comb !== honey % 48) {
+      flat.comb = honey % 48; const r = .17 * flat.k, cells = [];
+      for (let q = 0; q < 48; q++) { const row = Math.floor(q / 12), col = q % 12;
+        cells.push(`<circle cx="${sxOf(-7.6 + col * .4 + (row % 2) * .2)}" cy="${syOf(F.y + 3 - row * .45)}" r="${r}" fill="${q < flat.comb ? '#f6b42c' : '#5a4220'}"/>`); }
+      comb.innerHTML = comb.firstElementChild.outerHTML + cells.join('');
+    }
+  }
+  // the sky follows the real sun and the weather (daylight()); the lamps come on in the dark
+  // 하늘은 실제 해와 날씨를 따른다 (daylight()). 어두우면 등이 켜진다
+  if (t - flat.skyAt > 1) {
+    flat.skyAt = t;
+    const d = Math.max(0, Math.min(1, sky.day)), grey = Math.max(sky.over, sky.rain ? 1 : 0, sky.snow ? 1 : 0, sky.fog);
+    const mix = (a, c, u) => '#' + new THREE.Color(a).lerp(new THREE.Color(c), u).getHexString(), skyCol = mix(mix('#1d2740', '#bfe3f5', d), '#9aa6b2', grey * .6 * d);
+    $('#f-sky').setAttribute('fill', skyCol);
+    $('#f-grass').setAttribute('fill', mix('#3d5a3a', '#9fc483', .35 + d * .65)); $('#f-hill').setAttribute('fill', mix('#33502f', '#b5d79a', .35 + d * .65));
+    $('#f-sun').innerHTML = d > .3 ? `<circle cx="${innerWidth - 120}" cy="150" r="30" fill="#ffd34d" ${ink}/>` : `<circle cx="${innerWidth - 120}" cy="150" r="24" fill="#f4f1ea" ${ink}/><circle cx="${innerWidth - 110}" cy="143" r="20" fill="${skyCol}"/>`;
+    flat.svg.classList.toggle('f-dark', d < .35 || grey > .5);
+    const rain = $('#f-rain'), wet = sky.rain > 0 || sky.snow > 0;
+    if (rain && wet !== !!rain.firstChild) rain.innerHTML = wet
+      ? Array.from({ length: 80 }, (_, n) => { const x = (n * 97) % innerWidth, y = (n * 53) % flat.gy; return sky.rain > 0 ? `<path d="M${x} ${y} l-4 14" stroke="#7d93a8" stroke-width="1.6"/>` : `<circle cx="${x}" cy="${y}" r="2.4" fill="#fff"/>`; }).join('') : '';
+    if (rain) rain.setAttribute('class', sky.rain > 0 ? 'f-fall' : sky.snow > 0 ? 'f-fall f-slow' : '');
+    for (const c of document.querySelectorAll('.f-cell')) { const cell = W.res && W.res.cells[+c.dataset.n]; c.setAttribute('fill', cell && cell.glow.visible ? '#fff1c4' : '#f7f3ea'); }
+  }
+}
+if (FLAT) {
+  canvas.hidden = true; $('#labels').hidden = true; flat.svg.removeAttribute('hidden'); controls.enabled = false;   // an SVG has no .hidden / SVG 에는 .hidden 이 없다
+  // no WebGL 2 here: 3D can't be picked, and the setting says why / WebGL 2 가 없다: 3D 는 고를 수 없고 설정이 까닭을 말한다
+  if (!GL2) { const r = panel.querySelector('input[name="view"][value="3d"]'); r.disabled = true; panel.querySelector('input[name="view"][value="2d"]').checked = true; $('#view-note').hidden = false; }
+  document.body.classList.add('flat');
+  // a bee: a waiting one shows its question to answer here, the others open their window / 벌: 기다리는 벌은 여기서 답할 질문을, 나머지는 그 창을 연다
+  const beeAt = e => { const el = e.target.closest && e.target.closest('[data-bee]'); return el ? bees.get(el.dataset.bee) : null; };
+  flat.svg.addEventListener('pointermove', e => showTip(beeAt(e), e));
+  flat.svg.addEventListener('pointerleave', () => showTip(null));
+  flat.svg.addEventListener('click', e => { const b = beeAt(e); if (b) b.s.state === 'wait' ? openPop(b, true) : visit(b); });
+  addEventListener('resize', () => { if (W.floors.length) flatScene(); });
+}
+
 // ── the loop / 루프 ─────────────────────────────────────────────────────────────────────────────────────
 function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); labels.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); }
 addEventListener('resize', resize); resize();
@@ -2151,7 +2383,7 @@ function frame() {
   for (const F of W.floors) F.group.position.y = lift(F.y);
   space(t, dt);
   controls.update();
-  weather(t, dt, camera.position.distanceTo(controls.target) < 200);
+  if (!FLAT) weather(t, dt, camera.position.distanceTo(controls.target) < 200);
   if (!reduced) TV_ON.color.setHSL(.58 + Math.sin(t * .7) * .1, .45, .62 + Math.sin(t * 5.3) * Math.sin(t * 2.1) * .1);
   if (t - codeAt > .12 && !reduced) { codeAt = t; for (const d of W.desks.values()) if (d.scr) d.scr.map.offset.y -= .012; }
   const dist = camera.position.distanceTo(controls.target);
@@ -2180,7 +2412,7 @@ function frame() {
   for (const list of W.flames) if (list) list.forEach((f, k) => { f.scale.set(1, .8 + Math.sin(t * 9 + k * 2) * .2 + Math.sin(t * 13 + k) * .1, 1); });
   if (W.bartender) { const bt = W.bartender; animate(bt, t, dt); bt.g.visible = floorShown(bt.floor); }
   for (const F of W.floors) F.group.traverse(o => { if (o.isCSS2DObject && o.userData.floorLabel !== undefined) o.visible = focus === o.userData.floorLabel; });
-  renderer.render(scene, camera); labels.render(scene, camera);
+  if (FLAT) flatFrame(t, dt); else { renderer.render(scene, camera); labels.render(scene, camera); }
   requestAnimationFrame(frame);
 }
 function pong(t) {   // the ball flies while both ends are taken / 양쪽에 다 서 있으면 공이 오간다
@@ -2193,12 +2425,12 @@ function pong(t) {   // the ball flies while both ends are taken / 양쪽에 다
 }
 
 document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
-$('#hint').textContent = tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · E: 층 펼치기 · H: 아파트 · L: 목록 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · E: spread · H: residence · L: list · Esc: whole');
+$('#hint').textContent = FLAT ? tr('벌을 누르면 그 창으로 · 기다리는 벌은 여기서 답하기 · 1~9: 층 · L: 목록 · Esc: 전체', 'Click a bee to open its window · a waiting one to answer here · 1–9: floor · L: list · Esc: whole') : tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · E: 층 펼치기 · H: 아파트 · L: 목록 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · E: spread · H: residence · L: list · Esc: whole');
 camera.position.set(52, 46, 64); controls.target.set(0, 5, 3);
 { const f = /[#&]f=(\d+)/.exec(location.hash); if (f) focus = +f[1]; }   // #f=1 opens on a floor / #f=1 은 그 층으로 연다
 ground(); daylight(); setInterval(daylight, 20000);
 await poll(); setInterval(poll, 1500);
 setDrawer(drawerOpen);
 document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
-$('#hint').textContent = tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · E: 층 펼치기 · H: 아파트 · L: 목록 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · E: spread · H: residence · L: list · Esc: whole');
+$('#hint').textContent = FLAT ? tr('벌을 누르면 그 창으로 · 기다리는 벌은 여기서 답하기 · 1~9: 층 · L: 목록 · Esc: 전체', 'Click a bee to open its window · a waiting one to answer here · 1–9: floor · L: list · Esc: whole') : tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · E: 층 펼치기 · H: 아파트 · L: 목록 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · E: spread · H: residence · L: list · Esc: whole');
 frame();

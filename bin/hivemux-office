@@ -724,7 +724,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             with open(os.path.join(SHARE, page), "rb") as f:
                 return self.send(200, f.read(), "text/html; charset=utf-8")
         # the office as a building / 건물로 본 사무실
-        if path == "/building.js":
+        if path in ("/building.js", "/bees2d.js"):   # the 2D office's bees too / 2D 사무실의 벌도
             with open(os.path.join(SHARE, path[1:]), "rb") as f:
                 return self.send(200, f.read(), "text/javascript; charset=utf-8")
         if path.startswith("/vendor/"):    # three.js for the 3D office, served from share/office/vendor / 3D 사무실용 three.js

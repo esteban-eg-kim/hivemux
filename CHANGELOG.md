@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- The bee office in 2D: a cartoon cross-section of the same building (every floor, the roof and the Hive
+  Residence on one screen) with flat cartoon bees doing what the 3D ones do: typing, waiting with a hand up,
+  holding honey, resting, playing ping-pong, swimming, a beer at the pub, TV, a book or the phone at home.
+  It opens by itself where there is no WebGL 2 (a virtual machine without a GPU), and ⚙ → View switches
+  between the 3D building and 2D anywhere. The cards, the list and clocking out work the same.
+
 ## 0.1.66 — 2026-11-18
 
 - The classic drawn office is gone: the bee office is the 3D building, which has everything it had. Old

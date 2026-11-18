@@ -206,6 +206,28 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
 /* a hand-off between team bees: what the letter says, over the one who gets it / 팀 벌 사이 넘김: 받는 벌 위에 편지 내용 */
 .say3d { max-width: 240px; padding: 5px 10px; border-radius: 10px; background: var(--panel); color: var(--fg); font: 600 12.5px var(--f-body); box-shadow: 0 3px 12px rgba(0, 0, 0, .18); transform: translateY(-40px); white-space: normal; text-align: center; }
 .nogl { position: fixed; inset: 0; margin: auto; height: fit-content; max-width: min(460px, calc(100vw - 32px)); padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--fg); font-size: 14px; line-height: 1.55; z-index: 50; }
+/* 2D: the building as a cartoon cross-section (building.js "2D") / 2D: 카툰 단면으로 본 건물 */
+#flat { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+#flat[hidden], #pop2d:empty { display: none; }
+#flat .f-l { font: 700 13px var(--f-body); fill: #2a241d; }
+#flat .f-s { font: 600 11.5px var(--f-body); fill: #2a241d; }
+#flat .f-pub { font: 800 12px var(--f-body); fill: #ffd36b; }
+#flat .f-vac { font: 800 11px var(--f-body); fill: #b33a2a; }
+#flat .f-bee { cursor: pointer; }
+#flat .f-tag text, #flat .f-why text { font: 700 11px var(--f-body); fill: #2a241d; }
+#flat .f-why { cursor: pointer; }
+#flat.f-dark .f-lamp { fill: #ffd56a; }
+#flat.f-dark .f-cloud { fill: #56607a; }
+#flat.f-dark .f-roofsign { fill: #e6e9ef; }
+#flat.f-dark .f-band > rect:first-child { filter: brightness(.96); }
+#flat .f-fall { animation: fall 1s linear infinite; }
+#flat .f-fall.f-slow { animation-duration: 6s; }
+@keyframes fall { from { transform: translateY(-60px); } to { transform: translateY(60px); } }
+@media (prefers-reduced-motion: reduce) { #flat .f-fall { animation: none; } }
+body.flat .floors .spread, body.flat #homeview { display: none; }
+#pop2d { width: 100%; height: 100%; display: grid; place-items: center; }
+#pop2d svg { width: 86%; height: auto; }
+body.flat #popcv { display: none; }
 .lost { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); z-index: 40; background: var(--alert); color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 13px; max-width: calc(100vw - 32px); }
 .check { display: flex; gap: 8px; align-items: center; font-size: 13px; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .pop, .pop-card, .tb.hot { animation: none; } .pop-bee .ring { animation: none !important; } }
@@ -213,6 +235,7 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
 </head>
 <body>
 <canvas id="gl" aria-label="벌 사무실 건물"></canvas>
+<svg id="flat" hidden role="img" aria-label="벌 사무실: 건물 단면"></svg>
 <div id="labels"></div>
 <header class="top glass">
   <span class="brand"><img src="/logo.svg" alt="" width="22" height="22">hivemux</span>
@@ -230,6 +253,14 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
 </header>
 <form class="settings glass" id="settings" hidden>
   <div class="updrow" id="updrow" hidden><span id="updrow-t"></span><button type="button" id="updbtn" data-t="업데이트…|Update…"></button></div>
+  <fieldset>
+    <legend data-t="보기|View"></legend>
+    <div class="seg">
+      <label><input type="radio" name="view" value="3d"><span data-t="3D 건물|3D building"></span></label>
+      <label><input type="radio" name="view" value="2d"><span data-t="2D 카툰|2D cartoon"></span></label>
+    </div>
+    <p class="note" id="view-note" hidden data-t="이 컴퓨터는 3D 그래픽(WebGL 2)이 없어 2D 로 보여요.|This computer has no 3D graphics (WebGL 2), so the office is in 2D."></p>
+  </fieldset>
   <fieldset>
     <legend data-t="기다리는 세션이 생기면|When a session needs you"></legend>
     <div class="seg">
@@ -309,7 +340,7 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
 </aside>
 <div class="pop" id="pop" hidden>
   <div class="pop-box">
-    <div class="pop-bee" id="pop-bee"><div class="ring"></div><canvas id="popcv" width="300" height="300"></canvas></div>
+    <div class="pop-bee" id="pop-bee"><div class="ring"></div><canvas id="popcv" width="300" height="300"></canvas><div id="pop2d"></div></div>
     <div class="pop-card">
       <div class="pop-h" id="pop-h"></div>
       <div class="pop-r" id="pop-r"></div>
@@ -324,6 +355,7 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
 </div>
 <div class="shift" id="upd" hidden><div class="shift-card" role="dialog" aria-labelledby="upd-q"><p id="upd-q"></p><p class="sub" id="upd-n"></p><div class="shift-act"><button type="button" id="upd-no" data-t="나중에|Later"></button><button type="button" class="go" id="upd-go" data-t="업데이트|Update"></button></div></div></div>
 <div class="shift" id="shift" hidden><div class="shift-card"><p id="shift-q"></p><p class="sub" id="shift-n"></p><div class="macs" id="shift-macs"></div><div class="shift-act"><button type="button" id="shift-no" data-t="닫기|Close"></button></div></div></div>
+<script src="/bees2d.js"></script>
 <script type="importmap">{ "imports": { "three": "/vendor/three.module.min.js", "three/addons/": "/vendor/addons/" } }</script>
 <script type="module" src="/building.js"></script>
 </body>

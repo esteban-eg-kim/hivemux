@@ -202,6 +202,11 @@ a look of its own, at work in a glass office building in 3D:
   project names for screen sharing, the real sun or always day or night, the
   office lights at night, going to the floor of a waiting bee, the list's side,
   and keep on top (`⌘T`).
+- **2D, where 3D is too much.** Without 3D graphics (WebGL 2: a virtual machine
+  without a GPU, an old browser) the office opens as a cartoon cross-section of
+  the same building: every floor, the roof and the Hive Residence on one screen,
+  the same bees doing the same things, the same cards to answer from. ⚙ → View
+  switches between the 3D building and 2D on any computer.
 - A bee's name tag shows the name you gave its session (`hivemux` rename or
   Claude's `/rename`); bees with none show the project, numbered `api #1`,
   `api #2` among themselves.
