@@ -107,8 +107,8 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
 .open .drawer { transform: none; visibility: visible; }
 .open:not(.left) .floors { right: calc(var(--drawer) + 16px); }
 .open:not(.left) .top { max-width: calc(100vw - var(--drawer) - 32px); }
-.open.left .top, .open.left .settings, .open.left .hint { left: calc(var(--drawer) + 16px); }
-.floors, .top, .settings, .hint { transition: left .25s, right .25s; }
+.open.left .top, .open.left .settings, .open.left .hint, .open.left .zoom2d { left: calc(var(--drawer) + 16px); }
+.floors, .top, .settings, .hint, .zoom2d { transition: left .25s, right .25s; }
 .d-head { display: flex; align-items: center; gap: 8px; padding: 14px 14px 10px; }
 .d-head span { font-size: 12px; color: var(--muted); }
 .d-head em { font-style: normal; color: var(--wait); font-weight: 700; }
@@ -223,7 +223,46 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
 #flat .f-fall { animation: fall 1s linear infinite; }
 #flat .f-fall.f-slow { animation-duration: 6s; }
 @keyframes fall { from { transform: translateY(-60px); } to { transform: translateY(60px); } }
-@media (prefers-reduced-motion: reduce) { #flat .f-fall { animation: none; } }
+/* the bees move while they stay put: wings, breath, typing hands, steps; --d puts each bee out of step
+   벌은 제자리에서도 움직인다: 날개, 숨, 타자 치는 손, 걸음. --d 로 벌마다 박자가 다르다 */
+#flat .f-bee * { animation-delay: var(--d, 0s); }
+#flat .f-bee .wg { transform-box: view-box; transform-origin: 34px 58px; animation: flap 1.6s ease-in-out infinite alternate; }
+#flat .f-bee .p-walking .wg { animation-duration: .12s; }
+#flat .f-bee .bd { animation: breathe 2.8s ease-in-out infinite; }
+#flat .f-bee .p-walking .bd { animation: hop .36s ease-in-out infinite; }
+#flat .f-bee .lg2 { opacity: 0; }
+#flat .f-bee .lg1 { animation: step .36s steps(1) infinite; }
+#flat .f-bee .lg2 { animation: step .36s steps(1) infinite reverse; }
+#flat .f-bee .p-typing .fa { animation: tap .2s ease-in-out infinite alternate; }
+#flat .f-bee .p-typing .hd { animation: nod 3.4s ease-in-out infinite; }
+#flat .f-bee .p-clapping .fa { animation: clap .28s ease-in-out infinite alternate; }
+#flat .f-bee .p-chat .fa, #flat .f-bee .p-board .fa { transform-box: view-box; transform-origin: 53px 61px; animation: wave .9s ease-in-out infinite alternate; }
+#flat .f-bee .p-beer .fa, #flat .f-bee .p-phone .fa { transform-box: view-box; transform-origin: 53px 61px; animation: sip 3s ease-in-out infinite; }
+#flat .f-bee .p-waiting .af { animation: ask 1.2s ease-in-out infinite; }
+#flat .f-bee .p-pong .ball { animation: ball .7s ease-in-out infinite alternate; }
+#flat .f-bee .p-sleeping .wg, #flat .f-bee .p-sleeping .bd { animation: none; }
+#flat .f-bee .zz { animation: zz 2.4s ease-in-out infinite; }
+#flat .f-cloud { animation: drift 40s ease-in-out infinite alternate; }
+@keyframes flap { from { transform: rotate(-6deg); } to { transform: rotate(8deg); } }
+@keyframes breathe { 50% { transform: translateY(-1.2px); } }
+@keyframes hop { 50% { transform: translateY(-3px); } }
+@keyframes step { 50% { opacity: 0; } }
+@keyframes tap { to { transform: translateY(-2.4px); } }
+@keyframes nod { 0%, 80%, 100% { transform: none; } 88% { transform: translateY(1.6px); } }
+@keyframes clap { to { transform: translate(-3px, 2px); } }
+@keyframes wave { to { transform: rotate(-14deg); } }
+@keyframes sip { 0%, 70%, 100% { transform: none; } 80%, 90% { transform: rotate(-12deg); } }
+@keyframes ask { 50% { transform: translateY(-3px); } }
+@keyframes ball { to { transform: translate(-10px, -12px); } }
+@keyframes zz { 0% { transform: translateY(4px); opacity: .2; } 50% { opacity: 1; } 100% { transform: translateY(-6px); opacity: .2; } }
+@keyframes drift { to { transform: translateX(60px); } }
+#flat.f-drag { cursor: grabbing; }
+.zoom2d { position: fixed; left: 16px; bottom: 64px; z-index: 20; display: none; flex-direction: column; border-radius: 10px; overflow: hidden; }
+body.flat .zoom2d { display: flex; }
+.zoom2d button { width: 34px; height: 32px; border: 0; background: transparent; color: var(--fg); font: 700 17px var(--f-body); cursor: pointer; }
+.zoom2d button + button { border-top: 1px solid var(--line); }
+.zoom2d button:hover { background: color-mix(in srgb, var(--fg) 8%, transparent); }
+@media (prefers-reduced-motion: reduce) { #flat .f-fall, #flat .f-bee *, #flat .f-cloud { animation: none !important; } #flat .f-bee .lg2 { opacity: 0; } }
 body.flat .floors .spread, body.flat #homeview { display: none; }
 #pop2d { width: 100%; height: 100%; display: grid; place-items: center; }
 #pop2d svg { width: 86%; height: auto; }
@@ -330,6 +369,7 @@ body.flat #popcv { display: none; }
 </form>
 <nav class="floors glass" id="floors" aria-label="층"></nav>
 <div class="hint glass" id="hint"></div>
+<div class="zoom2d glass" id="zoom2d"><button type="button" data-z="in" aria-label="확대">+</button><button type="button" data-z="out" aria-label="축소">−</button><button type="button" data-z="fit" aria-label="전체">⤢</button></div>
 <div class="tip glass" id="tip" hidden></div>
 <div class="toast glass" id="toast" hidden></div>
 <div class="lost" id="lost" hidden></div>

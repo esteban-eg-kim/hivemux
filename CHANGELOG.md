@@ -7,6 +7,8 @@
   holding honey, resting, playing ping-pong, swimming, a beer at the pub, TV, a book or the phone at home.
   It opens by itself where there is no WebGL 2 (a virtual machine without a GPU), and ⚙ → View switches
   between the 3D building and 2D anywhere. The cards, the list and clocking out work the same.
+  The bees move where they are (wings, breath, typing hands, steps), and the picture zooms: the wheel,
+  a pinch, + / − or the buttons, a drag to move, a floor (1–9 or a click) to fill the window.
 
 ## 0.1.66 — 2026-11-18
 

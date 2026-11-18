@@ -1364,6 +1364,8 @@ function applyFocus(instant) {
   document.querySelectorAll('#floors button[data-f]').forEach(btn => btn.setAttribute('aria-pressed', String(btn.dataset.f === String(focus))));
   const sp = $('#spread'); if (sp) sp.setAttribute('aria-pressed', String(spread));
   const hv = $('#homeview'); if (hv) hv.setAttribute('aria-pressed', String(view === 'home'));
+  // a new building (instant) keeps the zoom the viewer chose / 건물이 바뀌어도 (instant) 고른 확대는 그대로
+  if (FLAT && W.floors.length && flat.svg.firstChild && (!instant || !flat.zoomed)) { flat.zoomed = true; zoomFocus(instant); }
 }
 let fly = null;
 function drawFloorBar() {
@@ -2151,7 +2153,8 @@ function space(t, dt) {
 const GAP0 = X1 + 1.5, GAP1 = RES.x0 - RES.r - 1, GAP = 3.5;
 const squeeze = x => x <= GAP0 ? x : x >= GAP1 ? x - (GAP1 - GAP0 - GAP) : GAP0 + (x - GAP0) * GAP / (GAP1 - GAP0);
 const FX0 = X0 - 2.5, FX1 = squeeze(RES.x0 + (RES.cols - 1) * 1.5 * RES.r + RES.r + 2.5), PLAZA_Z = 26;
-const flat = { svg: $('#flat'), k: 20, ox: 0, gy: 600, band: 100, order: '', tagsAt: 0, skyAt: 0, comb: -1, labels: [] };
+const flat = { svg: $('#flat'), k: 20, ox: 0, gy: 600, band: 100, order: '', tagsAt: 0, skyAt: 0, comb: -1, labels: [],
+  view: { x: 0, y: 0, z: 1 }, to: { x: 0, y: 0, z: 1 }, vb: '' };   // the zoom: the corner and scale of the picture shown / 확대: 보이는 그림의 모서리와 배율
 const hex = c => '#' + new THREE.Color(c).getHexString();
 const ink = 'stroke="#2a241d" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"';
 const sxOf = x => flat.ox + (squeeze(x) - FX0) * flat.k;
@@ -2254,8 +2257,8 @@ function flatScene() {
   }
   for (const x of [X0 - 1.6, X1 + 3, FX1 - 1]) out.push(`<path d="M${sxOf(x)} ${gy} v-26" stroke="#7a5638" stroke-width="7"/><circle cx="${sxOf(x)}" cy="${gy - 40}" r="20" fill="#4f9a5a" ${ink}/><circle cx="${sxOf(x) - 13}" cy="${gy - 30}" r="12" fill="#3f8a4c" ${ink}/>`);
   out.push(`<g id="f-rain"></g><g id="f-bees"></g><g id="f-tags"></g>`);
-  flat.svg.setAttribute('viewBox', `0 0 ${VW} ${VH}`);
   flat.svg.innerHTML = out.join('');
+  zoomTo(flat.to, true);
   for (const b of bees.values()) if (b.f2) b.f2.el = null, b.f2.art = '';
   if (W.bartender && W.bartender.f2) W.bartender.f2.el = null, W.bartender.f2.art = '';
   flat.order = ''; flat.skyAt = 0; flat.comb = -1; flat.tagsAt = 0;
@@ -2270,6 +2273,7 @@ function place2d(b) {
 }
 function flatFrame(t, dt) {
   const layer = $('#f-bees'); if (!layer) return;
+  zoomStep(dt);
   const all = [...bees.values()]; if (W.bartender) all.push(W.bartender);
   const size = flat.band * .52 / 100, rows = new Map();
   for (const b of all) {
@@ -2300,10 +2304,13 @@ function flatFrame(t, dt) {
     if (Math.hypot(f.tx - f.x, f.ty - f.y) > 300) { f.x = f.tx; f.y = f.ty; }   // a jump across the picture: no gliding / 그림을 가로지르는 이동: 미끄러지지 않고
     const pose = pose2d(b), left = b.moving || b.flying ? Math.sin(b.facing) < -.1 : !!(b.goal && b.goal.look && b.goal.look[0] < -.1);
     const art = `${pose}|${left}`;
-    if (!f.el) { f.el = document.createElementNS('http://www.w3.org/2000/svg', 'g'); f.el.setAttribute('class', 'f-bee'); if (b.s) f.el.dataset.bee = b.key; }
+    if (!f.el) {
+      f.el = document.createElementNS('http://www.w3.org/2000/svg', 'g'); f.el.setAttribute('class', 'f-bee'); if (b.s) f.el.dataset.bee = b.key;
+      f.el.style.setProperty('--d', `-${hueOf(b.key) / 90}s`);   // each bee out of step with the others / 벌마다 박자가 다르게
+    }
     if (f.art !== art) {
       f.art = art; f.left = left;
-      f.el.innerHTML = BEE2D.pose[pose](b.s ? look2d(b) : { tone: '#ffd34d', hair: 2, hairColor: '#2a1f1a', hat: '', glasses: false, shirt: '#2b2f36' }).replace('<svg ', '<svg width="110" height="100" ');
+      f.el.innerHTML = BEE2D.pose[pose](b.s ? look2d(b) : { tone: '#ffd34d', hair: 2, hairColor: '#2a1f1a', hat: '', glasses: false, shirt: '#2b2f36' }).replace('<svg ', `<svg class="p-${pose}" width="110" height="100" `);
     }
     f.el.setAttribute('transform', f.left ? `translate(${f.x + 45 * f.s} ${f.y - 100 * f.s}) scale(${-f.s} ${f.s})` : `translate(${f.x - 45 * f.s} ${f.y - 100 * f.s}) scale(${f.s})`);
     f.el.style.opacity = focus === null || f.row === focus || f.row === 'lift' ? '' : '.3';
@@ -2317,23 +2324,25 @@ function flatFrame(t, dt) {
   }
   // name tags and why a bee waits, a few times a second / 이름표와 기다리는 까닭, 1초에 몇 번
   if (t - flat.tagsAt > .25) {
-    flat.tagsAt = t;
+    flat.tagsAt = t; const iz = 1 / flat.view.z;
     // what is taken, per level: room names first, then each tag as it goes / 높이마다 차지한 곳: 방 이름 먼저, 그다음 이름표마다
-    const tags = flat.labels.map(l => `<text x="${l.x0}" y="${l.y}" class="f-s">${escape(l.text)}</text>`), taken = flat.labels.map(l => ({ level: 0, y: l.y + 8, x0: l.x0, x1: l.x1 }));
+    const tags = flat.labels.map(l => `<text transform="translate(${l.x0} ${l.y}) scale(${iz})" class="f-s">${escape(l.text)}</text>`), taken = flat.labels.map(l => ({ level: 0, y: l.y + 8 * iz, x0: l.x0, x1: l.x0 + (l.x1 - l.x0) * iz }));
     const shown = [...bees.values()].filter(b => b.f2).sort((a, c) => a.f2.x - c.f2.x);
     for (const b of shown) {
       const st = b.s.state, f = b.f2; if (!f || st === 'home' || (st === 'idle' && b !== hover)) continue;
       if (st === 'run' && b !== hover && focus !== f.row && (rows.get(f.row) || []).length > 6) continue;
       const full = (b.s.lead ? '★ ' : '') + tagName(b.s), name = [...full].length > 14 ? [...full].slice(0, 13).join('') + '…' : full;
-      const w = Math.max(30, [...name].length * 7 + 18), base = f.y - 104 * f.s;
+      // a tag keeps its size on the screen when zoomed (iz): its width and steps in the picture shrink
+      // 확대해도 이름표는 화면에서 같은 크기 (iz): 그림 안의 폭과 단은 줄어든다
+      const w = Math.max(30, [...name].length * 7 + 18), ww = w * iz, base = f.y - 104 * f.s;
       let level = 0;
-      while (level < 3 && taken.some(e => e.level === level && Math.abs(e.y - base) < 30 && e.x0 < f.x + w / 2 + 4 && e.x1 > f.x - w / 2 - 4)) level++;
-      taken.push({ level, y: base, x0: f.x - w / 2, x1: f.x + w / 2 });
-      const y = base - level * 21;
+      while (level < 3 && taken.some(e => e.level === level && Math.abs(e.y - base) < 30 * iz && e.x0 < f.x + ww / 2 + 4 * iz && e.x1 > f.x - ww / 2 - 4 * iz)) level++;
+      taken.push({ level, y: base, x0: f.x - ww / 2, x1: f.x + ww / 2 });
+      const y = base - level * 21 * iz;
       const c = { run: '#2f7fe0', wait: '#e8890c', done: '#2fa37a' }[st] || '#8a90a0';
-      tags.push(`<g transform="translate(${f.x} ${y})" class="f-tag"><rect x="${-w / 2}" y="-15" width="${w}" height="19" rx="9.5" fill="#fff" stroke="${c}" stroke-width="1.8"/><text x="0" y="-1.5" text-anchor="middle">${escape(name)}</text></g>`);
+      tags.push(`<g transform="translate(${f.x} ${y}) scale(${iz})" class="f-tag"><rect x="${-w / 2}" y="-15" width="${w}" height="19" rx="9.5" fill="#fff" stroke="${c}" stroke-width="1.8"/><text x="0" y="-1.5" text-anchor="middle">${escape(name)}</text></g>`);
       const why = st === 'wait' && whyOf(b.s);
-      if (why) tags.push(`<g transform="translate(${f.x + 14} ${y - 22})" class="f-why" data-bee="${b.key}"><rect x="0" y="-18" width="${[...why.label].length * 9 + 34}" height="22" rx="8" fill="#fff" stroke="#e8890c" stroke-width="2"/><text x="8" y="-2.5">${why.icon} ${escape(why.label)}</text></g>`);
+      if (why) tags.push(`<g transform="translate(${f.x + 14 * iz} ${y - 22 * iz}) scale(${iz})" class="f-why" data-bee="${b.key}"><rect x="0" y="-18" width="${[...why.label].length * 9 + 34}" height="22" rx="8" fill="#fff" stroke="#e8890c" stroke-width="2"/><text x="8" y="-2.5">${why.icon} ${escape(why.label)}</text></g>`);
     }
     $('#f-tags').innerHTML = tags.join('');
     // the honey wall fills with today's honey / 꿀 벽이 오늘의 꿀만큼 찬다
@@ -2362,6 +2371,36 @@ function flatFrame(t, dt) {
     for (const c of document.querySelectorAll('.f-cell')) { const cell = W.res && W.res.cells[+c.dataset.n]; c.setAttribute('fill', cell && cell.glow.visible ? '#fff1c4' : '#f7f3ea'); }
   }
 }
+// Zoom and move: the viewBox shows part of the picture, from 1× (all of it) to 5×; the wheel, a pinch, a drag,
+// + / − and the buttons. A floor (1–9, or a click on it) zooms to it, Esc back to all of it
+// 확대와 옮기기: viewBox 가 그림의 일부를 보인다. 1배 (전부) 에서 5배까지. 휠, 두 손가락, 끌기, + / −, 버튼.
+// 층 (1~9 나 층 누르기) 은 그 층으로 확대하고 Esc 는 전부로 돌아간다
+function clampView(v) {
+  const z = Math.min(5, Math.max(1, v.z)), VW = innerWidth, VH = innerHeight;
+  return { z, x: Math.min(VW - VW / z, Math.max(0, v.x)), y: Math.min(VH - VH / z, Math.max(0, v.y)) };
+}
+function zoomTo(v, instant) { flat.to = clampView(v); if (instant) flat.view = { ...flat.to }; zoomStep(0); }
+function zoomStep(dt) {
+  const v = flat.view, to = flat.to, e = Math.min(1, dt * 8);
+  if (Math.abs(to.z - v.z) > .001 || Math.abs(to.x - v.x) > .1 || Math.abs(to.y - v.y) > .1) {
+    v.x += (to.x - v.x) * e; v.y += (to.y - v.y) * e; v.z += (to.z - v.z) * e; flat.tagsAt = 0;
+  } else Object.assign(v, to);
+  const vb = `${v.x.toFixed(1)} ${v.y.toFixed(1)} ${(innerWidth / v.z).toFixed(1)} ${(innerHeight / v.z).toFixed(1)}`;
+  if (vb !== flat.vb) { flat.vb = vb; flat.svg.setAttribute('viewBox', vb); }
+}
+// by f, keeping the point under (cx, cy) on the screen where it is / f 배로, 화면의 (cx, cy) 아래 점은 그 자리에
+function zoomBy(f, cx = innerWidth / 2, cy = innerHeight / 2, instant) {
+  const v = flat.to, wx = v.x + cx / v.z, wy = v.y + cy / v.z, z = Math.min(5, Math.max(1, v.z * f));
+  zoomTo({ z, x: wx - cx / z, y: wy - cy / z }, instant);
+}
+// the whole building, or one floor filling the window left of the floor bar / 건물 전체, 또는 층 표시줄 왼쪽을 채우는 한 층
+function zoomFocus(instant) {
+  const F = focus !== null && W.floors[focus];
+  if (!F) return zoomTo({ x: 0, y: 0, z: 1 }, instant);
+  const bar = innerWidth > 900 ? 250 : 0, x0 = sxOf(X0) - 16, x1 = sxOf(X1) + 16, y0 = syOf(F.y + FH) - 46, y1 = syOf(F.y) + 14;
+  const z = Math.min((innerWidth - bar - 32) / (x1 - x0), (innerHeight - 150) / (y1 - y0));
+  zoomTo({ z, x: (x0 + x1) / 2 - (innerWidth - bar) / 2 / z, y: (y0 + y1) / 2 - innerHeight / 2 / z }, instant);
+}
 if (FLAT) {
   canvas.hidden = true; $('#labels').hidden = true; flat.svg.removeAttribute('hidden'); controls.enabled = false;   // an SVG has no .hidden / SVG 에는 .hidden 이 없다
   // no WebGL 2 here: 3D can't be picked, and the setting says why / WebGL 2 가 없다: 3D 는 고를 수 없고 설정이 까닭을 말한다
@@ -2371,8 +2410,49 @@ if (FLAT) {
   const beeAt = e => { const el = e.target.closest && e.target.closest('[data-bee]'); return el ? bees.get(el.dataset.bee) : null; };
   flat.svg.addEventListener('pointermove', e => showTip(beeAt(e), e));
   flat.svg.addEventListener('pointerleave', () => showTip(null));
-  flat.svg.addEventListener('click', e => { const b = beeAt(e); if (b) b.s.state === 'wait' ? openPop(b, true) : visit(b); });
+  flat.svg.addEventListener('click', e => {
+    if (flat.dragged) return;
+    const b = beeAt(e); if (b) return b.s.state === 'wait' ? openPop(b, true) : visit(b);
+    const band = e.target.closest && e.target.closest('.f-band');
+    if (band && focus === null) { focus = +band.dataset.f; applyFocus(); }
+  });
   addEventListener('resize', () => { if (W.floors.length) flatScene(); });
+  flat.svg.addEventListener('wheel', e => {
+    e.preventDefault();
+    zoomBy(Math.exp(-e.deltaY * (e.ctrlKey ? .01 : .0025)), e.clientX, e.clientY, true);
+  }, { passive: false });
+  // a drag moves the picture; two fingers zoom it / 끌면 그림이 옮겨지고 두 손가락은 확대한다
+  const touch = new Map();
+  flat.svg.addEventListener('pointerdown', e => {
+    if (e.button) return;
+    touch.set(e.pointerId, [e.clientX, e.clientY]); flat.dragged = false;
+  });
+  flat.svg.addEventListener('pointermove', e => {
+    const was = touch.get(e.pointerId); if (!was) return;
+    if (touch.size === 2) {
+      const [o] = [...touch].filter(([id]) => id !== e.pointerId), d0 = Math.hypot(was[0] - o[1][0], was[1] - o[1][1]), d1 = Math.hypot(e.clientX - o[1][0], e.clientY - o[1][1]);
+      if (d0 > 0) zoomBy(d1 / d0, (e.clientX + o[1][0]) / 2, (e.clientY + o[1][1]) / 2, true);
+      flat.dragged = true;
+    } else {
+      const dx = e.clientX - was[0], dy = e.clientY - was[1];
+      if (!flat.dragged && Math.hypot(dx, dy) < 5) return;
+      // held only once it drags, so a plain click still lands on the bee / 끌기 시작해야 잡는다. 그냥 누르면 벌에 닿게
+      if (!flat.dragged) flat.svg.setPointerCapture(e.pointerId);
+      flat.dragged = true; flat.svg.classList.add('f-drag');
+      zoomTo({ z: flat.to.z, x: flat.to.x - dx / flat.to.z, y: flat.to.y - dy / flat.to.z }, true);
+    }
+    touch.set(e.pointerId, [e.clientX, e.clientY]);
+  });
+  const up = e => { touch.delete(e.pointerId); flat.svg.classList.remove('f-drag'); };
+  flat.svg.addEventListener('pointerup', up); flat.svg.addEventListener('pointercancel', up);
+  $('#zoom2d').addEventListener('click', e => {
+    const z = e.target.closest('button'); if (!z) return;
+    if (z.dataset.z === 'fit') { focus = null; applyFocus(); } else zoomBy(z.dataset.z === 'in' ? 1.6 : 1 / 1.6);
+  });
+  addEventListener('keydown', e => {
+    if (e.target.closest && e.target.closest('input, textarea, [contenteditable]') || e.metaKey || e.ctrlKey) return;
+    if (e.key === '+' || e.key === '=') zoomBy(1.6); else if (e.key === '-' || e.key === '_') zoomBy(1 / 1.6);
+  });
 }
 
 // ── the loop / 루프 ─────────────────────────────────────────────────────────────────────────────────────
@@ -2433,12 +2513,12 @@ function pong(t) {   // the ball flies while both ends are taken / 양쪽에 다
 }
 
 document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
-$('#hint').textContent = FLAT ? tr('벌을 누르면 그 창으로 · 기다리는 벌은 여기서 답하기 · 1~9: 층 · L: 목록 · Esc: 전체', 'Click a bee to open its window · a waiting one to answer here · 1–9: floor · L: list · Esc: whole') : tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · E: 층 펼치기 · H: 아파트 · L: 목록 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · E: spread · H: residence · L: list · Esc: whole');
+$('#hint').textContent = FLAT ? tr('벌을 누르면 그 창으로 · 휠: 확대 · 드래그: 옮기기 · 1~9: 층 · L: 목록 · Esc: 전체', 'Click a bee to open its window · wheel: zoom · drag: move · 1–9: floor · L: list · Esc: whole') : tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · E: 층 펼치기 · H: 아파트 · L: 목록 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · E: spread · H: residence · L: list · Esc: whole');
 camera.position.set(52, 46, 64); controls.target.set(0, 5, 3);
 { const f = /[#&]f=(\d+)/.exec(location.hash); if (f) focus = +f[1]; }   // #f=1 opens on a floor / #f=1 은 그 층으로 연다
 ground(); daylight(); setInterval(daylight, 20000);
 await poll(); setInterval(poll, 1500);
 setDrawer(drawerOpen);
 document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
-$('#hint').textContent = FLAT ? tr('벌을 누르면 그 창으로 · 기다리는 벌은 여기서 답하기 · 1~9: 층 · L: 목록 · Esc: 전체', 'Click a bee to open its window · a waiting one to answer here · 1–9: floor · L: list · Esc: whole') : tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · E: 층 펼치기 · H: 아파트 · L: 목록 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · E: spread · H: residence · L: list · Esc: whole');
+$('#hint').textContent = FLAT ? tr('벌을 누르면 그 창으로 · 휠: 확대 · 드래그: 옮기기 · 1~9: 층 · L: 목록 · Esc: 전체', 'Click a bee to open its window · wheel: zoom · drag: move · 1–9: floor · L: list · Esc: whole') : tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · E: 층 펼치기 · H: 아파트 · L: 목록 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · E: spread · H: residence · L: list · Esc: whole');
 frame();

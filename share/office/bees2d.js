@@ -15,7 +15,9 @@ const BEE = (() => {
   const LEGS = {
     stand: `<path d="M37 85 L36 94 M48 86 L49 95" ${st(4.6)}/><path d="M33 95 h5 M47 96 h5" ${st(4.6)}/>`,
     sit: `<path d="M40 86 L54 89 M48 84 L62 86" ${st(4.6)}/><path d="M55 87 v3 M63 84 v3" ${st(4.6)}/>`,
-    walk: `<path d="M38 85 L31 93 M48 86 L55 93" ${st(4.6)}/><path d="M28 93 h5 M54 94 h5" ${st(4.6)}/>`,
+    // two steps that take turns (the page animates .lg1 / .lg2) / 번갈아 보이는 두 걸음 (페이지가 .lg1 / .lg2 를 움직인다)
+    walk: `<g class="lg1"><path d="M38 85 L31 93 M48 86 L55 93" ${st(4.6)}/><path d="M28 93 h5 M54 94 h5" ${st(4.6)}/></g>` +
+      `<g class="lg2"><path d="M38 85 L43 94 M48 86 L44 94" ${st(4.6)}/><path d="M42 94 h5 M43 95 h5" ${st(4.6)}/></g>`,
     none: '',
   };
   function eyes(kind, dx = 0, dy = 0) {
@@ -55,8 +57,8 @@ const BEE = (() => {
       <ellipse cx="26" cy="76" rx="13" ry="10.5" transform="rotate(-20 26 76)" fill="${p.tone}"/>
       <g clip-path="url(#${id}a)" fill="${O}"><rect x="16" y="60" width="4.2" height="30" transform="rotate(-20 26 76)"/><rect x="25" y="60" width="4.2" height="30" transform="rotate(-20 26 76)"/></g>
       <ellipse cx="26" cy="76" rx="13" ry="10.5" transform="rotate(-20 26 76)" fill="none" ${st()}/>
-      <g fill="${WING}" ${st(2.2)}><ellipse cx="24" cy="48" rx="12.5" ry="7.5" transform="rotate(-35 24 48)"/><ellipse cx="20" cy="59" rx="9" ry="5.6" transform="rotate(-12 20 59)"/></g>
-      ${o.back || ''}
+      <g class="wg" fill="${WING}" ${st(2.2)}><ellipse cx="24" cy="48" rx="12.5" ry="7.5" transform="rotate(-35 24 48)"/><ellipse cx="20" cy="59" rx="9" ry="5.6" transform="rotate(-12 20 59)"/></g>
+      <g class="ba">${o.back || ''}</g>
       <clipPath id="${id}b"><ellipse cx="43" cy="70" rx="17" ry="17"/></clipPath>
       <ellipse cx="43" cy="70" rx="17" ry="17" fill="${p.tone}"/>
       <g clip-path="url(#${id}b)"><rect x="20" y="50" width="50" height="25" fill="${p.shirt}"/><path d="M20 75 h50" ${st(2)}/><rect x="20" y="79" width="50" height="4.4" fill="${O}"/></g>
@@ -67,7 +69,9 @@ const BEE = (() => {
       ${p.hat ? hairHat(p) + antennae() : antennae() + hairHat(p)}
       <ellipse cx="42" cy="44" rx="3.6" ry="2.2" fill="${BLUSH}"/><ellipse cx="66" cy="43" rx="3.3" ry="2.1" fill="${BLUSH}"/>
       ${eyes(o.eyes, o.dx, o.dy)}${p.glasses ? glasses() : ''}${MOUTH[o.mouth || 'smile']}`;
-    return `${o.before || ''}<g${o.transform ? ` transform="${o.transform}"` : ''}>${body}${head}${o.mid || ''}${o.front || ''}</g>${o.after || ''}`;
+    // the classes are for the page's motion: .bd the whole bee, .hd its head, .wg its wings, .ba / .fa its arms
+    // 클래스는 페이지의 움직임용: .bd 벌 전체, .hd 머리, .wg 날개, .ba / .fa 팔
+    return `${o.before || ''}<g class="bd"><g${o.transform ? ` transform="${o.transform}"` : ''}>${body}<g class="hd">${head}</g>${o.mid || ''}<g class="fa">${o.front || ''}</g></g></g>${o.after ? `<g class="af">${o.after}</g>` : ''}`;
   }
 
   const WOOD = '#b98454', CHAIR = '#5aa9a0';
@@ -109,7 +113,7 @@ const BEE = (() => {
     sleeping: p => svg(`<rect x="4" y="80" width="104" height="12" rx="5" fill="#e6d3b3" ${st()}/><path d="M10 92 v6 M102 92 v6" ${st(3)}/><ellipse cx="88" cy="76" rx="15" ry="6" fill="#fff" ${st()}/>` +
       bee(p, { legs: 'stand', eyes: 'closed', mouth: 'flat', transform: 'translate(8 27) rotate(78 55 55)' }) +
       `<path d="M12 70 Q14 60 30 60 L66 60 Q74 61 74 70 L74 84 L10 84 Z" fill="#8bb8e8" ${st()}/><path d="M14 66 h56" stroke="#fff" stroke-width="2" opacity=".7"/>` +
-      `<text x="84" y="44" font-family="system-ui, sans-serif" font-weight="800" font-size="11" fill="${O}">z</text><text x="93" y="32" font-family="system-ui, sans-serif" font-weight="800" font-size="16" fill="${O}">Z</text>`),
+      `<g class="zz"><text x="84" y="44" font-family="system-ui, sans-serif" font-weight="800" font-size="11" fill="${O}">z</text><text x="93" y="32" font-family="system-ui, sans-serif" font-weight="800" font-size="16" fill="${O}">Z</text></g>`),
     walking: p => svg(`<path d="M6 60 h9 M3 68 h11 M7 76 h7" ${st(2.2)} opacity=".45"/>` + bee(p, {
       legs: 'walk', dx: 1.5, transform: 'rotate(5 45 80)',
       back: arm('M34 61 Q40 70 46 72', p),
@@ -157,7 +161,7 @@ const BEE = (() => {
     pong: p => svg(bee(p, {
       mouth: 'grin',
       back: arm('M34 61 Q30 69 31 76', p, [31, 77]),
-      mid: `<circle cx="78" cy="52" r="8" fill="#d63b3b" ${st(2)}/><path d="M73 59 l-5 6" ${st(3)}/><circle cx="96" cy="40" r="3" fill="#ff9f2e" ${st(1.4)}/>`,
+      mid: `<circle cx="78" cy="52" r="8" fill="#d63b3b" ${st(2)}/><path d="M73 59 l-5 6" ${st(3)}/><circle class="ball" cx="96" cy="40" r="3" fill="#ff9f2e" ${st(1.4)}/>`,
       front: arm('M53 61 Q64 66 69 64', p, [69, 64]),
     })),
     swim: p => svg(bee(p, {
