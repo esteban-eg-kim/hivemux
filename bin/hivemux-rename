@@ -7,6 +7,9 @@
 #                                              입력값 적용
 #   hivemux-rename flush  <pane_id>            send a pending name (called from the Stop hook)
 #                                              보류된 이름 보내기 (Stop 훅에서 호출)
+#   hivemux-rename auto   <pane_id> <session id> <transcript>
+#                                              a session with no name yet gets the sidebar's (Stop hook)
+#                                              아직 이름이 없는 세션에 사이드바 이름을 준다 (Stop 훅)
 # Apply: change the sidebar name (@claude_name) at once and send "/rename <name>" to Claude.
 # 적용: 사이드바 표시 이름(@claude_name)을 바로 바꾸고, Claude에 "/rename 이름"을 보낸다.
 # If Claude is working or waiting for approval, typed keys could become an answer,
@@ -72,6 +75,28 @@ case "$1" in
     [ "$(t show -pqv -t "$pane" @claude_state)" = done ] || [ "$(t show -pqv -t "$pane" @claude_state)" = idle ] || exit 0
     send_rename "$name"
     ;;
-  *) echo "usage: $0 prompt <pane> [client] | apply <pane> | flush <pane>" >&2; exit 2 ;;
+  auto)
+    # Remote Control lists a session with no name as "<host>-local-<word>-<word>" (the Claude app's Code list),
+    # so it gets the name the sidebar shows, once per session. A name given by /rename or --name is left alone:
+    # Claude writes it to the transcript as a custom-title line. @hivemux-autoname off turns this off
+    # Remote Control 은 이름 없는 세션을 "<호스트>-local-<단어>-<단어>" 로 보인다 (Claude 앱의 Code 목록).
+    # 그래서 사이드바에 보이는 이름을 세션마다 한 번 준다. /rename 이나 --name 으로 준 이름은 두는데,
+    # Claude 가 대화 기록에 custom-title 줄로 적는다. @hivemux-autoname off 로 끈다
+    sid="$3"; tr_="$4"
+    [ -n "$sid" ] && [ -f "$tr_" ] || exit 0
+    [ "$(t show -gqv @hivemux-autoname)" = off ] && exit 0
+    [ "$(t show -pqv -t "$pane" @claude_autonamed)" = "$sid" ] && exit 0
+    [ -n "$(t show -pqv -t "$pane" @claude_rename_pending)" ] && exit 0
+    grep -q '"type":"custom-title"' "$tr_" 2>/dev/null && { t set -p -t "$pane" @claude_autonamed "$sid"; exit 0; }
+    name="$("$HM_BIN/hivemux-sidebar-view" --name "$pane" 2>/dev/null | tr -d '\n')"
+    # nothing to go by yet ("new chat"): try again at the next Stop / 아직 이름 거리가 없음 ("새 대화"): 다음 Stop 에 다시
+    case "$name" in ""|"새 대화"|"new chat") exit 0 ;; esac
+    t set -p -t "$pane" @claude_autonamed "$sid"
+    sleep 1.5   # wait until the turn ends and the prompt is back / 응답이 끝나고 입력창이 돌아올 때까지
+    st="$(t show -pqv -t "$pane" @claude_state)"
+    [ "$st" = done ] || [ "$st" = idle ] || { t set -pu -t "$pane" @claude_autonamed; exit 0; }
+    send_rename "$name"
+    ;;
+  *) echo "usage: $0 prompt <pane> [client] | apply <pane> | flush <pane> | auto <pane> <sid> <transcript>" >&2; exit 2 ;;
 esac
 exit 0

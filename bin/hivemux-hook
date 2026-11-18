@@ -305,8 +305,13 @@ case "$event" in
     ( "$(dirname "$0")/hivemux-team" stop "$TMUX_PANE" "$(field transcript_path)" >/dev/null 2>&1 & )
     # If a sidebar rename is pending, send it now that the turn has ended
     # 사이드바에서 바꾼 이름이 보류 중이면 응답이 끝난 지금 보낸다
-    [ -n "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_rename_pending 2>/dev/null)" ] &&
+    # otherwise a session with no name yet takes the sidebar's, so the Claude app lists it by that name
+    # 아니면 아직 이름이 없는 세션에 사이드바 이름을 준다. Claude 앱 목록에도 그 이름으로 보인다
+    if [ -n "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_rename_pending 2>/dev/null)" ]; then
       ( "$(dirname "$0")/hivemux-rename" flush "$TMUX_PANE" >/dev/null 2>&1 & )
+    elif [ "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_autonamed 2>/dev/null)" != "$(field session_id)" ]; then
+      ( "$(dirname "$0")/hivemux-rename" auto "$TMUX_PANE" "$(field session_id)" "$(field transcript_path)" >/dev/null 2>&1 & )
+    fi
     ;;
   StopFailure)
     # The turn ended on an API error (rate limit, overload, auth...): no Stop comes, so ask the user to look
