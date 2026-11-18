@@ -2209,7 +2209,7 @@ function flatScene() {
   for (const F of W.floors) {
     const y = F.y, deep = z => -back(z) * flat.band * .22;
     if (F.kind === 'lobby') {
-      out.push(R(-16, y, -14.2, y + 1.05, '#8d6544', ink) + R(-16.2, y + 1.05, -14, y + 1.25, '#2b2f36') + T(-15.6, y + 2.2, 'HONEY CAFE', 'f-l', 'start'));
+      out.push(R(-16, y, -14.2, y + 1.05, '#8d6544', ink) + R(-16.2, y + 1.05, -14, y + 1.25, '#2b2f36') + T(-15.6, y + 3.1, 'HONEY CAFE', 'f-l', 'start'));
       // the honey wall at the back: today's honey in its comb (flatFrame) / 뒤쪽 꿀 벽: 오늘의 꿀이 벌집에 (flatFrame)
       out.push(`<g transform="translate(0 ${deep(-5.7)})"><g id="f-comb">${R(-7.9, y + 1.2, -2.9, y + 3.3, '#3b2a12', ink)}</g></g>`);
       out.push(`<g transform="translate(0 ${deep(-6.6)})">` + R(-11.97, y + .74, -9.23, y + .82, '#2f8f5b', ink) + [-11.8, -9.4].map(x => R(x - .05, y, x + .05, y + .74, '#2a241d')).join('') + '</g>');
