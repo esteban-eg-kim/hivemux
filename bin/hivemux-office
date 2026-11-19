@@ -986,6 +986,8 @@ def team_post(action, req):
         ok, msg = team_call(teams.delete_role, project, str(req.get("id", "")))
     elif action == "order":
         ok, msg = team_call(teams.set_order, project, [str(x) for x in req.get("ids") or []])
+        if ok:
+            team_call(teams.remark, project)          # the sidebar follows the new order / 사이드바도 새 순서로
     elif action in ("up", "down"):
         fn = teams.up if action == "up" else teams.down
         ok, msg = team_call(fn, project, str(req.get("role") or "") or None)

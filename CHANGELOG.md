@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 팀 페이지에서 역할 순서를 바꾸면 사이드바의 팀 묶음 순서도 바로 바뀝니다. 전에는 역할을 다시 띄워야 바뀌었습니다.
+
 ## 0.1.68 — 2026-11-19
 
 - The Claude app's session list now matches the sidebar: a session with no name of its own (listed as
