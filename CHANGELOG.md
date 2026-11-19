@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.1.68 — 2026-11-19
 
 - The Claude app's session list now matches the sidebar: a session with no name of its own (listed as
