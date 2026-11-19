@@ -32,6 +32,30 @@ send_rename() {
   t set -pu -t "$pane" @claude_rename_pending
 }
 
+# Reconnect Remote Control with a name. On a connected session /remote-control opens a menu (Disconnect this
+# session / Show QR code / Continue, on Continue); on one that is not, it connects at once, without the name,
+# so open the menu again. Disconnect, then /remote-control <name>
+# Remote Control 을 이름을 붙여 다시 연결한다. 연결된 세션에서 /remote-control 은 메뉴를 띄운다 (Disconnect this
+# session / Show QR code / Continue, Continue 에 놓임). 연결이 없던 세션은 이름 없이 바로 연결되므로 메뉴를 다시
+# 연다. 끊고 나서 /remote-control <이름>
+rc_reconnect() {
+  local name="$1" i j
+  for i in 1 2; do
+    t send-keys -t "$pane" -l "/remote-control"; t send-keys -t "$pane" Enter
+    sleep 2
+    if t capture-pane -p -t "$pane" | grep -q 'Disconnect this session'; then
+      for j in 1 2 3; do
+        t capture-pane -p -t "$pane" | grep -q '❯ *Disconnect this session' && break
+        t send-keys -t "$pane" Up; sleep 0.2
+      done
+      t send-keys -t "$pane" Enter; sleep 2
+      t send-keys -t "$pane" -l "/remote-control $name"; t send-keys -t "$pane" Enter
+      return 0
+    fi
+  done
+  return 1
+}
+
 case "$1" in
   prompt)
     client="$3"
@@ -108,9 +132,7 @@ case "$1" in
           st="$(t show -pqv -t "$pane" @claude_state)"
           [ "$st" = done ] || [ "$st" = idle ] || { t set -p -t "$pane" @claude_rc_bridge "$seen"; exit 0; }
           t set -p -t "$pane" @claude_rc_bridge reconnecting
-          t send-keys -t "$pane" -l "/remote-control"; t send-keys -t "$pane" Enter   # off / 끊기
-          sleep 2
-          t send-keys -t "$pane" -l "/remote-control $name"; t send-keys -t "$pane" Enter
+          rc_reconnect "$name"
           t set -p -t "$pane" @claude_autonamed "$sid"
           exit 0 ;;
         esac
