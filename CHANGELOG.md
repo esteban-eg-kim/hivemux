@@ -4,7 +4,10 @@
 
 - The Claude app's session list now matches the sidebar: a session with no name of its own (listed as
   `<host>-local-<word>-<word>`) gets `/rename` with the sidebar's name the first time its turn ends, once per
-  session. One already named by `/rename` or `-n` is left alone. `tmux set -g @hivemux-autoname off` stops it.
+  session. One already named by `/rename` or `-n` is left alone. When Remote Control reconnects (the Mac
+  woke up, the network came back), the app shows a made-up title such as "Interrupted request" and `/rename`
+  no longer reaches it, so hivemux reconnects it with its name (`/remote-control <name>`) once that turn ends.
+  `tmux set -g @hivemux-autoname off` stops both.
 
 ## 0.1.67 — 2026-11-18
 

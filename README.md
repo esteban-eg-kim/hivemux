@@ -60,7 +60,8 @@ macOS and Linux (on Linux, `Option` is `Alt`).
 - **Task names.** Shows Claude's own conversation title. Double-click a card
   (or right-click → Rename) to rename it; hivemux sends `/rename` to that Claude (waits if it is busy).
   A session with no name of its own gets the sidebar's name the first time its turn ends, so the Claude
-  app lists it by that name instead of `<host>-local-<word>-<word>` (`tmux set -g @hivemux-autoname off` stops this).
+  app lists it by that name instead of `<host>-local-<word>-<word>`. A Remote Control that reconnected (and lost
+  its name in the app) is reconnected with the name (`tmux set -g @hivemux-autoname off` stops both).
 - **Your order.** Drag a card to reorder tasks, or a project header to reorder
   projects. `Option+N` numbers and the top window list follow the same order.
 - **Work from your laptop.** Keep the Claudes running on a desktop Mac or a

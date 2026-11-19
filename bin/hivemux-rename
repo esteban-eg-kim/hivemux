@@ -85,8 +85,38 @@ case "$1" in
     sid="$3"; tr_="$4"
     [ -n "$sid" ] && [ -f "$tr_" ] || exit 0
     [ "$(t show -gqv @hivemux-autoname)" = off ] && exit 0
-    [ "$(t show -pqv -t "$pane" @claude_autonamed)" = "$sid" ] && exit 0
     [ -n "$(t show -pqv -t "$pane" @claude_rename_pending)" ] && exit 0
+    # A reconnected Remote Control (the Mac woke up, the network came back, /remote-control again) drops the
+    # name: the app shows a title made up from the last turn ("Interrupted request") and a later /rename does
+    # not reach it. Each connection has its own bridgeSessionId in the transcript; the first one seen is the
+    # one made at start, which has the name. A new one gets reconnected with the name (/remote-control <name>)
+    # 다시 연결된 Remote Control (맥이 깨어남, 네트워크가 돌아옴, /remote-control 을 다시 함) 은 이름을 잃는다:
+    # 앱에는 마지막 턴으로 지은 제목 ("Interrupted request") 이 보이고, 그 뒤의 /rename 은 닿지 않는다.
+    # 연결마다 대화 기록에 bridgeSessionId 가 따로 있다. 처음 본 것은 시작할 때 이름과 함께 만든 연결이다.
+    # 새 연결이면 이름을 붙여 다시 연결한다 (/remote-control <이름>)
+    bridge="$(tail -c 400000 "$tr_" 2>/dev/null | grep -o '"bridgeSessionId":"[^"]*"' | tail -1 | cut -d'"' -f4)"
+    seen="$(t show -pqv -t "$pane" @claude_rc_bridge)"
+    if [ -n "$bridge" ] && [ "$seen" != "$bridge" ]; then
+      t set -p -t "$pane" @claude_rc_bridge "$bridge"
+      # the first connection of this pane, or the one our own reconnect made: nothing to do
+      # 이 칸의 첫 연결, 또는 우리가 다시 연결해서 생긴 연결: 할 일 없음
+      if [ -n "$seen" ] && [ "$seen" != reconnecting ]; then
+        name="$(grep -o '"type":"custom-title","customTitle":"[^"]*"' "$tr_" 2>/dev/null | tail -1 | cut -d'"' -f8)"
+        [ -n "$name" ] || name="$("$HM_BIN/hivemux-sidebar-view" --name "$pane" 2>/dev/null | tr -d '\n')"
+        case "$name" in ""|"새 대화"|"new chat") ;; *)
+          sleep 1.5   # wait until the turn ends and the prompt is back / 응답이 끝나고 입력창이 돌아올 때까지
+          st="$(t show -pqv -t "$pane" @claude_state)"
+          [ "$st" = done ] || [ "$st" = idle ] || { t set -p -t "$pane" @claude_rc_bridge "$seen"; exit 0; }
+          t set -p -t "$pane" @claude_rc_bridge reconnecting
+          t send-keys -t "$pane" -l "/remote-control"; t send-keys -t "$pane" Enter   # off / 끊기
+          sleep 2
+          t send-keys -t "$pane" -l "/remote-control $name"; t send-keys -t "$pane" Enter
+          t set -p -t "$pane" @claude_autonamed "$sid"
+          exit 0 ;;
+        esac
+      fi
+    fi
+    [ "$(t show -pqv -t "$pane" @claude_autonamed)" = "$sid" ] && exit 0
     grep -q '"type":"custom-title"' "$tr_" 2>/dev/null && { t set -p -t "$pane" @claude_autonamed "$sid"; exit 0; }
     name="$("$HM_BIN/hivemux-sidebar-view" --name "$pane" 2>/dev/null | tr -d '\n')"
     # nothing to go by yet ("new chat"): try again at the next Stop / 아직 이름 거리가 없음 ("새 대화"): 다음 Stop 에 다시
