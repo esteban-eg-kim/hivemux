@@ -75,7 +75,23 @@ def wake():
                 pass
 
 
+def role_of(pane):
+    """(session, role id) of a team role's pane, else None / 팀 역할 칸이면 (세션, 역할 id)"""
+    out = tmux("display", "-p", "-t", pane, "#{session_name}" + US + "#{@hivemux-role}").strip().split(US)
+    return (out[0], out[1]) if len(out) == 2 and out[1] else None
+
+
+def move_role(sess, role, to):
+    """A role's place is the team's flow, not the window order (bin/hivemux-team move)
+    역할 자리는 창 순서가 아니라 팀 흐름이다 (bin/hivemux-team move)"""
+    team = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-team")
+    return subprocess.run([team, "move", role, to, "-s", sess], capture_output=True, stdin=subprocess.DEVNULL).returncode == 0
+
+
 def move_card(src, dst):
+    a, b = role_of(src), role_of(dst)
+    if a or b:                  # roles move among the roles of their team / 역할은 같은 팀 역할 사이에서만
+        return bool(a and b and a[0] == b[0]) and move_role(a[0], a[1], b[1])
     rows = {r[0]: r for r in tasks()}
     if src not in rows or dst not in rows or src == dst:
         return False
@@ -112,6 +128,9 @@ def step(direction, pane):
     me = next((r for r in rows if r[0] == pane), None) or next((r for r in rows if r[2] == win), None)
     if not me:
         return False
+    role = role_of(me[0])
+    if role:
+        return move_role(role[0], role[1], direction)
     same = [r for r in rows if r[1] == me[1]]
     k = same.index(me)
     k2 = k - 1 if direction == "up" else k + 1

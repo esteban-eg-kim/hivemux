@@ -64,6 +64,7 @@ macOS and Linux (on Linux, `Option` is `Alt`).
   its name in the app) is reconnected with the name (`tmux set -g @hivemux-autoname off` stops both).
 - **Your order.** Drag a card to reorder tasks, or a project header to reorder
   projects. `Option+N` numbers and the top window list follow the same order.
+  In a team, dragging a role card changes the team's order (the lead stays on top).
 - **Work from your laptop.** Keep the Claudes running on a desktop Mac or a
   Linux server and pick them up from a laptop with `hivemux connect`. It is more
   than an ssh window: `Ctrl+V` pastes a screenshot from the laptop into the
