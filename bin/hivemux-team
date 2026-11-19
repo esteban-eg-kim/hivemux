@@ -1315,11 +1315,14 @@ def ctx_tokens(transcript):
 def prompt_free(pane):
     """Claude's prompt is empty (or shows its placeholder): typing there clobbers nothing
     Claude 입력창이 비었다 (또는 안내 문구만): 거기 쳐도 덮어쓰는 것이 없다"""
-    lines = [l for l in tmux("capture-pane", "-p", "-t", pane).splitlines() if l.strip()]
+    # dim text there is Claude's suggestion of what to say next, not a draft: it goes away as you type
+    # 거기 흐린 글은 다음에 할 말을 Claude 가 추천한 것이지 쓰다 만 글이 아니다: 치기 시작하면 사라진다
+    lines = [l for l in tmux("capture-pane", "-e", "-p", "-t", pane).splitlines() if l.strip()]
     for line in reversed(lines[-12:]):
-        t = line.strip()
+        t = re.sub(r"\x1b\[[0-9;]*m", "", line).strip()
         if t.startswith("❯"):
-            rest = t[1:].strip()
+            rest = re.sub(r"\x1b\[2m.*?(\x1b\[(0|22)?m|$)", "", line.split("❯", 1)[1])
+            rest = re.sub(r"\x1b\[[0-9;]*m", "", rest).replace("\xa0", " ").strip()
             return not rest or rest.startswith('Try "')
     return False
 
