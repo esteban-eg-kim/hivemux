@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.71 — 2026-11-21
 
 - Team page: going to the office and back to Team returns to the team and tab you were on, not the first team.
   The top bar stays in place while the page scrolls.
