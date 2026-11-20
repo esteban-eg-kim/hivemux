@@ -5,6 +5,9 @@
 - The context bar after a diet: it kept the old conversation's size until the first answer of the new one
   ended, so a finished diet looked undone. It now empties at the fresh start and follows a long turn once a
   minute.
+- After a diet, the size logged as where it came back to is the new conversation's first answer, not the end of
+  a long first turn. A first turn that went on working logged 150K and so raised the role's line to 200K for
+  three hours.
 ## 0.1.70 — 2026-11-20
 
 - Switching a project to another account no longer loses its conversations. When the account had a

@@ -1288,17 +1288,18 @@ def final_prompt(session, rid):
 #   renew:   노트를 최신으로 정리하고, /clear 하고, 노트를 읽고 이어 간다. 이름이 남아 다른 역할이 계속 보낸다
 #   compact: 무엇을 남길지 알려 주고 /compact
 # 누가 입력창에 쓰는 중이면 아무것도 치지 않고 다음 쉴 때를 기다린다. 다이어트마다 .hivemux/diet.log 에 남긴다.
-def ctx_tokens(transcript):
-    """Tokens of context at the last answer: what the next request reads again (input, cache and output)
-    마지막 응답 때의 컨텍스트 토큰: 다음 요청이 다시 읽는 양 (입력, 캐시, 출력)"""
+def ctx_tokens(transcript, first=False):
+    """Tokens of context at the last answer (first: at the first one): what the next request reads again (input,
+    cache and output) / 마지막 응답 (first: 첫 응답) 때의 컨텍스트 토큰: 다음 요청이 다시 읽는 양 (입력, 캐시, 출력)"""
     try:
         with open(transcript, "rb") as f:
-            f.seek(0, 2)
-            f.seek(max(0, f.tell() - 600_000))
-            lines = f.read().decode(errors="replace").splitlines()
+            if not first:
+                f.seek(0, 2)
+                f.seek(max(0, f.tell() - 600_000))
+            lines = f.read(None if not first else 2_000_000).decode(errors="replace").splitlines()
     except OSError:
         return 0
-    for line in reversed(lines):
+    for line in (lines if first else reversed(lines)):
         if '"usage"' not in line:
             continue
         try:
@@ -1427,7 +1428,10 @@ def on_stop(pane, transcript):
         return
     if st == "after":                   # the first answer after it: how small it got / 그 뒤 첫 응답: 얼마나 줄었나
         before = tmux("show", "-pqv", "-t", pane, "@hivemux-diet-before").strip()
-        diet_log(folder, role["id"], role["diet"]["how"], before or "0", n)
+        # the size it started at, not at the end of that answer: a long first turn (the notes, then an hour of
+        # work) logged 150K and moved the line 50K above that / 그 답이 끝날 때가 아니라 시작할 때 크기: 긴 첫 턴
+        # (노트, 그다음 한 시간 일) 이 150K 로 적혀 기준이 그 위 50K 로 올라갔다
+        diet_log(folder, role["id"], role["diet"]["how"], before or "0", ctx_tokens(transcript, first=True) or n)
         tmux("set", "-pu", "-t", pane, "@hivemux-diet")
         tmux("set", "-pu", "-t", pane, "@hivemux-diet-before")
         return
