@@ -1627,6 +1627,8 @@ def main():
                     tmux("set", "-w", "-t", current, "@claude_state", "idle")
                     done_here["@claude_state"] = "idle"
                     wake_others()
+                    if done_here.get("@hivemux-rolename"):   # a diet may wait for this (bin/hivemux-team seen) / 다이어트가 이걸 기다릴 수 있다
+                        bg_run(os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-team"), "seen", current)
                 # the pickup board (see board), redrawn on every screen only when it changes
                 # 호출판 (board 참고). 바뀔 때만 모든 화면의 상태줄을 다시 그린다
                 # the project badge, as wide as the sidebar (see badges) / 사이드바 폭의 프로젝트 이름표 (badges 참고)

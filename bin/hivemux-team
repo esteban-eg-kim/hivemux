@@ -1416,7 +1416,8 @@ def on_stop(pane, transcript):
     session, folder, team, role = found
     st = tmux("show", "-pqv", "-t", pane, "@hivemux-diet").strip()
     time.sleep(1.5)                     # the prompt comes back after the turn / 응답이 끝나고 입력창이 돌아온다
-    if tmux("show", "-pqv", "-t", pane, "@claude_state").strip() not in ("done", "idle"):
+    state = tmux("show", "-pqv", "-t", pane, "@claude_state").strip()
+    if state not in ("done", "idle"):
         return                          # background work goes on / 배경 일이 이어진다
     if st == "notes":                   # notes written: clear / 노트를 썼다: 비운다
         if prompt_free(pane):
@@ -1435,7 +1436,32 @@ def on_stop(pane, transcript):
     if not st and asks_user(last_answer(transcript)):
         return
     if st == "pending" or (not st and role["diet"]["how"] != "off" and n >= diet_line(folder, role)):
+        # the user asked this turn and has not seen the answer yet: a diet now cleared it before they read it.
+        # It waits for them to look (seen)
+        # 사용자가 물은 턴의 답을 아직 보지 않았다: 지금 다이어트하면 읽기 전에 지워졌다. 볼 때까지 기다린다 (seen)
+        if state == "done" and tmux("show", "-pqv", "-t", pane, "@hivemux-asked").strip():
+            tmux("set", "-p", "-t", pane, "@hivemux-diet", "pending")
+            return
         diet_begin(pane, folder, role, n)
+
+
+SEEN_GRACE = 120                        # seconds to read the answer before a waiting diet / 기다리던 다이어트 전에 답을 읽을 시간
+
+
+def on_seen(pane):
+    """bin/hivemux_sidebar_view.py: the user looked at a role's finished answer. A diet waiting for that starts
+    after a while to read it, if the role still rests with an empty prompt
+    사용자가 역할의 끝난 답을 봤다. 그걸 기다리던 다이어트는 읽을 시간을 둔 뒤, 역할이 아직 쉬고 입력창이 비었으면 시작한다"""
+    tmux("set", "-pu", "-t", pane, "@hivemux-asked")
+    if tmux("show", "-pqv", "-t", pane, "@hivemux-diet").strip() != "pending":
+        return
+    time.sleep(SEEN_GRACE)
+    found = role_of(pane)
+    if (found and tmux("show", "-pqv", "-t", pane, "@hivemux-diet").strip() == "pending"
+            and tmux("show", "-pqv", "-t", pane, "@claude_state").strip() == "idle"
+            and not tmux("show", "-pqv", "-t", pane, "@hivemux-asked").strip()):
+        n = tmux("show", "-pqv", "-t", pane, "@claude_ctx").strip()
+        diet_begin(pane, found[1], found[3], int(n) if n.isdigit() else 0)
 
 
 def last_answer(transcript):
@@ -1540,6 +1566,9 @@ def on_prompt(pane):
     found = role_of(pane)
     if found:
         answer_questions(found[1], found[3])
+        # the user's own turn, not a diet's typed step / 다이어트가 친 단계가 아닌 사용자의 턴
+        if tmux("show", "-pqv", "-t", pane, "@hivemux-diet").strip() not in ("notes", "compacting", "clear", "after"):
+            tmux("set", "-p", "-t", pane, "@hivemux-asked", "1")
 
 
 def question_done(session, index):
@@ -2013,6 +2042,8 @@ def main(argv):
         handoff(*args)
     elif cmd == "prompted" and len(args) == 1:
         on_prompt(*args)
+    elif cmd == "seen" and len(args) == 1:
+        on_seen(*args)
     elif cmd == "may-write" and len(args) == 2:
         may_write(*args)
     elif cmd == "rename" and args:

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- A diet no longer clears an answer you have not read. When you asked a role something and looked away, its
+  diet waits until you look at that window, then gives you two minutes to read before it starts. Turns
+  started by teammates still diet right away.
+
 ## 0.1.69 — 2026-11-20
 
 - Reorder a team from the sidebar: drag a role card onto another role, or use Move up / Move down in its
