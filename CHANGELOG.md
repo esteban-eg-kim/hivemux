@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.72 — 2026-11-21
 
 - Disband a team: **Disband team…** on the team page's Setup tab, or `hivemux team disband`. It closes the role
   Claudes (their conversations stay for `claude --resume`) and moves `team.toml`, the role prompts and the
