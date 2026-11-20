@@ -16,6 +16,11 @@ name=""
 [ -n "$sess" ] && [ -f "$DATA/account-projects" ] && name="$(awk -F '\t' -v s="$sess" '$1 == s { print $2; exit }' "$DATA/account-projects")"
 [ -n "$name" ] || name="$(cat "$DATA/account" 2>/dev/null)"
 if [ -n "$name" ] && [ "$name" != default ] && [ -d "$DATA/accounts/$name" ]; then export CLAUDE_CONFIG_DIR="$DATA/accounts/$name"
+  # the conversations must be ~/.claude's: a projects folder of the account's own (or none yet) is merged and
+  # linked first, or --resume finds nothing (bin/hivemux-account)
+  # 대화는 ~/.claude 의 것이어야 한다: 계정만의 projects 폴더가 있거나 아직 없으면 먼저 합치고 링크한다.
+  # 아니면 --resume 이 아무것도 찾지 못한다 (bin/hivemux-account)
+  [ -L "$CLAUDE_CONFIG_DIR/projects" ] || "$(dirname "$(realpath "$0")")/hivemux-account" env >/dev/null 2>&1
 # default: forget only a dir of ours (a shell started under another account); one you set yourself stays
 # 기본 계정: 우리 폴더일 때만 지운다 (다른 계정일 때 연 셸). 직접 정한 것은 그대로
 elif [[ "$CLAUDE_CONFIG_DIR" == "$DATA/accounts/"* ]]; then unset CLAUDE_CONFIG_DIR; fi
