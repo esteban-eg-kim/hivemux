@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.70 — 2026-11-20
 
 - Switching a project to another account no longer loses its conversations. When the account had a
   `projects` folder of its own (made by a Claude that started on it before the folder was linked), resuming
