@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.1.69 — 2026-11-20
 
 - Reorder a team from the sidebar: drag a role card onto another role, or use Move up / Move down in its
