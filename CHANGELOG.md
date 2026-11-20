@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.1.71 — 2026-11-21
 
 - Team page: going to the office and back to Team returns to the team and tab you were on, not the first team.
@@ -10,6 +12,7 @@
 - After a diet, the size logged as where it came back to is the new conversation's first answer, not the end of
   a long first turn. A first turn that went on working logged 150K and so raised the role's line to 200K for
   three hours.
+
 ## 0.1.70 — 2026-11-20
 
 - Switching a project to another account no longer loses its conversations. When the account had a
