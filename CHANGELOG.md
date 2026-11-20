@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Switching a project to another account no longer loses its conversations. When the account had a
+  `projects` folder of its own (made by a Claude that started on it before the folder was linked), resuming
+  found none of the conversations and the Claudes did not come back. Such a folder is now merged into
+  `~/.claude` and linked.
 - A diet no longer clears an answer you have not read. When you asked a role something and looked away, its
   diet waits until you look at that window, then gives you two minutes to read before it starts. Turns
   started by teammates still diet right away.

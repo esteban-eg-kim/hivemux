@@ -134,22 +134,44 @@ def join_dir(d, e):
         return
     os.makedirs(home, exist_ok=True)
     for _ in range(3):                  # a session may add a file meanwhile / 그 사이 세션이 파일을 더할 수 있다
-        for f in os.listdir(own):
-            if not os.path.lexists(os.path.join(home, f)):
-                os.replace(os.path.join(own, f), os.path.join(home, f))
-            else:
-                os.unlink(os.path.join(own, f))
+        merge_into(own, home)
         tmp = f"{own}.{os.getpid()}"
         try:
             os.rename(own, tmp)
         except OSError:
             continue
         os.symlink(home, own)
-        for f in os.listdir(tmp):       # written in the moment between / 그 짧은 사이에 쓰인 것
-            if not os.path.lexists(os.path.join(home, f)):
-                os.replace(os.path.join(tmp, f), os.path.join(home, f))
+        merge_into(tmp, home)           # written in the moment between / 그 짧은 사이에 쓰인 것
         shutil.rmtree(tmp, ignore_errors=True)
         return
+
+
+def merge_into(src, dst):
+    """Move src's files into dst, folders too (projects/<folder>/<id>.jsonl). A conversation in both is one log
+    written in two places: src's lines go on the end of dst's. Another file in both keeps dst's
+    src 의 파일을 dst 로 옮긴다. 폴더도 (projects/<폴더>/<id>.jsonl). 양쪽에 있는 대화는 두 곳에 쓴 한 기록이라
+    src 의 줄을 dst 끝에 붙인다. 그 밖에 양쪽에 있는 파일은 dst 것을 둔다"""
+    for f in os.listdir(src):
+        s, t = os.path.join(src, f), os.path.join(dst, f)
+        if os.path.isdir(s) and not os.path.islink(s):
+            if not os.path.lexists(t):
+                os.replace(s, t)
+            elif os.path.isdir(t):
+                merge_into(s, t)
+                shutil.rmtree(s, ignore_errors=True)
+            continue
+        if not os.path.lexists(t):
+            os.replace(s, t)
+            continue
+        if f.endswith(".jsonl") and os.path.isfile(t):
+            with open(s, "rb") as a, open(t, "rb+") as b:
+                b.seek(0, 2)
+                if b.tell():
+                    b.seek(-1, 2)
+                    if b.read(1) != b"\n":
+                        b.write(b"\n")
+                shutil.copyfileobj(a, b)
+        os.unlink(s)
 
 
 def link_shared(d):
@@ -161,7 +183,11 @@ def link_shared(d):
         return
     for e in entries:
         dst = os.path.join(d, e)
-        if e in JOIN:
+        # also a folder made in the account before it was linked (a Claude started on it then wrote projects/
+        # there, and resuming found none of the conversations) / 링크하기 전에 계정 안에 생긴 폴더도 (거기서
+        # 시작한 Claude 가 projects/ 를 만들어, 재개할 때 대화를 하나도 찾지 못했다)
+        if e in JOIN or (not PRIVATE.match(e) and os.path.isdir(dst) and not os.path.islink(dst)
+                         and os.path.isdir(os.path.join(HOME_DIR, e))):
             join_dir(d, e)
         if PRIVATE.match(e) or os.path.lexists(dst):
             continue
