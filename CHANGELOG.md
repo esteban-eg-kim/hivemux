@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.1.70 — 2026-11-20
 
 - Switching a project to another account no longer loses its conversations. When the account had a
