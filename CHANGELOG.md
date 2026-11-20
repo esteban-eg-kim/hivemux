@@ -2,10 +2,16 @@
 
 ## Unreleased
 
-- 입력창에 흐리게 뜨는 Claude 의 추천 문구를 쓰다 만 글로 보고 다이어트를 미루던 것을 고쳤습니다.
-- 응답을 마친 Claude 가 배경에 개발 서버(`npm run dev:api` 처럼 `:` 이 붙은 스크립트 포함)만 띄워 두었을 때 계속 일함으로 보이던 것을 고쳤습니다. 이제 끝남으로 바뀌고, 팀 역할은 그때 다이어트합니다. 답변에 "기다리는 질문은 없습니다"처럼 셸과 상관없는 '기다리'가 있어도 더는 일함으로 두지 않습니다.
-- 팀 페이지에서 역할 순서를 바꾸면 사이드바의 팀 묶음 순서도 바로 바뀝니다. 전에는 역할을 다시 띄워야 바뀌었습니다.
-- 사이드바에서도 팀 역할 순서를 바꿀 수 있습니다. 역할 카드를 다른 역할 위로 끌거나, 오른쪽 클릭 메뉴의 위로/아래로 옮기기를 쓰면 됩니다. 리드는 맨 위에 그대로 있고, 팀 페이지의 순서도 같이 바뀝니다.
+- Reorder a team from the sidebar: drag a role card onto another role, or use Move up / Move down in its
+  right-click menu. The lead stays on top, and the team page shows the same order. Reordering on the team
+  page now moves the sidebar's team group right away too (before, only once the roles started again).
+- Team page Setup: the drop target while dragging a role is a dashed ring around its card.
+- A Claude that finished with only a dev server left in the background no longer shows as working for
+  hours: scripts such as `npm run dev:api` count as servers now, and an answer that merely says
+  "기다리" (no question waiting, waiting on a teammate) no longer counts as waiting on a shell. Team roles
+  then diet when their line is reached.
+- A diet no longer waits forever behind Claude's dim suggestion in the input box, which hivemux took for a
+  draft.
 
 ## 0.1.68 — 2026-11-19
 
