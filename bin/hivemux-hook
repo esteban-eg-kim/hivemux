@@ -199,6 +199,9 @@ case "$event" in
         # (bin/hivemux-rename auto) / 새 프로세스는 이름과 함께 연결한다: 연결을 처음부터 다시 센다
         t set -pu -t "$TMUX_PANE" @claude_rc_bridge
         if [ -n "$via" ]; then t set -p -t "$TMUX_PANE" @claude_launch "$via"; else t set -pu -t "$TMUX_PANE" @claude_launch; fi ;;
+      # the context size was the old conversation's: a diet looked undone until the first answer ended
+      # 컨텍스트 크기는 이전 대화의 것이었다: 첫 응답이 끝날 때까지 다이어트가 안 된 것처럼 보였다
+      clear|compact) t set -pu -t "$TMUX_PANE" @claude_ctx; t set -pu -t "$TMUX_PANE" @claude_ctx_at ;;
     esac
     # a team role: remember its conversation, so a reboot resumes it as that role (bin/hivemux-team)
     # 팀 역할: 그 대화를 적어 둔다. 재부팅 뒤 그 역할로 재개된다 (bin/hivemux-team)
@@ -238,6 +241,13 @@ case "$event" in
     ;;
   PostToolUse|PostToolUseFailure)
     case "$(field tool_name)" in Agent|Task) agents -1 ;; Bash) pwd_ ;; Edit|Write|MultiEdit|NotebookEdit) [ "$event" = PostToolUse ] && touched ;; esac
+    # the context size during a long turn too, once a minute (bin/hivemux-team ctx); Stop sets it at the end
+    # 긴 턴 동안에도 컨텍스트 크기를 1분에 한 번 (bin/hivemux-team ctx). 끝나면 Stop 이 적는다
+    now=$(date +%s); at="$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_ctx_at 2>/dev/null)"
+    if [ $((now - ${at:-0})) -ge 60 ] 2>/dev/null; then
+      t set -p -t "$TMUX_PANE" @claude_ctx_at "$now"
+      ( "$(dirname "$0")/hivemux-team" ctx "$TMUX_PANE" "$(field transcript_path)" >/dev/null 2>&1 & )
+    fi
     # a team role messaging a teammate: a hand-off (bin/hivemux-team) / 팀 역할이 팀원에게 보냄: 넘김
     if [ "$event" = PostToolUse ] && [ "$(field tool_name)" = SendMessage ] &&
        [ -n "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @hivemux-role 2>/dev/null)" ]; then

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The context bar after a diet: it kept the old conversation's size until the first answer of the new one
+  ended, so a finished diet looked undone. It now empties at the fresh start and follows a long turn once a
+  minute.
 ## 0.1.70 — 2026-11-20
 
 - Switching a project to another account no longer loses its conversations. When the account had a

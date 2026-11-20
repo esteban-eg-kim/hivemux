@@ -22,6 +22,7 @@ other by name with Claude Code's messages between sessions.
   hivemux-team report [<date>] [-s S]         the team's day as JSON (states, hand-offs, diets, files, tokens) / 팀의 하루 (JSON)
   hivemux-team summarize [<date>] [-s S]      a small model writes the day's story to .hivemux/reports/<date>.md / 하루 이야기
   hivemux-team diet <role> [-s S]             put a role on a diet now (or at its next rest) / 역할을 지금 (또는 다음 쉴 때) 다이어트
+  hivemux-team ctx <pane> <transcript>        (bin/hivemux-hook, during a turn) note the context size / 턴 중 컨텍스트 크기
   hivemux-team stop <pane> <transcript>       (bin/hivemux-hook, Stop) note the context size; diet a role past its line
                                               (Stop) 컨텍스트 크기를 적고, 기준을 넘은 역할은 다이어트
   hivemux-team start <pane> <sid> <source>    (bin/hivemux-hook, SessionStart) remember the conversation; go on after a diet
@@ -2040,6 +2041,10 @@ def main(argv):
         on_start(*args)
     elif cmd == "handoff" and len(args) == 3:
         handoff(*args)
+    elif cmd == "ctx" and len(args) == 2:
+        n = ctx_tokens(args[1])
+        if n:
+            tmux("set", "-p", "-t", args[0], "@claude_ctx", str(n))
     elif cmd == "prompted" and len(args) == 1:
         on_prompt(*args)
     elif cmd == "seen" and len(args) == 1:
