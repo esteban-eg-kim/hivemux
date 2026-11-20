@@ -50,7 +50,8 @@ code, .mono { font-family: var(--f-mono); font-size: 12px; }
 .small { font-size: 12px; }
 
 /* ── the frame: top bar, the team's title and tabs / 틀: 위 막대, 팀 제목과 탭 ── */
-.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 12px 28px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 12px 28px; background: var(--panel); border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 20; }   /* stays while the page scrolls / 스크롤해도 위에 남는다 */
 .brand { display: flex; align-items: center; gap: 8px; font: 700 16px var(--f-mono); }
 .seg { display: flex; gap: 4px; background: var(--soft2); padding: 3px; border-radius: 10px; }
 .seg > * { flex: 1; border: 0; border-radius: 8px; padding: 0 12px; background: none; color: var(--muted); font-size: 13px; font-weight: 700; min-height: 40px;
@@ -456,9 +457,13 @@ words();
 const FULL = {};                     // role -> its last final preview / 역할 -> 마지막 최종 미리보기
 const TABS = ['progress', 'setup', 'report'];
 const q0 = new URLSearchParams(location.search);
+// /team with no project (the office's Team link) comes back to the team and tab seen last
+// 프로젝트 없는 /team (사무실의 팀 링크) 은 마지막에 보던 팀과 탭으로 돌아온다
+let last = {};
+try { last = (!q0.get('project') && JSON.parse(localStorage.getItem('hivemux-team-last') || '{}')) || {}; } catch (e) { /* private window / 사생활 보호 창 */ }
 // the tab: from the hash (#setup), and /report (old links) opens the report / 탭: 해시에서 (#setup). /report (예전 링크) 는 리포트
-const S = { project: q0.get('project') || '', ssh: q0.get('ssh') || '', date: q0.get('date') || '',
-  tab: location.pathname === '/report' ? 'report' : TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'progress',
+const S = { project: q0.get('project') || last.project || '', ssh: q0.get('project') ? q0.get('ssh') || '' : last.ssh || '', date: q0.get('date') || '',
+  tab: location.pathname === '/report' ? 'report' : TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : TABS.includes(last.tab) ? last.tab : 'progress',
   sel: '', ptab: 'mine', edited: {}, wiz: null, sig: '', adding: false, goal: '', zoom: 1, table: false };
 // a project of a connected computer (hivemux connect) carries it as ssh: every request goes there
 // 붙어 있는 컴퓨터 (hivemux connect) 의 프로젝트는 ssh 로 그 컴퓨터를 단다: 요청이 모두 그리로 간다
@@ -471,6 +476,7 @@ const same = p => p.name === S.project && (p.ssh || '') === S.ssh;
 function url() {
   const day = S.tab === 'report' && S.date && R && !R.today ? '&date=' + S.date : '';
   history.replaceState(null, '', '/team?' + QS() + day + '#' + S.tab);
+  if (S.project) try { localStorage.setItem('hivemux-team-last', JSON.stringify({ project: S.project, ssh: S.ssh, tab: S.tab })); } catch (e) { /* private window / 사생활 보호 창 */ }
 }
 url();
 

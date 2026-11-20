@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Team page: going to the office and back to Team returns to the team and tab you were on, not the first team.
+  The top bar stays in place while the page scrolls.
 - The context bar after a diet: it kept the old conversation's size until the first answer of the new one
   ended, so a finished diet looked undone. It now empties at the fresh start and follows a long turn once a
   minute.
