@@ -1005,7 +1005,8 @@ function renderSetup(m) {
           <button class="btn" type="button" data-act="addopen">＋ ${tr('역할 추가', 'Add a role')}</button>
           <button class="btn" type="button" data-act="ai">${tr('AI 와 팀 구성', 'Build the team with AI')}</button>
           <button class="btn" type="button" data-act="tsave" title="${tr('다른 프로젝트에서도 이 팀을 고를 수 있게 합니다', 'Lets other projects pick this team')}">${tr('템플릿으로 저장', 'Save as template')}</button>
-          ${running && off ? `<button class="btn primary" type="button" data-act="tup">▶ ${tr(`나머지 역할 시작 · ${off}`, `Start the other roles · ${off}`)}</button>` : ''}</div>`}
+          ${running && off ? `<button class="btn primary" type="button" data-act="tup">▶ ${tr(`나머지 역할 시작 · ${off}`, `Start the other roles · ${off}`)}</button>` : ''}
+          <button class="btn danger" type="button" data-act="disband">${tr('팀 해체…', 'Disband team…')}</button></div>`}
         <div class="tips" id="tips"></div>
         <p class="foot"><code>${esc(D.project.folder)}/.hivemux/team.toml</code> · ${tr('변경 사항은 자동으로 저장됩니다', 'Changes are saved automatically.')}</p>
       </div></section>
@@ -1397,6 +1398,11 @@ const ACT = {
   ai: () => aiOpen(),
   tsave: () => ask(tr('내 템플릿으로 저장', 'Save as my template'), tr('다른 프로젝트에서도 이 팀을 선택할 수 있습니다. 이름은 영문 소문자와 - 로 입력하십시오.', 'This team can then be chosen in other projects. Use lowercase letters and hyphens.'),
     tr('저장', 'Save'), async v => { const r = await post('/team/save', { ...P(), id: v }); toast(r.say); load(); }, S.project.toLowerCase().replace(/[^a-z0-9-]+/g, '-')),
+  disband: () => { const t = team(), n = t.roles.filter(r => r.pane).length;
+    ask(tr(`${t.name} 팀을 해체하시겠습니까?`, `Disband ${t.name}?`),
+      tr(`역할 Claude ${n}개를 닫습니다. 대화는 남아 claude --resume 으로 이어 갈 수 있습니다.\n노트, 리포트, 워크트리는 그대로 두고, 팀 설정은 .hivemux/disbanded/ 로 옮깁니다.`,
+         `Closes ${n} role Claude(s); their conversations stay for claude --resume.\nNotes, reports and worktrees stay; the team's settings move to .hivemux/disbanded/.`),
+      tr('해체', 'Disband'), async () => { const r = await post('/team/disband', P()); toast(r.say); S.sel = ''; S.sig = ''; R = null; load(); }); },
   use: b => useTemplate(b.dataset.id),
   wizgo: () => openWizard(),
 };

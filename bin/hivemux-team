@@ -16,6 +16,7 @@ other by name with Claude Code's messages between sessions.
                                               (재개하는 곳에서) 그 대화가 역할이면 역할 실행 옵션
   hivemux-team handoff <pane> <to> <summary>  (bin/hivemux-hook, a role's SendMessage) log a hand-off / 넘김을 남긴다
   hivemux-team rename <name> [-s S]           rename the team / 팀 이름 바꾸기
+  hivemux-team disband [-s S]                 close the roles' Claudes and put the team away (notes stay) / 팀 해체
   hivemux-team move <role> <to|up|down> [-s S]  (the sidebar) move a role to another's place, or a step / 역할 순서 옮기기
   hivemux-team goal <text> [-s S]             give the lead the team's goal (it plans and hands work out) / 리드에게 팀 목표
   hivemux-team trust [-s S]                   answer yes to the folder trust question in the roles waiting on it / 폴더 신뢰 질문에 예
@@ -967,6 +968,37 @@ def delete_role(session, rid):
             os.remove(os.path.join(team_dir(folder), "roles", rid + suffix))
         except OSError:
             pass
+
+
+def disband(session):
+    """Disband the team: close the roles' Claudes (their conversations stay, as with /exit) and put the team's
+    settings away in .hivemux/disbanded/<time>/. Notes, reports and worktrees stay where they are
+    팀 해체: 역할 Claude 를 닫고 (/exit 처럼 대화는 남는다) 팀 설정은 .hivemux/disbanded/<시각>/ 으로 옮긴다.
+    노트, 리포트, 워크트리는 그 자리에 둔다"""
+    session, folder = project(session)
+    path = team_dir(folder)
+    if not os.path.isfile(os.path.join(path, "team.toml")):
+        die(tr("이 프로젝트에는 팀이 없습니다", "This project has no team"))
+    name = label(load(path))
+    closed = 0
+    for p in panes(session):
+        if p["role"]:
+            subprocess.run([os.path.join(HERE, "hivemux-close-claude"), "--now", p["pane"]], capture_output=True)
+            closed += 1
+    # the last window of a project stays with its shell: no longer a role / 프로젝트의 마지막 창은 셸과 남는다: 이제 역할이 아니다
+    for p in panes(session):
+        if p["role"]:
+            for o in ("@hivemux-role", "@hivemux-teamdir", "@hivemux-rolename", "@hivemux-team", "@hivemux-roleorder", "@hivemux-diet"):
+                tmux("set", "-pu", "-t", p["pane"], o)
+    # what made it a team, and the role -> conversation list, so a new team does not resume these
+    # 팀을 이루던 것과 역할 -> 대화 목록. 새 팀이 이 대화를 재개하지 않게
+    away = os.path.join(path, "disbanded", time.strftime("%Y%m%d-%H%M%S"))
+    os.makedirs(away, exist_ok=True)
+    for f in ("team.toml", "roles", "run", "sessions.tsv", "pids.tsv"):
+        if os.path.lexists(os.path.join(path, f)):
+            shutil.move(os.path.join(path, f), os.path.join(away, f))
+    print(tr(f"'{name}' 팀을 해체했습니다. 역할 Claude {closed}개를 닫았습니다. 팀 설정은 {away} 에 있습니다.",
+             f"Disbanded '{name}'. Closed {closed} role Claude(s). The team's settings are in {away}."))
 
 
 def rename_team(session, name):
@@ -2057,6 +2089,8 @@ def main(argv):
         may_write(*args)
     elif cmd == "rename" and args:
         rename_team(session, " ".join(args))
+    elif cmd == "disband":
+        disband(session)
     elif cmd == "move" and len(args) == 2:
         sys.exit(0 if move_role(session, args[0], args[1]) else 1)
     elif cmd == "trust":

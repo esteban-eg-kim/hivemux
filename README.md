@@ -160,6 +160,9 @@ the work out, and the roles pass what they finish down the flow.
   `.hivemux/` (`team.toml` and a prompt per role); `hivemux team save <id>`
   keeps it as your own template. Teams on a computer connected with `hivemux
   connect` show on the team page and the report too (`⇄ <computer> · <project>`).
+  **Disband team…** on the Setup tab (or `hivemux team disband`) closes the role
+  Claudes and moves the team's settings to `.hivemux/disbanded/`; notes,
+  reports and worktrees stay.
 
 <p align="center">
   <img src="docs/office/teamfloor-en.jpg" alt="A team floor in the 3D bee office: a glass room with the roles round a long table, the lead at its head and the whiteboard" width="880">

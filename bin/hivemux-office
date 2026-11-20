@@ -886,7 +886,7 @@ def letters():
 # hivemux-office --team-api 에 묻는다. 팀 파일은 그 컴퓨터에 그대로 있고 그쪽 hivemux-team 이 고친다.
 # 그 프로젝트 목록은 몇 초 둔다 (페이지는 2초마다 묻는다).
 _RPROJ = {}     # host -> (time, projects) / 호스트 -> (시각, 프로젝트)
-TEAM_WAIT = {"assist": 260, "summary": 200, "up": 90, "down": 90, "trust": 60, "use": 60}   # seconds / 초
+TEAM_WAIT = {"assist": 260, "summary": 200, "up": 90, "down": 90, "trust": 60, "use": 60, "disband": 90}   # seconds / 초
 
 
 def remote_team(host, args, timeout=15):
@@ -995,6 +995,8 @@ def team_post(action, req):
         ok, msg = team_call(teams.summarize, project, str(req.get("date") or "") or None)
     elif action == "rename":
         ok, msg = team_call(teams.rename_team, project, str(req.get("name", "")))
+    elif action == "disband":
+        ok, msg = team_call(teams.disband, project)
     elif action == "goal":
         ok, msg = team_call(teams.kickoff, project, str(req.get("goal", "")))
     elif action == "trust":
