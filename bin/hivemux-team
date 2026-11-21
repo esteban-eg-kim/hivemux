@@ -1464,6 +1464,10 @@ def on_stop(pane, transcript):
         # work) logged 150K and moved the line 50K above that / 그 답이 끝날 때가 아니라 시작할 때 크기: 긴 첫 턴
         # (노트, 그다음 한 시간 일) 이 150K 로 적혀 기준이 그 위 50K 로 올라갔다
         diet_log(folder, role["id"], role["diet"]["how"], before or "0", ctx_tokens(transcript, first=True) or n)
+        try:
+            os.remove(last_path(folder, role["id"]))     # shown again by now / 이제 다시 보여 줬다
+        except OSError:
+            pass
         tmux("set", "-pu", "-t", pane, "@hivemux-diet")
         tmux("set", "-pu", "-t", pane, "@hivemux-diet-before")
         return
@@ -1477,7 +1481,19 @@ def on_stop(pane, transcript):
         # were reading. It waits until they have seen it and moved away (seen)
         # 사용자가 물은 것의 답이거나, 사용자가 보고 있는 창: 지금 다이어트하면 읽던 것이 지워졌다. 보고 나서 다른
         # 데로 갈 때까지 기다린다 (seen)
-        if tmux("show", "-pqv", "-t", pane, "@hivemux-asked").strip() or watched(pane):
+        # past half again its line it goes ahead anyway, keeping the last answer to show again after the fresh
+        # start: a window always in front of you never dieted / 기준의 1.5배를 넘으면 그래도 한다. 마지막 답은 남겨
+        # 새로 시작한 뒤 다시 보여 준다: 늘 켜 둔 창은 다이어트를 영영 못 했다
+        held = tmux("show", "-pqv", "-t", pane, "@hivemux-asked").strip() or watched(pane)
+        if held and n >= diet_line(folder, role) * 1.5 and role["diet"]["how"] != "compact":
+            try:
+                with open(last_path(folder, role["id"]), "w") as f:
+                    f.write(last_answer(transcript))
+            except OSError:
+                pass
+            tmux("set", "-pu", "-t", pane, "@hivemux-asked")
+            held = ""
+        if held:
             tmux("set", "-p", "-t", pane, "@hivemux-diet", "pending")
             subprocess.Popen([os.path.abspath(__file__), "seen", pane], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL, start_new_session=True)
@@ -1488,11 +1504,26 @@ def on_stop(pane, transcript):
 AWAY = 60                               # seconds away from the window before a waiting diet / 기다리던 다이어트 전에 창을 떠나 있을 시간
 
 
+IDLE_LOOK = 300                         # no key or mouse on that screen this long: not being read / 그 화면에 이만큼 키도 마우스도 없으면 안 읽는 중
+
+
 def watched(pane):
-    """The window is on a screen with the keyboard focus (as the sidebar's "seen") / 키보드 초점이 있는 화면에 그 창이 떠 있다"""
+    """The window is on a screen with the keyboard focus (as the sidebar's "seen") that had a key or the mouse in
+    the last five minutes: a window left open on its own is not being read
+    키보드 초점이 있는 화면에 그 창이 떠 있고, 그 화면에 5분 안에 키나 마우스가 있었다: 켜 두기만 한 창은 읽는 중이 아니다"""
     win = tmux("display", "-p", "-t", pane, "#{window_id}").strip()
-    return any(l.split(" ", 1)[0] == win and "focused" in l
-               for l in tmux("list-clients", "-F", "#{window_id} #{client_flags}").splitlines())
+    now = time.time()
+    for l in tmux("list-clients", "-F", "#{window_id} #{client_flags} #{client_activity}").splitlines():
+        w, flags, act = (l.split(" ") + ["", "", ""])[:3]
+        if w == win and "focused" in flags and (not act.isdigit() or now - int(act) < IDLE_LOOK):
+            return True
+    return False
+
+
+def last_path(folder, rid):
+    """The answer just before a diet that had to clear a window being read; the fresh start shows it again
+    읽는 중인 창을 비워야 했던 다이어트 직전의 답. 새로 시작하면 다시 보여 준다"""
+    return os.path.join(team_dir(folder), "notes", rid + ".last-answer.md")
 
 
 def on_seen(pane):
@@ -1698,8 +1729,13 @@ def on_start(pane, sid, source):
         time.sleep(1.0)
         tmux("set", "-p", "-t", pane, "@hivemux-diet", "after")
         path = notes_path(folder, role["id"])
-        type_in(pane, (f"(hivemux 다이어트 뒤 새로 시작) {path} 를 읽고 하던 일을 이어서 해라. 사용자의 답을 기다리는 질문이 있으면 그 질문을 원문 그대로 다시 보여 줘라. 이어서 할 일이 없으면 기다려라."
-                       if lang() == "ko" else f"(hivemux: fresh start after a diet) Read {path} and carry on with your work. If questions to the user are still unanswered, show them again word for word. If nothing is left, wait."))
+        last = last_path(folder, role["id"])
+        again = ""
+        if os.path.isfile(last):       # the answer that was on screen (on_stop) / 화면에 있던 답 (on_stop)
+            again = (f" 먼저 {last} 를 읽고, 그 내용을 사용자에게 고치지 말고 그대로 다시 보여 줘라 (다이어트 직전에 사용자가 읽던 답이다)."
+                     if lang() == "ko" else f" First read {last} and show it to the user again exactly as written (the answer they were reading right before the diet).")
+        type_in(pane, (f"(hivemux 다이어트 뒤 새로 시작){again} {path} 를 읽고 하던 일을 이어서 해라. 사용자의 답을 기다리는 질문이 있으면 그 질문을 원문 그대로 다시 보여 줘라. 이어서 할 일이 없으면 기다려라."
+                       if lang() == "ko" else f"(hivemux: fresh start after a diet){again} Read {path} and carry on with your work. If questions to the user are still unanswered, show them again word for word. If nothing is left, wait."))
     elif st == "compacting" and source == "compact":
         tmux("set", "-p", "-t", pane, "@hivemux-diet", "after")
 

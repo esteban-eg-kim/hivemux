@@ -142,7 +142,8 @@ the work out, and the roles pass what they finish down the flow.
   `/clear`s and carries on from the notes under the same name, so the others
   keep messaging it. It never clears a window you are looking at, nor an answer
   to something you asked before you have read it: it waits until you have been
-  away from that window for a minute. The page shows each role's context against its line and
+  away from that window for a minute (or left it untouched for five). Past half
+  again its line it goes ahead and shows the last answer again after. The page shows each role's context against its line and
   has a **Diet now** button.
 - **The day's report.** The **Report** tab of the team page (or `hivemux team
   report`): time worked, hand-offs, tasks done, tokens and diets; a timeline of
