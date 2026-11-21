@@ -908,6 +908,18 @@ def clock_in(pid):
     bg_run(os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-shift"), "on", "--pane", pid)
 
 
+def pane_hidden(pid):
+    """Kept out of the Claude app, by itself or with its project (bin/hivemux-account hide) / Claude 앱에서 숨김"""
+    return bool(tmux("show", "-pqv", "-t", pid, "@hivemux-hidden").strip())
+
+
+def project_hidden(sess):
+    try:
+        return sess in {l.strip() for l in open(os.path.join(os.path.dirname(ORDER_FILE), "hidden-projects"))}
+    except OSError:
+        return False
+
+
 def menu(y, pid=None, sess=None, items=(), homes=()):
     """Open the right-click menu under row y. pid: a card, sess: a project header.
     It is drawn by the sidebar itself, not tmux display-menu: tmux 3.7 draws a pane's Korean (wide)
@@ -939,6 +951,10 @@ def menu(y, pid=None, sess=None, items=(), homes=()):
         rows += [(tr("이동", "Go to"), "g", lambda: goto(pid)),
                  (tr("이름 바꾸기…", "Rename…"), "r", lambda: rename(pid)),
                  None,
+                 # out of the Claude app and claude.ai, for an account shared with others (bin/hivemux-account hide)
+                 # Claude 앱과 claude.ai 에서 숨기기. 같이 쓰는 계정에 (bin/hivemux-account hide)
+                 (tr("앱에 보이기", "Show in the Claude app") if pane_hidden(pid) else tr("앱에서 숨기기", "Hide from the Claude app"), "d",
+                  lambda: bg_run(os.path.join(here, "hivemux-account"), "hide", "--pane", pid, "off" if pane_hidden(pid) else "on")),
                  (tr("위로 옮기기", "Move up"), "k", lambda: bg_run(os.path.join(here, "hivemux-order"), "step", "up", pid)),
                  (tr("아래로 옮기기", "Move down"), "j", lambda: bg_run(os.path.join(here, "hivemux-order"), "step", "down", pid)),
                  None]
@@ -952,7 +968,9 @@ def menu(y, pid=None, sess=None, items=(), homes=()):
                  (tr("팀…", "Team…"), "m", lambda: bg_run(os.path.join(here, "hivemux-office"), "--team", sess, "--client", client)),
                  (tr("프로젝트 닫기…", "Close project…"), "x", lambda: bg_run(os.path.join(here, "hivemux-close-project"), sess, client)),
                  # this project on its own Claude account (bin/hivemux-account) / 이 프로젝트만 다른 Claude 계정으로 (bin/hivemux-account)
-                 (tr("이 프로젝트 계정…", "Account for this project…"), "e", lambda: bg_run(os.path.join(here, "hivemux-account"), "--popup", client, "-s", sess))]
+                 (tr("이 프로젝트 계정…", "Account for this project…"), "e", lambda: bg_run(os.path.join(here, "hivemux-account"), "--popup", client, "-s", sess)),
+                 (tr("이 프로젝트 앱에 보이기", "Show this project in the Claude app") if project_hidden(sess) else tr("이 프로젝트 앱에서 숨기기", "Hide this project from the Claude app"), "d",
+                  lambda: bg_run(os.path.join(here, "hivemux-account"), "hide", "-s", sess, "off" if project_hidden(sess) else "on"))]
         # this project's Claudes only; windows and shells stay / 이 프로젝트의 Claude 만. 창과 셸은 그대로
         if any(p["session_name"] == sess and not p["@claude_offwork"] for p in items):
             rows.append((tr("이 프로젝트 퇴근…", "Clock this project out…"), "h", lambda: bg_run(shift, "--popup", "off", client, "--project", sess)))

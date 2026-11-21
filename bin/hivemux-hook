@@ -203,6 +203,16 @@ case "$event" in
       # 컨텍스트 크기는 이전 대화의 것이었다: 첫 응답이 끝날 때까지 다이어트가 안 된 것처럼 보였다
       clear|compact) t set -pu -t "$TMUX_PANE" @claude_ctx; t set -pu -t "$TMUX_PANE" @claude_ctx_at ;;
     esac
+    # a Claude kept out of the Claude app stays so in its next conversation and after a reboot (bin/hivemux-account hide)
+    # Claude 앱에서 숨긴 Claude 는 다음 대화와 재부팅 뒤에도 숨긴 채 (bin/hivemux-account hide)
+    hc="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux/hidden-claudes"
+    if [ -n "$sid" ]; then
+      if [ -n "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @hivemux-hidden 2>/dev/null)" ]; then
+        grep -qxF "$sid" "$hc" 2>/dev/null || echo "$sid" >> "$hc"
+      elif grep -qxF "$sid" "$hc" 2>/dev/null; then
+        t set -p -t "$TMUX_PANE" @hivemux-hidden 1
+      fi
+    fi
     # a team role: remember its conversation, so a reboot resumes it as that role (bin/hivemux-team)
     # 팀 역할: 그 대화를 적어 둔다. 재부팅 뒤 그 역할로 재개된다 (bin/hivemux-team)
     # (and after a diet's /clear it carries on from its notes) / (다이어트의 /clear 뒤에는 노트로 이어 간다)

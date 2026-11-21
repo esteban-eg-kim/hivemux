@@ -120,6 +120,9 @@ case "$1" in
     # 새 연결이면 이름을 붙여 다시 연결한다 (/remote-control <이름>)
     bridge="$(tail -c 400000 "$tr_" 2>/dev/null | grep -o '"bridgeSessionId":"[^"]*"' | tail -1 | cut -d'"' -f4)"
     seen="$(t show -pqv -t "$pane" @claude_rc_bridge)"
+    # kept out of the Claude app (bin/hivemux-account hide): never connect it again / Claude 앱에서 숨김: 다시 연결하지 않는다
+    [ -n "$(t show -pqv -t "$pane" @hivemux-hidden)" ] && bridge=""
+    grep -qxF "$(t display -p -t "$pane" '#{session_name}')" "${XDG_DATA_HOME:-$HOME/.local/share}/hivemux/hidden-projects" 2>/dev/null && bridge=""
     if [ -n "$bridge" ] && [ "$seen" != "$bridge" ]; then
       t set -p -t "$pane" @claude_rc_bridge "$bridge"
       # the first connection of this pane, or the one our own reconnect made: nothing to do

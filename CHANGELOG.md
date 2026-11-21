@@ -2,9 +2,11 @@
 
 ## Unreleased
 
-- `hivemux account hide <name>` keeps an account's Claudes out of the Claude app and claude.ai, for an account
-  shared with someone else: they start without Remote Control (merged into a role's own `--settings`), and the
-  ones running restart in the same conversation. `hide <name> off` undoes it; `account list` marks it.
+- Hide Claudes from the Claude app and claude.ai, for an account shared with someone else: right-click a card →
+  **Hide from the Claude app**, or a project name → **Hide this project from the Claude app** (its team too).
+  They start without Remote Control (merged into a role's own `--settings`), and the ones running restart in
+  the same conversation; a hidden Claude stays hidden through `/clear` and reboots, and is never reconnected.
+  The same menu item shows them again. A whole account: `hivemux account hide <name> [off]`.
 
 ## 0.1.72 — 2026-11-21
 
