@@ -213,6 +213,11 @@ case "$event" in
         t set -p -t "$TMUX_PANE" @hivemux-hidden 1
       fi
     fi
+    # it connects at start (startup, resume): disconnect once the prompt is up (bin/hivemux-rename rc-off decides
+    # whether it is hidden) / 시작할 때 연결된다: 입력창이 뜨면 끊는다 (숨김인지는 rc-off 가 본다)
+    case "$(field source)" in startup|resume)
+      ( sleep 6; "$(dirname "$0")/hivemux-rename" rc-off-hidden "$TMUX_PANE" >/dev/null 2>&1 & ) ;;
+    esac
     # a team role: remember its conversation, so a reboot resumes it as that role (bin/hivemux-team)
     # 팀 역할: 그 대화를 적어 둔다. 재부팅 뒤 그 역할로 재개된다 (bin/hivemux-team)
     # (and after a diet's /clear it carries on from its notes) / (다이어트의 /clear 뒤에는 노트로 이어 간다)

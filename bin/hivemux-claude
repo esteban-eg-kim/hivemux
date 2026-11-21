@@ -24,27 +24,6 @@ if [ -n "$name" ] && [ "$name" != default ] && [ -d "$DATA/accounts/$name" ]; th
 # default: forget only a dir of ours (a shell started under another account); one you set yourself stays
 # 기본 계정: 우리 폴더일 때만 지운다 (다른 계정일 때 연 셸). 직접 정한 것은 그대로
 elif [[ "$CLAUDE_CONFIG_DIR" == "$DATA/accounts/"* ]]; then unset CLAUDE_CONFIG_DIR; fi
-# kept out of the Claude app (hivemux account hide): the account, the project, this pane or the conversation it
-# resumes. No Remote Control, merged into a --settings JSON the role flags already pass (bin/hivemux-team), else
-# one of its own
-# Claude 앱에서 숨김 (hivemux account hide): 계정, 프로젝트, 이 칸, 또는 재개하는 대화. Remote Control 없이.
-# 역할 플래그가 이미 주는 --settings JSON 에 합치고, 없으면 따로 하나
-hide=""
-grep -qxF "${name:-default}" "$DATA/hidden-accounts" 2>/dev/null && hide=1
-[ -n "$sess" ] && grep -qxF "$sess" "$DATA/hidden-projects" 2>/dev/null && hide=1
-[ -n "$TMUX_PANE" ] && [ -n "$(tmux show -pqv -t "$TMUX_PANE" @hivemux-hidden 2>/dev/null)" ] && hide=1
-prev=""; for a in "$@"; do [ "$prev" = --resume ] && grep -qxF "$a" "$DATA/hidden-claudes" 2>/dev/null && hide=1; prev="$a"; done
-if [ -n "$hide" ]; then
-  args=(); merged=""
-  while [ $# -gt 0 ]; do
-    if [ "$1" = --settings ] && [ $# -gt 1 ] && [[ "$2" == "{"* ]] && j="$(printf '%s' "$2" | jq -c '. + {remoteControlAtStartup: false}' 2>/dev/null)"; then
-      args+=(--settings "$j"); merged=1; shift 2; continue
-    fi
-    args+=("$1"); shift
-  done
-  [ -n "$merged" ] || args+=(--settings '{"remoteControlAtStartup":false}')
-  set -- "${args[@]}"
-fi
 via=""; [ -n "$TMUX_PANE" ] && via="$(tmux show -pqv -t "$TMUX_PANE" @claude_launch 2>/dev/null)"
 if [ -n "$via" ]; then read -ra via <<< "$via"; exec "${via[@]}" "$@"; fi
 exec claude "$@"

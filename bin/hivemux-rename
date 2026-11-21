@@ -10,6 +10,9 @@
 #   hivemux-rename auto   <pane_id> <session id> <transcript>
 #                                              a session with no name yet gets the sidebar's (Stop hook)
 #                                              아직 이름이 없는 세션에 사이드바 이름을 준다 (Stop 훅)
+#   hivemux-rename rc-off <pane_id>            disconnect Remote Control: out of the Claude app (bin/hivemux-account hide)
+#                                              Remote Control 끊기: Claude 앱에서 숨김
+#   hivemux-rename rc-on  <pane_id>            connect it again, with the name / 이름과 함께 다시 연결
 # Apply: change the sidebar name (@claude_name) at once and send "/rename <name>" to Claude.
 # 적용: 사이드바 표시 이름(@claude_name)을 바로 바꾸고, Claude에 "/rename 이름"을 보낸다.
 # If Claude is working or waiting for approval, typed keys could become an answer,
@@ -56,7 +59,79 @@ rc_reconnect() {
   return 1
 }
 
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux"
+claude_pid() { local s; s="$(t display -p -t "$pane" '#{pane_pid}' 2>/dev/null)"; ps -ax -o pid=,ppid=,comm= | awk -v p="$s" '$2 == p && $3 ~ /(^|\/)(claude|node)$/ { print $1; exit }'; }
+# Kept out of the Claude app (bin/hivemux-account hide): this pane, its project or its project's account
+# Claude 앱에서 숨김 (bin/hivemux-account hide): 이 칸, 그 프로젝트, 또는 그 프로젝트의 계정
+hidden_pane() {
+  local sess
+  [ -n "$(t show -pqv -t "$pane" @hivemux-hidden 2>/dev/null)" ] && return 0
+  sess="$(t display -p -t "$pane" '#{session_name}' 2>/dev/null)"
+  grep -qxF "$sess" "$DATA/hidden-projects" 2>/dev/null && return 0
+  [ -s "$DATA/hidden-accounts" ] && grep -qxF "$("$HM_BIN/hivemux-account" current -s "$sess" 2>/dev/null)" "$DATA/hidden-accounts"
+}
+# Remote Control as the command list tells it: typing /remote-control shows "Disconnect Remote Control" when
+# connected, "Control this session from your phone…" when not. The typed text is cleared again. on | off | ""
+# 명령 목록으로 본 Remote Control: /remote-control 을 치면 연결돼 있으면 "Disconnect Remote Control", 아니면
+# "Control this session from your phone…" 이 보인다. 친 글은 다시 지운다. on | off | ""
+rc_state() {
+  local s
+  t send-keys -t "$pane" -l "/remote-control"; sleep 0.8
+  s="$(t capture-pane -p -t "$pane" | tail -15)"
+  t send-keys -t "$pane" C-u; sleep 0.2
+  case "$s" in *"Disconnect Remote Control"*) echo on ;; *"Control this session from"*) echo off ;; esac
+}
+# Wait (up to ~20s) for a resting Claude with an empty prompt: keys typed then go nowhere else
+# 쉬고 입력창이 빈 Claude 를 기다린다 (최대 20초쯤): 그래야 친 키가 다른 데로 가지 않는다
+rc_ready() {
+  local i st
+  for i in $(seq 10); do
+    st="$(t show -pqv -t "$pane" @claude_state)"
+    if { [ "$st" = idle ] || [ "$st" = done ]; } && "$HM_BIN/hivemux-team" prompt-free "$pane" >/dev/null 2>&1; then return 0; fi
+    sleep 2
+  done
+  return 1
+}
+rc_disconnect() {
+  local j
+  t send-keys -t "$pane" -l "/remote-control"; t send-keys -t "$pane" Enter; sleep 2
+  t capture-pane -p -t "$pane" | grep -q 'Disconnect this session' || return 1
+  for j in 1 2 3; do
+    t capture-pane -p -t "$pane" | grep -q '❯ *Disconnect this session' && break
+    t send-keys -t "$pane" Up; sleep 0.2
+  done
+  t send-keys -t "$pane" Enter; sleep 2
+}
+# @claude_rc_off holds the Claude process it was done for: a restart or a resume connects again at start
+# @claude_rc_off 에는 끊어 준 Claude 프로세스를 둔다: 다시 시작하거나 재개하면 시작할 때 다시 연결된다
+rc_off() {
+  rc_ready || return 1
+  case "$(rc_state)" in
+    off) ;;
+    on) rc_disconnect; [ "$(rc_state)" = off ] || return 1 ;;
+    *) return 1 ;;
+  esac
+  t set -p -t "$pane" @claude_rc_off "$(claude_pid)"
+}
+
 case "$1" in
+  rc-off)
+    rc_off
+    ;;
+  rc-off-hidden)              # (the SessionStart hook) only when hidden / (SessionStart 훅) 숨김일 때만
+    hidden_pane && rc_off
+    ;;
+  rc-on)
+    t set -pu -t "$pane" @claude_rc_off
+    rc_ready || exit 0
+    [ "$(rc_state)" = off ] || exit 0
+    sid="$(t show -pqv -t "$pane" @claude_session)"
+    tr_="$(ls "$HOME"/.claude/projects/*/"$sid".jsonl 2>/dev/null | head -1)"
+    name="$(grep -o '"type":"custom-title","customTitle":"[^"]*"' "$tr_" 2>/dev/null | tail -1 | cut -d'"' -f8)"
+    [ -n "$name" ] || name="$("$HM_BIN/hivemux-sidebar-view" --name "$pane" 2>/dev/null | tr -d '\n')"
+    t set -p -t "$pane" @claude_rc_bridge reconnecting
+    t send-keys -t "$pane" -l "/remote-control${name:+ $name}"; t send-keys -t "$pane" Enter
+    ;;
   prompt)
     client="$3"
     cur="$(t show -pqv -t "$pane" @claude_name)"
@@ -120,9 +195,15 @@ case "$1" in
     # 새 연결이면 이름을 붙여 다시 연결한다 (/remote-control <이름>)
     bridge="$(tail -c 400000 "$tr_" 2>/dev/null | grep -o '"bridgeSessionId":"[^"]*"' | tail -1 | cut -d'"' -f4)"
     seen="$(t show -pqv -t "$pane" @claude_rc_bridge)"
-    # kept out of the Claude app (bin/hivemux-account hide): never connect it again / Claude 앱에서 숨김: 다시 연결하지 않는다
-    [ -n "$(t show -pqv -t "$pane" @hivemux-hidden)" ] && bridge=""
-    grep -qxF "$(t display -p -t "$pane" '#{session_name}')" "${XDG_DATA_HOME:-$HOME/.local/share}/hivemux/hidden-projects" 2>/dev/null && bridge=""
+    # kept out of the Claude app (bin/hivemux-account hide): a new process or a new connection is disconnected
+    # again, and it needs no name / Claude 앱에서 숨김: 새 프로세스나 새 연결이면 다시 끊는다. 이름도 필요 없다
+    if hidden_pane; then
+      [ -n "$bridge" ] && t set -p -t "$pane" @claude_rc_bridge "$bridge"
+      if [ "$(t show -pqv -t "$pane" @claude_rc_off)" != "$(claude_pid)" ] || { [ -n "$bridge" ] && [ "$seen" != "$bridge" ]; }; then
+        sleep 1.5; rc_off
+      fi
+      exit 0
+    fi
     if [ -n "$bridge" ] && [ "$seen" != "$bridge" ]; then
       t set -p -t "$pane" @claude_rc_bridge "$bridge"
       # the first connection of this pane, or the one our own reconnect made: nothing to do

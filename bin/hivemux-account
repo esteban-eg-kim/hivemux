@@ -398,13 +398,13 @@ def set_hidden(path, name, on):
     write_atomic(path, "".join(n + "\n" for n in sorted(h)))
 
 
-def restart_panes(panes):
-    """Restart these Claudes in the same conversation (busy ones once done); returns how many
-    이 Claude 들을 같은 대화로 다시 시작한다 (일하는 중이면 끝난 뒤). 몇 개인지 돌려준다"""
+def rc_panes(panes, on):
+    """Disconnect (or connect again) these Claudes' Remote Control, from the command itself (bin/hivemux-rename
+    rc-off / rc-on): a resting one now, a busy one when its turn ends (the Stop hook). Returns how many
+    이 Claude 들의 Remote Control 을 명령으로 끊는다 (또는 다시 잇는다): 쉬는 것은 지금, 일하는 것은 턴이 끝날 때
+    (Stop 훅). 몇 개인지 돌려준다"""
     for pane in panes:
-        tmux("set", "-p", "-t", pane, "@claude_restart_pending", "now")
-    if panes:
-        subprocess.Popen([os.path.join(HERE, "hivemux-claude-update"), "watch"], stdin=subprocess.DEVNULL,
+        subprocess.Popen([os.path.join(HERE, "hivemux-rename"), "rc-off" if not on else "rc-on", pane], stdin=subprocess.DEVNULL,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     return len(panes)
 
@@ -422,7 +422,7 @@ def running(where):
 def hide_project(session, on=True):
     """A project's Claudes (its team too) out of the Claude app / 프로젝트의 Claude (그 팀도) 를 Claude 앱에서 숨긴다"""
     set_hidden(HIDDEN_PROJECTS, session, on)
-    return restart_panes([p for p, _ in running(session)])
+    return rc_panes([p for p, _ in running(session)], not on)
 
 
 def hide_pane(pane, on=True):
@@ -436,7 +436,7 @@ def hide_pane(pane, on=True):
         tmux("set", "-pu", "-t", pane, "@hivemux-hidden")
     if sid:
         set_hidden(HIDDEN_CLAUDES, sid, on)
-    return restart_panes([p for p, _ in running("") if p == pane])
+    return rc_panes([p for p, _ in running("") if p == pane], not on)
 
 
 def hide(name, on=True):
@@ -448,17 +448,8 @@ def hide(name, on=True):
         raise SystemExit(tr(f"'{name}' 계정이 없습니다.", f"No account '{name}'."))
     set_hidden(HIDDEN, name, on)
     d = os.path.normpath(HOME_DIR if name == "default" else config_dir(name))
-    n = 0
-    for ln in tmux("list-panes", "-a", "-F", "#{pane_id}\t#{pane_pid}\t#{@claude_session}").splitlines():
-        pane, shell, sid = (ln.split("\t") + ["", "", ""])[:3]
-        pid = claude_pid(shell) if sid else ""
-        if pid and os.path.normpath(running_dir(pid) or HOME_DIR) == d:
-            tmux("set", "-p", "-t", pane, "@claude_restart_pending", "now")
-            n += 1
-    if n:
-        subprocess.Popen([os.path.join(HERE, "hivemux-claude-update"), "watch"], stdin=subprocess.DEVNULL,
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-    return n
+    return rc_panes([p for p, _ in running("") if os.path.normpath(running_dir(claude_pid(
+        tmux("display", "-p", "-t", p, "#{pane_pid}").strip())) or HOME_DIR) == d], not on)
 
 
 def listing():
@@ -693,7 +684,8 @@ def main(argv):
             what, n = tr(f"{argv[1]} 계정의 Claude 를", f"{argv[1]}:"), hide(argv[1], on)
         print(what + " " + tr("Claude 앱과 claude.ai 에 보이지 않게 했습니다." if on else "다시 Claude 앱에 보이게 했습니다.",
                               "kept out of the Claude app and claude.ai." if on else "shown in the Claude app again.")
-              + (tr(f" 도는 Claude {n}개를 같은 대화로 다시 시작합니다 (일하는 중이면 끝난 뒤).", f" Restarting {n} running Claude(s) in the same conversation (busy ones once done).") if n else ""))
+              + ((tr(f" 도는 Claude {n}개의 Remote Control 을 끊습니다 (일하는 중이면 끝난 뒤).", f" Disconnecting Remote Control of {n} running Claude(s) (busy ones once done).") if not on else
+                  tr(f" 도는 Claude {n}개를 Remote Control 에 다시 연결합니다.", f" Connecting {n} running Claude(s) to Remote Control again.")) if n else ""))
     elif cmd == "current":
         print(resolve(session) if session else chosen()[0])
     elif cmd == "env":

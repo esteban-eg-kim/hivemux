@@ -2077,6 +2077,8 @@ def main(argv):
         on_start(*args)
     elif cmd == "handoff" and len(args) == 3:
         handoff(*args)
+    elif cmd == "prompt-free" and len(args) == 1:
+        sys.exit(0 if prompt_free(args[0]) else 1)
     elif cmd == "ctx" and len(args) == 2:
         n = ctx_tokens(args[1])
         if n:

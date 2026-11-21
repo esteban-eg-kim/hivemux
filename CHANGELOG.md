@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Hide from the Claude app now works: a setting at start did not keep Remote Control off. hivemux reads the
+  state from `/remote-control` itself ("Disconnect Remote Control" when connected) and disconnects through its
+  menu, a busy Claude when its turn ends, and again when a restart or resume connects it anew. Showing it again
+  connects it with its name.
+
 ## 0.1.73 — 2026-11-21
 
 - Hide Claudes from the Claude app and claude.ai, for an account shared with someone else: right-click a card →
