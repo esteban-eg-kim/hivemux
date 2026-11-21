@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A diet no longer clears a window you are reading. It used to start two minutes after you first looked at the
+  answer, even with the window still in front of you; now it waits until you have been away from that window
+  for a minute, for any turn, not only one you asked.
 - Hide from the Claude app now works: a setting at start did not keep Remote Control off. hivemux reads the
   state from `/remote-control` itself ("Disconnect Remote Control" when connected) and disconnects through its
   menu, a busy Claude when its turn ends, and again when a restart or resume connects it anew. Showing it again

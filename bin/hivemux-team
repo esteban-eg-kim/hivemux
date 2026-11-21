@@ -1473,32 +1473,58 @@ def on_stop(pane, transcript):
     if not st and asks_user(last_answer(transcript)):
         return
     if st == "pending" or (not st and role["diet"]["how"] != "off" and n >= diet_line(folder, role)):
-        # the user asked this turn and has not seen the answer yet: a diet now cleared it before they read it.
-        # It waits for them to look (seen)
-        # 사용자가 물은 턴의 답을 아직 보지 않았다: 지금 다이어트하면 읽기 전에 지워졌다. 볼 때까지 기다린다 (seen)
-        if state == "done" and tmux("show", "-pqv", "-t", pane, "@hivemux-asked").strip():
+        # an answer to the user's own question, or a window the user is looking at: a diet now cleared what they
+        # were reading. It waits until they have seen it and moved away (seen)
+        # 사용자가 물은 것의 답이거나, 사용자가 보고 있는 창: 지금 다이어트하면 읽던 것이 지워졌다. 보고 나서 다른
+        # 데로 갈 때까지 기다린다 (seen)
+        if tmux("show", "-pqv", "-t", pane, "@hivemux-asked").strip() or watched(pane):
             tmux("set", "-p", "-t", pane, "@hivemux-diet", "pending")
+            subprocess.Popen([os.path.abspath(__file__), "seen", pane], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL, start_new_session=True)
             return
         diet_begin(pane, folder, role, n)
 
 
-SEEN_GRACE = 120                        # seconds to read the answer before a waiting diet / 기다리던 다이어트 전에 답을 읽을 시간
+AWAY = 60                               # seconds away from the window before a waiting diet / 기다리던 다이어트 전에 창을 떠나 있을 시간
+
+
+def watched(pane):
+    """The window is on a screen with the keyboard focus (as the sidebar's "seen") / 키보드 초점이 있는 화면에 그 창이 떠 있다"""
+    win = tmux("display", "-p", "-t", pane, "#{window_id}").strip()
+    return any(l.split(" ", 1)[0] == win and "focused" in l
+               for l in tmux("list-clients", "-F", "#{window_id} #{client_flags}").splitlines())
 
 
 def on_seen(pane):
-    """bin/hivemux_sidebar_view.py: the user looked at a role's finished answer. A diet waiting for that starts
-    after a while to read it, if the role still rests with an empty prompt
-    사용자가 역할의 끝난 답을 봤다. 그걸 기다리던 다이어트는 읽을 시간을 둔 뒤, 역할이 아직 쉬고 입력창이 비었으면 시작한다"""
-    tmux("set", "-pu", "-t", pane, "@hivemux-asked")
-    if tmux("show", "-pqv", "-t", pane, "@hivemux-diet").strip() != "pending":
-        return
-    time.sleep(SEEN_GRACE)
-    found = role_of(pane)
-    if (found and tmux("show", "-pqv", "-t", pane, "@hivemux-diet").strip() == "pending"
-            and tmux("show", "-pqv", "-t", pane, "@claude_state").strip() == "idle"
-            and not tmux("show", "-pqv", "-t", pane, "@hivemux-asked").strip()):
-        n = tmux("show", "-pqv", "-t", pane, "@claude_ctx").strip()
-        diet_begin(pane, found[1], found[3], int(n) if n.isdigit() else 0)
+    """A diet held for the user (bin/hivemux_sidebar_view.py when they look, on_stop when it is held): it starts once
+    they have seen the answer (idle) and been away from that window a minute, the role resting with an empty
+    prompt. A new turn ends this; its Stop decides again. One watcher a pane (@hivemux-diet-watch)
+    사용자 때문에 미룬 다이어트: 답을 봤고 (idle) 그 창을 1분 떠나 있으면, 역할이 쉬고 입력창이 비었을 때 시작한다.
+    새 턴이 오면 그만둔다. 그 Stop 이 다시 정한다. 칸마다 감시 하나 (@hivemux-diet-watch)"""
+    me = str(os.getpid())
+    tmux("set", "-p", "-t", pane, "@hivemux-diet-watch", me)
+    away = 0.0
+    for _ in range(6 * 360):            # six hours at most / 많아야 여섯 시간
+        time.sleep(10)
+        if (tmux("show", "-pqv", "-t", pane, "@hivemux-diet-watch").strip() != me
+                or tmux("show", "-pqv", "-t", pane, "@hivemux-diet").strip() != "pending"):
+            return
+        st = tmux("show", "-pqv", "-t", pane, "@claude_state").strip()
+        if st in ("run", "wait", ""):
+            break                       # a new turn, or gone / 새 턴, 또는 없어짐
+        if st != "idle" or watched(pane):
+            away = 0.0                  # not seen yet, or being read / 아직 안 봤거나, 읽는 중
+            continue
+        away = away or time.time()
+        if time.time() - away >= AWAY and prompt_free(pane):
+            found = role_of(pane)
+            if found:
+                tmux("set", "-pu", "-t", pane, "@hivemux-asked")
+                n = tmux("show", "-pqv", "-t", pane, "@claude_ctx").strip()
+                diet_begin(pane, found[1], found[3], int(n) if n.isdigit() else 0)
+            break
+    if tmux("show", "-pqv", "-t", pane, "@hivemux-diet-watch").strip() == me:
+        tmux("set", "-pu", "-t", pane, "@hivemux-diet-watch")
 
 
 def last_answer(transcript):

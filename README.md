@@ -140,8 +140,9 @@ the work out, and the roles pass what they finish down the flow.
 - **Diets.** hivemux notes how much context each Claude carries. A role past its
   line (120K tokens, 160K for dev) brings its notes up to date when it rests,
   `/clear`s and carries on from the notes under the same name, so the others
-  keep messaging it. An answer to something you asked is never cleared before
-  you have looked at it. The page shows each role's context against its line and
+  keep messaging it. It never clears a window you are looking at, nor an answer
+  to something you asked before you have read it: it waits until you have been
+  away from that window for a minute. The page shows each role's context against its line and
   has a **Diet now** button.
 - **The day's report.** The **Report** tab of the team page (or `hivemux team
   report`): time worked, hand-offs, tasks done, tokens and diets; a timeline of
