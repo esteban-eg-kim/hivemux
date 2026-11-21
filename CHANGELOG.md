@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.73 — 2026-11-21
 
 - Hide Claudes from the Claude app and claude.ai, for an account shared with someone else: right-click a card →
   **Hide from the Claude app**, or a project name → **Hide this project from the Claude app** (its team too).
