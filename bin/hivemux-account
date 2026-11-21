@@ -8,6 +8,9 @@ Claude 계정: 여러 계정에 로그인해 두고 바꿔 쓴다. 모든 프로
   hivemux-account use <name|default|all> -s <project>   this project's own account; all = as for all projects
                                                  이 프로젝트만의 계정. all = 모든 프로젝트 설정을 따른다
   hivemux-account remove <name>                  log out and forget it / 로그아웃하고 지운다
+  hivemux-account hide <name|default> [on|off]   keep its Claudes out of the Claude app and claude.ai (no Remote
+                                                 Control), for an account shared with others / 이 계정의 Claude 를
+                                                 Claude 앱과 claude.ai 에 보이지 않게 (Remote Control 없이). 같이 쓰는 계정에
   hivemux-account current [-s <project>]         the account a project uses / 프로젝트가 쓰는 계정
   hivemux-account env                            (tmux start) set tmux's environment again / (tmux 시작) tmux 환경을 다시 맞춘다
   hivemux-account --popup <client> [-s <project>]  the picker in a popup (sidebar menu) / 고르는 팝업 (사이드바 메뉴)
@@ -33,6 +36,7 @@ DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.lo
 ACCOUNTS = os.path.join(DATA, "accounts")
 GLOBAL = os.path.join(DATA, "account")
 PROJECTS = os.path.join(DATA, "account-projects")
+HIDDEN = os.path.join(DATA, "hidden-accounts")     # one name a line, read by bin/hivemux-claude / 한 줄에 이름 하나
 HOME_DIR = os.path.expanduser("~/.claude")
 HOME_JSON = os.path.expanduser("~/.claude.json")
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$")
@@ -377,11 +381,43 @@ def remove(name):
     return restart()
 
 
+def hidden():
+    try:
+        return {l.strip() for l in open(HIDDEN) if l.strip()}
+    except OSError:
+        return set()
+
+
+def hide(name, on=True):
+    """Keep an account's Claudes out of the Claude app and claude.ai: bin/hivemux-claude starts them without Remote
+    Control. The ones running now restart in the same conversation (busy ones once done); returns how many
+    계정의 Claude 를 Claude 앱과 claude.ai 에 보이지 않게: bin/hivemux-claude 가 Remote Control 없이 시작한다. 지금 도는
+    것은 같은 대화로 다시 시작한다 (일하는 중이면 끝난 뒤). 몇 개인지 돌려준다"""
+    if name != "default" and name not in names():
+        raise SystemExit(tr(f"'{name}' 계정이 없습니다.", f"No account '{name}'."))
+    h = hidden() | {name} if on else hidden() - {name}
+    os.makedirs(DATA, exist_ok=True)
+    write_atomic(HIDDEN, "".join(n + "\n" for n in sorted(h)))
+    d = os.path.normpath(HOME_DIR if name == "default" else config_dir(name))
+    n = 0
+    for ln in tmux("list-panes", "-a", "-F", "#{pane_id}\t#{pane_pid}\t#{@claude_session}").splitlines():
+        pane, shell, sid = (ln.split("\t") + ["", "", ""])[:3]
+        pid = claude_pid(shell) if sid else ""
+        if pid and os.path.normpath(running_dir(pid) or HOME_DIR) == d:
+            tmux("set", "-p", "-t", pane, "@claude_restart_pending", "now")
+            n += 1
+    if n:
+        subprocess.Popen([os.path.join(HERE, "hivemux-claude-update"), "watch"], stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    return n
+
+
 def listing():
     g, proj = chosen()
     out = []
     for n in ["default", *names()]:
-        out.append({"name": n, **who(n), "all": n == g, "projects": sorted(s for s, v in proj.items() if v == n)})
+        out.append({"name": n, **who(n), "all": n == g, "projects": sorted(s for s, v in proj.items() if v == n),
+                    "hidden": n in hidden()})
     return out
 
 
@@ -580,7 +616,8 @@ def main(argv):
             return
         for r in rows:
             print(("* " if r["all"] else "  ") + r["name"].ljust(16) + (r.get("email") or tr("(로그인 안 됨)", "(not logged in)"))
-                  + (f"   [{', '.join(r['projects'])}]" if r["projects"] else ""))
+                  + (f"   [{', '.join(r['projects'])}]" if r["projects"] else "")
+                  + (tr("   (앱에 숨김)", "   (hidden from the app)") if r["hidden"] else ""))
     elif cmd == "add" and len(argv) > 1:
         name = argv[1]
         if not NAME_RE.match(name) or name in ("default", "all"):
@@ -597,6 +634,12 @@ def main(argv):
                      f"Restarting {n} Claude(s) in the same conversation (busy ones once done)."))
     elif cmd == "remove" and len(argv) > 1:
         remove(argv[1])
+    elif cmd == "hide" and len(argv) > 1 and (len(argv) < 3 or argv[2] in ("on", "off")):
+        on = len(argv) < 3 or argv[2] == "on"
+        n = hide(argv[1], on)
+        print(tr(f"{argv[1]} 계정의 Claude 를 " + ("Claude 앱과 claude.ai 에 보이지 않게 했습니다." if on else "다시 Claude 앱에 보이게 했습니다."),
+                 f"{argv[1]}: " + ("kept out of the Claude app and claude.ai." if on else "shown in the Claude app again."))
+              + (tr(f" 도는 Claude {n}개를 같은 대화로 다시 시작합니다 (일하는 중이면 끝난 뒤).", f" Restarting {n} running Claude(s) in the same conversation (busy ones once done).") if n else ""))
     elif cmd == "current":
         print(resolve(session) if session else chosen()[0])
     elif cmd == "env":

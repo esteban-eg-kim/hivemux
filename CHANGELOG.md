@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `hivemux account hide <name>` keeps an account's Claudes out of the Claude app and claude.ai, for an account
+  shared with someone else: they start without Remote Control (merged into a role's own `--settings`), and the
+  ones running restart in the same conversation. `hide <name> off` undoes it; `account list` marks it.
+
 ## 0.1.72 — 2026-11-21
 
 - Disband a team: **Disband team…** on the team page's Setup tab, or `hivemux team disband`. It closes the role

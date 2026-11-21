@@ -298,6 +298,10 @@ to it; every Claude carries on in the same conversation.
 - **One project.** Right-click a project's name → **Account for this
   project…** gives that project its own account (`hivemux account use work -s
   api`); "Same as all projects" undoes it.
+- **Shared with someone.** `hivemux account hide shared` keeps that account's
+  Claudes out of the Claude app and claude.ai: they start without Remote
+  Control, and the running ones restart in the same conversation. `hide shared
+  off` undoes it.
 - **Where you are.** The status line shows `◉ work` when the account in use
   is not the default one. `hivemux account list` shows every account, its
   email and the projects on it.
