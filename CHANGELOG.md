@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.74 — 2026-11-21
 
 - A diet no longer clears a window you are reading. It used to start two minutes after you first looked at the
   answer, even with the window still in front of you; now it waits until you have been away from that window
