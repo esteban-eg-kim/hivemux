@@ -398,6 +398,11 @@ def view(panes, me_id):
         next((p for p in mywin if p["pane_last"] == "1"), None) or (mywin[0] if mywin else None)
     current = act["pane_id"] if act else ""
     visible = me["window_active"] == "1" and me["session_attached"] not in ("", "0")
+    # a Claude whose start hook never got to set a state (a busy Mac) still shows, as resting
+    # 시작 훅이 상태를 적지 못한 Claude (바쁜 맥) 도 쉬는 것으로 보인다
+    for p in panes:
+        if p["@claude_session"] and not p["@claude_state"] and p["pane_current_command"] == "claude":
+            p["@claude_state"] = "idle"
     items = [p for p in panes if p["@claude_session"] and p["@claude_state"]
              and p["pane_current_command"].lstrip("-") not in SHELLS]
     # project order from the session-order file (bin/hivemux-order), then tmux order (name, window index)

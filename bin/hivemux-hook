@@ -193,6 +193,11 @@ case "$event" in
   SessionStart)
     sid="$(field session_id)"; cwd="$(field cwd)"
     [ -n "$sid" ] && t set -p -t "$TMUX_PANE" @claude_session "$sid"
+    # on the sidebar first: the hook has five seconds, and on a busy Mac (a clock in, many Claudes) it ran out
+    # before the end, so the card stayed away until the first prompt. The end may set another state
+    # 먼저 사이드바에: 훅은 5초를 받는데, 바쁜 맥 (출근, Claude 여럿) 에서 끝까지 가기 전에 끝나 첫 입력 전까지
+    # 카드가 보이지 않았다. 끝에서 다른 상태로 바꿀 수 있다
+    [ -z "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_restore 2>/dev/null)" ] && state idle
     case "$(field source)" in
       startup|resume) via="$(launcher)"
         # a new process makes its Remote Control connection with the name: start counting connections afresh

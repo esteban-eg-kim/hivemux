@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A Claude brought back by clocking in (or any start) could stay off the sidebar until you typed into it: on a
+  busy Mac the start hook ran out of its five seconds before it set the state. The state is now set first, and
+  the sidebar shows a running Claude with no state yet as resting.
 ## 0.1.74 — 2026-11-21
 
 - A diet no longer clears a window you are reading. It used to start two minutes after you first looked at the
