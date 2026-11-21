@@ -684,7 +684,7 @@ def main(argv):
             what, n = tr(f"{argv[1]} 계정의 Claude 를", f"{argv[1]}:"), hide(argv[1], on)
         print(what + " " + tr("Claude 앱과 claude.ai 에 보이지 않게 했습니다." if on else "다시 Claude 앱에 보이게 했습니다.",
                               "kept out of the Claude app and claude.ai." if on else "shown in the Claude app again.")
-              + ((tr(f" 도는 Claude {n}개의 Remote Control 을 끊습니다 (일하는 중이면 끝난 뒤).", f" Disconnecting Remote Control of {n} running Claude(s) (busy ones once done).") if not on else
+              + ((tr(f" 도는 Claude {n}개의 Remote Control 을 끊습니다 (일하는 중이면 끝난 뒤).", f" Disconnecting Remote Control of {n} running Claude(s) (busy ones once done).") if on else
                   tr(f" 도는 Claude {n}개를 Remote Control 에 다시 연결합니다.", f" Connecting {n} running Claude(s) to Remote Control again.")) if n else ""))
     elif cmd == "current":
         print(resolve(session) if session else chosen()[0])
