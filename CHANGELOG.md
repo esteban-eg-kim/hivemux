@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.77 — 2026-11-22
 
 - Ports: closing the connected terminal window left the port list on the laptop. The window's HUP and the TERM
   from `hivemux connect`'s exit cut the clean-up short; the list now goes first and the clean-up is not cut. A
