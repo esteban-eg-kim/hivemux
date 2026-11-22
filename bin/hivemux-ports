@@ -51,6 +51,21 @@ hivemux open there (bin/hivemux-show; Tab in the open-path popup) sets @hivemux-
 import os, re, shlex, shutil, signal, socket, subprocess, sys, tarfile, tempfile, threading, time, urllib.parse
 
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "ports")
+# ports also opened to this Mac's Wi-Fi, for a phone on the same network (the port list's p): <host> -> remote
+# ports, one a line / 같은 Wi-Fi 의 휴대폰용으로 이 Mac 의 네트워크에도 연 포트 (포트 목록의 p): <호스트> -> 거기 포트, 한 줄에 하나
+LAN = DATA + "-lan"
+
+
+def lan_ip():
+    """This Mac's address on its network (no packet is sent) / 이 Mac 의 네트워크 주소 (보내는 것은 없다)"""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("192.0.2.1", 9))
+        ip = s.getsockname()[0]
+        s.close()
+        return "" if ip.startswith("127.") else ip
+    except OSError:
+        return ""
 POLL = 3
 SLOW = 200            # ms: a round trip above it, for five polls in a row, gets the mosh hint / 이보다 긴 왕복이 다섯 번 이어지면 mosh 를 권한다
 OS = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-os")   # open, copy on macOS or Linux / macOS 나 Linux 에서 열기, 복사
@@ -84,6 +99,7 @@ tmux set -g @hivemux-name-@ME@ @NAME@
 tmux set -g @hivemux-rtt-@ME@ "@RTT@"
 tmux set -g @hivemux-rtt "$(tmux show -gqv @hivemux-remote-from | while read -r c m; do v=$(tmux show -gqv "@hivemux-rtt-$m" 2>/dev/null); [ -n "$v" ] && printf ' %s=%s' "$c" "$v"; done) "
 o=$(tmux show -gqv @hivemux-ports-open-@ME@) && [ -n "$o" ] && { tmux set -gu @hivemux-ports-open-@ME@; echo "open $o"; }
+l=$(tmux show -gqv @hivemux-lan-@ME@) && [ -n "$l" ] && { tmux set -gu @hivemux-lan-@ME@; echo "lan $l"; }
 e=$(tmux show -gqv @hivemux-edit-@ME@) && [ -n "$e" ] && { tmux set -gu @hivemux-edit-@ME@; echo "edit $e"; }
 pids=$(ps -A -o pid= -o ppid= | awk -v r="$root" '{ p[$1] = $2 } END { for (k in p) { x = k; n = 0; while (x > 1 && n++ < 64) { if (x == r) { print k; break } x = p[x] } } }' | paste -sd, -)
 # adopted by launchd or init (1), or on Linux often by the user's systemd / launchd 나 init(1), Linux 에서는 흔히 사용자의 systemd 가 넘겨받는다
@@ -251,7 +267,9 @@ class Ports:
         self.sock = "/tmp/hivemux-ports-%d-%d" % (os.getuid(), os.getpid())
         self.master = None
         self.fw = {}                     # remote port -> (local port, command) / 거기 포트 -> (여기 포트, 명령)
+        self.wide = set()                # forwarded on every address, not only localhost / localhost 만이 아니라 모든 주소에
         self.state = os.path.join(DATA, host.replace("/", "_"))
+        self.lan = os.path.join(LAN, host.replace("/", "_"))
         self.me = me()
         self.shared = None               # what the other Mac's tmux has / 상대 tmux 에 둔 목록
         self.rtts, self.slow, self.hinted = [], 0, False   # round trips (ms), polls in a row over SLOW / 왕복 시간, SLOW 넘은 연속 횟수
@@ -472,7 +490,7 @@ class Ports:
 
     def down(self):
         if self.master and self.master.poll() is None:
-            self.fw = {}
+            self.fw, self.wide = {}, set()
             self.share()
             self.ssh(self.host, f"PATH=/opt/homebrew/bin:/usr/local/bin:$PATH; tmux set -gu @hivemux-seen-{self.me}", timeout=5)
             self.ssh("-O", "exit", self.host, timeout=5)
@@ -481,7 +499,7 @@ class Ports:
             except subprocess.TimeoutExpired:
                 self.master.kill()
         self.master = None
-        self.fw = {}
+        self.fw, self.wide = {}, set()
         self.shared = None
         try:
             os.unlink(self.sock)
@@ -505,6 +523,11 @@ class Ports:
                 continue
             if port == "edit":
                 self.edit(cmd)
+                continue
+            if port == "lan":            # p in the other Mac's popup / 상대 Mac 팝업에서 p
+                for x in cmd.split():
+                    if x.isdigit():
+                        self.toggle_lan(int(x))
                 continue
             # not ssh: forwards someone set up there (or this one, when "there" is this Mac)
             # ssh 는 뺀다: 거기서 누가 열어 둔 포워딩 (또는 "거기"가 이 Mac 일 때 이 연결 자신)
@@ -554,14 +577,34 @@ class Ports:
         """Put the list in the other Mac's tmux (for its port list popup) when it changed
         상대 Mac 의 tmux 에 목록을 둔다 (거기 포트 목록 팝업용). 바뀌었을 때만"""
         val = "\n".join(f"{lp} {rp} {cmd}" for rp, (lp, cmd) in sorted(self.fw.items()))
-        if val == self.shared:
+        # and which of them a phone can open, at this Mac's address (@hivemux-lanip-<this Mac>: "<ip> <port>…")
+        # 그중 휴대폰이 열 수 있는 것과 이 Mac 의 주소 (@hivemux-lanip-<이 Mac>: "<주소> <포트>…")
+        wide = " ".join([lan_ip()] + [str(x) for x in sorted(self.wide)]) if self.wide else ""
+        if (val, wide) == self.shared:
             return
-        opt = f"@hivemux-ports-{self.me}"
+        opt, wopt = f"@hivemux-ports-{self.me}", f"@hivemux-lanip-{self.me}"
         cmd = f"PATH=/opt/homebrew/bin:/usr/local/bin:$PATH; " + \
-              (f"tmux set -g {opt} {shlex.quote(val)}" if val else f"tmux set -gu {opt}")
+              (f"tmux set -g {opt} {shlex.quote(val)}" if val else f"tmux set -gu {opt}") + "; " + \
+              (f"tmux set -g {wopt} {shlex.quote(wide)}" if wide else f"tmux set -gu {wopt}")
         r = self.ssh(self.host, cmd)
         if r and r.returncode == 0:
-            self.shared = val
+            self.shared = (val, wide)
+
+    def lan_ports(self):
+        try:
+            return {int(x) for x in open(self.lan).read().split() if x.isdigit()}
+        except OSError:
+            return set()
+
+    def toggle_lan(self, rp):
+        on = self.lan_ports() ^ {rp}
+        os.makedirs(LAN, exist_ok=True)
+        with open(self.lan + ".tmp", "w") as f:
+            f.write("".join(f"{x}\n" for x in sorted(on)))
+        os.replace(self.lan + ".tmp", self.lan)
+
+    def spec(self, lp, rp):
+        return f"0.0.0.0:{lp}:localhost:{rp}" if rp in self.wide else f"{lp}:localhost:{rp}"
 
     def save(self):
         os.makedirs(DATA, exist_ok=True)
@@ -581,16 +624,32 @@ class Ports:
         if now is None:
             return
         for rp in [p for p in self.fw if p not in now]:
-            lp, _ = self.fw.pop(rp)
-            self.ssh("-O", "cancel", "-L", f"{lp}:localhost:{rp}", self.host)
+            lp, _ = self.fw[rp]
+            self.ssh("-O", "cancel", "-L", self.spec(lp, rp), self.host)
+            del self.fw[rp]
+            self.wide.discard(rp)
+        # a port asked for the phone (or no longer): forwarded again on every address, on the same local port
+        # 휴대폰용으로 고른 포트 (또는 그만둔 포트): 같은 여기 포트로 모든 주소에 다시 잇는다
+        lan = self.lan_ports()
+        for rp in [p for p in self.fw if (p in lan) != (p in self.wide)]:
+            lp, cmd = self.fw[rp]
+            self.ssh("-O", "cancel", "-L", self.spec(lp, rp), self.host)
+            self.wide ^= {rp}
+            r = self.ssh("-O", "forward", "-L", self.spec(lp, rp), self.host)
+            if not r or r.returncode != 0:
+                del self.fw[rp]
+                self.wide.discard(rp)
         for rp, cmd in now.items():
             if rp in self.fw:
                 continue
             lp = next((p for p in range(rp, min(rp + 20, 65536)) if free(p)), None)
             if lp is None:
                 continue
-            r = self.ssh("-O", "forward", "-L", f"{lp}:localhost:{rp}", self.host)
+            if rp in lan:
+                self.wide.add(rp)
+            r = self.ssh("-O", "forward", "-L", self.spec(lp, rp), self.host)
             if not r or r.returncode != 0:
+                self.wide.discard(rp)
                 continue
             self.fw[rp] = (lp, cmd)
         self.save()
@@ -621,7 +680,7 @@ def pick(client):
     pause = "/tmp/hivemux-pause-%d-%s" % (os.getuid(), pid)    # per tmux server / tmux 서버마다
     open(pause, "w").close()
     try:
-        subprocess.run([os.path.join(here, "hivemux-modal"), client, "-E", "-w", "76", "-h", "18", "-b", "rounded",
+        subprocess.run([os.path.join(here, "hivemux-modal"), client, "-E", "-w", "76", "-h", "26", "-b", "rounded",
                         "-T", "#[fg=#e6e9ef,bold] %s " % tr("포트 목록", "Ports"), "-S", "fg=#5aa9ff", "-s", "bg=#1e2128",
                         shlex.join([os.path.join(here, "hivemux-ports-ui"), client])], stderr=subprocess.DEVNULL)
     finally:

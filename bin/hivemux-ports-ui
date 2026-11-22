@@ -12,13 +12,17 @@ Dev server ports forwarded from another Mac (bin/hivemux-ports):
 - 다른 Mac 이 이 Mac 에 붙어 있으면: 이 Mac 의 포트, 거기로 이어짐 (@hivemux-ports-<Mac>)
   ↑↓ / Ctrl+P N   select / 고르기
   Enter           open in the browser of the Mac it is forwarded to / 이어진 Mac 의 브라우저로 열기
+  p               open it to that Mac's Wi-Fi too, for a phone on the same network: its address and a QR code
+                  (with qrencode); p again closes it / 같은 Wi-Fi 의 휴대폰용으로 그 Mac 의 네트워크에도 연다: 주소와
+                  QR 코드 (qrencode 가 있으면). 다시 p 는 닫는다
   Ctrl+Y          copy the address / 주소 복사      Esc   close / 닫기
 """
-import os, shutil, subprocess, sys, termios, time, tty, unicodedata
+import os, select, shutil, subprocess, sys, termios, time, tty, unicodedata
 
 TMUX = shutil.which("tmux") or "/opt/homebrew/bin/tmux"
 OS = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-os")   # open, copy on macOS or Linux / macOS 나 Linux 에서 열기, 복사
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "ports")
+LAN = DATA + "-lan"                  # bin/hivemux-ports: ports opened for a phone / 휴대폰용으로 연 포트
 
 
 def tmux(*a):
@@ -81,7 +85,9 @@ def ports():
         for row in tmux("show", "-gqv", name).splitlines():
             lp, rp, cmd = (row.split(" ", 2) + ["", "", ""])[:3]
             if lp.isdigit() and rp.isdigit():
+                ip, *wide = tmux("show", "-gqv", f"@hivemux-lanip-{mac}").split() or [""]
                 out.append(dict(url=f"http://localhost:{lp}", cmd=cmd, mac=mac, rp=rp,
+                                phone=f"http://{ip}:{lp}" if ip and rp in wide else "",
                                 where=tr(f"{mac} 에서 열기 · 여기 {rp}", f"opens on {mac} · here {rp}")))
     # this Mac connected to another one: its ports here / 이 Mac 이 다른 Mac 에 붙음: 그 Mac 포트를 여기로
     if os.path.isdir(DATA):
@@ -90,9 +96,51 @@ def ports():
                 for row in f:
                     lp, rp, cmd = (row.rstrip("\n").split(" ", 2) + ["", "", ""])[:3]
                     if lp.isdigit():
-                        out.append(dict(url=f"http://localhost:{lp}", cmd=cmd, mac=None, rp=rp,
+                        wide = lan_ports(host)
+                        out.append(dict(url=f"http://localhost:{lp}", cmd=cmd, mac=None, rp=rp, host=host,
+                                        phone=f"http://{lan_ip()}:{lp}" if rp in wide and lan_ip() else "",
                                         where=tr(f"{host} 의 {rp}", f"{host}:{rp}")))
     return out
+
+
+def lan_ports(host):
+    try:
+        return open(os.path.join(LAN, host)).read().split()
+    except OSError:
+        return []
+
+
+def lan_ip():
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("192.0.2.1", 9))
+        ip = s.getsockname()[0]
+        s.close()
+        return "" if ip.startswith("127.") else ip
+    except OSError:
+        return ""
+
+
+def phone(it):
+    """Ask the Mac it is forwarded to to open it on its Wi-Fi too (or close it): picked up within a few seconds
+    이어진 Mac 에 그 네트워크에도 열어 달라고 (또는 닫아 달라고) 한다: 몇 초 안에 받는다"""
+    if it["mac"]:
+        run([TMUX, "set", "-g", f"@hivemux-lan-{it['mac']}", it["rp"]])
+    else:
+        on = set(lan_ports(it["host"])) ^ {it["rp"]}
+        os.makedirs(LAN, exist_ok=True)
+        with open(os.path.join(LAN, it["host"]), "w") as f:
+            f.write("".join(f"{x}\n" for x in sorted(on)))
+
+
+def qr(text):
+    """The QR code as text (qrencode), else none / QR 코드 글자 그림 (qrencode), 없으면 빈 목록"""
+    q = shutil.which("qrencode") or next((p for p in ("/opt/homebrew/bin/qrencode", "/usr/local/bin/qrencode") if os.path.exists(p)), None)
+    if not q:
+        return []
+    r = subprocess.run([q, "-t", "UTF8", "-m", "1", text], capture_output=True, text=True)
+    return r.stdout.splitlines() if r.returncode == 0 else []
 
 
 def is_remote(client):
@@ -122,6 +170,7 @@ def main():
     tty.setraw(fd)
     out = sys.stdout
     sel, top, msg = 0, 0, ""
+    show, waiting = None, 0.0           # the phone view of one port, waiting for it to open / 한 포트의 휴대폰 화면, 열리길 기다림
     try:
         while True:
             cols, rows = os.get_terminal_size()
@@ -129,23 +178,58 @@ def main():
             list_h = max(1, (rows - 4) // 2)
             top = min(max(top, sel - list_h + 1), sel)
             buf = ["\x1b[H\x1b[2J", bg(BG), "\r\n"]
+            it = next((x for x in items if show and x["url"] == show), None)
+            if it is not None:
+                # the phone view: the address on that Mac's network and its QR code / 휴대폰 화면: 그 네트워크의 주소와 QR 코드
+                if it["phone"]:
+                    buf.append(f"  {fg(T2)}{tr('같은 Wi-Fi 의 휴대폰에서 여세요', 'Open on a phone on the same Wi-Fi')}\r\n")
+                    buf.append(f"  {fg(TEXT)}{BOLD}{it['phone']}{RST}{bg(BG)}\r\n")
+                    code = qr(it["phone"])
+                    for ln in code[:max(0, rows - 6)]:
+                        buf.append(f"  {fg(TEXT)}{ln}\r\n")
+                    if not code:
+                        buf.append(f"\r\n  {fg(T3)}{tr('QR 코드는 brew install qrencode 뒤에 보입니다', 'brew install qrencode for a QR code')}\r\n")
+                else:
+                    buf.append(f"  {fg(T2)}{tr('휴대폰에서 열 수 있게 여는 중…', 'Opening it for the phone…')}\r\n")
+                    if time.time() - waiting > 15:
+                        buf.append(f"\r\n  {fg(T3)}{tr('열리지 않으면 그 Mac 의 hivemux 를 업데이트하세요', 'If it does not open, update hivemux on that Mac')}\r\n")
+                hint = (f"{fg(TEXT)}p{fg(T3)} {tr('휴대폰에서 닫기', 'stop for the phone')}   "
+                        f"{fg(TEXT)}Esc{fg(T3)} {tr('목록', 'back')}")
+                buf.append(f"\x1b[{rows - 1};1H{fg((44, 48, 57))}  " + "─" * (cols - 4) + "\r\n  " + hint + RST)
+                out.write("".join(buf))
+                out.flush()
+                r, _, _ = select.select([fd], [], [], 1.0 if not it["phone"] else 3.0)
+                if not r:
+                    items = ports()
+                    continue
+                ch = os.read(fd, 32).decode(errors="ignore")
+                if ch == "p":
+                    phone(it); show = None; items = ports()
+                    msg = f"{fg(ACC)}{tr('휴대폰에서 닫는 중', 'Closing it for the phone')}  {fg(T2)}{it['url']}"
+                elif ch in ("\x1b", "q", "\r", "\n"):
+                    show = None
+                elif ch == "\x03":
+                    return
+                continue
             if not items:
                 buf.append(f"  {fg(T2)}{tr('이어진 포트가 없습니다', 'No forwarded ports')}\r\n\r\n")
                 buf.append(f"  {fg(T3)}{tr('원격으로 붙어 있는 동안 상대 컴퓨터의 tmux 에서 띄운', 'While connected, dev servers started in the other')}\r\n")
                 buf.append(f"  {fg(T3)}{tr('개발 서버(npm run dev 등)가 여기에 나옵니다', 'computer’s tmux (npm run dev...) show up here')}\r\n")
             for i in range(top, min(len(items), top + list_h)):
                 it = items[i]
-                if i == sel:
-                    l1 = f"{bg(SEL_BG)}{fg(ACC)} ▌{fg(TEXT)}{BOLD} {it['url']}{RST}{bg(SEL_BG)}  {fg(T2)}{it['cmd']}"
-                    l2 = f"{bg(SEL_BG)}{fg(ACC)} ▌{RST}{bg(SEL_BG)}{fg(T3)} {it['where']}"
+                where = it["where"] + (tr(f" · 휴대폰 {it['phone']}", f" · phone {it['phone']}") if it["phone"] else "")
+                if i == sel:            # the selection is a tinted row, no bar on its left / 고른 줄은 바탕색만, 왼쪽 막대 없이
+                    l1 = f"{bg(SEL_BG)}{fg(TEXT)}{BOLD}   {it['url']}{RST}{bg(SEL_BG)}  {fg(T2)}{it['cmd']}"
+                    l2 = f"{bg(SEL_BG)}{fg(T3)}   {where}"
                     pad = lambda s, raw: s + " " * max(0, cols - 2 - width(raw)) + RST + bg(BG)
-                    buf.append(pad(l1, f" ▌ {it['url']}  {it['cmd']}") + "\r\n")
-                    buf.append(pad(l2, f" ▌ {it['where']}") + "\r\n")
+                    buf.append(pad(l1, f"   {it['url']}  {it['cmd']}") + "\r\n")
+                    buf.append(pad(l2, f"   {where}") + "\r\n")
                 else:
                     buf.append(f"{bg(BG)}   {fg(TEXT)}{it['url']}  {fg(T3)}{it['cmd']}\r\n")
-                    buf.append(f"{bg(BG)}   {fg(T3)}{it['where']}\r\n")
+                    buf.append(f"{bg(BG)}   {fg(T3)}{where}\r\n")
             buf.append(f"\x1b[{rows - 1};1H{fg((44, 48, 57))}  " + "─" * (cols - 4) + "\r\n")
             hint = msg or (f"{fg(TEXT)}Enter{fg(T3)} {tr('브라우저로 열기', 'open in browser')}   "
+                           f"{fg(TEXT)}p{fg(T3)} {tr('휴대폰', 'phone')}   "
                            f"{fg(TEXT)}^Y{fg(T3)} {tr('주소 복사', 'copy address')}   {fg(TEXT)}Esc{fg(T3)} {tr('닫기', 'close')}")
             buf.append("  " + hint + RST)
             out.write("".join(buf))
@@ -160,6 +244,12 @@ def main():
                 sel += 1
             elif ch in ("\r", "\n") and items:
                 open_it(items[sel]); return
+            elif ch == "p" and items:
+                it = items[sel]
+                if it["phone"]:          # already open for the phone: show it / 이미 열려 있다: 보여 준다
+                    show = it["url"]
+                else:
+                    phone(it); show, waiting = it["url"], time.time()
             elif ch == "\x19" and items:
                 copy(items[sel])
                 msg = f"{fg(ACC)}{tr('복사했습니다', 'Copied')}  {fg(T2)}{items[sel]['url']}"

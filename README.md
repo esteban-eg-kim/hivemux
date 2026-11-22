@@ -467,7 +467,7 @@ the install command again (git install). Claude Code itself: right-click → Upd
 | drag card / project header | reorder tasks / projects |
 | `prefix Shift+↑` / `↓` | move the current task up / down (at a project's edge, the project moves) |
 | `Option+O` / menu → Open path | open a file path or link from recent output (Enter editor from Settings, Tab default app, ^F Finder or the file manager, ^Y copy; on a screen from another computer, on that computer). Links include the address under a link's text, which a terminal shows without it: Enter opens it in the browser of the computer you look from |
-| `Option+W` / menu → Ports | dev server ports forwarded between computers (Enter opens in the browser of the computer they reach, ^Y copies the address) |
+| `Option+W` / menu → Ports | dev server ports forwarded between computers (Enter opens in the browser of the computer they reach, p opens one to that computer's Wi-Fi for a phone with its address and QR code, ^Y copies the address) |
 | `prefix Shift+C` | new window with a named Claude in this folder (asks the name in a popup) |
 | menu → Connect to… | another computer's hivemux in a new Ghostty window (hosts added with `hivemux connect --add`) |
 | `prefix Shift+H` | connect to the last remote host again |
@@ -565,7 +565,8 @@ with its path pasted for Claude to read. Several at once, no folders, up to
   remote pane) is forwarded to the same port on this computer's `localhost` while
   connected; a port taken here goes to the next free one. `Option+W` (or menu →
   Ports) lists them on either side; Enter opens one in the browser of the
-  computer you connect from. A Linux server without `lsof` is read with `ss` and
+  computer you connect from, and `p` opens it on that computer's Wi-Fi too, with
+  the address and a QR code for a phone (`p` again closes it). A Linux server without `lsof` is read with `ss` and
   `/proc`, and a server that systemd took over is still found.
   `HIVEMUX_PORTS=0` turns it off.
 - **Files open on the laptop.** `hivemux open <file>` in a remote pane (or Enter,

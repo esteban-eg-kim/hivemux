@@ -12,6 +12,7 @@ class Hivemux < Formula
 
   depends_on "jq"
   depends_on :macos
+  depends_on "qrencode"
   depends_on "tmux"
 
   def install

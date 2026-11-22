@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Ports: open a forwarded dev server on a phone. `p` in the port list (`Option+W`) forwards it on the Wi-Fi of
+  the computer you connected from too and shows the address there (`http://192.168.x.x:5287`) with a QR code;
+  `p` again closes it. The Homebrew formula now brings `qrencode` for the code. The selected row is a tinted
+  line, without the bar on its left.
 - Ports: a dev server started detached through pnpm 10+ (`pnpm dev --host`, run as `pnpm-native`) was not
   forwarded and not in the port list. It is now found like one started through npm or yarn.
 - A Claude brought back by clocking in (or any start) could stay off the sidebar until you typed into it: on a
