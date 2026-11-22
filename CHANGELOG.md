@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.75 — 2026-11-22
 
 - Ports: open a forwarded dev server on a phone. `p` in the port list (`Option+W`) forwards it on the Wi-Fi of
   the computer you connected from too and shows the address there (`http://192.168.x.x:5287`) with a QR code;
