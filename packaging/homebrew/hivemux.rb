@@ -5,8 +5,8 @@
 class Hivemux < Formula
   desc "See and switch between every Claude Code session from one tmux sidebar"
   homepage "https://hivemux.dev"
-  url "https://github.com/esteban-eg-kim/hivemux/archive/refs/tags/v0.1.76.tar.gz"
-  sha256 "749def8c530cf43d1eeef59f623404cb64b713610f11f5579e3b1ddcb380b2fc"
+  url "https://github.com/esteban-eg-kim/hivemux/archive/refs/tags/v0.1.77.tar.gz"
+  sha256 "299b738480779812eae5edf75affbc6ff50f3b38452bad05917bd1a2d438dbfc"
   license "MIT"
   head "https://github.com/esteban-eg-kim/hivemux.git", branch: "main"
 
