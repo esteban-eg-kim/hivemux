@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Ports: closing the connected terminal window left the port list on the laptop. The window's HUP and the TERM
+  from `hivemux connect`'s exit cut the clean-up short; the list now goes first and the clean-up is not cut. A
+  list whose forwarding process is gone is dropped from the port list (also one left by an older version).
 - Teams, done from the lead only: the pickup board (the numbered badges at the top right) still showed every
   role's done. A member's done stays off it now, as with the notification; needing input still shows.
 ## 0.1.76 — 2026-11-22

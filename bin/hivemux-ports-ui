@@ -92,7 +92,14 @@ def ports():
     # this Mac connected to another one: its ports here / 이 Mac 이 다른 Mac 에 붙음: 그 Mac 포트를 여기로
     if os.path.isdir(DATA):
         for host in sorted(os.listdir(DATA)):
-            with open(os.path.join(DATA, host)) as f:
+            path = os.path.join(DATA, host)
+            if not alive(path):          # its forwards ended without clearing it: an old list / 포워딩이 끝났는데 남은 목록
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass
+                continue
+            with open(path) as f:
                 for row in f:
                     lp, rp, cmd = (row.rstrip("\n").split(" ", 2) + ["", "", ""])[:3]
                     if lp.isdigit():
@@ -101,6 +108,27 @@ def ports():
                                         phone=f"http://{lan_ip()}:{lp}" if rp in wide and lan_ip() else "",
                                         where=tr(f"{host} 의 {rp}", f"{host}:{rp}")))
     return out
+
+
+def alive(path):
+    """The process that keeps this list's forwards (its first line "# <pid>") is still there. A list from an older
+    version, without the line: a hivemux-ports for its host is running
+    이 목록의 포워딩을 쥔 프로세스 (첫 줄 "# <pid>") 가 아직 있다. 그 줄이 없는 예전 목록은 그 호스트의
+    hivemux-ports 가 돌고 있으면 있는 것으로 친다"""
+    try:
+        first = open(path).readline().split()
+    except OSError:
+        return False
+    if first[:1] != ["#"] or not first[1:2] or not first[1].isdigit():
+        host = os.path.basename(path)
+        return subprocess.run(["pgrep", "-f", f"hivemux-ports {host} "], capture_output=True).returncode == 0
+    try:
+        os.kill(int(first[1]), 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
 
 
 def lan_ports(host):

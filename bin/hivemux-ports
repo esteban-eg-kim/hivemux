@@ -610,6 +610,9 @@ class Ports:
         os.makedirs(DATA, exist_ok=True)
         if self.fw:
             with open(self.state + ".tmp", "w") as f:
+                # who keeps these forwards: a list whose process is gone is old (the popup drops it)
+                # 이 포워딩을 쥔 프로세스: 프로세스가 없는 목록은 낡은 것이다 (팝업이 버린다)
+                f.write(f"# {os.getpid()}\n")
                 for rp, (lp, cmd) in sorted(self.fw.items()):
                     f.write(f"{lp} {rp} {cmd}\n")
             os.replace(self.state + ".tmp", self.state)
@@ -669,6 +672,16 @@ class Ports:
                     self.sync()
                 time.sleep(POLL)
         finally:
+            # closing the window sends HUP here and TERM from hivemux-connect's exit trap: the second one cut the
+            # clean-up short and left the list behind. The list goes first, then the rest without interruption
+            # 창을 닫으면 여기로 HUP 이, hivemux-connect 의 종료 trap 에서 TERM 이 온다: 두 번째가 정리를 끊어 목록이
+            # 남았다. 목록을 먼저 지우고, 나머지는 끊기지 않게
+            for s in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+                signal.signal(s, signal.SIG_IGN)
+            try:
+                os.unlink(self.state)
+            except OSError:
+                pass
             self.down()
 
 
@@ -694,7 +707,8 @@ def listing():
         with open(os.path.join(DATA, name)) as f:
             for ln in f:
                 lp, rp, cmd = (ln.split(" ", 2) + ["", ""])[:3]
-                print(f"http://localhost:{lp}  ←  {name}:{rp}  {cmd.strip()}")
+                if lp.isdigit():
+                    print(f"http://localhost:{lp}  ←  {name}:{rp}  {cmd.strip()}")
 
 
 KO = ko()
