@@ -16,6 +16,7 @@ other by name with Claude Code's messages between sessions.
                                               (재개하는 곳에서) 그 대화가 역할이면 역할 실행 옵션
   hivemux-team handoff <pane> <to> <summary>  (bin/hivemux-hook, a role's SendMessage) log a hand-off / 넘김을 남긴다
   hivemux-team rename <name> [-s S]           rename the team / 팀 이름 바꾸기
+  hivemux-team notify lead|all [-s S]         done notifications from the lead only, or every role / 완료 알림: 리드만, 또는 모든 역할
   hivemux-team disband [-s S]                 close the roles' Claudes and put the team away (notes stay) / 팀 해체
   hivemux-team move <role> <to|up|down> [-s S]  (the sidebar) move a role to another's place, or a step / 역할 순서 옮기기
   hivemux-team goal <text> [-s S]             give the lead the team's goal (it plans and hands work out) / 리드에게 팀 목표
@@ -438,9 +439,18 @@ def mark(pane, folder, team, role):
     역할 칸이 hivemux 를 위해 지니는 것 (훅의 기록, 사이드바의 묶음과 이름)"""
     tmux("set", "-p", "-t", pane, "@hivemux-role", role["id"])
     tmux("set", "-p", "-t", pane, "@hivemux-teamdir", team_dir(folder))
-    tmux("set", "-p", "-t", pane, "@hivemux-rolename", ("★ " if role["lead"] else "") + label(role))
+    # a star the size of a letter was hard to see in the sidebar: the emoji one / 글자 크기 별은 사이드바에서 잘 안 보였다: 이모지 별
+    tmux("set", "-p", "-t", pane, "@hivemux-rolename", ("⭐ " if role["lead"] else "") + label(role))
     tmux("set", "-p", "-t", pane, "@hivemux-team", label(team))
     tmux("set", "-p", "-t", pane, "@hivemux-roleorder", str(role_rank(team, role)))
+    # "done" notifications from the lead only (team.toml notify = "lead", the default): it gathers the others' work
+    # and tells you, so a done from each role was noise. Needing input still notifies from every role
+    # 완료 알림은 리드만 (team.toml notify = "lead", 기본): 리드가 다른 역할의 일을 모아 알려 주니 역할마다 오는 완료는
+    # 소음이었다. 입력 필요 알림은 모든 역할에서 그대로
+    if team.get("notify", "lead") == "lead" and not role["lead"]:
+        tmux("set", "-p", "-t", pane, "@hivemux-quiet", "done")
+    else:
+        tmux("set", "-pu", "-t", pane, "@hivemux-quiet")
 
 
 def role_rank(team, role):
@@ -720,7 +730,7 @@ def status(session):
                       "since": int(p["since"]) if running and p.get("since", "").isdigit() else 0,     # in this state since / 이 상태가 된 때
                       "trust": bool(running and needs_trust(p["pane"]))})
     return {"project": session, "folder": folder, **common,
-            "team": {"id": team.get("id", ""), "mode": team_mode(team), "name": label(team), "description": label(team, "description"),
+            "team": {"id": team.get("id", ""), "mode": team_mode(team), "notify": team.get("notify", "lead"), "name": label(team), "description": label(team, "description"),
                      "flow": team.get("flow") or [r["id"] for r in team["role"]], "diet": team["diet"], "roles": roles,
                      "handoffs": handoffs(folder, team),
                      "questions": open_questions(folder),
@@ -968,6 +978,17 @@ def delete_role(session, rid):
             os.remove(os.path.join(team_dir(folder), "roles", rid + suffix))
         except OSError:
             pass
+
+
+def set_notify(session, value):
+    """Done notifications: "lead" (only the lead's) or "all" / 완료 알림: "lead" (리드만) 또는 "all" (모두)"""
+    if value not in ("lead", "all"):
+        raise KeyError(value)
+    session, folder = project(session)
+    raw = _raw(folder)
+    raw["notify"] = value
+    _write(folder, raw)
+    remark(session)
 
 
 def disband(session):
@@ -2155,6 +2176,8 @@ def main(argv):
         rename_team(session, " ".join(args))
     elif cmd == "disband":
         disband(session)
+    elif cmd == "notify" and args and args[0] in ("lead", "all"):
+        set_notify(session, args[0])
     elif cmd == "move" and len(args) == 2:
         sys.exit(0 if move_role(session, args[0], args[1]) else 1)
     elif cmd == "trust":

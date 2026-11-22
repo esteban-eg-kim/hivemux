@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Teams: done notifications from the lead only, by default. The lead gathers the others' work and tells you, so
+  a done from every role was noise. Team page → Setup → **Done notifications** (Lead only / Every role), or
+  `hivemux team notify lead|all`. A role that needs input still notifies.
+- The lead's star is easier to see: ⭐ in the sidebar, a larger ★ on the office name tags.
 - Ports, phone view: without `qrencode` it offers to install it right there (`i`: `brew install qrencode`,
   Homebrew itself left as it is) and shows the QR code as soon as it is in.
 ## 0.1.75 — 2026-11-22

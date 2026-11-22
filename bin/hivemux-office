@@ -995,6 +995,8 @@ def team_post(action, req):
         ok, msg = team_call(teams.summarize, project, str(req.get("date") or "") or None)
     elif action == "rename":
         ok, msg = team_call(teams.rename_team, project, str(req.get("name", "")))
+    elif action == "notify":
+        ok, msg = team_call(teams.set_notify, project, str(req.get("value", "")))
     elif action == "disband":
         ok, msg = team_call(teams.disband, project)
     elif action == "goal":

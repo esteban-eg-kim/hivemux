@@ -103,7 +103,7 @@ FIELDS = ["pane_id", "session_name", "window_index", "window_name", "@claude_sta
           "@claude_state_at", "@claude_session", "window_id", "pane_active", "pane_last",
           "window_active", "session_attached", "pane_title", "@claude_title", "@claude_name", "pane_current_command",
           "@hivemux-closing", "@claude_wait", "@claude_touched", "@claude_bg", "@claude_offwork", "pane_index",
-          "pane_tty", "pane_width", "pane_height", "@hivemux-rest", "@claude_ctx", "@hivemux-handoff", "@hivemux-rolename", "@hivemux-team", "@hivemux-roleorder", "pane_pid"]
+          "pane_tty", "pane_width", "pane_height", "@hivemux-rest", "@claude_ctx", "@hivemux-handoff", "@hivemux-rolename", "@hivemux-team", "@hivemux-roleorder", "pane_pid", "@hivemux-quiet"]
 # a shell in front means Claude has quit there (its SessionEnd hook comes a second or two later, or never)
 # 칸 앞에 셸이 있으면 그 Claude 는 끝났다 (SessionEnd 훅은 1~2초 늦게 오거나 안 온다)
 SHELLS = {"zsh", "bash", "fish", "sh", "dash", "tcsh", "ksh", "login"}
@@ -432,7 +432,7 @@ LEAD_RE = re.compile(r"^[^\w가-힣]+")
 
 
 def task_name(p):
-    """Task name: a team role's name (bin/hivemux-team, "★ " for the lead) > name set in the sidebar > terminal title
+    """Task name: a team role's name (bin/hivemux-team, "⭐ " for the lead) > name set in the sidebar > terminal title
     sent by Claude > -n name > window name. / 작업 이름: 팀 역할 이름 (bin/hivemux-team, 리드는 "★ ") > 사이드바에서 바꾼
     이름 > Claude가 보낸 터미널 제목 > -n 이름 > 창 이름."""
     if p.get("@hivemux-rolename"):
@@ -1319,6 +1319,8 @@ def notify_changes(items, seen, sent, now, emit):
     for p in new:
         pid, st = p["pane_id"], p["@claude_state"]
         if p["window_id"] in looking:
+            continue
+        if st == "done" and p.get("@hivemux-quiet") == "done":   # a team member: the lead tells (bin/hivemux-team) / 팀원: 리드가 알린다
             continue
         if sent.get(pid, ("", 0))[0] == st and now - sent[pid][1] < NOTIFY_GAP:
             continue
