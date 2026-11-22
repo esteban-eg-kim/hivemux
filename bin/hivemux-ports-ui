@@ -143,6 +143,24 @@ def qr(text):
     return r.stdout.splitlines() if r.returncode == 0 else []
 
 
+def brew():
+    return shutil.which("brew") or next((p for p in ("/opt/homebrew/bin/brew", "/usr/local/bin/brew") if os.path.exists(p)), None)
+
+
+def install_qr(fd, old):
+    """brew install qrencode right in the popup, its output on screen; True when it is there after
+    팝업 안에서 brew install qrencode. 출력은 화면에. 끝나고 있으면 True"""
+    termios.tcsetattr(fd, termios.TCSADRAIN, old)       # a normal terminal while brew runs / brew 가 도는 동안 보통 터미널
+    sys.stdout.write(RST + "\x1b[H\x1b[2J" + tr("qrencode 를 설치합니다…", "Installing qrencode…") + "\n\n")
+    sys.stdout.flush()
+    # no update of Homebrew itself or of what is installed: only this one and what it needs
+    # Homebrew 자체나 설치된 것은 업데이트하지 않는다: 이것과 이것에 필요한 것만
+    env = dict(os.environ, HOMEBREW_NO_AUTO_UPDATE="1", HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK="1", HOMEBREW_NO_INSTALL_CLEANUP="1")
+    subprocess.run([brew(), "install", "qrencode"], env=env)
+    tty.setraw(fd)
+    return bool(qr("x"))
+
+
 def is_remote(client):
     """The popup's screen is attached from another Mac / 팝업이 뜬 화면이 다른 Mac 에서 붙은 것"""
     return f" {client} " in f" {tmux('show', '-gqv', '@hivemux-remote-clients')} "
@@ -187,8 +205,11 @@ def main():
                     code = qr(it["phone"])
                     for ln in code[:max(0, rows - 6)]:
                         buf.append(f"  {fg(TEXT)}{ln}\r\n")
-                    if not code:
-                        buf.append(f"\r\n  {fg(T3)}{tr('QR 코드는 brew install qrencode 뒤에 보입니다', 'brew install qrencode for a QR code')}\r\n")
+                    if not code and brew():
+                        buf.append(f"\r\n  {fg(T2)}{tr('QR 코드를 그리려면 qrencode 가 필요합니다.', 'A QR code needs qrencode.')}\r\n")
+                        buf.append(f"  {fg(TEXT)}i{fg(T2)} {tr('를 누르면 지금 설치하고 바로 보여 줍니다 (brew install qrencode)', 'installs it now and shows the code (brew install qrencode)')}\r\n")
+                    elif not code:
+                        buf.append(f"\r\n  {fg(T3)}{tr('QR 코드는 qrencode 를 설치하면 보입니다', 'Install qrencode for a QR code')}\r\n")
                 else:
                     buf.append(f"  {fg(T2)}{tr('휴대폰에서 열 수 있게 여는 중…', 'Opening it for the phone…')}\r\n")
                     if time.time() - waiting > 15:
@@ -203,6 +224,11 @@ def main():
                     items = ports()
                     continue
                 ch = os.read(fd, 32).decode(errors="ignore")
+                if ch == "i" and it["phone"] and not qr("x") and brew():
+                    if not install_qr(fd, old):
+                        msg = f"{fg(T2)}{tr('설치하지 못했습니다. 터미널에서 brew install qrencode 를 실행하세요', 'Could not install it: run brew install qrencode in a terminal')}"
+                        show = None
+                    continue
                 if ch == "p":
                     phone(it); show = None; items = ports()
                     msg = f"{fg(ACC)}{tr('휴대폰에서 닫는 중', 'Closing it for the phone')}  {fg(T2)}{it['url']}"
