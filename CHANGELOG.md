@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.1.76 — 2026-11-22
 
 - Teams: done notifications from the lead only, by default. The lead gathers the others' work and tells you, so
