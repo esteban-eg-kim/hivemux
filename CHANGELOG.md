@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Ports: a dev server started detached through pnpm 10+ (`pnpm dev --host`, run as `pnpm-native`) was not
+  forwarded and not in the port list. It is now found like one started through npm or yarn.
 - A Claude brought back by clocking in (or any start) could stay off the sidebar until you typed into it: on a
   busy Mac the start hook ran out of its five seconds before it set the state. The state is now set first, and
   the sidebar shows a running Claude with no state yet as resting.

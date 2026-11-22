@@ -87,12 +87,13 @@ o=$(tmux show -gqv @hivemux-ports-open-@ME@) && [ -n "$o" ] && { tmux set -gu @h
 e=$(tmux show -gqv @hivemux-edit-@ME@) && [ -n "$e" ] && { tmux set -gu @hivemux-edit-@ME@; echo "edit $e"; }
 pids=$(ps -A -o pid= -o ppid= | awk -v r="$root" '{ p[$1] = $2 } END { for (k in p) { x = k; n = 0; while (x > 1 && n++ < 64) { if (x == r) { print k; break } x = p[x] } } }' | paste -sd, -)
 # adopted by launchd or init (1), or on Linux often by the user's systemd / launchd 나 init(1), Linux 에서는 흔히 사용자의 systemd 가 넘겨받는다
+# (pnpm 10+ runs as pnpm-native under its node launcher / pnpm 10 이상은 node 실행기 아래 pnpm-native 로 돈다)
 sr=",1,$(pgrep -u "$(id -u)" -x systemd 2>/dev/null | paste -sd, -),"
 cand=$(ps -A -o pid= -o ppid= -o uid= -o comm= | awk -v u="$(id -u)" -v sr="$sr" '
   { n = split($4, a, "/"); c[$1] = tolower(a[n]); pp[$1] = $2; us[$1] = $3 }
   END { for (k in c) { if (us[k] != u || c[k] !~ /^(node|python[0-9.]*|ruby|deno|bun|php|java|uvicorn|gunicorn)$/) continue
     x = pp[k]; for (i = 0; i < 5; i++) { if (index(sr, "," x ",")) { print k; break }
-      if (us[x] != u || c[x] !~ /^(node|npm|npx|pnpm|yarn|bun|deno|sh|bash|zsh|dash|nohup|env|python[0-9.]*|uv|poetry|ruby|bundle)$/) break
+      if (us[x] != u || c[x] !~ /^(node|npm|npx|pnpm|pnpm-native|yarn|bun|deno|sh|bash|zsh|dash|nohup|env|python[0-9.]*|uv|poetry|ruby|bundle)$/) break
       x = pp[x] } } }' | paste -sd, -)
 # lsof, else (a Linux server without it) /proc and ss / lsof, 없으면 (lsof 없는 Linux 서버) /proc 과 ss
 cwds() { if command -v lsof >/dev/null; then lsof -a -d cwd -p "$1" -Fpn 2>/dev/null
