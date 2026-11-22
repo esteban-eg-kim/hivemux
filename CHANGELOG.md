@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.76 — 2026-11-22
 
 - Teams: done notifications from the lead only, by default. The lead gathers the others' work and tells you, so
   a done from every role was noise. Team page → Setup → **Done notifications** (Lead only / Every role), or
