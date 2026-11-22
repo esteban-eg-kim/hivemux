@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.1.77 — 2026-11-22
 
 - Ports: closing the connected terminal window left the port list on the laptop. The window's HUP and the TERM
