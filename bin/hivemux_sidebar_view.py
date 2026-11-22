@@ -823,7 +823,10 @@ def board(items, now, blink):
     돌려주는 값: (상태줄 글, 깜빡이는 것이 있는지)."""
     num = {p["pane_id"]: i for i, p in enumerate(items, 1)}
     at = lambda p: int(p["@claude_state_at"]) if p["@claude_state_at"].isdigit() else 0
-    calls = sorted((p for p in items if p["@claude_state"] in ("wait", "done")),
+    # a team member's done stays off the board like its notification: the lead tells (bin/hivemux-team)
+    # 팀원의 완료는 알림처럼 호출판에도 올리지 않는다: 리드가 알린다 (bin/hivemux-team)
+    calls = sorted((p for p in items if p["@claude_state"] == "wait"
+                    or (p["@claude_state"] == "done" and p.get("@hivemux-quiet") != "done")),
                    key=lambda p: (p["@claude_state"] != "wait", at(p)))
     if not calls:
         return "", False

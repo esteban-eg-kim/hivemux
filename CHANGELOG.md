@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Teams, done from the lead only: the pickup board (the numbered badges at the top right) still showed every
+  role's done. A member's done stays off it now, as with the notification; needing input still shows.
 ## 0.1.76 — 2026-11-22
 
 - Teams: done notifications from the lead only, by default. The lead gathers the others' work and tells you, so
