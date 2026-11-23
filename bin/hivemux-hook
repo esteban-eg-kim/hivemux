@@ -229,7 +229,9 @@ wake() {
 
 case "$event" in
   SessionStart)
-    sid="$(field session_id)"; cwd="$(field cwd)"
+    # through the Agent SDK (bin/hivemux-sdk) the pane keeps the Claude Code conversation it goes back to
+    # Agent SDK 로 돌 때 (bin/hivemux-sdk) 칸은 돌아갈 Claude Code 대화를 그대로 둔다
+    sid="$(field session_id)"; cwd="$(field cwd)"; [ -n "$HIVEMUX_SDK" ] && sid="$HIVEMUX_SDK_FOR"
     [ -n "$sid" ] && t set -p -t "$TMUX_PANE" @claude_session "$sid"
     # on the sidebar first: the hook has five seconds, and on a busy Mac (a clock in, many Claudes) it ran out
     # before the end, so the card stayed away until the first prompt. The end may set another state
@@ -243,7 +245,7 @@ case "$event" in
         t set -pu -t "$TMUX_PANE" @claude_rc_bridge
         # moved into the daemon (above): the wrapper the pane's Claude came through stays
         # 데몬으로 옮겨 감 (위): 칸의 Claude 를 띄운 래퍼는 그대로다
-        if [ -z "$adopted" ]; then
+        if [ -z "$adopted" ] && [ -z "$HIVEMUX_SDK" ]; then
           via="$(launcher)"
           if [ -n "$via" ]; then t set -p -t "$TMUX_PANE" @claude_launch "$via"; else t set -pu -t "$TMUX_PANE" @claude_launch; fi
         fi ;;
@@ -253,7 +255,7 @@ case "$event" in
     esac
     # moved to the API key account at a usage limit: go on with what it cut (bin/hivemux-account at_limit)
     # 사용 한도로 API 키 계정에 옮김: 끊긴 일을 이어 한다 (bin/hivemux-account at_limit)
-    if [ -n "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @hivemux-continue 2>/dev/null)" ]; then
+    if [ -z "$HIVEMUX_SDK" ] && [ -n "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @hivemux-continue 2>/dev/null)" ]; then
       t set -pu -t "$TMUX_PANE" @hivemux-continue
       ( "$(dirname "$0")/hivemux-account" go-on "$TMUX_PANE" >/dev/null 2>&1 & )
     fi
@@ -269,7 +271,9 @@ case "$event" in
     fi
     # it connects at start (startup, resume): disconnect once the prompt is up (bin/hivemux-rename rc-off decides
     # whether it is hidden) / 시작할 때 연결된다: 입력창이 뜨면 끊는다 (숨김인지는 rc-off 가 본다)
-    case "$(field source)" in startup|resume)
+    # (not through the Agent SDK: no Remote Control there, nor a prompt to type into)
+    # (Agent SDK 로 돌 때는 아니다: 거기엔 Remote Control 도, 칠 입력창도 없다)
+    [ -z "$HIVEMUX_SDK" ] && case "$(field source)" in startup|resume)
       ( sleep 6; "$(dirname "$0")/hivemux-rename" rc-off-hidden "$TMUX_PANE" >/dev/null 2>&1 & ) ;;
     esac
     # a team role: remember its conversation, so a reboot resumes it as that role (bin/hivemux-team)
@@ -387,6 +391,9 @@ case "$event" in
     else
       t set -pu -t "$TMUX_PANE" @claude_bg; state done
     fi
+    # Agent SDK (bin/hivemux-sdk): no diet nor names, they type into Claude Code's prompt
+    # Agent SDK (bin/hivemux-sdk): 다이어트도 이름도 없다. Claude Code 입력창에 치는 것들이다
+    [ -n "$HIVEMUX_SDK" ] && exit 0
     # the context size, and a team role past its line goes on a diet (bin/hivemux-team)
     # 컨텍스트 크기. 기준을 넘은 팀 역할은 다이어트한다 (bin/hivemux-team)
     ( "$(dirname "$0")/hivemux-team" stop "$TMUX_PANE" "$(field transcript_path)" >/dev/null 2>&1 & )
@@ -410,7 +417,7 @@ case "$event" in
     # a subscription at its usage limit, or one that cannot be used (a payment past due...), goes on with the API key
     # account set for it (bin/hivemux-account fallback) / 사용 한도에 걸렸거나 쓸 수 없는 (결제가 밀린...) 구독은 정해
     # 둔 API 키 계정으로 이어 간다
-    case "$(field error)" in rate_limit|oauth_org_not_allowed|billing_error|account_on_hold)
+    [ -z "$HIVEMUX_SDK" ] && case "$(field error)" in rate_limit|oauth_org_not_allowed|billing_error|account_on_hold)
       { [ -s "${XDG_DATA_HOME:-$HOME/.local/share}/hivemux/account-fallback" ] ||
         [ -s "${XDG_DATA_HOME:-$HOME/.local/share}/hivemux/account-fallback-projects" ]; } &&
         ( "$(dirname "$0")/hivemux-account" limit "$TMUX_PANE" "$(field last_assistant_message) $(field error_details)" \
