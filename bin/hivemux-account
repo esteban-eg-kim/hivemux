@@ -701,14 +701,15 @@ def label(n):
     return tr("기본 계정", "Default account") if n == "default" else n
 
 
-def draw(out, rows, sel, here, session, proj, typing, asking, msg, cols, lines):
+def draw(out, rows, sel, here, session, proj, typing, asking, msg, cols, lines, keying=None):
     buf = ["\x1b[H\x1b[2J", bg(BG), "\r\n"]
     head = (tr(f"프로젝트 {session} 에서 사용할 계정을 선택하십시오.", f"Choose the account for project {session}.") if session
             else tr("모든 프로젝트에서 사용할 계정을 선택하십시오.", "Choose the account for all projects."))
     buf.append(f"  {fg(T2)}{head}\r\n\r\n")
     for i, (key, name, sub) in enumerate(rows):
-        mark = "●" if key == here else ("+" if key == "+" else "○")
-        mc = OK if key == here else T3
+        on = key == here or (key == "fb" and fallback())
+        mark = "●" if on else ("+" if key in ("+", "+key") else "○")
+        mc = OK if on else T3
         extra = f"  {sub}" if sub else ""
         if not session and key in names() + ["default"]:
             ps = [s for s, v in proj.items() if v == key]
@@ -720,7 +721,11 @@ def draw(out, rows, sel, here, session, proj, typing, asking, msg, cols, lines):
                        + " " * max(0, cols - 2 - width(raw)) + RST + bg(BG) + "\r\n")
         else:
             buf.append(f"{bg(BG)}   {fg(mc)}{mark} {fg(TEXT)}{name}{fg(T3)}{extra}\r\n")
-    if typing is not None:
+    if keying is not None:
+        name, k = keying
+        buf.append(f"\r\n  {fg(T2)}{tr(f'{name} 의 API 키 (sk-ant-…, 붙여 넣기)', f'API key for {name} (sk-ant-…, paste)')}: "
+                   f"{fg(TEXT)}{'•' * min(len(k), 40)}{'…' if len(k) > 40 else ''}█\r\n")
+    elif typing is not None:
         buf.append(f"\r\n  {fg(T2)}{tr('계정 이름 (영문, 숫자, . _ -)', 'Account name (letters, digits, . _ -)')}: {fg(TEXT)}{typing}█\r\n")
     buf.append(f"\x1b[{lines - 1};1H{fg((44, 48, 57))}  " + "─" * (cols - 4) + "\r\n")
     if msg:
@@ -732,8 +737,12 @@ def draw(out, rows, sel, here, session, proj, typing, asking, msg, cols, lines):
                 f"  {fg(TEXT)}y{fg(T3)} / n")
     elif asking:
         hint = f"{fg(BAD)}{tr(f'{asking} 계정에서 로그아웃하고 삭제하시겠습니까?', f'Log out of {asking} and remove it?')}  {fg(TEXT)}y{fg(T3)} / n"
-    elif typing is not None:
-        hint = f"{fg(TEXT)}Enter{fg(T3)} {tr('로그인', 'log in')}   {fg(TEXT)}Esc{fg(T3)} {tr('취소', 'cancel')}"
+    elif keying is not None or typing is not None:
+        what = tr("추가", "add") if keying is not None else tr("다음", "next") if adding_key else tr("로그인", "log in")
+        hint = f"{fg(TEXT)}Enter{fg(T3)} {what}   {fg(TEXT)}Esc{fg(T3)} {tr('취소', 'cancel')}"
+    elif rows[sel][0] == "fb":
+        hint = (f"{fg(TEXT)}Enter{fg(T3)} {tr('바꾸기 (끔 → API 키 계정)', 'change (off → API key accounts)')}   "
+                f"{fg(TEXT)}Esc{fg(T3)} {tr('닫기', 'close')}")
     else:
         hint = (f"{fg(TEXT)}Enter{fg(T3)} {tr('사용', 'use')}   {fg(TEXT)}d{fg(T3)} {tr('삭제', 'remove')}   "
                 f"{fg(TEXT)}Esc{fg(T3)} {tr('닫기', 'close')}")
@@ -742,11 +751,15 @@ def draw(out, rows, sel, here, session, proj, typing, asking, msg, cols, lines):
     out.flush()
 
 
+adding_key = False     # the name typed is for an API key account / 입력하는 이름이 API 키 계정의 것
+
+
 def ui(session):
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
     out = sys.stdout
-    sel, msg, typing, asking, keys = None, "", None, None, []
+    global adding_key
+    sel, msg, typing, asking, keys, keying = None, "", None, None, [], None
     try:
         while True:
             tty.setraw(fd)
@@ -758,12 +771,16 @@ def ui(session):
                 w = who(a)
                 rows.append((a, label(a), w.get("email") or tr("로그인되어 있지 않습니다", "Not logged in")))
             rows.append(("+", tr("계정 추가…", "Add account…"), ""))
+            rows.append(("+key", tr("API 키 계정 추가…", "Add API key account…"), ""))
+            # the account Claudes go on with at a usage limit (all projects) / 사용 한도에서 이어 갈 계정 (모든 프로젝트)
+            rows.append(("fb", tr("사용 한도에 걸리면 이어 갈 계정", "At a usage limit, go on with"),
+                         label(fallback()) if fallback() else tr("끔", "off")))
             if sel is None:
                 sel = next((i for i, r in enumerate(rows) if r[0] == here), 0)
             sel = max(0, min(sel, len(rows) - 1))
             cols, lines = os.get_terminal_size()
             if not keys:
-                draw(out, rows, sel, here, session, proj, typing, asking, msg, cols, lines)
+                draw(out, rows, sel, here, session, proj, typing, asking, msg, cols, lines, keying)
                 msg = ""
                 # keys one by one: several can come in one read / 키를 하나씩: 한 번에 여러 개가 올 수 있다
                 keys = re.findall(r"\x1b\[[0-9;]*[A-Za-z~]|\x1bO[A-Z]|[\s\S]", os.read(fd, 64).decode(errors="ignore"))
@@ -781,6 +798,35 @@ def ui(session):
                         tr(f" Claude {n}개를 다시 시작합니다.", f" Restarting {n} Claude(s).") if n else "")
                 asking = None
                 continue
+            if keying is not None:
+                name, k = keying
+                if ch in ("\x1b", "\x03"):
+                    keying = None
+                elif ch in ("\x7f", "\b"):
+                    keying = (name, k[:-1])
+                elif ch in ("\r", "\n"):
+                    k = k.strip()
+                    if not k.startswith("sk-ant-"):
+                        msg = f"{fg(BAD)}{tr('sk-ant- 로 시작하는 API 키가 아닙니다.', 'That is not an API key (sk-ant-…).')}"
+                        continue
+                    draw(out, rows, sel, here, session, proj, None, None,
+                         f"{fg(T2)}{tr('키를 확인하는 중입니다…', 'Checking the key…')}", cols, lines, keying)
+                    why = check_key(k)
+                    if why:
+                        msg = f"{fg(BAD)}{tr(f'키를 확인하지 못했습니다: {why}', f'Could not check the key: {why}')}"
+                        continue
+                    keying = None
+                    add_key(name, k)
+                    # the first one is what an API key account is added for here / 첫 API 키 계정은 이어 가려고 더하는 것이다
+                    first = not fallback()
+                    if first:
+                        write_atomic(FALLBACK, name + "\n")
+                    msg = f"{fg(OK)}" + (tr(f"{name} 계정을 추가했습니다. 사용 한도에 걸리면 이 계정으로 이어 갑니다.",
+                                            f"Added {name}. At a usage limit, Claudes go on with it.") if first else
+                                         tr(f"{name} 계정을 추가했습니다.", f"Added {name}."))
+                elif len(ch) == 1 and ch.isprintable():      # not the paste brackets / 붙여 넣기 괄호는 뺀다
+                    keying = (name, (k + ch)[:300])
+                continue
             if typing is not None:
                 if ch in ("\x1b", "\x03"):
                     typing = None
@@ -792,6 +838,9 @@ def ui(session):
                         msg = f"{fg(BAD)}{tr('사용할 수 없는 이름입니다.', 'That name cannot be used.')}"
                         continue
                     typing = None
+                    if adding_key:
+                        keying = (name, "")
+                        continue
                     termios.tcsetattr(fd, termios.TCSADRAIN, old)
                     out.write(RST + "\x1b[H\x1b[2J")
                     out.flush()
@@ -814,8 +863,24 @@ def ui(session):
                 asking = rows[sel][0]
             elif ch in ("\r", "\n"):
                 key = rows[sel][0]
-                if key == "+":
-                    typing = ""
+                if key in ("+", "+key"):
+                    typing, adding_key = ("api" if key == "+key" and "api" not in names() else ""), key == "+key"
+                    continue
+                if key == "fb":
+                    opts = ["", *[n for n in names() if api_key(n)]]
+                    if len(opts) == 1:
+                        msg = f"{fg(BAD)}{tr('먼저 API 키 계정을 추가하십시오.', 'Add an API key account first.')}"
+                        continue
+                    nxt = opts[(opts.index(fallback()) + 1) % len(opts)]
+                    if nxt:
+                        write_atomic(FALLBACK, nxt + "\n")
+                        msg = f"{fg(OK)}{tr(f'사용 한도에 걸리면 {nxt} 로 이어 갑니다.', f'At a usage limit, Claudes go on with {nxt}.')}"
+                    else:
+                        try:
+                            os.unlink(FALLBACK)
+                        except OSError:
+                            pass
+                        msg = f"{fg(OK)}{tr('사용 한도에 걸려도 다른 계정으로 넘어가지 않습니다.', 'A usage limit no longer moves Claudes.')}"
                     continue
                 if key != "all" and not who(key):      # not logged in yet: log in first / 아직 로그인 전: 먼저 로그인
                     termios.tcsetattr(fd, termios.TCSADRAIN, old)
@@ -853,7 +918,7 @@ def popup(client, session):
     try:
         title = tr("계정", "Account") if not session else tr(f"{session} 의 계정", f"Account for {session}")
         cmd = shlex.join([os.path.realpath(__file__), "--ui"] + ([session] if session else []))
-        subprocess.run([os.path.join(HERE, "hivemux-modal"), client, "-E", "-w", "78", "-h", "18", "-b", "rounded",
+        subprocess.run([os.path.join(HERE, "hivemux-modal"), client, "-E", "-w", "78", "-h", "20", "-b", "rounded",
                         "-T", f"#[fg=#e6e9ef,bold] {title} ", "-S", "fg=#5aa9ff", "-s", "bg=#1e2128", cmd],
                        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     finally:

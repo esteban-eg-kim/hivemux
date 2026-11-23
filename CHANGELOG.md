@@ -7,7 +7,8 @@
   fallback <name>` moves the Claudes of a subscription at its usage limit onto it in the same conversation; the
   one the limit cut off is asked to go on. They move back when the limit resets (the time in the limit message,
   else five hours), once off the screen and not working, also when stopped by an API error. The status line
-  shows the account they run on.
+  shows the account they run on. In the account popup: **Add API key account…** and **At a usage limit, go on
+  with** (the first API key account added is picked).
 - Account popup: the selected row has no bar on its left.
 
 - A Claude that Claude Code moved into its background daemon (it can do so while a subagent runs) lost its pane:
