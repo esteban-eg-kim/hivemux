@@ -40,7 +40,8 @@
   conversation again and is paid for. Past the line, once the answer has been seen, it brings the notes up to
   date and starts a fresh SDK conversation from them. A team role keeps its team's line, notes and diet.log;
   any other Claude diets too, at 150K tokens (`@hivemux-sdk-diet`, thousands, `off` to turn it off), with its
-  notes in `handoff/<id>.notes.md`. The status line and the sidebar's bar show its context size. The status line shows the effort, and `/effort
+  notes in `handoff/<id>.notes.md`. The status line and the sidebar's bar show its context size. Shift+Enter makes a
+  new line: it asks for extended keys as Claude Code does, so tmux tells Shift+Enter from Enter. The status line shows the effort, and `/effort
   low|medium|high|xhigh|max` changes it (connecting again on the same conversation).
   Enter on the completion menu takes the command picked ("/eff" went to Claude as it was), the menu also offers
   the SDK's own commands and skills, and a command neither knows is not sent.

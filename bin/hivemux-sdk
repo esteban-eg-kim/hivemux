@@ -517,6 +517,9 @@ class Pinned:
 
     def __enter__(self):
         if sys.__stdout__.isatty():
+            # extended keys (modifyOtherKeys 1), as Claude Code asks for: tmux then tells Shift+Enter from Enter
+            # 확장 키 (modifyOtherKeys 1). Claude Code 처럼 요청한다: 그래야 tmux 가 Shift+Enter 를 Enter 와 구별해 보낸다
+            sys.__stdout__.write("\x1b[>4;1m")
             sys.__stdout__.write("\n" * self.N)        # room under what is on the screen / 화면에 있는 것 아래 자리
             self.place()
             self.on = True
@@ -525,7 +528,7 @@ class Pinned:
     def __exit__(self, *exc):
         if self.on:
             self.on = False
-            sys.__stdout__.write(f"\x1b[r\x1b[{self.lines()};1H\r\n")
+            sys.__stdout__.write(f"\x1b[>4m\x1b[r\x1b[{self.lines()};1H\r\n")
             sys.__stdout__.flush()
 
     def out(self, text=""):
@@ -663,6 +666,13 @@ async def run(argv):
         st["pasted"][st["img"]] = path
         event.current_buffer.insert_text(f"[Image #{st['img']}]")
 
+    # Shift+Enter as tmux sends it with extended keys (xterm's and the CSI u form) is a new line
+    # 확장 키로 tmux 가 보내는 Shift+Enter (xterm 형식과 CSI u 형식) 는 줄바꿈
+    from prompt_toolkit.input.ansi_escape_sequences import ANSI_SEQUENCES
+    from prompt_toolkit.keys import Keys
+    for seq in ("\x1b[27;2;13~", "\x1b[13;2u"):
+        ANSI_SEQUENCES[seq] = Keys.ControlJ
+
     @keys.add("escape", "enter")
     @keys.add("c-j")
     def _(event):
@@ -689,8 +699,8 @@ async def run(argv):
         st_ = (f" API · Agent SDK · {model[0] or tr('기본 모델', 'default model')} · effort {effort[0] or tr('기본', 'default')}"
                f" · {st['ctx'] // 1000}K · ${st['total']:.2f} · auto")
         w = shutil.get_terminal_size((100, 20)).columns
-        return ANSI(f"{GRAY}{'─' * w}\n{st_}   " + tr("\\ Enter 줄바꿈 · Ctrl+V 이미지 · / 명령 · Esc 멈추기",
-                                                       "\\ Enter new line · Ctrl+V image · / commands · Esc stop") + RST)
+        return ANSI(f"{GRAY}{'─' * w}\n{st_}   " + tr("Shift+Enter 줄바꿈 · Ctrl+V 이미지 · / 명령 · Esc 멈추기",
+                                                       "Shift+Enter new line · Ctrl+V image · / commands · Esc stop") + RST)
 
     def message():
         w = shutil.get_terminal_size((100, 20)).columns
