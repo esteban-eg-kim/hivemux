@@ -31,7 +31,10 @@
   not a handoff); a reboot on the API resumes it too. Going back to Claude Code ends it.
   The prompt is pinned to the bottom rows, as in Claude Code: the answer scrolls in the rows above (the terminal's
   scroll region, kept in tmux's history too) and the prompt is not drawn again for each line, so it no longer
-  shakes while the answer comes. The status line shows the effort, and `/effort
+  shakes while the answer comes. Typing no longer stutters: drawing the prompt asked tmux for the language on every key
+  and every tick. Ctrl+V pastes the clipboard's image as `[Image #n]` and sends it with the message, as in
+  Claude Code; an image file's path (dragged into the terminal) is sent as the image too. A path that starts with
+  a slash is no longer taken for a command. The status line shows the effort, and `/effort
   low|medium|high|xhigh|max` changes it (connecting again on the same conversation).
   Enter on the completion menu takes the command picked ("/eff" went to Claude as it was), the menu also offers
   the SDK's own commands and skills, and a command neither knows is not sent.

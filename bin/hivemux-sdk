@@ -29,7 +29,7 @@ Environment (from bin/hivemux-claude) / 환경 (bin/hivemux-claude 가 준다):
   HIVEMUX_SDK_ACCOUNT   the account chosen for the project, at its limit now / 프로젝트에 정한 계정. 지금 한도에 걸림
   HIVEMUX_SDK_PROJECT   the project (tmux session) / 프로젝트 (tmux 세션)
 """
-import glob, json, os, shutil, subprocess, sys, time
+import base64, glob, json, os, re, shutil, subprocess, sys, time
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux")
@@ -39,9 +39,16 @@ PKGS = ["claude-agent-sdk", "prompt_toolkit"]
 os.environ["PATH"] = os.environ.get("PATH", "") + ":/opt/homebrew/bin:/usr/local/bin:" + os.path.expanduser("~/.local/bin")
 
 
+LANG = []
+
+
 def tr(ko, en):
-    v = os.environ.get("HIVEMUX_LANG") or tmux("show", "-gqv", "@hivemux-lang").strip()
-    return ko if (v or os.environ.get("LANG", "")).startswith("ko") else en
+    # asked of tmux once: the prompt draws on every key and every tick, and a tmux call each time made typing stutter
+    # tmux 에는 한 번만 묻는다: 입력창은 키마다, 틱마다 그리는데 매번 tmux 를 불러 입력이 버벅였다
+    if not LANG:
+        v = os.environ.get("HIVEMUX_LANG") or tmux("show", "-gqv", "@hivemux-lang").strip()
+        LANG.append((v or os.environ.get("LANG", "")).startswith("ko"))
+    return ko if LANG[0] else en
 
 
 def tmux(*a):
@@ -332,6 +339,62 @@ def go_back(sid, argv):
     os.execv(hc, [hc, *args])
 
 
+# ── images / 이미지 ──
+
+IMAGES = os.path.join(DATA, "sdk", "images")
+IMAGE_EXT = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp"}
+
+
+def clipboard_image():
+    """The clipboard's image saved as a PNG (at most 2000 px a side), or "" / 클립보드 이미지를 PNG 로 저장 (긴 변 2000px 이하)"""
+    os.makedirs(IMAGES, exist_ok=True)
+    path = os.path.join(IMAGES, time.strftime("%Y%m%d-%H%M%S-") + str(os.getpid()) + ".png")
+    script = ['try', 'set d to the clipboard as «class PNGf»',
+              f'set f to open for access POSIX file "{path}" with write permission', 'set eof f to 0', 'write d to f',
+              'close access f', 'on error', 'return "none"', 'end try']
+    r = subprocess.run(["osascript"] + sum([["-e", x] for x in script], []), capture_output=True, text=True)
+    if r.stdout.strip() == "none" or not os.path.exists(path) or os.path.getsize(path) == 0:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        return ""
+    subprocess.run(["sips", "--resampleHeightWidthMax", "2000", path], capture_output=True)
+    return path
+
+
+def image_paths(text):
+    """Image files named in the text (dragged into the terminal, or pasted paths) / 글에 적힌 이미지 파일 (끌어다 놓았거나 붙여 넣은 경로)"""
+    out = []
+    for tok in re.findall(r"'[^']+'|\"[^\"]+\"|(?:\\ |\S)+", text):
+        p = tok.strip("'\"").replace("\\ ", " ")
+        p = os.path.expanduser(p)
+        if os.path.splitext(p)[1].lower() in IMAGE_EXT and os.path.isfile(p):
+            out.append(p)
+    return out
+
+
+def with_images(text, pasted):
+    """The message: the text alone, or content blocks with the images it names ([Image #n] pasted, or file paths)
+    메시지: 글만, 또는 글이 가리키는 이미지 ([Image #n] 으로 붙인 것, 또는 파일 경로) 를 담은 블록"""
+    files = [pasted[n] for n in sorted(pasted) if f"[Image #{n}]" in text] + image_paths(text)
+    if not files:
+        return text
+    blocks = [{"type": "text", "text": text}]
+    for f in files:
+        try:
+            data = base64.b64encode(open(f, "rb").read()).decode()
+        except OSError:
+            continue
+        blocks.append({"type": "image", "source": {"type": "base64", "media_type": IMAGE_EXT.get(
+            os.path.splitext(f)[1].lower(), "image/png"), "data": data}})
+
+    async def one():
+        yield {"type": "user", "message": {"role": "user", "content": blocks}, "parent_tool_use_id": None}
+
+    return one()
+
+
 # ── the session / 세션 ──
 
 DIM, BOLD, RST, GREEN, BLUE, RED, GRAY = "\x1b[2m", "\x1b[1m", "\x1b[0m", "\x1b[32m", "\x1b[34m", "\x1b[31m", "\x1b[90m"
@@ -488,7 +551,7 @@ async def run(argv):
     # 일하는 동안에도 입력창이 있다 (Claude Code 처럼): 그때 보낸 것은 하던 일에 들어간다 (SDK 가 다음 걸음에 받는다).
     # 답은 입력창 위에 찍힌다
     st = {"total": 0.0, "first": bool(intro), "busy": False, "t0": 0.0, "doing": "", "back": False, "done": False,
-          "switch": False,
+          "switch": False, "img": 0, "pasted": {},
           "clear": False, "asked": [], "shown": [], "i": 0, "client": None}
 
     keys = KeyBindings()
@@ -509,6 +572,18 @@ async def run(argv):
             b.insert_text("\n")
         else:
             b.validate_and_handle()
+
+    @keys.add("c-v")
+    def _(event):
+        # Ctrl+V pastes the clipboard's image as [Image #n], as in Claude Code (Cmd+V still pastes text)
+        # Ctrl+V 는 클립보드 이미지를 [Image #n] 으로 붙인다 (Claude Code 처럼. Cmd+V 는 글을 붙인다)
+        path = clipboard_image()
+        if not path:
+            out(GRAY + tr("  클립보드에 이미지가 없습니다 (글은 Cmd+V)", "  No image on the clipboard (text: Cmd+V)") + RST)
+            return
+        st["img"] += 1
+        st["pasted"][st["img"]] = path
+        event.current_buffer.insert_text(f"[Image #{st['img']}]")
 
     @keys.add("escape", "enter")
     @keys.add("c-j")
@@ -536,7 +611,8 @@ async def run(argv):
         st_ = (f" API · Agent SDK · {model[0] or tr('기본 모델', 'default model')} · effort {effort[0] or tr('기본', 'default')}"
                f" · ${st['total']:.2f} · auto")
         w = shutil.get_terminal_size((100, 20)).columns
-        return ANSI(f"{GRAY}{'─' * w}\n{st_}   " + tr("\\ Enter 줄바꿈 · / 명령 · Esc 멈추기", "\\ Enter new line · / commands · Esc stop") + RST)
+        return ANSI(f"{GRAY}{'─' * w}\n{st_}   " + tr("\\ Enter 줄바꿈 · Ctrl+V 이미지 · / 명령 · Esc 멈추기",
+                                                       "\\ Enter new line · Ctrl+V image · / commands · Esc stop") + RST)
 
     def message():
         w = shutil.get_terminal_size((100, 20)).columns
@@ -578,7 +654,7 @@ async def run(argv):
         else:
             st["busy"], st["t0"], st["doing"] = True, time.time(), ""
         st["asked"].append(text)
-        await client.query(wrap(text))
+        await client.query(with_images(wrap(text), st["pasted"]))
 
     async def reader(client):
         async for m in client.receive_messages():
@@ -713,9 +789,11 @@ async def run(argv):
                         if not text or not text.strip():
                             continue
                         out(f"{BOLD}❯{RST} {text}")
-                        if text.strip().startswith("/") and await slash(client, text):
+                        # a command is one word after the slash; "/Users/…/a.png" is a path / 명령은 / 뒤 한 단어. 경로는 아니다
+                        is_cmd = bool(re.match(r"/[\w:.-]+(\s|$)", text.strip()))
+                        if is_cmd and await slash(client, text):
                             continue
-                        if text.strip().startswith("/") and sdk_cmds and text.split()[0] not in sdk_cmds:
+                        if is_cmd and sdk_cmds and text.split()[0] not in sdk_cmds:
                             out(GRAY + tr(f"  없는 명령입니다: {text.split()[0]} (/help)", f"  No such command: {text.split()[0]} (/help)") + RST)
                             continue
                         await send(client, text)
