@@ -349,11 +349,40 @@ def commands():
         "/help": tr("명령 보기", "show the commands"),
         "/clear": tr("새 대화로 (넘김 문서 없이)", "a new conversation (without the handoff)"),
         "/model": tr("모델 바꾸기: /model opus|sonnet|haiku", "change the model: /model opus|sonnet|haiku"),
+        "/effort": tr("생각하는 정도: /effort low|medium|high|xhigh|max", "how hard it thinks: /effort low|medium|high|xhigh|max"),
         "/cost": tr("이 화면에서 쓴 비용", "what this screen has cost"),
         "/back": tr("지금 Claude Code 로 돌아가기", "go back to Claude Code now"),
         "/compact": tr("대화를 줄이기 (SDK 가 한다)", "compact the conversation (the SDK does it)"),
         "/exit": tr("끝내기 (칸은 셸로)", "quit (the pane goes back to its shell)"),
     }
+
+
+def smooth_output():
+    """Each print above the prompt erases the prompt, writes and draws it again: the screen jumped while the answer
+    came. Wrap that in the terminal's synchronized output (2026; tmux 3.4+ shows it at once) so it is seen as one
+    step / 입력창 위에 찍을 때마다 입력창을 지우고, 쓰고, 다시 그린다: 답이 오는 동안 화면이 출렁였다. 터미널의 동기
+    출력 (2026. tmux 3.4 이상은 한 번에 보인다) 으로 감싸 한 걸음으로 보이게 한다"""
+    from contextlib import asynccontextmanager
+    import importlib
+    rit = importlib.import_module("prompt_toolkit.application.run_in_terminal")   # the package's name is the function's
+    from prompt_toolkit.application.current import get_app_or_none
+    orig = rit.in_terminal
+
+    @asynccontextmanager
+    async def in_terminal(render_cli_done=False):
+        app = get_app_or_none()
+        out = app.output if app and app.is_running else None
+        if out:
+            out.write_raw("\x1b[?2026h")
+        try:
+            async with orig(render_cli_done=render_cli_done) as x:
+                yield x
+        finally:
+            if out:
+                out.write_raw("\x1b[?2026l")
+                out.flush()
+
+    rit.in_terminal = in_terminal
 
 
 async def run(argv):
@@ -372,6 +401,7 @@ async def run(argv):
     pane = os.environ.get("TMUX_PANE", "")
     cwd = os.getcwd()
     model = [vals.get("--model") or ""]
+    effort = [vals.get("--effort") or ""]
     append = vals.get("--append-system-prompt", "")
     if vals.get("--append-system-prompt-file"):
         try:
@@ -388,7 +418,7 @@ async def run(argv):
     def options():
         r, resume[0] = resume[0], ""
         return ClaudeAgentOptions(resume=r or None,
-            cwd=cwd, model=model[0] or None, effort=vals.get("--effort"),
+            cwd=cwd, model=model[0] or None, effort=effort[0] or None,
             permission_mode=vals.get("--permission-mode") or "auto",
             system_prompt={"type": "preset", "preset": "claude_code", **({"append": append} if append else {})},
             setting_sources=["user", "project", "local"],
@@ -460,7 +490,8 @@ async def run(argv):
             event.current_buffer.reset()
 
     def toolbar():
-        st_ = f" API · Agent SDK · {model[0] or tr('기본 모델', 'default model')} · ${st['total']:.2f} · auto"
+        st_ = (f" API · Agent SDK · {model[0] or tr('기본 모델', 'default model')} · effort {effort[0] or tr('기본', 'default')}"
+               f" · ${st['total']:.2f} · auto")
         return ANSI(f"{GRAY}{st_}   " + tr("\\ Enter 줄바꿈 · / 명령 · Esc 멈추기", "\\ Enter new line · / commands · Esc stop") + RST)
 
     def message():
@@ -475,7 +506,8 @@ async def run(argv):
 
     # erased when sent: the line is printed once above, without the spinner and the rules of the prompt
     # 보내면 지운다: 그 줄은 위에 한 번만 찍는다. 입력창의 스피너와 선 없이
-    session = PromptSession(multiline=True, key_bindings=keys, bottom_toolbar=toolbar, refresh_interval=0.15,
+    smooth_output()
+    session = PromptSession(multiline=True, key_bindings=keys, bottom_toolbar=toolbar, refresh_interval=0.3,
                             erase_when_done=True,
                             history=FileHistory(os.path.join(DATA, "sdk", "history")),
                             completer=WordCompleter(list(commands()), sentence=True), complete_while_typing=True,
@@ -521,6 +553,7 @@ async def run(argv):
                 st["total"] += cost
                 print(f"{GRAY}✻ {tr('끝', 'done')} · {int(time.time() - st['t0'])}s · ${cost:.3f}{RST}")
                 note_back(sid, "\n\n".join(st["asked"]), "\n\n".join(st["shown"][-2:]), cost)
+                st["sdk_sid"] = m.session_id or st.get("sdk_sid", "")
                 if sid and m.session_id:
                     with open(sdk_file(sid), "w") as f:
                         f.write(m.session_id + "\n")
@@ -557,6 +590,20 @@ async def run(argv):
             else:
                 print(GRAY + tr(f"  지금 모델: {model[0] or '기본'} · /model opus|sonnet|haiku",
                                 f"  Model: {model[0] or 'default'} · /model opus|sonnet|haiku") + RST)
+        elif cmd == "/effort":
+            levels = ("low", "medium", "high", "xhigh", "max")
+            if arg.strip() in levels and st["busy"]:
+                print(GRAY + tr("  일하는 중에는 바꿀 수 없습니다 (Esc 로 멈춘 뒤)", "  Not while it works (Esc first)") + RST)
+            elif arg.strip() in levels:
+                # the SDK takes the effort at the start only: connect again on the same conversation
+                # SDK 는 effort 를 시작할 때만 받는다: 같은 대화로 다시 연결한다
+                effort[0] = arg.strip()
+                resume[0] = st.get("sdk_sid", "")
+                st["clear"] = True
+                print(GRAY + tr(f"  effort: {effort[0]} (같은 대화로 다시 연결합니다)", f"  Effort: {effort[0]} (connecting again on the same conversation)") + RST)
+            else:
+                print(GRAY + tr(f"  지금 effort: {effort[0] or '기본'} · /effort low|medium|high|xhigh|max",
+                                f"  Effort: {effort[0] or 'default'} · /effort low|medium|high|xhigh|max") + RST)
         elif cmd == "/back":
             st["back"] = True
         elif cmd in ("/exit", "/quit"):
@@ -576,6 +623,8 @@ async def run(argv):
         return True
 
     with patch_stdout(raw=True):
+        # lines that come close together are written with one redraw / 붙어서 오는 줄은 한 번 다시 그려 함께 쓴다
+        sys.stdout.sleep_between_writes = 0.25
         while not st["back"] and not st["done"] and not st["switch"]:
             st["clear"] = False
             async with ClaudeSDKClient(options=options()) as client:
