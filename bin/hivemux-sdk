@@ -666,6 +666,19 @@ async def run(argv):
         st["pasted"][st["img"]] = path
         event.current_buffer.insert_text(f"[Image #{st['img']}]")
 
+    @keys.add("backspace")
+    def _(event):
+        # an [Image #n] goes in one press, as in Claude Code / [Image #n] 은 Claude Code 처럼 한 번에 지운다
+        b = event.current_buffer
+        m = re.search(r"\[Image #\d+\]$", b.document.text_before_cursor)
+        b.delete_before_cursor(len(m.group(0)) if m else 1)
+
+    @keys.add("delete")
+    def _(event):
+        b = event.current_buffer
+        m = re.match(r"\[Image #\d+\]", b.document.text_after_cursor)
+        b.delete(len(m.group(0)) if m else 1)
+
     # Shift+Enter as tmux sends it with extended keys (xterm's and the CSI u form) is a new line
     # 확장 키로 tmux 가 보내는 Shift+Enter (xterm 형식과 CSI u 형식) 는 줄바꿈
     from prompt_toolkit.input.ansi_escape_sequences import ANSI_SEQUENCES
