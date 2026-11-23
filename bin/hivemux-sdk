@@ -512,9 +512,17 @@ async def run(argv):
     key = os.environ.get("HIVEMUX_SDK_KEY_ACCOUNT", "")
     resume = [sdk_session(sid) if sid else ""]
 
+    # the name other sessions message it by: a team role's "<project>-<role>" (its teammates use it), else the
+    # conversation's; without it the SDK session took a made-up one ("ohmyhome-d1") and the team lost each other
+    # 다른 세션이 메시지를 보낼 이름: 팀 역할은 "<프로젝트>-<역할>" (팀원이 그 이름을 쓴다), 아니면 대화 이름. 없으면
+    # SDK 세션이 지어낸 이름 ("ohmyhome-d1") 을 받아 팀원끼리 서로 찾지 못했다
+    role = tmux("show", "-pqv", "-t", pane, "@hivemux-role").strip() if pane else ""
+    proj = tmux("display", "-p", "-t", pane, "#{session_name}").strip() if pane else ""
+    peer = f"{proj}-{role}" if role and proj else title_of(sid, pane)
+
     def options():
         r, resume[0] = resume[0], ""
-        return ClaudeAgentOptions(resume=r or None,
+        return ClaudeAgentOptions(resume=r or None, extra_args={"name": peer} if peer else {},
             cwd=cwd, model=model[0] or None, effort=effort[0] or None,
             permission_mode=vals.get("--permission-mode") or "auto",
             system_prompt={"type": "preset", "preset": "claude_code", **({"append": append} if append else {})},

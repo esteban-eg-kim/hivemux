@@ -34,7 +34,8 @@
   shakes while the answer comes. Typing no longer stutters: drawing the prompt asked tmux for the language on every key
   and every tick. Ctrl+V pastes the clipboard's image as `[Image #n]` and sends it with the message, as in
   Claude Code; an image file's path (dragged into the terminal) is sent as the image too. A path that starts with
-  a slash is no longer taken for a command. The status line shows the effort, and `/effort
+  a slash is no longer taken for a command. Its session carries the name others message it by (a team role's `<project>-<role>`,
+  else the conversation's): a team gone to the API took made-up names ("ohmyhome-d1") and lost each other. The status line shows the effort, and `/effort
   low|medium|high|xhigh|max` changes it (connecting again on the same conversation).
   Enter on the completion menu takes the command picked ("/eff" went to Claude as it was), the menu also offers
   the SDK's own commands and skills, and a command neither knows is not sent.
