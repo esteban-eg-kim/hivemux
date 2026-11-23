@@ -418,9 +418,22 @@ def check_key(key):
         urllib.request.urlopen(req, timeout=15).read()
         return None
     except urllib.error.HTTPError as e:
-        return tr("키가 맞지 않습니다", "The key was not accepted") if e.code in (401, 403) else f"HTTP {e.code}"
+        try:
+            why = json.loads(e.read()).get("error", {}).get("message", "")
+        except (OSError, ValueError, AttributeError):
+            why = ""
+        return (tr("키가 맞지 않습니다", "The key was not accepted") if e.code in (401, 403) else f"HTTP {e.code}") + (
+            f" ({why})" if why else "")
     except OSError as e:
         return str(e)
+
+
+def clean_key(k):
+    """The key as pasted, without what came with it: the paste brackets (ESC[200~ … ESC[201~, also cut in two by a
+    read), spaces and line ends. A key is letters, digits, - and _
+    붙여 넣은 키에서 함께 온 것을 뺀다: 붙여 넣기 괄호 (ESC[200~ … ESC[201~, 읽다가 둘로 잘린 것도), 공백, 줄 끝.
+    키는 글자, 숫자, - 와 _ 이다"""
+    return re.sub(r"[^A-Za-z0-9_-]", "", re.sub(r"\x1b?\[?20[01]~", "", k))
 
 
 def add_key(name, key):
@@ -723,8 +736,12 @@ def draw(out, rows, sel, here, session, proj, typing, asking, msg, cols, lines, 
             buf.append(f"{bg(BG)}   {fg(mc)}{mark} {fg(TEXT)}{name}{fg(T3)}{extra}\r\n")
     if keying is not None:
         name, k = keying
-        buf.append(f"\r\n  {fg(T2)}{tr(f'{name} 의 API 키 (sk-ant-…, 붙여 넣기)', f'API key for {name} (sk-ant-…, paste)')}: "
-                   f"{fg(TEXT)}{'•' * min(len(k), 40)}{'…' if len(k) > 40 else ''}█\r\n")
+        # shown as pasted, so a wrong paste is seen; the middle of a long one is left out
+        # 붙여 넣은 대로 보인다. 잘못 붙여 넣은 것이 보이게. 긴 키는 가운데를 줄인다
+        k = clean_key(k)
+        shown = k if len(k) <= cols - 8 else k[:cols // 2 - 6] + "…" + k[-(cols // 2 - 6):]
+        buf.append(f"\r\n  {fg(T2)}{tr(f'{name} 의 API 키 (sk-ant-…, 붙여 넣기)', f'API key for {name} (sk-ant-…, paste)')}:\r\n"
+                   f"  {fg(TEXT)}{shown}█  {fg(T3)}{tr(f'{len(k)}자', f'{len(k)} chars')}\r\n")
     elif typing is not None:
         buf.append(f"\r\n  {fg(T2)}{tr('계정 이름 (영문, 숫자, . _ -)', 'Account name (letters, digits, . _ -)')}: {fg(TEXT)}{typing}█\r\n")
     buf.append(f"\x1b[{lines - 1};1H{fg((44, 48, 57))}  " + "─" * (cols - 4) + "\r\n")
@@ -762,7 +779,9 @@ def ui(session):
     sel, msg, typing, asking, keys, keying = None, "", None, None, [], None
     try:
         while True:
-            tty.setraw(fd)
+            # TCSANOW: the default flushes the input not read yet, and a pasted key lost all past its first 64 bytes
+            # TCSANOW: 기본값은 아직 읽지 않은 입력을 버려, 붙여 넣은 키가 처음 64바이트 뒤로 모두 사라졌다
+            tty.setraw(fd, termios.TCSANOW)
             g, proj = chosen()
             here = proj.get(session, "all") if session else g
             rows = ([("all", tr(f"모든 프로젝트 설정을 따릅니다 (지금: {label(g)})", f"Same as all projects (now: {label(g)})"), "")]
@@ -805,7 +824,9 @@ def ui(session):
                 elif ch in ("\x7f", "\b"):
                     keying = (name, k[:-1])
                 elif ch in ("\r", "\n"):
-                    k = k.strip()
+                    k = clean_key(k)
+                    if not k:
+                        continue
                     if not k.startswith("sk-ant-"):
                         msg = f"{fg(BAD)}{tr('sk-ant- 로 시작하는 API 키가 아닙니다.', 'That is not an API key (sk-ant-…).')}"
                         continue
@@ -962,7 +983,8 @@ def main(argv):
         if not NAME_RE.match(name) or name in ("default", "all") or (name in names() and not api_key(name)):
             raise SystemExit(tr("사용할 수 없는 이름입니다.", "That name cannot be used."))
         key = (getpass.getpass(tr("API 키 (sk-ant-…, 화면에 보이지 않습니다): ", "API key (sk-ant-…, not shown): "))
-               if sys.stdin.isatty() else sys.stdin.readline()).strip()
+               if sys.stdin.isatty() else sys.stdin.readline())
+        key = clean_key(key)
         if not key.startswith("sk-ant-"):
             raise SystemExit(tr("sk-ant- 로 시작하는 API 키가 아닙니다.", "That is not an API key (sk-ant-…)."))
         why = check_key(key)

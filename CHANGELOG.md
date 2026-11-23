@@ -8,7 +8,9 @@
   one the limit cut off is asked to go on. They move back when the limit resets (the time in the limit message,
   else five hours), once off the screen and not working, also when stopped by an API error. The status line
   shows the account they run on. In the account popup: **Add API key account…** and **At a usage limit, go on
-  with** (the first API key account added is picked).
+  with** (the first API key account added is picked). The key shows as you paste it (the middle of a long one
+  left out); the paste brackets and spaces are dropped, and the popup no longer loses what is past the first
+  64 bytes of a paste, which cut keys short and had them refused.
 - Account popup: the selected row has no bar on its left.
 
 - A Claude that Claude Code moved into its background daemon (it can do so while a subagent runs) lost its pane:
