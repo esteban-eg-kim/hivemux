@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- A Claude that Claude Code moved into its background daemon (it can do so while a subagent runs) lost its pane:
+  the hooks ran there without TMUX_PANE, so the pane stayed "running" with an agent for days, without diets or
+  done notifications, and a resume opened the conversation from before the move. The hook now finds the pane
+  through the Claude that spawned the daemon and keeps the new conversation on it.
+
 ## 0.1.77 — 2026-11-22
 
 - Ports: closing the connected terminal window left the port list on the laptop. The window's HUP and the TERM
@@ -9,6 +14,7 @@
   list whose forwarding process is gone is dropped from the port list (also one left by an older version).
 - Teams, done from the lead only: the pickup board (the numbered badges at the top right) still showed every
   role's done. A member's done stays off it now, as with the notification; needing input still shows.
+
 ## 0.1.76 — 2026-11-22
 
 - Teams: done notifications from the lead only, by default. The lead gathers the others' work and tells you, so

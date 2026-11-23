@@ -36,17 +36,55 @@
 
 event="$1"
 input="$(cat)"
-[ -n "$TMUX" ] && [ -n "$TMUX_PANE" ] || exit 0
 TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
 JQ="$(command -v jq || echo /usr/bin/jq)"
 t() { "$TMUX_BIN" "$@" </dev/null >/dev/null 2>&1; }
 field() { printf '%s' "$input" | "$JQ" -r --arg k "$1" '.[$k] // empty' 2>/dev/null; }
+# Claude Code can move a conversation into its background daemon ("migration", e.g. while a subagent runs): it goes
+# on there as a new session without the pane's TMUX and TMUX_PANE, and the pane only shows it. Its hooks wrote
+# nowhere, so the pane stayed "running" for days and a resume opened the conversation from before the move. Find
+# the pane again: the Claude the daemon was spawned by runs in it, and it holds this conversation or the one this
+# one went on from (--resume)
+# Claude Code 는 대화를 자기 배경 데몬으로 옮길 수 있다 ("migration", 서브에이전트가 도는 동안 등): 대화는 거기서 새
+# 세션으로 이어지는데 칸의 TMUX 와 TMUX_PANE 이 없고, 칸은 그것을 보여 주기만 한다. 훅이 아무 데도 적지 못해 칸이
+# 며칠씩 "실행 중" 이었고, 재개하면 옮기기 전 대화가 열렸다. 칸을 다시 찾는다: 데몬을 띄운 Claude 가 그 칸에서 돌고,
+# 칸에는 이 대화나 이 대화가 이어 온 대화 (--resume) 가 적혀 있다
+adopted=""
+adopt() {
+  local sid from="" p args spawner="" pane
+  sid="$(field session_id)"; [ -n "$sid" ] || return
+  p=$$
+  while p="$(ps -o ppid= -p "$p" 2>/dev/null)" && p="${p// /}" && [ -n "$p" ] && [ "$p" -gt 1 ]; do
+    args="$(ps -o args= -p "$p" 2>/dev/null)"
+    if [ -z "$from" ] && [[ "$args" =~ --resume\ ([^ ]+) ]]; then from="${BASH_REMATCH[1]##*/}"; from="${from%.jsonl}"; fi
+    if [[ "$args" == *" daemon run "* ]]; then
+      [[ "$args" =~ \"pid\":([0-9]+) ]] && spawner="${BASH_REMATCH[1]}"
+      break
+    fi
+  done
+  [ -n "$spawner" ] || return
+  pane="$("$TMUX_BIN" list-panes -a -F '#{pane_id} #{pane_pid} #{@claude_session}' 2>/dev/null |
+    while read -r id pp s; do
+      [ "$s" = "$sid" ] || { [ -n "$from" ] && [ "$s" = "$from" ]; } || continue
+      ps -A -o pid=,ppid= 2>/dev/null | awk -v p="$spawner" -v s="$pp" \
+        '{ up[$1] = $2 } END { while (p > 1 && n++ < 64) { if (p == s) exit 0; p = up[p] } exit 1 }' && { echo "$id"; break; }
+    done)"
+  [ -n "$pane" ] || return
+  TMUX_PANE="$pane"
+  TMUX="$("$TMUX_BIN" display -p -t "$pane" '#{socket_path},#{pid},0' 2>/dev/null)"
+  export TMUX TMUX_PANE
+  adopted=1
+  # the pane resumes this conversation from now on / 이제부터 칸은 이 대화를 재개한다
+  [ "$("$TMUX_BIN" show -pqv -t "$pane" @claude_session 2>/dev/null)" = "$sid" ] || t set -p -t "$pane" @claude_session "$sid"
+}
+[ -z "$TMUX_PANE" ] && [ -n "$HIVEMUX_CLAUDE" ] && adopt
+[ -n "$TMUX" ] && [ -n "$TMUX_PANE" ] || exit 0
 # Only a Claude the pane started writes on it. A background `claude -p` run by a process that came from the pane
 # (the bee office restarted there) keeps TMUX_PANE, and took over the pane's session and folder: the sidebar lost it
 # 칸이 시작한 Claude 만 그 칸에 적는다. 칸에서 나온 프로세스(거기서 다시 띄운 벌 사무실)가 돌린 배경 `claude -p` 도
 # TMUX_PANE 을 물려받아 칸의 세션과 폴더를 가져갔다: 사이드바에서 사라졌다
 shell="$("$TMUX_BIN" display -p -t "$TMUX_PANE" '#{pane_pid}' 2>/dev/null)"
-[ -z "$shell" ] || ps -A -o pid=,ppid= 2>/dev/null |
+[ -n "$adopted" ] || [ -z "$shell" ] || ps -A -o pid=,ppid= 2>/dev/null |
   awk -v p=$$ -v s="$shell" '{ up[$1] = $2 } END { while (p > 1 && n++ < 64) { if (p == s) exit 0; p = up[p] } exit 1 }' || exit 0
 # What the pane's shell ran to start this Claude when it is a wrapper: a program that starts Claude itself
 # (peer-claude), not Claude or a command that names it (caffeinate claude). Its own resume arguments dropped
@@ -199,11 +237,16 @@ case "$event" in
     # 카드가 보이지 않았다. 끝에서 다른 상태로 바꿀 수 있다
     [ -z "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_restore 2>/dev/null)" ] && state idle
     case "$(field source)" in
-      startup|resume) via="$(launcher)"
+      startup|resume)
         # a new process makes its Remote Control connection with the name: start counting connections afresh
         # (bin/hivemux-rename auto) / 새 프로세스는 이름과 함께 연결한다: 연결을 처음부터 다시 센다
         t set -pu -t "$TMUX_PANE" @claude_rc_bridge
-        if [ -n "$via" ]; then t set -p -t "$TMUX_PANE" @claude_launch "$via"; else t set -pu -t "$TMUX_PANE" @claude_launch; fi ;;
+        # moved into the daemon (above): the wrapper the pane's Claude came through stays
+        # 데몬으로 옮겨 감 (위): 칸의 Claude 를 띄운 래퍼는 그대로다
+        if [ -z "$adopted" ]; then
+          via="$(launcher)"
+          if [ -n "$via" ]; then t set -p -t "$TMUX_PANE" @claude_launch "$via"; else t set -pu -t "$TMUX_PANE" @claude_launch; fi
+        fi ;;
       # the context size was the old conversation's: a diet looked undone until the first answer ended
       # 컨텍스트 크기는 이전 대화의 것이었다: 첫 응답이 끝날 때까지 다이어트가 안 된 것처럼 보였다
       clear|compact) t set -pu -t "$TMUX_PANE" @claude_ctx; t set -pu -t "$TMUX_PANE" @claude_ctx_at ;;
