@@ -334,7 +334,9 @@ to it; every Claude carries on in the same conversation.
   the whole conversation) and writes what it does to `<id>.back.md` after each
   turn. When the subscription can be used again it turns back into Claude Code
   on the same conversation at a quiet moment, and Claude Code reads
-  `<id>.back.md` first. Its Python (`claude-agent-sdk`, `prompt_toolkit`) is
+  `<id>.back.md` first. Set the project to another API key account meanwhile
+  and it starts again on that key at a quiet moment, resuming the same SDK
+  conversation as it was (a reboot on the API resumes it too). Its Python (`claude-agent-sdk`, `prompt_toolkit`) is
   set up once in `~/.local/share/hivemux/sdk/venv`, with Python 3.10 or newer.
   `hivemux account runner api claude` runs Claude Code on the key instead.
 - **Where you are.** The status line shows `◉ work` when the account in use

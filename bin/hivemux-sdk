@@ -14,7 +14,8 @@ send all of it every turn) but starts from a handoff written from its end ($XDG_
 the last requests and answers, files changed, the role's notes, the path of the whole conversation), and writes
 what it does to <id>.back.md after each turn. When the subscription can be used again (the limit reset, or you chose
 that account again), it waits for a quiet moment and turns back into Claude Code on the same conversation, which is
-asked to read <id>.back.md first.
+asked to read <id>.back.md first. Set the project to another API key account meanwhile and it starts again on that
+key, resuming its own SDK conversation (<id>.sdk) as it was; so does a restart on the API (a reboot).
 API 크레딧 중에는 (프로모션 크레딧) Claude Code 가 아니라 Agent SDK 에만 쓰이는 것이 있어서, 그 키로 Claude Code 를
 쓰면 "Credit balance too low" 에서 멈춘다. 이것은 Agent SDK 로 만든 작은 Claude Code 다: 칸에서 돌고, 같은 인수
 (--resume, --model, --effort, 팀 역할의 --append-system-prompt-file) 를 받고, 같은 폴더에서 같은 도구, 설정, CLAUDE.md,
@@ -257,6 +258,48 @@ def can_go_back():
     return a.effective(acc, None, proj) == acc
 
 
+def sdk_file(sid):
+    """<id>.sdk: the SDK conversation going on for the Claude Code conversation <id>. A restart on an API key (another
+    key, a reboot) resumes it instead of a new handoff, so nothing of it is lost; going back to Claude Code ends it
+    <id>.sdk: Claude Code 대화 <id> 를 이어 가는 SDK 대화. API 키로 다시 시작하면 (다른 키, 재부팅) 새 넘김 문서 대신
+    그것을 재개해 아무것도 잃지 않는다. Claude Code 로 돌아가면 끝난다"""
+    return os.path.join(HANDOFF, f"{sid}.sdk")
+
+
+def sdk_session(sid):
+    try:
+        v = open(sdk_file(sid)).read().strip()
+    except OSError:
+        return ""
+    return v if v and transcript_of(v) else ""
+
+
+def wanted_key():
+    """The API key account this project should go on with now ("" = none) / 이 프로젝트가 지금 이어 갈 API 키 계정"""
+    acc, proj = os.environ.get("HIVEMUX_SDK_ACCOUNT", ""), os.environ.get("HIVEMUX_SDK_PROJECT") or None
+    try:
+        a = account_module()
+    except Exception:
+        return ""
+    w = a.effective(acc, None, proj) if acc else ""
+    return w if w and a.api_key(w) else ""
+
+
+def clean_env():
+    for k in ("HIVEMUX_SDK", "HIVEMUX_SDK_ACCOUNT", "HIVEMUX_SDK_PROJECT", "HIVEMUX_SDK_FOR", "HIVEMUX_SDK_IN_VENV",
+              "HIVEMUX_SDK_KEY_ACCOUNT", "ANTHROPIC_API_KEY"):
+        os.environ.pop(k, None)
+
+
+def switch(argv):
+    """Start again through bin/hivemux-claude on the key the project goes on with now; the SDK conversation is
+    resumed there (sdk_file) / 프로젝트가 지금 이어 갈 키로 bin/hivemux-claude 를 거쳐 다시 시작한다. 거기서 SDK 대화를
+    재개한다 (sdk_file)"""
+    clean_env()
+    hc = os.path.join(HERE, "hivemux-claude")
+    os.execv(hc, [hc, *argv])
+
+
 def go_back(sid, argv):
     """exec Claude Code on the conversation, asked to read what was done meanwhile
     그 대화의 Claude Code 를 exec 한다. 그 사이 한 일을 먼저 읽게 한다"""
@@ -277,9 +320,11 @@ def go_back(sid, argv):
                            f"While this conversation was stopped (its subscription could not be used), the work went on "
                            f"through the API (Agent SDK). What was done is in {kept}. Read it first, tell me briefly where "
                            "things stand, then go on."))
-    for k in ("HIVEMUX_SDK", "HIVEMUX_SDK_ACCOUNT", "HIVEMUX_SDK_PROJECT", "HIVEMUX_SDK_FOR", "HIVEMUX_SDK_IN_VENV",
-              "ANTHROPIC_API_KEY"):
-        os.environ.pop(k, None)
+        try:
+            os.unlink(sdk_file(sid))
+        except OSError:
+            pass
+    clean_env()
     hc = os.path.join(HERE, "hivemux-claude")
     os.execv(hc, [hc, *args])
 
@@ -337,8 +382,12 @@ async def run(argv):
     # 훅이 칸에 Claude Code 대화를 그대로 둔다. 재개와 돌아가기가 그것을 찾는다 (bin/hivemux-hook)
     os.environ["HIVEMUX_SDK"], os.environ["HIVEMUX_SDK_FOR"] = "1", sid
 
+    key = os.environ.get("HIVEMUX_SDK_KEY_ACCOUNT", "")
+    resume = [sdk_session(sid) if sid else ""]
+
     def options():
-        return ClaudeAgentOptions(
+        r, resume[0] = resume[0], ""
+        return ClaudeAgentOptions(resume=r or None,
             cwd=cwd, model=model[0] or None, effort=vals.get("--effort"),
             permission_mode=vals.get("--permission-mode") or "auto",
             system_prompt={"type": "preset", "preset": "claude_code", **({"append": append} if append else {})},
@@ -346,7 +395,7 @@ async def run(argv):
             env={"HIVEMUX_SDK": "1", "HIVEMUX_SDK_FOR": sid},
         )
 
-    doc = handoff_in(sid, cwd, pane) if sid else ""
+    doc = handoff_in(sid, cwd, pane) if sid and not resume[0] else ""
     # the one the limit cut off goes on at once; the others wait for you (bin/hivemux-account at_limit)
     # 한도로 끊긴 것은 바로 이어 가고, 나머지는 입력을 기다린다 (bin/hivemux-account at_limit)
     go_on = bool(pane and tmux("show", "-pqv", "-t", pane, "@hivemux-continue").strip())
@@ -361,7 +410,10 @@ async def run(argv):
     print(f"{BOLD}hivemux{RST} {GRAY}· API (Agent SDK) · "
           + tr("구독을 다시 쓸 수 있으면 Claude Code 로 돌아갑니다", "goes back to Claude Code when the subscription can be used")
           + RST)
-    if doc:
+    if resume[0]:
+        print(GRAY + tr(f"API 로 하던 대화를 이어 갑니다{f' (키: {key})' if key else ''}",
+                        f"Going on with the API conversation{f' (key: {key})' if key else ''}") + RST)
+    elif doc:
         print(GRAY + tr(f"넘김 문서: {doc}", f"Handoff: {doc}") + RST)
 
     os.makedirs(os.path.join(DATA, "sdk"), exist_ok=True)
@@ -370,6 +422,7 @@ async def run(argv):
     # 일하는 동안에도 입력창이 있다 (Claude Code 처럼): 그때 보낸 것은 하던 일에 들어간다 (SDK 가 다음 걸음에 받는다).
     # 답은 입력창 위에 찍힌다
     st = {"total": 0.0, "first": bool(intro), "busy": False, "t0": 0.0, "doing": "", "back": False, "done": False,
+          "switch": False,
           "clear": False, "asked": [], "shown": [], "i": 0, "client": None}
 
     keys = KeyBindings()
@@ -468,14 +521,22 @@ async def run(argv):
                 st["total"] += cost
                 print(f"{GRAY}✻ {tr('끝', 'done')} · {int(time.time() - st['t0'])}s · ${cost:.3f}{RST}")
                 note_back(sid, "\n\n".join(st["asked"]), "\n\n".join(st["shown"][-2:]), cost)
+                if sid and m.session_id:
+                    with open(sdk_file(sid), "w") as f:
+                        f.write(m.session_id + "\n")
                 st["busy"], st["asked"], st["shown"] = False, [], []
                 set_title(title)            # a tool may have set another / 도구가 다른 것으로 바꿨을 수 있다
 
     async def watch_back():
         while True:
             await anyio.sleep(20)
-            if not st["busy"] and not session.app.current_buffer.text and can_go_back():
-                st["back"] = True
+            if st["busy"] or session.app.current_buffer.text:
+                continue
+            # the subscription back: Claude Code. The project set to another API key: start again on it
+            # 구독이 돌아옴: Claude Code 로. 프로젝트가 다른 API 키로 바뀜: 그 키로 다시 시작
+            w = wanted_key()
+            if can_go_back() or (key and w and w != key):
+                st["back" if can_go_back() else "switch"] = True
                 if session.app.is_running:
                     session.app.exit(result="")
                 return
@@ -505,13 +566,17 @@ async def run(argv):
                 print(GRAY + tr("  일하는 중에는 새 대화로 바꿀 수 없습니다 (Esc 로 멈춘 뒤)", "  Not while it works (Esc first)") + RST)
             else:
                 st["clear"], st["first"] = True, False
+                try:
+                    os.unlink(sdk_file(sid))
+                except OSError:
+                    pass
                 print(GRAY + tr("  새 대화를 시작합니다.", "  Starting a new conversation.") + RST)
         else:
             return False
         return True
 
     with patch_stdout(raw=True):
-        while not st["back"] and not st["done"]:
+        while not st["back"] and not st["done"] and not st["switch"]:
             st["clear"] = False
             async with ClaudeSDKClient(options=options()) as client:
                 st["client"] = client
@@ -523,7 +588,7 @@ async def run(argv):
                         go_on, prompt = False, None
                         print(f"\n{BOLD}❯{RST} {text}")
                         await send(client, text)
-                    while not st["back"] and not st["done"] and not st["clear"]:
+                    while not st["back"] and not st["done"] and not st["clear"] and not st["switch"]:
                         try:
                             text = await session.prompt_async(message)
                         except EOFError:
@@ -542,6 +607,10 @@ async def run(argv):
     if st["back"]:
         print("\n" + tr("Claude Code 로 돌아갑니다…", "Going back to Claude Code…"), flush=True)
         go_back(sid, argv)
+    if st["switch"]:
+        print("\n" + tr(f"이어 갈 API 키가 {wanted_key()} 로 바뀌었습니다. 그 키로 대화를 이어 갑니다…",
+                         f"The API key to go on with is now {wanted_key()}. Going on with the conversation on it…"), flush=True)
+        switch(argv)
 
 
 def main(argv):

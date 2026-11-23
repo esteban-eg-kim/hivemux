@@ -36,7 +36,7 @@ if [ -n "$name" ] && [ "$name" != default ] && [ -d "$DATA/accounts/$name" ]; th
   # for the SDK only / Claude Code 로 쓰게 정하지 않았으면 Agent SDK 로 돈다 (bin/hivemux-sdk): SDK 에만 쓰이는
   # 크레딧이 있다
   if [ -n "$ANTHROPIC_API_KEY" ] && [ "$(cat "$CLAUDE_CONFIG_DIR/runner" 2>/dev/null)" != claude ]; then
-    export HIVEMUX_SDK_ACCOUNT="$chosen" HIVEMUX_SDK_PROJECT="$sess"
+    export HIVEMUX_SDK_ACCOUNT="$chosen" HIVEMUX_SDK_PROJECT="$sess" HIVEMUX_SDK_KEY_ACCOUNT="$name"
     exec "$(dirname "$(realpath "$0")")/hivemux-sdk" "$@"
   fi
 # default: forget only a dir of ours (a shell started under another account); one you set yourself stays
