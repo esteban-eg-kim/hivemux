@@ -196,6 +196,29 @@ def handoff_in(sid, cwd, pane):
     return doc
 
 
+def title_of(sid, pane):
+    """The conversation's name: its last /rename, else the title Claude Code gave it (bin/hivemux-hook)
+    대화 이름: 마지막 /rename, 없으면 Claude Code 가 붙인 제목 (bin/hivemux-hook)"""
+    path, name = transcript_of(sid) if sid else "", ""
+    if path:
+        with open(path, errors="ignore") as f:
+            for ln in f:
+                if '"custom-title"' in ln:
+                    try:
+                        name = json.loads(ln).get("customTitle") or name
+                    except ValueError:
+                        pass
+    return name or (tmux("show", "-pqv", "-t", pane, "@claude_title").strip() if pane else "")
+
+
+def set_title(name):
+    """The pane's title, as Claude Code keeps it: the sidebar names the card by it, and the shell left the command
+    line there / Claude Code 처럼 칸 제목을 둔다: 사이드바가 그것으로 카드 이름을 정하고, 셸은 명령 줄을 남겨 두었다"""
+    if name:
+        sys.stdout.write(f"\x1b]2;{name}\x07")
+        sys.stdout.flush()
+
+
 def note_back(sid, ask, answer, cost):
     """After each turn: what was asked and what came of it / 턴마다: 무엇을 부탁받았고 어떻게 됐는지"""
     if not sid:
@@ -360,6 +383,8 @@ async def run(argv):
              f"used (a usage limit or a billing problem). First read the handoff {doc}: it has the recent requests and "
              f"answers, the files changed and the path of the whole conversation. Then work as that conversation did, "
              f"in the user's language.") if doc else ""
+    title = title_of(sid, pane)
+    set_title(title)
     print(f"{BOLD}hivemux{RST} {GRAY}· API (Agent SDK) · "
           + tr("구독을 다시 쓸 수 있으면 Claude Code 로 돌아갑니다", "goes back to Claude Code when the subscription can be used")
           + RST)
@@ -467,6 +492,7 @@ async def run(argv):
             screen.status = ""
             screen.clear()
         total[0] += cost
+        set_title(title)            # a tool may have set another / 도구가 다른 것으로 바꿨을 수 있다
         print(f"{GRAY}✻ {tr('끝', 'done')} · {int(time.time() - screen.t0)}s · ${cost:.3f}{RST}")
         note_back(sid, text, "\n\n".join(shown[-2:]), cost)
 
