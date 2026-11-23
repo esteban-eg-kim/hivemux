@@ -31,7 +31,12 @@
   not a handoff); a reboot on the API resumes it too. Going back to Claude Code ends it.
   The screen no longer jumps while the answer comes: lines that come close together are written with one redraw
   of the prompt, inside the terminal's synchronized output. The status line shows the effort, and `/effort
-  low|medium|high|xhigh|max` changes it (connecting again on the same conversation). It keeps the pane's title on the conversation's name, as Claude Code does: the sidebar showed the shell's
+  low|medium|high|xhigh|max` changes it (connecting again on the same conversation).
+  Enter on the completion menu takes the command picked ("/eff" went to Claude as it was), the menu also offers
+  the SDK's own commands and skills, and a command neither knows is not sent.
+- A conversation Claude Code moved into its daemon kept running there when its pane was restarted (an account
+  switch), and the resume was refused ("That session is running in the background"): it is stopped first. A team
+  role whose conversation the team did not see start comes back with its role's model, effort and prompt. It keeps the pane's title on the conversation's name, as Claude Code does: the sidebar showed the shell's
   command line ("cd … --resume …") as the card's name.
 - Account popup: the selected row has no bar on its left.
 

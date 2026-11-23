@@ -311,6 +311,9 @@ def go_back(sid, argv):
     args += [b for b in bools if b not in ("--continue", "-c")]
     if sid:
         args += ["--resume", sid]
+        # still running in Claude Code's daemon, the resume would be refused (bin/hivemux-claude-update resume)
+        # Claude Code 데몬에서 아직 돌면 재개가 거절된다 (bin/hivemux-claude-update resume)
+        subprocess.run(["pkill", "-TERM", "-f", "--", f"--session-id {sid} "], capture_output=True)
         back = os.path.join(HANDOFF, f"{sid}.back.md")
         if os.path.exists(back):
             kept = os.path.join(HANDOFF, f"{sid}.back-{time.strftime('%Y%m%d-%H%M%S')}.md")
@@ -459,8 +462,15 @@ async def run(argv):
 
     @keys.add("enter")
     def _(event):
-        # Enter sends; a line ending in \ goes on to the next, as in Claude Code / Enter 는 보낸다. \ 로 끝나면 줄바꿈
+        # Enter sends; a line ending in \ goes on to the next, as in Claude Code. With the completion menu open it
+        # takes the command picked ("/eff" went to Claude as it was)
+        # Enter 는 보낸다. \ 로 끝나면 줄바꿈. 자동완성 메뉴가 열려 있으면 고른 명령을 넣는다 ("/eff" 가 그대로 Claude 에게 갔다)
         b = event.current_buffer
+        if b.complete_state:
+            c = b.complete_state.current_completion or (b.complete_state.completions or [None])[0]
+            if c:
+                b.apply_completion(c)
+                return
         if b.document.text_before_cursor.endswith("\\"):
             b.delete_before_cursor(1)
             b.insert_text("\n")
@@ -506,11 +516,14 @@ async def run(argv):
 
     # erased when sent: the line is printed once above, without the spinner and the rules of the prompt
     # 보내면 지운다: 그 줄은 위에 한 번만 찍는다. 입력창의 스피너와 선 없이
+    # ours, then the SDK's own (its slash commands, skills, the project's commands), read when it connects
+    # 우리 것, 그다음 SDK 의 것 (슬래시 명령, 스킬, 프로젝트 명령). 연결할 때 읽는다
+    words, sdk_cmds = [list(commands())], set()
     smooth_output()
     session = PromptSession(multiline=True, key_bindings=keys, bottom_toolbar=toolbar, refresh_interval=0.3,
                             erase_when_done=True,
                             history=FileHistory(os.path.join(DATA, "sdk", "history")),
-                            completer=WordCompleter(list(commands()), sentence=True), complete_while_typing=True,
+                            completer=WordCompleter(lambda: words[0], sentence=True), complete_while_typing=True,
                             prompt_continuation=lambda width, n, soft: "  ")
 
     def wrap(text):
@@ -629,6 +642,12 @@ async def run(argv):
             st["clear"] = False
             async with ClaudeSDKClient(options=options()) as client:
                 st["client"] = client
+                try:
+                    info = await client.get_server_info() or {}
+                    sdk_cmds.update("/" + (c.get("name") if isinstance(c, dict) else str(c)) for c in info.get("commands") or [])
+                    words[0] = list(commands()) + sorted(sdk_cmds - set(commands()))
+                except Exception:
+                    pass
                 async with anyio.create_task_group() as tg:
                     tg.start_soon(reader, client)
                     tg.start_soon(watch_back)
@@ -649,6 +668,9 @@ async def run(argv):
                             continue
                         print(f"{BOLD}❯{RST} {text}")
                         if text.strip().startswith("/") and await slash(client, text):
+                            continue
+                        if text.strip().startswith("/") and sdk_cmds and text.split()[0] not in sdk_cmds:
+                            print(GRAY + tr(f"  없는 명령입니다: {text.split()[0]} (/help)", f"  No such command: {text.split()[0]} (/help)") + RST)
                             continue
                         await send(client, text)
                     tg.cancel_scope.cancel()

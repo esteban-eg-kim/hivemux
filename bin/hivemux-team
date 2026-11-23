@@ -762,6 +762,9 @@ def resume_args(target, sid, cwd):
     if not folder:
         return ""
     role_id = next((r for r, s in sessions(folder).items() if s == sid), None)
+    # a conversation the team did not see start (Claude Code moved it into its daemon): the pane's own role
+    # 팀이 시작을 보지 못한 대화 (Claude Code 가 데몬으로 옮김): 칸의 역할
+    role_id = role_id or tmux("show", "-pqv", "-t", target, "@hivemux-role").strip() or None
     if not role_id:
         return ""
     team = load(team_dir(folder))

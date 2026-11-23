@@ -116,6 +116,11 @@ restart() {
 
 resume() { # resume <pane> <session id> <cwd>
   local cwd="$3" role claude_cmd
+  # Claude Code may have moved the conversation into its daemon (bin/hivemux-hook): stopping the pane's Claude left it
+  # running there, and the resume was refused ("That session is running in the background")
+  # Claude Code 가 대화를 데몬으로 옮겼을 수 있다 (bin/hivemux-hook): 칸의 Claude 를 멈춰도 거기서 계속 돌아, 재개가
+  # 거절됐다 ("That session is running in the background")
+  pkill -TERM -f -- "--session-id $2 " 2>/dev/null && sleep 1
   # read now: switching account (bin/hivemux-account) sets it while this watcher runs / 지금 읽는다: 계정 전환이 도중에 정한다
   claude_cmd="$(t show-environment -g HIVEMUX_CLAUDE | sed -n 's/^HIVEMUX_CLAUDE=//p')"; claude_cmd="${HIVEMUX_CLAUDE:-${claude_cmd:-claude}}"
   t set -pu -t "$1" @claude_restart_pending
