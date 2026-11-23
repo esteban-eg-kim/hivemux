@@ -17,7 +17,9 @@ name=""
 [ -n "$name" ] || name="$(cat "$DATA/account" 2>/dev/null)"
 # at its usage limit: the API key account chosen to go on with, until the limit resets (bin/hivemux-account fallback)
 # 사용 한도에 걸림: 이어 가도록 고른 API 키 계정으로, 한도가 풀릴 때까지 (bin/hivemux-account fallback)
-fb="$(cat "$DATA/account-fallback" 2>/dev/null)"
+fb=""; [ -n "$sess" ] && fb="$(awk -F '\t' -v s="$sess" '$1 == s { print $2; exit }' "$DATA/account-fallback-projects" 2>/dev/null)"
+[ -n "$fb" ] || fb="$(cat "$DATA/account-fallback" 2>/dev/null)"
+[ "$fb" = off ] && fb=""
 if [ -n "$fb" ] && [ "$fb" != "${name:-default}" ] && [ -s "$DATA/accounts/$fb/api-key" ] &&
   awk -F '\t' -v a="${name:-default}" -v now="$(date +%s)" '$1 == a && $2 > now { f = 1 } END { exit !f }' \
     "$DATA/account-limited" 2>/dev/null; then name="$fb"; fi

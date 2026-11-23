@@ -318,7 +318,10 @@ to it; every Claude carries on in the same conversation.
   past due, billing, an account on hold), for a day or until you choose that
   account again. When the limit resets (the time in the limit message, else five
   hours), they move back once they are off the screen and not working. API
-  use is billed per request. `hivemux account fallback off` stops it.
+  use is billed per request. `hivemux account fallback off` stops it. A
+  project can have its own: the same row in **Account for this project…**
+  (`hivemux account fallback api|off|all -s <project>`), so only the projects
+  you pick go on with the key.
 - **Where you are.** The status line shows `◉ work` when the account in use
   is not the default one. `hivemux account list` shows every account, its
   email and the projects on it.

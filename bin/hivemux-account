@@ -13,6 +13,8 @@ Claude 계정: 여러 계정에 로그인해 두고 바꿔 쓴다. 모든 프로
                                                  this API key account in the same conversation until the limit
                                                  resets / 구독이 사용 한도에 걸리면 그 Claude 들을 한도가 풀릴
                                                  때까지 이 API 키 계정으로 같은 대화에서 이어 간다
+  hivemux-account fallback <name|off|all> -s <project>   the same for one project; all = as for all projects
+                                                 프로젝트 하나만. all = 모든 프로젝트 설정을 따른다
   hivemux-account hide <name|default> [on|off]   keep its Claudes out of the Claude app and claude.ai (no Remote
                                                  Control), for an account shared with others / 이 계정의 Claude 를
                                                  Claude 앱과 claude.ai 에 보이지 않게 (Remote Control 없이). 같이 쓰는 계정에
@@ -53,6 +55,7 @@ HIDDEN_CLAUDES = os.path.join(DATA, "hidden-claudes")      # conversation ids, s
 # 걸린 계정은 "<계정>\t<풀리는 시각, epoch>" 줄이다
 KEY_FILE = "api-key"
 FALLBACK = os.path.join(DATA, "account-fallback")
+FALLBACK_PROJECTS = os.path.join(DATA, "account-fallback-projects")     # <project>\t<name|off>
 LIMITED = os.path.join(DATA, "account-limited")
 HOME_DIR = os.path.expanduser("~/.claude")
 HOME_JSON = os.path.expanduser("~/.claude.json")
@@ -154,13 +157,49 @@ def resolve(session):
 
 # ── the usage limit / 사용 한도 ──
 
-def fallback():
-    """The API key account Claudes go on with at a usage limit ("" = none) / 사용 한도에서 이어 갈 API 키 계정 ("" = 없음)"""
+def fallbacks():
+    """(the one for all projects, {project: name or "off"}) as set / (모든 프로젝트의 것, {프로젝트: 이름 또는 "off"})"""
     try:
-        n = open(FALLBACK).read().strip()
+        g = open(FALLBACK).read().strip()
     except OSError:
-        return ""
-    return n if api_key(n) else ""
+        g = ""
+    proj = {}
+    try:
+        for ln in open(FALLBACK_PROJECTS):
+            p, _, n = ln.rstrip("\n").partition("\t")
+            if p and n:
+                proj[p] = n
+    except OSError:
+        pass
+    return g, proj
+
+
+def fallback(session=None):
+    """The API key account Claudes go on with at a usage limit, the project's own when it has one ("" = none)
+    사용 한도에서 이어 갈 API 키 계정. 프로젝트에 정한 것이 있으면 그것 ("" = 없음)"""
+    g, proj = fallbacks()
+    n = proj.get(session, g) if session else g
+    return n if n != "off" and api_key(n) else ""
+
+
+def set_fallback(name, session=None):
+    """name: an API key account, "off", or (a project) "all" = as for all projects
+    name: API 키 계정, "off", 또는 (프로젝트) "all" = 모든 프로젝트 설정을 따른다"""
+    g, proj = fallbacks()
+    os.makedirs(DATA, exist_ok=True)
+    if session:
+        if name == "all":
+            proj.pop(session, None)
+        else:
+            proj[session] = name
+        write_atomic(FALLBACK_PROJECTS, "".join(f"{p}\t{n}\n" for p, n in sorted(proj.items())))
+    elif name == "off":
+        try:
+            os.unlink(FALLBACK)
+        except OSError:
+            pass
+    else:
+        write_atomic(FALLBACK, name + "\n")
 
 
 def limited():
@@ -176,10 +215,10 @@ def limited():
     return out
 
 
-def effective(name, lim=None):
-    """The account a Claude chosen for name runs on: the fallback while name is at its limit
-    name 으로 정한 Claude 가 실제로 도는 계정: name 이 한도에 걸린 동안은 fallback"""
-    fb = fallback()
+def effective(name, lim=None, session=None):
+    """The account a Claude chosen for name (in project session) runs on: the fallback while name is at its limit
+    (프로젝트 session 에서) name 으로 정한 Claude 가 실제로 도는 계정: name 이 한도에 걸린 동안은 fallback"""
+    fb = fallback(session)
     if fb and fb != name and name in (limited() if lim is None else lim):
         return fb
     return name
@@ -250,8 +289,8 @@ def at_limit(pane, msg, transcript="", error="rate_limit"):
     (StopFailure 훅) 구독 계정이 사용 한도에 걸렸거나 쓸 수 없다 (SUB_ERRORS): 그 계정의 Claude 들은 풀릴 때까지
     fallback 으로 이어 가고 (오류는 하루. 그 계정을 다시 고르면 바로 다시 써 본다), 이 Claude 는 하던 일도 이어 간다.
     API 키 계정은 아니다 (그 요청 한도는 곧 풀린다)"""
-    fb = fallback()
-    if not fb:
+    g, proj = fallbacks()
+    if not g and not [n for n in proj.values() if n != "off"]:
         return 0
     shell = tmux("display", "-p", "-t", pane, "#{pane_pid}").strip()
     pid = claude_pid(shell) if shell else None
@@ -272,7 +311,10 @@ def at_limit(pane, msg, transcript="", error="rate_limit"):
     lim[name] = max(until, lim.get(name, 0))
     os.makedirs(DATA, exist_ok=True)
     write_atomic(LIMITED, "".join(f"{a}\t{u}\n" for a, u in sorted(lim.items())))
-    tmux("set", "-p", "-t", pane, "@hivemux-continue", "1")
+    # the account is at its limit for every project; this one goes on only where a fallback is set
+    # 계정은 모든 프로젝트에서 한도에 걸렸다. 이 Claude 는 이어 갈 계정을 정한 프로젝트에서만 이어 간다
+    if fallback(tmux("display", "-p", "-t", pane, "#{session_name}").strip()):
+        tmux("set", "-p", "-t", pane, "@hivemux-continue", "1")
     env()
     n = restart()
     watch_limits()
@@ -504,7 +546,8 @@ def env():
     # the status line names the account Claudes run on: the fallback while one is at its limit
     # 상태줄은 Claude 가 실제로 도는 계정을 보인다: 한도에 걸린 동안은 fallback
     lim = limited()
-    tmux("set", "-g", "@hivemux-account", "" if effective(g, lim) == "default" else effective(g, lim))
+    glabel = effective(g, lim)
+    tmux("set", "-g", "@hivemux-account", "" if glabel == "default" else glabel)
     for s in tmux("list-sessions", "-F", "#{session_name}").splitlines():
         n = proj.get(s)
         if n is None:
@@ -515,8 +558,11 @@ def env():
                 tmux("set-environment", "-r", "-t", f"={s}", "CLAUDE_CONFIG_DIR")
             else:
                 tmux("set-environment", "-t", f"={s}", "CLAUDE_CONFIG_DIR", config_dir(n))
-            n = effective(n, lim)
-            tmux("set", "-t", f"={s}:", "@hivemux-account", "" if n == "default" else n)
+        # the account it runs on: its own, or the global one's fallback differs for it (its own fallback)
+        # 실제로 도는 계정: 자기 계정이거나, 자기 fallback 때문에 전역과 다를 때
+        e = effective(proj.get(s, g), lim, s)
+        if n is not None or e != glabel:
+            tmux("set", "-t", f"={s}:", "@hivemux-account", "" if e == "default" else e)
     for c in tmux("list-clients", "-F", "#{client_name}").splitlines():
         tmux("refresh-client", "-t", c, "-S")
 
@@ -567,7 +613,7 @@ def movers(g, proj):
         pid = claude_pid(shell)
         if not pid:
             continue
-        want = effective(proj.get(sess, g), lim)
+        want = effective(proj.get(sess, g), lim, sess)
         want_dir = "" if want == "default" else config_dir(want)
         if os.path.normpath(running_dir(pid) or HOME_DIR) != os.path.normpath(want_dir or HOME_DIR):
             out.append((pane, sess))
@@ -736,7 +782,7 @@ def draw(out, rows, sel, here, session, proj, typing, asking, msg, cols, lines, 
             else tr("모든 프로젝트에서 사용할 계정을 선택하십시오.", "Choose the account for all projects."))
     buf.append(f"  {fg(T2)}{head}\r\n\r\n")
     for i, (key, name, sub) in enumerate(rows):
-        on = key == here or (key == "fb" and fallback())
+        on = key == here or (key == "fb" and fallback(session))
         mark = "●" if on else ("+" if key in ("+", "+key") else "○")
         mc = OK if on else T3
         extra = f"  {sub}" if sub else ""
@@ -807,9 +853,15 @@ def ui(session):
                 rows.append((a, label(a), w.get("email") or tr("로그인되어 있지 않습니다", "Not logged in")))
             rows.append(("+", tr("계정 추가…", "Add account…"), ""))
             rows.append(("+key", tr("API 키 계정 추가…", "Add API key account…"), ""))
-            # the account Claudes go on with at a usage limit (all projects) / 사용 한도에서 이어 갈 계정 (모든 프로젝트)
-            rows.append(("fb", tr("사용 한도에 걸리면 이어 갈 계정", "At a usage limit, go on with"),
-                         label(fallback()) if fallback() else tr("끔", "off")))
+            # the account Claudes go on with at a usage limit: for all projects, or this project's own
+            # 사용 한도에서 이어 갈 계정: 모든 프로젝트의 것, 또는 이 프로젝트만의 것
+            fg_, fproj = fallbacks()
+            if session and session not in fproj:
+                fsub = tr(f"모든 프로젝트 설정을 따릅니다 (지금: {label(fallback()) if fallback() else '끔'})",
+                          f"Same as all projects (now: {label(fallback()) if fallback() else 'off'})")
+            else:
+                fsub = label(fallback(session)) if fallback(session) else tr("끔", "off")
+            rows.append(("fb", tr("사용 한도에 걸리면 이어 갈 계정", "At a usage limit, go on with"), fsub))
             if sel is None:
                 sel = next((i for i, r in enumerate(rows) if r[0] == here), 0)
             sel = max(0, min(sel, len(rows) - 1))
@@ -855,9 +907,9 @@ def ui(session):
                     keying = None
                     add_key(name, k)
                     # the first one is what an API key account is added for here / 첫 API 키 계정은 이어 가려고 더하는 것이다
-                    first = not fallback()
+                    first = not fallback(session)
                     if first:
-                        write_atomic(FALLBACK, name + "\n")
+                        set_fallback(name, session)
                     msg = f"{fg(OK)}" + (tr(f"{name} 계정을 추가했습니다. 사용 한도에 걸리면 이 계정으로 이어 갑니다.",
                                             f"Added {name}. At a usage limit, Claudes go on with it.") if first else
                                          tr(f"{name} 계정을 추가했습니다.", f"Added {name}."))
@@ -904,20 +956,22 @@ def ui(session):
                     typing, adding_key = ("api" if key == "+key" and "api" not in names() else ""), key == "+key"
                     continue
                 if key == "fb":
-                    opts = ["", *[n for n in names() if api_key(n)]]
-                    if len(opts) == 1:
+                    apis = [n for n in names() if api_key(n)]
+                    if not apis:
                         msg = f"{fg(BAD)}{tr('먼저 API 키 계정을 추가하십시오.', 'Add an API key account first.')}"
                         continue
-                    nxt = opts[(opts.index(fallback()) + 1) % len(opts)]
-                    if nxt:
-                        write_atomic(FALLBACK, nxt + "\n")
-                        msg = f"{fg(OK)}{tr(f'사용 한도에 걸리면 {nxt} 로 이어 갑니다.', f'At a usage limit, Claudes go on with {nxt}.')}"
-                    else:
-                        try:
-                            os.unlink(FALLBACK)
-                        except OSError:
-                            pass
-                        msg = f"{fg(OK)}{tr('사용 한도에 걸려도 다른 계정으로 넘어가지 않습니다.', 'A usage limit no longer moves Claudes.')}"
+                    # all projects: off → each API key account; a project: as for all → off → each
+                    # 모든 프로젝트: 끔 → API 키 계정들. 프로젝트: 모든 프로젝트 설정 → 끔 → API 키 계정들
+                    fg_, fproj = fallbacks()
+                    opts = (["all", "off"] if session else ["off"]) + apis
+                    cur = (fproj.get(session, "all") if session else (fg_ if fg_ in apis else "off"))
+                    nxt = opts[(opts.index(cur) + 1) % len(opts)] if cur in opts else opts[0]
+                    set_fallback(nxt, session)
+                    msg = f"{fg(OK)}" + (tr("모든 프로젝트 설정을 따릅니다.", "Same as all projects.") if nxt == "all" else
+                                         tr("사용 한도에 걸려도 다른 계정으로 넘어가지 않습니다.", "A usage limit no longer moves Claudes.")
+                                         if nxt == "off" else
+                                         tr(f"사용 한도에 걸리면 {nxt} 로 이어 갑니다.", f"At a usage limit, Claudes go on with {nxt}."))
+                    env()
                     continue
                 if key != "all" and not who(key):      # not logged in yet: log in first / 아직 로그인 전: 먼저 로그인
                     termios.tcsetattr(fd, termios.TCSADRAIN, old)
@@ -982,6 +1036,9 @@ def main(argv):
                   + (f"   [{', '.join(r['projects'])}]" if r["projects"] else "")
                   + (tr("   (앱에 숨김)", "   (hidden from the app)") if r["hidden"] else "")
                   + (tr("   (한도 시 이어 감)", "   (goes on at a limit)") if r["name"] == fallback() else ""))
+        for p_, n in sorted(fallbacks()[1].items()):
+            print(tr(f"  프로젝트 {p_}: 한도 시 {'넘어가지 않음' if n == 'off' else n + ' 로 이어 감'}",
+                     f"  project {p_}: at a limit {'stays' if n == 'off' else 'goes on with ' + n}"))
         for a, u in sorted(limited().items()):
             print(tr(f"  {a} 는 사용 한도에 걸려 {time.strftime('%m-%d %H:%M', time.localtime(u))} 까지 {fallback() or '-'} 로 돕니다",
                      f"  {a} is at its usage limit: on {fallback() or '-'} until {time.strftime('%m-%d %H:%M', time.localtime(u))}"))
@@ -1010,20 +1067,21 @@ def main(argv):
         print(tr(f"{name} 계정을 추가했습니다 (API 키). 한도에 걸리면 이어 가게 하려면: hivemux account fallback {name}",
                  f"Added {name} (API key). To go on with it at a usage limit: hivemux account fallback {name}"))
     elif cmd == "fallback" and len(argv) > 1:
-        if argv[1] == "off":
-            try:
-                os.unlink(FALLBACK)
-            except OSError:
-                pass
-            print(tr("사용 한도에 걸려도 다른 계정으로 넘어가지 않습니다.", "A usage limit no longer moves Claudes to another account."))
+        where = tr(f"프로젝트 {session}: ", f"Project {session}: ") if session else ""
+        if argv[1] == "all" and session:
+            set_fallback("all", session)
+            print(where + tr("모든 프로젝트 설정을 따릅니다.", "same as all projects."))
+        elif argv[1] == "off":
+            set_fallback("off", session)
+            print(where + tr("사용 한도에 걸려도 다른 계정으로 넘어가지 않습니다.", "A usage limit no longer moves Claudes to another account."))
         elif api_key(argv[1]):
-            os.makedirs(DATA, exist_ok=True)
-            write_atomic(FALLBACK, argv[1] + "\n")
-            print(tr(f"구독이 사용 한도에 걸리면 그 Claude 들을 {argv[1]} (API 키) 로 같은 대화에서 이어 갑니다. 한도가 풀리면 되돌립니다.",
+            set_fallback(argv[1], session)
+            print(where + tr(f"구독이 사용 한도에 걸리면 그 Claude 들을 {argv[1]} (API 키) 로 같은 대화에서 이어 갑니다. 한도가 풀리면 되돌립니다.",
                      f"At a subscription's usage limit its Claudes go on with {argv[1]} (API key) in the same conversation, and come back when it resets."))
         else:
             raise SystemExit(tr(f"{argv[1]} 는 API 키 계정이 아닙니다: hivemux account add-key {argv[1]}",
                                 f"{argv[1]} is not an API key account: hivemux account add-key {argv[1]}"))
+        env()
     elif cmd == "limit" and len(argv) > 1:        # the StopFailure hook / StopFailure 훅
         at_limit(argv[1], argv[2] if len(argv) > 2 else "", argv[3] if len(argv) > 3 else "",
                  argv[4] if len(argv) > 4 else "rate_limit")

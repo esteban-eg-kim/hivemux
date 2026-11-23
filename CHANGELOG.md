@@ -13,6 +13,8 @@
   64 bytes of a paste, which cut keys short and had them refused.
 - Accounts: a subscription Claude Code cannot use (a payment past due, billing, an account on hold) also goes on
   with the API key account, for a day or until that account is chosen again; it went on failing before.
+- Accounts: the account to go on with at a usage limit can be set per project, in **Account for this project…**
+  (`hivemux account fallback <name|off|all> -s <project>`): only the projects picked go on with the API key.
 - Account popup: the selected row has no bar on its left.
 
 - A Claude that Claude Code moved into its background daemon (it can do so while a subagent runs) lost its pane:
