@@ -15,6 +15,13 @@
   with the API key account, for a day or until that account is chosen again; it went on failing before.
 - Accounts: the account to go on with at a usage limit can be set per project, in **Account for this project…**
   (`hivemux account fallback <name|off|all> -s <project>`): only the projects picked go on with the API key.
+- Accounts, the API key account goes on through the Agent SDK by default (`bin/hivemux-sdk`): promotion credits
+  that are for the Agent SDK only stopped Claude Code at "Credit balance too low". A small Claude Code made with
+  the SDK runs in the pane with the same folder, tools, settings, CLAUDE.md, hooks and team role prompt; the
+  conversation passes as documents, as a diet does (a handoff written from the end of the Claude Code
+  conversation, and what it did, written after each turn). When the subscription can be used again it turns back
+  into Claude Code on the same conversation, which reads what was done first. `hivemux account runner <name>
+  claude` runs Claude Code on the key instead.
 - Account popup: the selected row has no bar on its left.
 
 - A Claude that Claude Code moved into its background daemon (it can do so while a subagent runs) lost its pane:

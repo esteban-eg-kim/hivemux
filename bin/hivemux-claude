@@ -17,6 +17,7 @@ name=""
 [ -n "$name" ] || name="$(cat "$DATA/account" 2>/dev/null)"
 # at its usage limit: the API key account chosen to go on with, until the limit resets (bin/hivemux-account fallback)
 # 사용 한도에 걸림: 이어 가도록 고른 API 키 계정으로, 한도가 풀릴 때까지 (bin/hivemux-account fallback)
+chosen="${name:-default}"
 fb=""; [ -n "$sess" ] && fb="$(awk -F '\t' -v s="$sess" '$1 == s { print $2; exit }' "$DATA/account-fallback-projects" 2>/dev/null)"
 [ -n "$fb" ] || fb="$(cat "$DATA/account-fallback" 2>/dev/null)"
 [ "$fb" = off ] && fb=""
@@ -31,6 +32,13 @@ if [ -n "$name" ] && [ "$name" != default ] && [ -d "$DATA/accounts/$name" ]; th
   [ -L "$CLAUDE_CONFIG_DIR/projects" ] || "$(dirname "$(realpath "$0")")/hivemux-account" env >/dev/null 2>&1
   # an API key account (bin/hivemux-account add-key): the key goes before any login / API 키 계정: 키가 로그인보다 앞선다
   [ -s "$CLAUDE_CONFIG_DIR/api-key" ] && { ANTHROPIC_API_KEY="$(cat "$CLAUDE_CONFIG_DIR/api-key")"; export ANTHROPIC_API_KEY; }
+  # it runs through the Agent SDK (bin/hivemux-sdk) unless set to run Claude Code on the key: some credits are
+  # for the SDK only / Claude Code 로 쓰게 정하지 않았으면 Agent SDK 로 돈다 (bin/hivemux-sdk): SDK 에만 쓰이는
+  # 크레딧이 있다
+  if [ -n "$ANTHROPIC_API_KEY" ] && [ "$(cat "$CLAUDE_CONFIG_DIR/runner" 2>/dev/null)" != claude ]; then
+    export HIVEMUX_SDK_ACCOUNT="$chosen" HIVEMUX_SDK_PROJECT="$sess"
+    exec "$(dirname "$(realpath "$0")")/hivemux-sdk" "$@"
+  fi
 # default: forget only a dir of ours (a shell started under another account); one you set yourself stays
 # 기본 계정: 우리 폴더일 때만 지운다 (다른 계정일 때 연 셸). 직접 정한 것은 그대로
 elif [[ "$CLAUDE_CONFIG_DIR" == "$DATA/accounts/"* ]]; then unset CLAUDE_CONFIG_DIR; fi

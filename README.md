@@ -322,6 +322,21 @@ to it; every Claude carries on in the same conversation.
   project can have its own: the same row in **Account for this project…**
   (`hivemux account fallback api|off|all -s <project>`), so only the projects
   you pick go on with the key.
+
+  It goes on through the **Agent SDK** by default: some API credits (promotion
+  credits) are for the Agent SDK and not for Claude Code, which stops at
+  "Credit balance too low" on them. `bin/hivemux-sdk` is a small Claude Code
+  made with the SDK: it runs in the pane with the same folder, tools,
+  settings, CLAUDE.md, hooks and team role prompt. The conversation passes as
+  documents, as a diet does: it starts from a handoff written from the end of
+  the Claude Code conversation (`~/.local/share/hivemux/handoff/<id>.in.md`:
+  the last requests and answers, files changed, the role's notes, the path of
+  the whole conversation) and writes what it does to `<id>.back.md` after each
+  turn. When the subscription can be used again it turns back into Claude Code
+  on the same conversation at a quiet moment, and Claude Code reads
+  `<id>.back.md` first. Its Python (`claude-agent-sdk`, `prompt_toolkit`) is
+  set up once in `~/.local/share/hivemux/sdk/venv`, with Python 3.10 or newer.
+  `hivemux account runner api claude` runs Claude Code on the key instead.
 - **Where you are.** The status line shows `◉ work` when the account in use
   is not the default one. `hivemux account list` shows every account, its
   email and the projects on it.

@@ -13,6 +13,10 @@ Claude 계정: 여러 계정에 로그인해 두고 바꿔 쓴다. 모든 프로
                                                  this API key account in the same conversation until the limit
                                                  resets / 구독이 사용 한도에 걸리면 그 Claude 들을 한도가 풀릴
                                                  때까지 이 API 키 계정으로 같은 대화에서 이어 간다
+  hivemux-account runner <name> sdk|claude       how an API key account runs: through the Agent SDK (bin/hivemux-sdk,
+                                                 the default: some credits are for the SDK only) or Claude Code itself
+                                                 API 키 계정이 도는 방식: Agent SDK (기본. SDK 에만 쓰이는 크레딧이
+                                                 있다) 또는 Claude Code 그대로
   hivemux-account fallback <name|off|all> -s <project>   the same for one project; all = as for all projects
                                                  프로젝트 하나만. all = 모든 프로젝트 설정을 따른다
   hivemux-account hide <name|default> [on|off]   keep its Claudes out of the Claude app and claude.ai (no Remote
@@ -507,6 +511,9 @@ def add_key(name, key):
     cur["customApiKeyResponses"] = r
     write_atomic(cj, json.dumps(cur, indent=2, ensure_ascii=False))
     env()
+    # its Python, ready before the first limit / 첫 한도 전에 파이썬을 준비해 둔다 (bin/hivemux-sdk)
+    subprocess.Popen([os.path.join(HERE, "hivemux-sdk"), "install"], stdin=subprocess.DEVNULL,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 
 
 def go_on(pane):
@@ -1082,6 +1089,12 @@ def main(argv):
             raise SystemExit(tr(f"{argv[1]} 는 API 키 계정이 아닙니다: hivemux account add-key {argv[1]}",
                                 f"{argv[1]} is not an API key account: hivemux account add-key {argv[1]}"))
         env()
+    elif cmd == "runner" and len(argv) > 2 and argv[2] in ("sdk", "claude"):
+        if not api_key(argv[1]):
+            raise SystemExit(tr(f"{argv[1]} 는 API 키 계정이 아닙니다.", f"{argv[1]} is not an API key account."))
+        write_atomic(os.path.join(config_dir(argv[1]), "runner"), argv[2] + "\n")
+        print(tr(f"{argv[1]} 는 " + ("Agent SDK 로 돕니다." if argv[2] == "sdk" else "Claude Code 로 돕니다."),
+                 f"{argv[1]} runs through " + ("the Agent SDK." if argv[2] == "sdk" else "Claude Code.")))
     elif cmd == "limit" and len(argv) > 1:        # the StopFailure hook / StopFailure 훅
         at_limit(argv[1], argv[2] if len(argv) > 2 else "", argv[3] if len(argv) > 3 else "",
                  argv[4] if len(argv) > 4 else "rate_limit")
