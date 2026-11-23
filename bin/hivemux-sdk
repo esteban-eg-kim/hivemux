@@ -360,32 +360,64 @@ def commands():
     }
 
 
-def smooth_output():
-    """Each print above the prompt erases the prompt, writes and draws it again: the screen jumped while the answer
-    came. Wrap that in the terminal's synchronized output (2026; tmux 3.4+ shows it at once) so it is seen as one
-    step / 입력창 위에 찍을 때마다 입력창을 지우고, 쓰고, 다시 그린다: 답이 오는 동안 화면이 출렁였다. 터미널의 동기
-    출력 (2026. tmux 3.4 이상은 한 번에 보인다) 으로 감싸 한 걸음으로 보이게 한다"""
-    from contextlib import asynccontextmanager
-    import importlib
-    rit = importlib.import_module("prompt_toolkit.application.run_in_terminal")   # the package's name is the function's
-    from prompt_toolkit.application.current import get_app_or_none
-    orig = rit.in_terminal
+class Pinned:
+    """The prompt pinned to the bottom rows, as in Claude Code: the rows above are the terminal's scroll region, and
+    the answer is written at its bottom so it scrolls there (into tmux's history as well), with the cursor saved and
+    put back, so the prompt is never erased and drawn again. Printing above the prompt redrew it on every line, and
+    the prompt shook while the answer came
+    입력창을 Claude Code 처럼 아래 줄에 고정한다: 위쪽 줄은 터미널의 스크롤 영역이고, 답은 그 맨 아래에 써서 거기서
+    올라간다 (tmux 기록에도 남는다). 커서는 저장했다 되돌려서 입력창은 지웠다 다시 그리지 않는다. 입력창 위에 찍으면
+    줄마다 입력창을 다시 그려, 답이 오는 동안 입력창이 흔들렸다"""
+    N = 7            # spinner, rule, three lines of input, rule, status / 스피너, 선, 입력 세 줄, 선, 상태줄
 
-    @asynccontextmanager
-    async def in_terminal(render_cli_done=False):
-        app = get_app_or_none()
-        out = app.output if app and app.is_running else None
-        if out:
-            out.write_raw("\x1b[?2026h")
-        try:
-            async with orig(render_cli_done=render_cli_done) as x:
-                yield x
-        finally:
-            if out:
-                out.write_raw("\x1b[?2026l")
-                out.flush()
+    def __init__(self):
+        self.rows, self.on = 0, False
 
-    rit.in_terminal = in_terminal
+    @staticmethod
+    def lines():
+        return shutil.get_terminal_size((100, 30)).lines
+
+    def place(self):
+        """The region above the pinned rows, and the cursor where the prompt starts / 고정한 줄 위의 영역과 입력창 시작 위치"""
+        self.rows = self.lines()
+        sys.__stdout__.write(f"\x1b[1;{self.rows - self.N}r\x1b[{self.rows - self.N + 1};1H\x1b[J")
+        sys.__stdout__.flush()
+
+    def __enter__(self):
+        if sys.__stdout__.isatty():
+            sys.__stdout__.write("\n" * self.N)        # room under what is on the screen / 화면에 있는 것 아래 자리
+            self.place()
+            self.on = True
+        return self
+
+    def __exit__(self, *exc):
+        if self.on:
+            self.on = False
+            sys.__stdout__.write(f"\x1b[r\x1b[{self.lines()};1H\r\n")
+            sys.__stdout__.flush()
+
+    def out(self, text=""):
+        if not self.on:
+            print(text, flush=True)
+            return
+        rows = "".join("\r\n" + ln + RST for ln in str(text).split("\n"))
+        sys.__stdout__.write(f"\x1b7\x1b[{self.rows - self.N};1H{rows}\x1b8")
+        sys.__stdout__.flush()
+
+    def follow(self, app):
+        """A resize: erase the prompt, place the region and the prompt again, draw it there
+        크기가 바뀜: 입력창을 지우고 영역과 입력창을 다시 놓고 거기에 그린다"""
+        orig = app._on_resize
+
+        def on_resize():
+            if not self.on:
+                return orig()
+            app.renderer.erase(leave_alternate_screen=False)
+            self.place()
+            app.renderer.reset()
+            app._redraw()
+
+        app._on_resize = on_resize
 
 
 async def run(argv):
@@ -397,7 +429,6 @@ async def run(argv):
     from prompt_toolkit.formatted_text import ANSI
     from prompt_toolkit.history import FileHistory
     from prompt_toolkit.key_binding import KeyBindings
-    from prompt_toolkit.patch_stdout import patch_stdout
 
     vals, bools, prompt = parse(argv)
     sid = vals.get("--resume") or vals.get("-r") or ""
@@ -426,6 +457,8 @@ async def run(argv):
             system_prompt={"type": "preset", "preset": "claude_code", **({"append": append} if append else {})},
             setting_sources=["user", "project", "local"],
             env={"HIVEMUX_SDK": "1", "HIVEMUX_SDK_FOR": sid},
+            # its notices go above the prompt, not over it / 알림은 입력창 위로. 입력창 위에 덮어쓰지 않게
+            stderr=lambda line: pin.out(f"{GRAY}{line.rstrip()}{RST}"),
         )
 
     doc = handoff_in(sid, cwd, pane) if sid and not resume[0] else ""
@@ -487,7 +520,7 @@ async def run(argv):
         # Esc stops the work under way; with nothing under way it clears the line / Esc 는 하던 일을 멈춘다. 없으면 줄을 지운다
         if st["busy"] and st["client"]:
             asyncio.ensure_future(st["client"].interrupt())
-            print(f"{GRAY}  ⎿ {tr('멈췄습니다', 'Stopped')}{RST}")
+            out(f"{GRAY}  ⎿ {tr('멈췄습니다', 'Stopped')}{RST}")
         else:
             event.current_buffer.reset()
 
@@ -495,22 +528,28 @@ async def run(argv):
     def _(event):
         if st["busy"] and st["client"] and not event.current_buffer.text:
             asyncio.ensure_future(st["client"].interrupt())
-            print(f"{GRAY}  ⎿ {tr('멈췄습니다', 'Stopped')}{RST}")
+            out(f"{GRAY}  ⎿ {tr('멈췄습니다', 'Stopped')}{RST}")
         else:
             event.current_buffer.reset()
 
     def toolbar():
         st_ = (f" API · Agent SDK · {model[0] or tr('기본 모델', 'default model')} · effort {effort[0] or tr('기본', 'default')}"
                f" · ${st['total']:.2f} · auto")
-        return ANSI(f"{GRAY}{st_}   " + tr("\\ Enter 줄바꿈 · / 명령 · Esc 멈추기", "\\ Enter new line · / commands · Esc stop") + RST)
+        w = shutil.get_terminal_size((100, 20)).columns
+        return ANSI(f"{GRAY}{'─' * w}\n{st_}   " + tr("\\ Enter 줄바꿈 · / 명령 · Esc 멈추기", "\\ Enter new line · / commands · Esc stop") + RST)
 
     def message():
         w = shutil.get_terminal_size((100, 20)).columns
-        top = ""
-        if st["busy"]:
+        # the prompt fills the pinned rows: blank lines on top for what the input does not take
+        # 입력창이 고정한 줄을 채운다: 입력이 쓰지 않는 만큼 위에 빈 줄
+        n = min(session.default_buffer.document.line_count, Pinned.N - 4)
+        top = "\n" * max(0, Pinned.N - 4 - n)
+        if not st["busy"]:
+            top += "\n"
+        else:
             st["i"] += 1
             secs = int(time.time() - st["t0"])
-            top = (f"{GREEN}{SPIN[st['i'] % len(SPIN)]}{RST} {st['doing'] or tr('일하는 중…', 'Working…')}{GRAY} ({secs}s · "
+            top += (f"{GREEN}{SPIN[st['i'] % len(SPIN)]}{RST} {st['doing'] or tr('일하는 중…', 'Working…')}{GRAY} ({secs}s · "
                    + tr("Esc 멈추기 · 입력하면 하던 일에 더합니다", "Esc to stop · what you type joins the work") + f"){RST}\n")
         return ANSI(f"{top}{GRAY}{'─' * w}{RST}\n{BOLD}❯{RST} ")
 
@@ -519,7 +558,8 @@ async def run(argv):
     # ours, then the SDK's own (its slash commands, skills, the project's commands), read when it connects
     # 우리 것, 그다음 SDK 의 것 (슬래시 명령, 스킬, 프로젝트 명령). 연결할 때 읽는다
     words, sdk_cmds = [list(commands())], set()
-    smooth_output()
+    pin = Pinned()
+    out = pin.out
     session = PromptSession(multiline=True, key_bindings=keys, bottom_toolbar=toolbar, refresh_interval=0.3,
                             erase_when_done=True,
                             history=FileHistory(os.path.join(DATA, "sdk", "history")),
@@ -534,7 +574,7 @@ async def run(argv):
 
     async def send(client, text):
         if st["busy"]:
-            print(f"{GRAY}  ⎿ {tr('하던 일에 더했습니다', 'Added to the work under way')}{RST}")
+            out(f"{GRAY}  ⎿ {tr('하던 일에 더했습니다', 'Added to the work under way')}{RST}")
         else:
             st["busy"], st["t0"], st["doing"] = True, time.time(), ""
         st["asked"].append(text)
@@ -549,22 +589,22 @@ async def run(argv):
             if isinstance(m, AssistantMessage):
                 for b in m.content:
                     if isinstance(b, TextBlock) and b.text.strip():
-                        print(f"\n{GREEN}⏺{RST} {b.text.strip()}")
+                        out(f"\n{GREEN}⏺{RST} {b.text.strip()}")
                         st["shown"].append(b.text.strip())
                     elif isinstance(b, ToolUseBlock):
-                        print(f"{BLUE}⏺{RST} {BOLD}{b.name}{RST}{GRAY}({short(b.input)}){RST}")
+                        out(f"{BLUE}⏺{RST} {BOLD}{b.name}{RST}{GRAY}({short(b.input)}){RST}")
                         st["doing"] = tr(f"{b.name} 실행 중…", f"Running {b.name}…")
             elif isinstance(m, UserMessage) and isinstance(m.content, list):
                 for b in m.content:
                     if isinstance(b, ToolResultBlock):
                         body = b.content if isinstance(b.content, str) else json.dumps(b.content, ensure_ascii=False)
                         line = (body or "").strip().splitlines()[0] if (body or "").strip() else ""
-                        print(f"  {RED if b.is_error else GRAY}⎿ {clip(line, 160)}{RST}")
+                        out(f"  {RED if b.is_error else GRAY}⎿ {clip(line, 160)}{RST}")
                 st["doing"] = ""
             elif isinstance(m, ResultMessage):
                 cost = m.total_cost_usd or 0.0
                 st["total"] += cost
-                print(f"{GRAY}✻ {tr('끝', 'done')} · {int(time.time() - st['t0'])}s · ${cost:.3f}{RST}")
+                out(f"{GRAY}✻ {tr('끝', 'done')} · {int(time.time() - st['t0'])}s · ${cost:.3f}{RST}")
                 note_back(sid, "\n\n".join(st["asked"]), "\n\n".join(st["shown"][-2:]), cost)
                 st["sdk_sid"] = m.session_id or st.get("sdk_sid", "")
                 if sid and m.session_id:
@@ -592,30 +632,30 @@ async def run(argv):
         cmd, _, arg = text.strip().partition(" ")
         if cmd == "/help":
             for k, v in commands().items():
-                print(f"  {BOLD}{k}{RST}  {GRAY}{v}{RST}")
+                out(f"  {BOLD}{k}{RST}  {GRAY}{v}{RST}")
         elif cmd == "/cost":
-            print(f"  ${st['total']:.3f}")
+            out(f"  ${st['total']:.3f}")
         elif cmd == "/model":
             if arg.strip():
                 model[0] = arg.strip()
                 await client.set_model(model[0])
-                print(GRAY + tr(f"  모델: {model[0]}", f"  Model: {model[0]}") + RST)
+                out(GRAY + tr(f"  모델: {model[0]}", f"  Model: {model[0]}") + RST)
             else:
-                print(GRAY + tr(f"  지금 모델: {model[0] or '기본'} · /model opus|sonnet|haiku",
+                out(GRAY + tr(f"  지금 모델: {model[0] or '기본'} · /model opus|sonnet|haiku",
                                 f"  Model: {model[0] or 'default'} · /model opus|sonnet|haiku") + RST)
         elif cmd == "/effort":
             levels = ("low", "medium", "high", "xhigh", "max")
             if arg.strip() in levels and st["busy"]:
-                print(GRAY + tr("  일하는 중에는 바꿀 수 없습니다 (Esc 로 멈춘 뒤)", "  Not while it works (Esc first)") + RST)
+                out(GRAY + tr("  일하는 중에는 바꿀 수 없습니다 (Esc 로 멈춘 뒤)", "  Not while it works (Esc first)") + RST)
             elif arg.strip() in levels:
                 # the SDK takes the effort at the start only: connect again on the same conversation
                 # SDK 는 effort 를 시작할 때만 받는다: 같은 대화로 다시 연결한다
                 effort[0] = arg.strip()
                 resume[0] = st.get("sdk_sid", "")
                 st["clear"] = True
-                print(GRAY + tr(f"  effort: {effort[0]} (같은 대화로 다시 연결합니다)", f"  Effort: {effort[0]} (connecting again on the same conversation)") + RST)
+                out(GRAY + tr(f"  effort: {effort[0]} (같은 대화로 다시 연결합니다)", f"  Effort: {effort[0]} (connecting again on the same conversation)") + RST)
             else:
-                print(GRAY + tr(f"  지금 effort: {effort[0] or '기본'} · /effort low|medium|high|xhigh|max",
+                out(GRAY + tr(f"  지금 effort: {effort[0] or '기본'} · /effort low|medium|high|xhigh|max",
                                 f"  Effort: {effort[0] or 'default'} · /effort low|medium|high|xhigh|max") + RST)
         elif cmd == "/back":
             st["back"] = True
@@ -623,21 +663,27 @@ async def run(argv):
             st["done"] = True
         elif cmd == "/clear":
             if st["busy"]:
-                print(GRAY + tr("  일하는 중에는 새 대화로 바꿀 수 없습니다 (Esc 로 멈춘 뒤)", "  Not while it works (Esc first)") + RST)
+                out(GRAY + tr("  일하는 중에는 새 대화로 바꿀 수 없습니다 (Esc 로 멈춘 뒤)", "  Not while it works (Esc first)") + RST)
             else:
                 st["clear"], st["first"] = True, False
                 try:
                     os.unlink(sdk_file(sid))
                 except OSError:
                     pass
-                print(GRAY + tr("  새 대화를 시작합니다.", "  Starting a new conversation.") + RST)
+                out(GRAY + tr("  새 대화를 시작합니다.", "  Starting a new conversation.") + RST)
         else:
             return False
         return True
 
-    with patch_stdout(raw=True):
-        # lines that come close together are written with one redraw / 붙어서 오는 줄은 한 번 다시 그려 함께 쓴다
-        sys.stdout.sleep_between_writes = 0.25
+    # the input takes at most the pinned rows left for it, and scrolls inside them
+    # 입력은 고정한 줄 중 남은 만큼만 쓰고 그 안에서 스크롤한다
+    from prompt_toolkit.layout.dimension import Dimension
+    for win in session.app.layout.find_all_windows():
+        if getattr(win.content, "buffer", None) is session.default_buffer:
+            win.height = lambda: Dimension(min=1, max=Pinned.N - 4,
+                                           preferred=min(session.default_buffer.document.line_count, Pinned.N - 4))
+    with pin:
+        pin.follow(session.app)
         while not st["back"] and not st["done"] and not st["switch"]:
             st["clear"] = False
             async with ClaudeSDKClient(options=options()) as client:
@@ -654,7 +700,7 @@ async def run(argv):
                     if go_on or prompt:
                         text = prompt or tr("구독을 쓸 수 없어 끊겼던 일을 이어서 해 주세요.", "Please go on with the work that was cut off.")
                         go_on, prompt = False, None
-                        print(f"\n{BOLD}❯{RST} {text}")
+                        out(f"\n{BOLD}❯{RST} {text}")
                         await send(client, text)
                     while not st["back"] and not st["done"] and not st["clear"] and not st["switch"]:
                         try:
@@ -666,11 +712,11 @@ async def run(argv):
                             continue
                         if not text or not text.strip():
                             continue
-                        print(f"{BOLD}❯{RST} {text}")
+                        out(f"{BOLD}❯{RST} {text}")
                         if text.strip().startswith("/") and await slash(client, text):
                             continue
                         if text.strip().startswith("/") and sdk_cmds and text.split()[0] not in sdk_cmds:
-                            print(GRAY + tr(f"  없는 명령입니다: {text.split()[0]} (/help)", f"  No such command: {text.split()[0]} (/help)") + RST)
+                            out(GRAY + tr(f"  없는 명령입니다: {text.split()[0]} (/help)", f"  No such command: {text.split()[0]} (/help)") + RST)
                             continue
                         await send(client, text)
                     tg.cancel_scope.cancel()

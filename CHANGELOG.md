@@ -29,8 +29,9 @@
   it in at its next step), and the spinner sits above the prompt. Set the project to another API key account
   while it runs and it starts again on that key at a quiet moment, resuming the same SDK conversation (all of it,
   not a handoff); a reboot on the API resumes it too. Going back to Claude Code ends it.
-  The screen no longer jumps while the answer comes: lines that come close together are written with one redraw
-  of the prompt, inside the terminal's synchronized output. The status line shows the effort, and `/effort
+  The prompt is pinned to the bottom rows, as in Claude Code: the answer scrolls in the rows above (the terminal's
+  scroll region, kept in tmux's history too) and the prompt is not drawn again for each line, so it no longer
+  shakes while the answer comes. The status line shows the effort, and `/effort
   low|medium|high|xhigh|max` changes it (connecting again on the same conversation).
   Enter on the completion menu takes the command picked ("/eff" went to Claude as it was), the menu also offers
   the SDK's own commands and skills, and a command neither knows is not sent.
