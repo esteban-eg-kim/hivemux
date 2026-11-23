@@ -21,7 +21,10 @@
   conversation passes as documents, as a diet does (a handoff written from the end of the Claude Code
   conversation, and what it did, written after each turn). When the subscription can be used again it turns back
   into Claude Code on the same conversation, which reads what was done first. `hivemux account runner <name>
-  claude` runs Claude Code on the key instead.
+  claude` runs Claude Code on the key instead. Its screen is laid out as Claude Code's: the prompt between two
+  rules with a status line under it (model, cost), `\` Enter or Esc Enter for a new line, a spinner with the
+  seconds while it works, Esc to stop, slash commands with Tab completion (/help, /clear, /model, /cost, /back,
+  /exit; others such as /compact go to the SDK) and the input history.
 - Account popup: the selected row has no bar on its left.
 
 - A Claude that Claude Code moved into its background daemon (it can do so while a subagent runs) lost its pane:

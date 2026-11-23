@@ -263,7 +263,8 @@ def go_back(sid, argv):
 
 # ── the session / 세션 ──
 
-DIM, BOLD, RST, GREEN, BLUE, RED = "\x1b[2m", "\x1b[1m", "\x1b[0m", "\x1b[32m", "\x1b[34m", "\x1b[31m"
+DIM, BOLD, RST, GREEN, BLUE, RED, GRAY = "\x1b[2m", "\x1b[1m", "\x1b[0m", "\x1b[32m", "\x1b[34m", "\x1b[31m", "\x1b[90m"
+SPIN = "✻✶✳✢·✢✳✶"
 
 
 def short(inp):
@@ -273,17 +274,63 @@ def short(inp):
     return ""
 
 
+def commands():
+    """The slash commands it answers itself; others go to the SDK as they are (/compact...)
+    스스로 답하는 슬래시 명령. 나머지는 그대로 SDK 로 간다 (/compact...)"""
+    return {
+        "/help": tr("명령 보기", "show the commands"),
+        "/clear": tr("새 대화로 (넘김 문서 없이)", "a new conversation (without the handoff)"),
+        "/model": tr("모델 바꾸기: /model opus|sonnet|haiku", "change the model: /model opus|sonnet|haiku"),
+        "/cost": tr("이 화면에서 쓴 비용", "what this screen has cost"),
+        "/back": tr("지금 Claude Code 로 돌아가기", "go back to Claude Code now"),
+        "/compact": tr("대화를 줄이기 (SDK 가 한다)", "compact the conversation (the SDK does it)"),
+        "/exit": tr("끝내기 (칸은 셸로)", "quit (the pane goes back to its shell)"),
+    }
+
+
+class Screen:
+    """What it prints while a turn runs: the answer as it comes, and one status line under it that a spinner keeps
+    alive / 턴 동안 출력하는 것: 오는 대로의 답과, 그 아래 스피너가 살려 두는 상태 한 줄"""
+
+    def __init__(self):
+        self.status, self.t0, self.i, self.on = "", 0.0, 0, False
+
+    def clear(self):
+        if self.on:
+            sys.stdout.write("\r\x1b[2K")
+            self.on = False
+
+    def say(self, s):
+        self.clear()
+        sys.stdout.write(s + "\n")
+        self.draw()
+
+    def draw(self):
+        if not self.status:
+            return
+        self.i += 1
+        secs = int(time.time() - self.t0)
+        sys.stdout.write(f"\r\x1b[2K{GREEN}{SPIN[self.i % len(SPIN)]}{RST} {self.status}{GRAY} ({secs}s · "
+                         + tr("Esc 멈추기", "Esc to stop") + f"){RST}")
+        sys.stdout.flush()
+        self.on = True
+
+
 async def run(argv):
-    import anyio
+    import anyio, asyncio, termios, tty
     from claude_agent_sdk import (ClaudeAgentOptions, ClaudeSDKClient, AssistantMessage, ResultMessage, TextBlock,
                                   ToolUseBlock, UserMessage, ToolResultBlock)
     from prompt_toolkit import PromptSession
-    from prompt_toolkit.patch_stdout import patch_stdout
+    from prompt_toolkit.completion import WordCompleter
+    from prompt_toolkit.formatted_text import ANSI
+    from prompt_toolkit.history import FileHistory
+    from prompt_toolkit.key_binding import KeyBindings
 
     vals, bools, prompt = parse(argv)
     sid = vals.get("--resume") or vals.get("-r") or ""
     pane = os.environ.get("TMUX_PANE", "")
     cwd = os.getcwd()
+    model = [vals.get("--model") or ""]
     append = vals.get("--append-system-prompt", "")
     if vals.get("--append-system-prompt-file"):
         try:
@@ -293,13 +340,16 @@ async def run(argv):
     # the hooks keep the Claude Code conversation on the pane, so a resume and the way back find it (bin/hivemux-hook)
     # 훅이 칸에 Claude Code 대화를 그대로 둔다. 재개와 돌아가기가 그것을 찾는다 (bin/hivemux-hook)
     os.environ["HIVEMUX_SDK"], os.environ["HIVEMUX_SDK_FOR"] = "1", sid
-    opts = ClaudeAgentOptions(
-        cwd=cwd, model=vals.get("--model"), effort=vals.get("--effort"),
-        permission_mode=vals.get("--permission-mode") or "auto",
-        system_prompt={"type": "preset", "preset": "claude_code", **({"append": append} if append else {})},
-        setting_sources=["user", "project", "local"],
-        env={"HIVEMUX_SDK": "1", "HIVEMUX_SDK_FOR": sid},
-    )
+
+    def options():
+        return ClaudeAgentOptions(
+            cwd=cwd, model=model[0] or None, effort=vals.get("--effort"),
+            permission_mode=vals.get("--permission-mode") or "auto",
+            system_prompt={"type": "preset", "preset": "claude_code", **({"append": append} if append else {})},
+            setting_sources=["user", "project", "local"],
+            env={"HIVEMUX_SDK": "1", "HIVEMUX_SDK_FOR": sid},
+        )
+
     doc = handoff_in(sid, cwd, pane) if sid else ""
     # the one the limit cut off goes on at once; the others wait for you (bin/hivemux-account at_limit)
     # 한도로 끊긴 것은 바로 이어 가고, 나머지는 입력을 기다린다 (bin/hivemux-account at_limit)
@@ -310,63 +360,127 @@ async def run(argv):
              f"used (a usage limit or a billing problem). First read the handoff {doc}: it has the recent requests and "
              f"answers, the files changed and the path of the whole conversation. Then work as that conversation did, "
              f"in the user's language.") if doc else ""
-    print(f"{BOLD}hivemux{RST} {DIM}· API (Agent SDK) · {vals.get('--model') or 'default model'} · "
+    print(f"{BOLD}hivemux{RST} {GRAY}· API (Agent SDK) · "
           + tr("구독을 다시 쓸 수 있으면 Claude Code 로 돌아갑니다", "goes back to Claude Code when the subscription can be used")
           + RST)
     if doc:
-        print(DIM + tr(f"넘김 문서: {doc}", f"Handoff: {doc}") + RST)
-    print(DIM + tr("Enter 보내기 · Esc Enter 줄바꿈 · Ctrl+C 멈추기 · Ctrl+D 끝내기",
-                   "Enter send · Esc Enter new line · Ctrl+C stop · Ctrl+D quit") + RST)
+        print(GRAY + tr(f"넘김 문서: {doc}", f"Handoff: {doc}") + RST)
 
-    session = PromptSession(multiline=False)
-    first = [True]
-    busy = [False]
-    back = [False]
+    os.makedirs(os.path.join(DATA, "sdk"), exist_ok=True)
+    total, first, busy, back, done = [0.0], [bool(intro)], [False], [False], [False]
+    screen = Screen()
 
-    async def stop_on_ctrl_c(client):
-        # in a turn the terminal is not raw, so Ctrl+C comes as SIGINT: stop the turn, not the program
-        # 턴 동안 터미널은 raw 가 아니라 Ctrl+C 가 SIGINT 로 온다: 프로그램이 아니라 턴을 멈춘다
-        import signal
-        with anyio.open_signal_receiver(signal.SIGINT) as sigs:
-            async for _ in sigs:
-                await client.interrupt()
-                print(DIM + tr("멈췄습니다.", "Stopped.") + RST)
+    keys = KeyBindings()
 
-    async def turn(client, text):
-        async with anyio.create_task_group() as tg:
-            tg.start_soon(stop_on_ctrl_c, client)
+    @keys.add("enter")
+    def _(event):
+        # Enter sends; a line ending in \ goes on to the next, as in Claude Code / Enter 는 보낸다. \ 로 끝나면 줄바꿈
+        b = event.current_buffer
+        if b.document.text_before_cursor.endswith("\\"):
+            b.delete_before_cursor(1)
+            b.insert_text("\n")
+        else:
+            b.validate_and_handle()
+
+    @keys.add("escape", "enter")
+    @keys.add("c-j")
+    def _(event):
+        event.current_buffer.insert_text("\n")
+
+    def toolbar():
+        w = shutil.get_terminal_size((100, 20)).columns
+        line = "─" * w
+        st = f" API · Agent SDK · {model[0] or tr('기본 모델', 'default model')} · ${total[0]:.2f} · auto"
+        return ANSI(f"{GRAY}{line}\n{st}   " + tr("\\ Enter 줄바꿈 · / 명령", "\\ Enter new line · / commands") + RST)
+
+    def message():
+        w = shutil.get_terminal_size((100, 20)).columns
+        return ANSI(f"{GRAY}{'─' * w}{RST}\n{BOLD}❯{RST} ")
+
+    session = PromptSession(multiline=True, key_bindings=keys, bottom_toolbar=toolbar,
+                            history=FileHistory(os.path.join(DATA, "sdk", "history")),
+                            completer=WordCompleter(list(commands()), sentence=True), complete_while_typing=True,
+                            prompt_continuation=lambda width, n, soft: "  ")
+
+    async def watch_keys(client):
+        # in a turn: Esc (or Ctrl+C) stops it, as in Claude Code; the terminal is put in cbreak so a lone Esc comes
+        # 턴 동안: Esc (또는 Ctrl+C) 로 멈춘다. 혼자 오는 Esc 를 받으려고 터미널을 cbreak 로 둔다
+        fd = sys.stdin.fileno()
+        if not os.isatty(fd):
+            return
+        old = termios.tcgetattr(fd)
+        tty.setcbreak(fd, termios.TCSANOW)
+        loop, got = asyncio.get_running_loop(), anyio.Event()
+
+        def readable():
+            # a lone Esc, not the start of an arrow key / 화살표 키의 시작이 아닌 혼자 온 Esc
             try:
-                await answer(client, text)
-            finally:
-                tg.cancel_scope.cancel()
+                data = os.read(fd, 64)
+            except OSError:
+                return
+            if data == b"\x1b" or b"\x03" in data:
+                got.set()
+
+        loop.add_reader(fd, readable)
+        try:
+            while True:
+                await got.wait()
+                got = anyio.Event()
+                await client.interrupt()
+                screen.say(f"{GRAY}  ⎿ {tr('멈췄습니다', 'Stopped')}{RST}")
+        finally:
+            loop.remove_reader(fd)
+            termios.tcsetattr(fd, termios.TCSANOW, old)
+
+    async def spin():
+        while True:
+            await anyio.sleep(0.12)
+            screen.draw()
 
     async def answer(client, text):
         busy[0] = True
         shown, cost = [], 0.0
+        screen.status, screen.t0 = tr("일하는 중…", "Working…"), time.time()
         try:
             await client.query(text)
             async for m in client.receive_response():
                 if isinstance(m, AssistantMessage):
                     for b in m.content:
                         if isinstance(b, TextBlock) and b.text.strip():
-                            print(f"\n{GREEN}⏺{RST} {b.text.strip()}")
+                            screen.say(f"\n{GREEN}⏺{RST} {b.text.strip()}")
                             shown.append(b.text.strip())
                         elif isinstance(b, ToolUseBlock):
-                            print(f"{BLUE}⏺{RST} {BOLD}{b.name}{RST}{DIM}({short(b.input)}){RST}")
+                            screen.say(f"{BLUE}⏺{RST} {BOLD}{b.name}{RST}{GRAY}({short(b.input)}){RST}")
+                            screen.status = tr(f"{b.name} 실행 중…", f"Running {b.name}…")
                 elif isinstance(m, UserMessage) and isinstance(m.content, list):
                     for b in m.content:
-                        if isinstance(b, ToolResultBlock) and b.is_error:
+                        if isinstance(b, ToolResultBlock):
                             body = b.content if isinstance(b.content, str) else json.dumps(b.content, ensure_ascii=False)
-                            print(f"  {RED}⎿ {clip(body.splitlines()[0] if body else '', 160)}{RST}")
+                            first_line = (body or "").strip().splitlines()[0] if (body or "").strip() else ""
+                            color = RED if b.is_error else GRAY
+                            screen.say(f"  {color}⎿ {clip(first_line, 160)}{RST}")
+                    screen.status = tr("일하는 중…", "Working…")
                 elif isinstance(m, ResultMessage):
                     cost = m.total_cost_usd or 0.0
-                    print(f"{DIM}✻ {tr('끝', 'done')} · ${cost:.3f}{RST}")
         finally:
             busy[0] = False
+            screen.status = ""
+            screen.clear()
+        total[0] += cost
+        print(f"{GRAY}✻ {tr('끝', 'done')} · {int(time.time() - screen.t0)}s · ${cost:.3f}{RST}")
         note_back(sid, text, "\n\n".join(shown[-2:]), cost)
 
+    async def turn(client, text):
+        async with anyio.create_task_group() as tg:
+            tg.start_soon(watch_keys, client)
+            tg.start_soon(spin)
+            try:
+                await answer(client, text)
+            finally:
+                tg.cancel_scope.cancel()
+
     def wrap(text):
-        if first[0] and intro:
+        if first[0]:
             first[0] = False
             return f"{intro}\n\n{text}"
         return text
@@ -379,31 +493,64 @@ async def run(argv):
                 scope.cancel()
                 return
 
-    async with ClaudeSDKClient(options=opts) as client:
-        if go_on or prompt:
-            text = prompt or tr("구독을 쓸 수 없어 끊겼던 일을 이어서 해 주세요.", "Please go on with the work that was cut off.")
-            print(f"\n{BOLD}❯{RST} {text}")
-            await turn(client, wrap(text))
-        done = [False]
-        while not back[0] and not done[0]:
-            text = None
-            async with anyio.create_task_group() as tg:
-                tg.start_soon(watch_back, tg.cancel_scope)
-                try:
-                    with patch_stdout():
-                        text = await session.prompt_async("\n❯ ")
-                except EOFError:
-                    done[0] = True
-                except KeyboardInterrupt:
-                    text = ""
-                tg.cancel_scope.cancel()
-            if back[0] or done[0]:
-                break
-            if text and text.strip():
+    async def slash(client, text):
+        """True when handled here / 여기서 처리했으면 True"""
+        cmd, _, arg = text.strip().partition(" ")
+        if cmd == "/help":
+            for k, v in commands().items():
+                print(f"  {BOLD}{k}{RST}  {GRAY}{v}{RST}")
+        elif cmd == "/cost":
+            print(f"  ${total[0]:.3f}")
+        elif cmd == "/model":
+            if arg.strip():
+                model[0] = arg.strip()
+                await client.set_model(model[0])
+                print(GRAY + tr(f"  모델: {model[0]}", f"  Model: {model[0]}") + RST)
+            else:
+                print(GRAY + tr(f"  지금 모델: {model[0] or '기본'} · /model opus|sonnet|haiku", f"  Model: {model[0] or 'default'} · /model opus|sonnet|haiku") + RST)
+        elif cmd == "/back":
+            back[0] = True
+        elif cmd in ("/exit", "/quit"):
+            done[0] = True
+        elif cmd == "/clear":
+            return "clear"
+        else:
+            return False
+        return True
+
+    while not back[0] and not done[0]:
+        async with ClaudeSDKClient(options=options()) as client:
+            if go_on or prompt:
+                text = prompt or tr("구독을 쓸 수 없어 끊겼던 일을 이어서 해 주세요.", "Please go on with the work that was cut off.")
+                go_on, prompt = False, None
+                print(f"\n{BOLD}❯{RST} {text}")
+                await turn(client, wrap(text))
+            cleared = False
+            while not back[0] and not done[0] and not cleared:
+                text = None
+                print()
+                async with anyio.create_task_group() as tg:
+                    tg.start_soon(watch_back, tg.cancel_scope)
+                    try:
+                        text = await session.prompt_async(message)
+                    except EOFError:
+                        done[0] = True
+                    except KeyboardInterrupt:
+                        text = ""
+                    tg.cancel_scope.cancel()
+                if back[0] or done[0] or not text or not text.strip():
+                    continue
+                if text.strip().startswith("/"):
+                    r = await slash(client, text)
+                    if r == "clear":
+                        cleared, first[0] = True, False
+                        print(GRAY + tr("  새 대화를 시작합니다.", "  Starting a new conversation.") + RST)
+                        continue
+                    if r:
+                        continue
                 await turn(client, wrap(text))
     if back[0]:
-        print("\n" + tr("구독을 다시 쓸 수 있습니다. Claude Code 로 돌아갑니다…", "The subscription can be used again. Going back to Claude Code…"),
-              flush=True)
+        print("\n" + tr("Claude Code 로 돌아갑니다…", "Going back to Claude Code…"), flush=True)
         go_back(sid, argv)
 
 
