@@ -314,7 +314,9 @@ to it; every Claude carries on in the same conversation.
   From the shell: `hivemux account add-key api`, `hivemux account fallback
   api`. Then the Claudes of a subscription that hits its usage limit move onto
   that key in the same conversation, and the one the limit cut off is asked
-  to go on. When the limit resets (the time in the limit message, else five
+  to go on. So do those of a subscription Claude Code cannot use (a payment
+  past due, billing, an account on hold), for a day or until you choose that
+  account again. When the limit resets (the time in the limit message, else five
   hours), they move back once they are off the screen and not working. API
   use is billed per request. `hivemux account fallback off` stops it.
 - **Where you are.** The status line shows `◉ work` when the account in use

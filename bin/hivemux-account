@@ -238,11 +238,18 @@ def limit_text(msg, transcript):
     return msg or ""
 
 
-def at_limit(pane, msg, transcript=""):
-    """(the StopFailure hook, rate_limit) A subscription account hit its usage limit: its Claudes go on with the
-    fallback until it resets, this one also goes on with what it was doing. Not for an API key account (its
-    rate limits pass by) / (StopFailure 훅, rate_limit) 구독 계정이 사용 한도에 걸렸다: 그 계정의 Claude 들은 풀릴
-    때까지 fallback 으로 이어 가고, 이 Claude 는 하던 일도 이어 간다. API 키 계정은 아니다 (그 요청 한도는 곧 풀린다)"""
+# the subscription cannot be used at all (a payment past due, billing, an account on hold): no time it comes back
+# 구독을 아예 쓸 수 없다 (결제 밀림, 청구, 계정 보류): 돌아오는 시각이 없다
+SUB_ERRORS = ("oauth_org_not_allowed", "billing_error", "account_on_hold")
+
+
+def at_limit(pane, msg, transcript="", error="rate_limit"):
+    """(the StopFailure hook) A subscription account hit its usage limit, or cannot be used (SUB_ERRORS): its Claudes
+    go on with the fallback until it resets (a day for an error: choosing the account again tries it at once), this
+    one also goes on with what it was doing. Not for an API key account (its rate limits pass by)
+    (StopFailure 훅) 구독 계정이 사용 한도에 걸렸거나 쓸 수 없다 (SUB_ERRORS): 그 계정의 Claude 들은 풀릴 때까지
+    fallback 으로 이어 가고 (오류는 하루. 그 계정을 다시 고르면 바로 다시 써 본다), 이 Claude 는 하던 일도 이어 간다.
+    API 키 계정은 아니다 (그 요청 한도는 곧 풀린다)"""
     fb = fallback()
     if not fb:
         return 0
@@ -252,10 +259,15 @@ def at_limit(pane, msg, transcript=""):
         return 0
     d = os.path.normpath(running_dir(pid) or HOME_DIR)
     name = "default" if d == os.path.normpath(HOME_DIR) else os.path.basename(d)
-    msg = limit_text(msg, transcript)
-    if api_key(name) or not SUB_LIMIT.search(msg):
+    if api_key(name):
         return 0
-    until = reset_at(msg) or int(time.time()) + 5 * 3600      # says nothing: try again in five hours / 말이 없으면 5시간 뒤
+    if error in SUB_ERRORS:
+        until = int(time.time()) + 24 * 3600
+    else:
+        msg = limit_text(msg, transcript)
+        if not SUB_LIMIT.search(msg):
+            return 0
+        until = reset_at(msg) or int(time.time()) + 5 * 3600  # says nothing: try again in five hours / 말이 없으면 5시간 뒤
     lim = limited()
     lim[name] = max(until, lim.get(name, 0))
     os.makedirs(DATA, exist_ok=True)
@@ -601,6 +613,10 @@ def use(name, session=None):
         raise SystemExit("all: -s <project>")
     if name not in ("default", "all"):
         prepare(name)
+    # chosen again while at its limit: try it again now / 한도에 걸린 계정을 다시 고름: 지금 다시 써 본다
+    lim = limited()
+    if lim.pop(name, None):
+        write_atomic(LIMITED, "".join(f"{a}\t{u}\n" for a, u in sorted(lim.items())))
     save(*choice(name, session))
     env()
     return restart()
@@ -1009,7 +1025,8 @@ def main(argv):
             raise SystemExit(tr(f"{argv[1]} 는 API 키 계정이 아닙니다: hivemux account add-key {argv[1]}",
                                 f"{argv[1]} is not an API key account: hivemux account add-key {argv[1]}"))
     elif cmd == "limit" and len(argv) > 1:        # the StopFailure hook / StopFailure 훅
-        at_limit(argv[1], argv[2] if len(argv) > 2 else "", argv[3] if len(argv) > 3 else "")
+        at_limit(argv[1], argv[2] if len(argv) > 2 else "", argv[3] if len(argv) > 3 else "",
+                 argv[4] if len(argv) > 4 else "rate_limit")
     elif cmd == "go-on" and len(argv) > 1:        # the SessionStart hook / SessionStart 훅
         go_on(argv[1])
     elif cmd == "watch-limits":

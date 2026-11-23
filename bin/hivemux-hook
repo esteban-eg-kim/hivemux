@@ -407,11 +407,14 @@ case "$event" in
     # API 오류(요청 한도, 과부하, 인증 등)로 응답이 끊김: Stop 이 오지 않으니 확인하도록 입력 필요로 표시
     why error "$(printf '%s' "$input" | "$JQ" -r '[.error, .error_type, .message, .reason][] | strings' 2>/dev/null | head -1)"
     state wait
-    # a subscription at its usage limit goes on with the API key account set for it (bin/hivemux-account fallback)
-    # 사용 한도에 걸린 구독은 정해 둔 API 키 계정으로 이어 간다 (bin/hivemux-account fallback)
-    [ "$(field error)" = rate_limit ] && [ -s "${XDG_DATA_HOME:-$HOME/.local/share}/hivemux/account-fallback" ] &&
-      ( "$(dirname "$0")/hivemux-account" limit "$TMUX_PANE" "$(field last_assistant_message) $(field error_details)" \
-        "$(field transcript_path)" >/dev/null 2>&1 & )
+    # a subscription at its usage limit, or one that cannot be used (a payment past due...), goes on with the API key
+    # account set for it (bin/hivemux-account fallback) / 사용 한도에 걸렸거나 쓸 수 없는 (결제가 밀린...) 구독은 정해
+    # 둔 API 키 계정으로 이어 간다
+    case "$(field error)" in rate_limit|oauth_org_not_allowed|billing_error|account_on_hold)
+      [ -s "${XDG_DATA_HOME:-$HOME/.local/share}/hivemux/account-fallback" ] &&
+        ( "$(dirname "$0")/hivemux-account" limit "$TMUX_PANE" "$(field last_assistant_message) $(field error_details)" \
+          "$(field transcript_path)" "$(field error)" >/dev/null 2>&1 & ) ;;
+    esac
     ;;
   SessionEnd)
     t set -pu -t "$TMUX_PANE" @claude_state

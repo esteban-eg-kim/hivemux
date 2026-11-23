@@ -11,6 +11,8 @@
   with** (the first API key account added is picked). The key shows as you paste it (the middle of a long one
   left out); the paste brackets and spaces are dropped, and the popup no longer loses what is past the first
   64 bytes of a paste, which cut keys short and had them refused.
+- Accounts: a subscription Claude Code cannot use (a payment past due, billing, an account on hold) also goes on
+  with the API key account, for a day or until that account is chosen again; it went on failing before.
 - Account popup: the selected row has no bar on its left.
 
 - A Claude that Claude Code moved into its background daemon (it can do so while a subagent runs) lost its pane:
