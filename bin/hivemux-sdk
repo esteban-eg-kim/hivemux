@@ -339,6 +339,75 @@ def go_back(sid, argv):
     os.execv(hc, [hc, *args])
 
 
+# ── diet / 다이어트 ──
+# Through the API every turn sends the whole conversation again and is paid for, so a large one costs more each
+# turn. As a team role's diet (bin/hivemux-team), done here without typing into a prompt: past the line, once the
+# user has seen the answer, it brings its notes up to date and starts a fresh SDK conversation from them. A team
+# role keeps its team's line, notes and diet.log; another Claude has a line of its own (@hivemux-sdk-diet, thousands
+# of tokens, 150 by default, off to turn it off), notes in handoff/<id>.notes.md and the log sdk/diet.log
+# API 로는 턴마다 대화 전체를 다시 보내고 그만큼 돈을 내서, 대화가 크면 턴마다 더 든다. 팀 역할의 다이어트
+# (bin/hivemux-team) 처럼 하되, 입력창에 치지 않고 여기서 한다: 기준을 넘고 사용자가 답을 본 뒤, 노트를 최신으로
+# 정리하고 그 노트로 새 SDK 대화를 시작한다. 팀 역할은 팀의 기준, 노트, diet.log 를 쓴다. 다른 Claude 는 따로
+# 기준 (@hivemux-sdk-diet, 천 토큰, 기본 150, off 로 끔), 노트 handoff/<id>.notes.md, 기록 sdk/diet.log 를 쓴다
+
+SDK_DIET_AT = 150
+TEAM = []
+
+
+def team_module():
+    if not TEAM:
+        import importlib.machinery, importlib.util
+        loader = importlib.machinery.SourceFileLoader("hivemux_team", os.path.join(HERE, "hivemux-team"))
+        spec = importlib.util.spec_from_loader("hivemux_team", loader)
+        mod = importlib.util.module_from_spec(spec)
+        loader.exec_module(mod)
+        TEAM.append(mod)
+    return TEAM[0]
+
+
+def diet_plan(pane, sid):
+    """{line, notes, log(before, after)}, or None when off / 기준, 노트, 기록. 끄면 None"""
+    try:
+        t = team_module()
+        found = t.role_of(pane) if pane else None
+    except Exception:
+        t, found = None, None
+    if found:
+        session, folder, team, role = found
+        if role["diet"]["how"] == "off":
+            return None
+        return {"line": t.diet_line(folder, role), "notes": t.notes_path(folder, role["id"]),
+                "log": lambda b, a: t.diet_log(folder, role["id"], "sdk", b, a)}
+    at = tmux("show", "-gqv", "@hivemux-sdk-diet").strip() or str(SDK_DIET_AT)
+    if not at.isdigit():
+        return None
+    line, log = int(at) * 1000, os.path.join(DATA, "sdk", "diet.log")
+    # right after a diet the line moves up, as a team role's (bin/hivemux-team diet_line)
+    # 다이어트 직후에는 팀 역할처럼 기준을 올린다 (bin/hivemux-team diet_line)
+    try:
+        last = [l.rstrip("\n").split("\t") for l in open(log) if l.split("\t")[1:2] == [sid]][-1]
+        if time.time() - int(last[0]) < 3 * 3600:
+            line = max(line, int(last[4]) + 50_000)
+        if time.time() - int(last[0]) < 20 * 60:
+            line = max(line, int(at) * 1500)
+    except (OSError, IndexError, ValueError):
+        pass
+
+    def write(b, a):
+        os.makedirs(os.path.dirname(log), exist_ok=True)
+        with open(log, "a") as f:
+            f.write(f"{int(time.time())}\t{sid}\tsdk\t{b}\t{a}\n")
+
+    return {"line": line, "notes": os.path.join(HANDOFF, f"{sid or 'new'}.notes.md"), "log": write}
+
+
+def usage_tokens(u):
+    """Context at an answer: what the next request reads again / 답할 때의 컨텍스트: 다음 요청이 다시 읽는 양"""
+    if not isinstance(u, dict):
+        return 0
+    return sum(int(u.get(k) or 0) for k in ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens", "output_tokens"))
+
+
 # ── images / 이미지 ──
 
 IMAGES = os.path.join(DATA, "sdk", "images")
@@ -559,7 +628,8 @@ async def run(argv):
     # 일하는 동안에도 입력창이 있다 (Claude Code 처럼): 그때 보낸 것은 하던 일에 들어간다 (SDK 가 다음 걸음에 받는다).
     # 답은 입력창 위에 찍힌다
     st = {"total": 0.0, "first": bool(intro), "busy": False, "t0": 0.0, "doing": "", "back": False, "done": False,
-          "switch": False, "img": 0, "pasted": {},
+          "switch": False, "img": 0, "pasted": {}, "ctx": 0, "ctx_first": 0, "diet": "", "diet_before": 0,
+          "diet_start": False, "next": None,
           "clear": False, "asked": [], "shown": [], "i": 0, "client": None}
 
     keys = KeyBindings()
@@ -617,7 +687,7 @@ async def run(argv):
 
     def toolbar():
         st_ = (f" API · Agent SDK · {model[0] or tr('기본 모델', 'default model')} · effort {effort[0] or tr('기본', 'default')}"
-               f" · ${st['total']:.2f} · auto")
+               f" · {st['ctx'] // 1000}K · ${st['total']:.2f} · auto")
         w = shutil.get_terminal_size((100, 20)).columns
         return ANSI(f"{GRAY}{'─' * w}\n{st_}   " + tr("\\ Enter 줄바꿈 · Ctrl+V 이미지 · / 명령 · Esc 멈추기",
                                                        "\\ Enter new line · Ctrl+V image · / commands · Esc stop") + RST)
@@ -670,6 +740,11 @@ async def run(argv):
                 # what was sent during the last turn (after Esc, say) runs as a turn of its own
                 # 지난 턴 동안 보낸 것 (Esc 뒤 등) 은 따로 한 턴으로 돈다
                 st["busy"], st["t0"], st["doing"] = True, time.time(), ""
+            if isinstance(m, AssistantMessage) and not getattr(m, "parent_tool_use_id", None):
+                n = usage_tokens(getattr(m, "usage", None))
+                if n:
+                    st["ctx"] = n
+                    st["ctx_first"] = st["ctx_first"] or n
             if isinstance(m, AssistantMessage):
                 for b in m.content:
                     if isinstance(b, TextBlock) and b.text.strip():
@@ -694,13 +769,70 @@ async def run(argv):
                 if sid and m.session_id:
                     with open(sdk_file(sid), "w") as f:
                         f.write(m.session_id + "\n")
+                last = st["shown"][-1] if st["shown"] else ""
                 st["busy"], st["asked"], st["shown"] = False, [], []
                 set_title(title)            # a tool may have set another / 도구가 다른 것으로 바꿨을 수 있다
+                after_turn(last)
+
+    def after_turn(last):
+        """The context size on the pane (the sidebar's bar) and the diet's next step / 칸에 컨텍스트 크기, 다이어트 다음 걸음"""
+        if pane and st["ctx"]:
+            tmux("set", "-p", "-t", pane, "@claude_ctx", str(st["ctx"]))
+            tmux("set", "-p", "-t", pane, "@claude_ctx_at", str(int(time.time())))
+        if st["diet"] == "notes":       # notes written: start fresh / 노트를 썼다: 새로 시작
+            st["diet"], st["clear"] = "fresh", True
+            if session.app.is_running:
+                session.app.exit(result="")
+            return
+        if st["diet"] == "after":       # the first answer after it: how small it got / 그 뒤 첫 답: 얼마나 줄었나
+            plan = diet_plan(pane, sid)
+            if plan:
+                plan["log"](st["diet_before"], st["ctx_first"] or st["ctx"])
+            try:
+                os.unlink(os.path.join(HANDOFF, f"{sid or 'new'}.last.md"))
+            except OSError:
+                pass
+            st["diet"] = ""
+            return
+        plan = diet_plan(pane, sid)
+        if st["diet"] or not plan or st["ctx"] < plan["line"]:
+            return
+        try:
+            t = team_module()
+            asks, held = t.asks_user(last), t.watched(pane) if pane else False
+        except Exception:
+            asks, held = False, False
+        # an answer that asks the user something waits for the answer; a window being read waits until they look
+        # away, unless past half again the line: then the last answer is shown again after the fresh start
+        # 사용자에게 묻는 답은 답을 기다린다. 읽는 중인 창은 다른 데를 볼 때까지 기다린다. 기준의 1.5배를 넘으면
+        # 그래도 하고, 마지막 답은 새로 시작한 뒤 다시 보여 준다
+        if asks:
+            return
+        if held and st["ctx"] >= plan["line"] * 1.5:
+            os.makedirs(HANDOFF, exist_ok=True)
+            with open(os.path.join(HANDOFF, f"{sid or 'new'}.last.md"), "w") as f:
+                f.write(last)
+            held = False
+        st["diet"] = "pending" if held else "go"
 
     async def watch_back():
+        tick = 0
         while True:
-            await anyio.sleep(20)
+            await anyio.sleep(5)
+            tick += 1
             if st["busy"] or session.app.current_buffer.text:
+                continue
+            if st["diet"] in ("pending", "go"):
+                try:
+                    held = st["diet"] == "pending" and pane and team_module().watched(pane)
+                except Exception:
+                    held = False
+                if not held:
+                    st["diet_start"] = True
+                    if session.app.is_running:
+                        session.app.exit(result="")
+                    continue
+            if tick % 4:
                 continue
             # the subscription back: Claude Code. The project set to another API key: start again on it
             # 구독이 돌아옴: Claude Code 로. 프로젝트가 다른 API 키로 바뀜: 그 키로 다시 시작
@@ -710,6 +842,39 @@ async def run(argv):
                 if session.app.is_running:
                     session.app.exit(result="")
                 return
+
+    async def diet_notes(client):
+        st["diet_start"] = False
+        plan = diet_plan(pane, sid)
+        if not plan:
+            st["diet"] = ""
+            return
+        st["diet"], st["diet_before"] = "notes", st["ctx"]
+        out(GRAY + tr(f"  ⎿ 다이어트: 대화가 {st['ctx'] // 1000}K 토큰이라 노트를 정리하고 새로 시작합니다",
+                      f"  ⎿ Diet: the conversation is {st['ctx'] // 1000}K tokens; bringing the notes up to date, then a fresh start") + RST)
+        await send(client, tr(f"(hivemux 다이어트) 대화가 커져서 곧 새로 시작한다. {plan['notes']} 를 지금 상태, 결정한 것, 남은 일, 중요한 파일, "
+                              "사용자에게 물었는데 아직 답이 없는 질문(원문 그대로)으로 최신으로 정리해라. 정리만 하고 다른 일은 하지 마라.",
+                              f"(hivemux diet) The conversation is large, so it starts fresh soon. Bring {plan['notes']} up to date: state, "
+                              "decisions, what is left, key files, and questions to the user still unanswered (word for word). Only that, nothing else."))
+
+    def diet_fresh():
+        """A new SDK conversation that reads the notes (and shows again the answer being read) / 노트를 읽는 새 SDK 대화"""
+        plan = diet_plan(pane, sid) or {"notes": os.path.join(HANDOFF, f"{sid or 'new'}.notes.md")}
+        last = os.path.join(HANDOFF, f"{sid or 'new'}.last.md")
+        again = ""
+        if os.path.isfile(last):
+            again = tr(f" 먼저 {last} 를 읽고, 그 내용을 사용자에게 고치지 말고 그대로 다시 보여 줘라 (다이어트 직전에 사용자가 읽던 답이다).",
+                       f" First read {last} and show it to the user again exactly as written (the answer they were reading right before the diet).")
+        try:
+            os.unlink(sdk_file(sid))
+        except OSError:
+            pass
+        resume[0], st["first"], st["ctx_first"], st["diet"] = "", False, 0, "after"
+        st["next"] = tr(f"(hivemux 다이어트 뒤 새로 시작){again} {plan['notes']} 를 읽고 하던 일을 이어서 해라. 사용자의 답을 기다리는 질문이 있으면 "
+                        "그 질문을 원문 그대로 다시 보여 줘라. 이어서 할 일이 없으면 기다려라.",
+                        f"(hivemux: fresh start after a diet){again} Read {plan['notes']} and carry on with your work. If questions to the "
+                        "user are still unanswered, show them again word for word. If nothing is left, wait.")
+        out(GRAY + tr("  ⎿ 새 대화로 시작합니다", "  ⎿ Starting a fresh conversation") + RST)
 
     async def slash(client, text):
         """True when handled here / 여기서 처리했으면 True"""
@@ -781,12 +946,17 @@ async def run(argv):
                 async with anyio.create_task_group() as tg:
                     tg.start_soon(reader, client)
                     tg.start_soon(watch_back)
-                    if go_on or prompt:
+                    if st["next"]:
+                        text, st["next"] = st["next"], None
+                        await send(client, text)
+                    elif go_on or prompt:
                         text = prompt or tr("구독을 쓸 수 없어 끊겼던 일을 이어서 해 주세요.", "Please go on with the work that was cut off.")
                         go_on, prompt = False, None
                         out(f"\n{BOLD}❯{RST} {text}")
                         await send(client, text)
                     while not st["back"] and not st["done"] and not st["clear"] and not st["switch"]:
+                        if st["diet_start"]:
+                            await diet_notes(client)
                         try:
                             text = await session.prompt_async(message)
                         except EOFError:
@@ -807,6 +977,8 @@ async def run(argv):
                         await send(client, text)
                     tg.cancel_scope.cancel()
             st["client"], st["busy"] = None, False
+            if st["diet"] == "fresh":
+                diet_fresh()
     if st["back"]:
         print("\n" + tr("Claude Code 로 돌아갑니다…", "Going back to Claude Code…"), flush=True)
         go_back(sid, argv)

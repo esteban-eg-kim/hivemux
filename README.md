@@ -336,7 +336,12 @@ to it; every Claude carries on in the same conversation.
   on the same conversation at a quiet moment, and Claude Code reads
   `<id>.back.md` first. Set the project to another API key account meanwhile
   and it starts again on that key at a quiet moment, resuming the same SDK
-  conversation as it was (a reboot on the API resumes it too). Its Python (`claude-agent-sdk`, `prompt_toolkit`) is
+  conversation as it was (a reboot on the API resumes it too). It diets as a
+  team role does (each API turn sends the whole conversation again and is
+  paid for): past the line, once you have seen the answer, it brings its notes
+  up to date and starts a fresh SDK conversation from them. A team role keeps
+  its team's line; any other Claude diets at 150K tokens (`tmux set -g
+  @hivemux-sdk-diet 200`, or `off`). Its Python (`claude-agent-sdk`, `prompt_toolkit`) is
   set up once in `~/.local/share/hivemux/sdk/venv`, with Python 3.10 or newer.
   `hivemux account runner api claude` runs Claude Code on the key instead.
 - **Where you are.** The status line shows `◉ work` when the account in use
