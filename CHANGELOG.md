@@ -25,7 +25,8 @@
   rules with a status line under it (model, cost), `\` Enter or Esc Enter for a new line, a spinner with the
   seconds while it works, Esc to stop, slash commands with Tab completion (/help, /clear, /model, /cost, /back,
   /exit; others such as /compact go to the SDK) and the input history.
-  It keeps the pane's title on the conversation's name, as Claude Code does: the sidebar showed the shell's
+  The prompt stays while it works, as in Claude Code: what you send then joins the work under way (the SDK takes
+  it in at its next step), and the spinner sits above the prompt. It keeps the pane's title on the conversation's name, as Claude Code does: the sidebar showed the shell's
   command line ("cd … --resume …") as the card's name.
 - Account popup: the selected row has no bar on its left.
 
