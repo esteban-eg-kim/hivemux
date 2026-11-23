@@ -47,9 +47,10 @@ Usage:
                        busy ones once they are done)
   hivemux team templates | use <template> | up | down | status   a team of Claudes with roles in this project
                        (planner, dev, QA...), each in its own window, handing work to each other by name
-  hivemux account list | add <name> | use <name> [-s <project>] | remove <name>
+  hivemux account list | add <name> | add-key <name> | use <name> [-s <project>] | remove <name> | fallback <name|off>
                        more than one Claude login: switch all projects or one project to another account
-                       (its Claudes restart in the same conversation)
+                       (its Claudes restart in the same conversation); fallback: go on with an API key account
+                       when a subscription hits its usage limit
   hivemux update [--yes] [--check]  update hivemux to the newest release (Homebrew or git install) and reload it in
                        place: tmux, the sidebars and the bee office pick up the new version, your sessions keep running
   hivemux version

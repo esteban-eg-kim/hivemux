@@ -8,6 +8,11 @@ Claude 계정: 여러 계정에 로그인해 두고 바꿔 쓴다. 모든 프로
   hivemux-account use <name|default|all> -s <project>   this project's own account; all = as for all projects
                                                  이 프로젝트만의 계정. all = 모든 프로젝트 설정을 따른다
   hivemux-account remove <name>                  log out and forget it / 로그아웃하고 지운다
+  hivemux-account add-key <name>                 an account that uses an API key (asks for it) / API 키로 쓰는 계정 (키를 묻는다)
+  hivemux-account fallback <name|off>            when a subscription hits its usage limit, its Claudes go on with
+                                                 this API key account in the same conversation until the limit
+                                                 resets / 구독이 사용 한도에 걸리면 그 Claude 들을 한도가 풀릴
+                                                 때까지 이 API 키 계정으로 같은 대화에서 이어 간다
   hivemux-account hide <name|default> [on|off]   keep its Claudes out of the Claude app and claude.ai (no Remote
                                                  Control), for an account shared with others / 이 계정의 Claude 를
                                                  Claude 앱과 claude.ai 에 보이지 않게 (Remote Control 없이). 같이 쓰는 계정에
@@ -29,7 +34,8 @@ CLAUDE_CONFIG_DIR 로 쓴다. 로그인만 따로이고 나머지(설정, 대화
 (<프로젝트>\\t<이름>) 에 있고, Claude 가 시작할 때마다 bin/hivemux-claude 가 읽는다. 바꾸면 다른 계정으로 도는 Claude 를
 같은 대화로 다시 시작한다 (bin/hivemux-claude-update watch). 일하거나 답을 기다리는 중이면 끝난 뒤에.
 """
-import json, os, re, shlex, shutil, subprocess, sys, termios, time, tty, unicodedata
+import datetime, fcntl, getpass, json, os, re, shlex, shutil, subprocess, sys, termios, time, tty, unicodedata
+import urllib.error, urllib.request
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 os.environ["PATH"] = os.environ.get("PATH", "") + ":/opt/homebrew/bin:/usr/local/bin:" + os.path.expanduser("~/.local/bin")
@@ -41,6 +47,13 @@ PROJECTS = os.path.join(DATA, "account-projects")
 HIDDEN = os.path.join(DATA, "hidden-accounts")     # one name a line, read by bin/hivemux-claude / 한 줄에 이름 하나
 HIDDEN_PROJECTS = os.path.join(DATA, "hidden-projects")    # project (tmux session) names / 프로젝트 (tmux 세션) 이름
 HIDDEN_CLAUDES = os.path.join(DATA, "hidden-claudes")      # conversation ids, so a reboot keeps one hidden / 대화 id. 재부팅해도 숨긴 채
+# An API key account keeps its key in its dir (read by bin/hivemux-claude); the fallback is one such account's name,
+# and the accounts at their usage limit are lines "<account>\t<until, epoch>"
+# API 키 계정은 키를 자기 폴더에 둔다 (bin/hivemux-claude 가 읽는다). fallback 은 그런 계정 하나의 이름, 사용 한도에
+# 걸린 계정은 "<계정>\t<풀리는 시각, epoch>" 줄이다
+KEY_FILE = "api-key"
+FALLBACK = os.path.join(DATA, "account-fallback")
+LIMITED = os.path.join(DATA, "account-limited")
 HOME_DIR = os.path.expanduser("~/.claude")
 HOME_JSON = os.path.expanduser("~/.claude.json")
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$")
@@ -91,8 +104,21 @@ def write_atomic(path, text):
     os.replace(tmp, path)
 
 
+def api_key(name):
+    """The account's API key ("" = a login account) / 계정의 API 키 ("" = 로그인 계정)"""
+    if name in ("default", "all"):
+        return ""
+    try:
+        return open(os.path.join(config_dir(name), KEY_FILE)).read().strip()
+    except OSError:
+        return ""
+
+
 def who(name):
     """{email, plan} of the account's login ({} when not logged in) / 그 계정 로그인의 이메일, 요금제 (로그인 전이면 {})"""
+    k = api_key(name)
+    if k:
+        return {"email": tr(f"API 키 …{k[-4:]}", f"API key …{k[-4:]}"), "plan": "API"}
     acc = read_json(HOME_JSON if name == "default" else os.path.join(config_dir(name), ".claude.json")).get("oauthAccount") or {}
     return {"email": acc.get("emailAddress", ""), "plan": acc.get("planDisplayName") or acc.get("billingType") or ""} if acc else {}
 
@@ -124,6 +150,148 @@ def save(g, proj):
 def resolve(session):
     g, proj = chosen()
     return proj.get(session, g)
+
+
+# ── the usage limit / 사용 한도 ──
+
+def fallback():
+    """The API key account Claudes go on with at a usage limit ("" = none) / 사용 한도에서 이어 갈 API 키 계정 ("" = 없음)"""
+    try:
+        n = open(FALLBACK).read().strip()
+    except OSError:
+        return ""
+    return n if api_key(n) else ""
+
+
+def limited():
+    """{account: until (epoch)} of the accounts at their usage limit now / 지금 사용 한도에 걸린 계정: 풀리는 시각"""
+    out, now = {}, time.time()
+    try:
+        for ln in open(LIMITED):
+            a, _, u = ln.rstrip("\n").partition("\t")
+            if a and u.isdigit() and int(u) > now:
+                out[a] = int(u)
+    except OSError:
+        pass
+    return out
+
+
+def effective(name, lim=None):
+    """The account a Claude chosen for name runs on: the fallback while name is at its limit
+    name 으로 정한 Claude 가 실제로 도는 계정: name 이 한도에 걸린 동안은 fallback"""
+    fb = fallback()
+    if fb and fb != name and name in (limited() if lim is None else lim):
+        return fb
+    return name
+
+
+# a subscription's limit: "You've hit your weekly limit", "You've reached your Fable limit"; not "Server is temporarily
+# limiting requests" nor "Rate limit reached" / 구독의 한도. 서버가 잠시 요청을 줄이는 것이 아니다
+SUB_LIMIT = re.compile(r"(hit|reached) your\b.*\blimit", re.I)
+MONTHS = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
+
+
+def reset_at(msg, now=None):
+    """When a limit message says it resets, e.g. "You've hit your weekly limit · resets Nov 24 at 1am (Asia/Seoul)"
+    or "resets 3:45pm"; None when it does not say / 한도 메시지가 말하는 풀리는 시각. 말하지 않으면 None"""
+    m = re.search(r"resets\s+(?:([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),?\s+)?(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)"
+                  r"(?:\s*\(([^)]+)\))?", msg, re.I)
+    if not m:
+        return None
+    mon, day, h, mi, ap, tz = m.groups()
+    try:
+        from zoneinfo import ZoneInfo
+        zone = ZoneInfo(tz) if tz else None
+    except Exception:
+        zone = None
+    now = datetime.datetime.fromtimestamp(now or time.time(), zone or datetime.datetime.now().astimezone().tzinfo)
+    h = int(h) % 12 + (12 if ap.lower() == "pm" else 0)
+    t = now.replace(hour=h, minute=int(mi or 0), second=0, microsecond=0)
+    if mon and mon.lower() in MONTHS:
+        t = t.replace(month=MONTHS.index(mon.lower()) + 1, day=int(day))
+        if t < now - datetime.timedelta(days=1):
+            t = t.replace(year=t.year + 1)
+    elif t <= now:
+        t += datetime.timedelta(days=1)
+    return int(t.timestamp())
+
+
+def limit_text(msg, transcript):
+    """The limit message: the hook's text, else the conversation's last API error line
+    한도 메시지: 훅이 준 글, 없으면 대화의 마지막 API 오류 줄"""
+    if SUB_LIMIT.search(msg or ""):
+        return msg
+    try:
+        with open(transcript, "rb") as f:
+            f.seek(max(0, os.path.getsize(transcript) - 400000))
+            lines = f.read().decode(errors="ignore").splitlines()
+    except (OSError, TypeError):
+        return msg or ""
+    for ln in reversed(lines):
+        if '"isApiErrorMessage":true' not in ln:
+            continue
+        try:
+            c = json.loads(ln).get("message", {}).get("content") or []
+        except ValueError:
+            continue
+        return " ".join(b.get("text", "") for b in c if isinstance(b, dict)) if isinstance(c, list) else str(c)
+    return msg or ""
+
+
+def at_limit(pane, msg, transcript=""):
+    """(the StopFailure hook, rate_limit) A subscription account hit its usage limit: its Claudes go on with the
+    fallback until it resets, this one also goes on with what it was doing. Not for an API key account (its
+    rate limits pass by) / (StopFailure 훅, rate_limit) 구독 계정이 사용 한도에 걸렸다: 그 계정의 Claude 들은 풀릴
+    때까지 fallback 으로 이어 가고, 이 Claude 는 하던 일도 이어 간다. API 키 계정은 아니다 (그 요청 한도는 곧 풀린다)"""
+    fb = fallback()
+    if not fb:
+        return 0
+    shell = tmux("display", "-p", "-t", pane, "#{pane_pid}").strip()
+    pid = claude_pid(shell) if shell else None
+    if not pid:
+        return 0
+    d = os.path.normpath(running_dir(pid) or HOME_DIR)
+    name = "default" if d == os.path.normpath(HOME_DIR) else os.path.basename(d)
+    msg = limit_text(msg, transcript)
+    if api_key(name) or not SUB_LIMIT.search(msg):
+        return 0
+    until = reset_at(msg) or int(time.time()) + 5 * 3600      # says nothing: try again in five hours / 말이 없으면 5시간 뒤
+    lim = limited()
+    lim[name] = max(until, lim.get(name, 0))
+    os.makedirs(DATA, exist_ok=True)
+    write_atomic(LIMITED, "".join(f"{a}\t{u}\n" for a, u in sorted(lim.items())))
+    tmux("set", "-p", "-t", pane, "@hivemux-continue", "1")
+    env()
+    n = restart()
+    watch_limits()
+    return n
+
+
+def watch_limits():
+    """Start the watcher that moves the Claudes back when a limit resets / 한도가 풀리면 Claude 를 되돌리는 감시를 띄운다"""
+    if limited():
+        subprocess.Popen([os.path.realpath(__file__), "watch-limits"], stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+
+def watch_loop():
+    """Wait for each limit to reset, then restart its Claudes on their own account, once they are free and off the
+    screens; one watcher at a time / 한도가 풀리길 기다렸다가 그 Claude 들을 원래 계정으로 다시 시작한다. 한가하고 화면에
+    없을 때. 감시는 하나만"""
+    lock = open(os.path.join(DATA, ".account-limited.lock"), "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return
+    known = set(limited())
+    while known:
+        lim = limited()
+        if set(lim) != known:
+            env()
+            restart(now=False)
+            known = set(lim)
+            continue
+        time.sleep(max(5, min(600, min(lim.values()) - time.time() + 5)))
 
 
 # ── an account's config dir / 계정의 설정 폴더 ──
@@ -242,6 +410,54 @@ def login(name):
     return bool(who(name))
 
 
+def check_key(key):
+    """None when Anthropic takes the key, else why not / Anthropic 이 키를 받으면 None, 아니면 이유"""
+    req = urllib.request.Request("https://api.anthropic.com/v1/models?limit=1",
+                                 headers={"x-api-key": key, "anthropic-version": "2023-06-01"})
+    try:
+        urllib.request.urlopen(req, timeout=15).read()
+        return None
+    except urllib.error.HTTPError as e:
+        return tr("키가 맞지 않습니다", "The key was not accepted") if e.code in (401, 403) else f"HTTP {e.code}"
+    except OSError as e:
+        return str(e)
+
+
+def add_key(name, key):
+    """An account that runs on an API key. Claude Code asks once whether to use a key it finds: answered here
+    API 키로 도는 계정. Claude Code 는 찾은 키를 쓸지 한 번 묻는다: 여기서 미리 답해 둔다"""
+    d = prepare(name)
+    path = os.path.join(d, KEY_FILE)
+    fd = os.open(path + ".tmp", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(key + "\n")
+    os.replace(path + ".tmp", path)
+    cj = os.path.join(d, ".claude.json")
+    cur = read_json(cj)
+    r = cur.get("customApiKeyResponses") if isinstance(cur.get("customApiKeyResponses"), dict) else {}
+    r = {"approved": [k for k in r.get("approved", []) if k != key[-20:]] + [key[-20:]],
+         "rejected": [k for k in r.get("rejected", []) if k != key[-20:]]}
+    cur["customApiKeyResponses"] = r
+    write_atomic(cj, json.dumps(cur, indent=2, ensure_ascii=False))
+    env()
+
+
+def go_on(pane):
+    """(SessionStart after a move at the limit) Ask the Claude to go on with what the limit cut, once it rests with an
+    empty prompt / (한도로 옮긴 뒤 SessionStart) 한도로 끊긴 일을 이어 하라고 한다. 쉬고 입력창이 비면"""
+    time.sleep(8)                       # after the hook's other keys (bin/hivemux-rename rc-off-hidden) / 훅의 다른 키 다음에
+    for _ in range(30):
+        st = tmux("show", "-pqv", "-t", pane, "@claude_state").strip()
+        free = subprocess.run([os.path.join(HERE, "hivemux-team"), "prompt-free", pane],
+                              stdin=subprocess.DEVNULL, capture_output=True).returncode == 0
+        if st in ("idle", "done") and free:
+            tmux("send-keys", "-t", pane, "-l", tr("사용 한도 때문에 끊겼던 일을 이어서 해 주세요.",
+                                                   "Please go on with the work the usage limit cut off."))
+            tmux("send-keys", "-t", pane, "Enter")
+            return
+        time.sleep(2)
+
+
 # ── tmux and running Claudes / tmux 와 실행 중인 Claude ──
 
 def env():
@@ -258,10 +474,12 @@ def env():
         tmux("set-environment", "-gu", "HIVEMUX_CLAUDE")
     if g == "default":
         tmux("set-environment", "-gu", "CLAUDE_CONFIG_DIR")
-        tmux("set", "-gu", "@hivemux-account")
     else:
         tmux("set-environment", "-g", "CLAUDE_CONFIG_DIR", config_dir(g))
-        tmux("set", "-g", "@hivemux-account", g)
+    # the status line names the account Claudes run on: the fallback while one is at its limit
+    # 상태줄은 Claude 가 실제로 도는 계정을 보인다: 한도에 걸린 동안은 fallback
+    lim = limited()
+    tmux("set", "-g", "@hivemux-account", "" if effective(g, lim) == "default" else effective(g, lim))
     for s in tmux("list-sessions", "-F", "#{session_name}").splitlines():
         n = proj.get(s)
         if n is None:
@@ -272,6 +490,7 @@ def env():
                 tmux("set-environment", "-r", "-t", f"={s}", "CLAUDE_CONFIG_DIR")
             else:
                 tmux("set-environment", "-t", f"={s}", "CLAUDE_CONFIG_DIR", config_dir(n))
+            n = effective(n, lim)
             tmux("set", "-t", f"={s}:", "@hivemux-account", "" if n == "default" else n)
     for c in tmux("list-clients", "-F", "#{client_name}").splitlines():
         tmux("refresh-client", "-t", c, "-S")
@@ -315,7 +534,7 @@ def running_dir(pid):
 def movers(g, proj):
     """[(pane, project)]: the Claudes running on another account than (g, proj) gives their project
     [(칸, 프로젝트)]: (g, proj) 가 그 프로젝트에 정하는 것과 다른 계정으로 도는 Claude"""
-    out = []
+    out, lim = [], limited()
     for ln in tmux("list-panes", "-a", "-F", "#{pane_id}\t#{pane_pid}\t#{session_name}\t#{@claude_session}").splitlines():
         pane, shell, sess, sid = (ln.split("\t") + ["", "", "", ""])[:4]
         if not sid:
@@ -323,7 +542,7 @@ def movers(g, proj):
         pid = claude_pid(shell)
         if not pid:
             continue
-        want = proj.get(sess, g)
+        want = effective(proj.get(sess, g), lim)
         want_dir = "" if want == "default" else config_dir(want)
         if os.path.normpath(running_dir(pid) or HOME_DIR) != os.path.normpath(want_dir or HOME_DIR):
             out.append((pane, sess))
@@ -344,14 +563,16 @@ def choice(name, session=None):
     return g, proj
 
 
-def restart():
+def restart(now=True):
     """Mark the Claudes on another account than their project's now and let the watcher restart them, even on a
-    screen (you just chose this), also those stopped by a rate limit; returns how many
+    screen (you just chose this), also those stopped by a rate limit; returns how many. now=False: once they are
+    off the screens and not working (a limit reset), also stopped by an API error
     프로젝트의 지금 계정과 다른 계정으로 도는 Claude 를 표시하고 watch 가 다시 시작하게 한다. 화면에 보여도 (방금
-    고른 것이므로), 한도에 걸려 멈춘 것도. 몇 개인지 돌려준다"""
+    고른 것이므로), 한도에 걸려 멈춘 것도. 몇 개인지 돌려준다. now=False: 화면에 없고 일하지 않을 때 (한도가 풀림).
+    API 오류로 멈춘 것도"""
     moved = movers(*chosen())
     for pane, _ in moved:
-        tmux("set", "-p", "-t", pane, "@claude_restart_pending", "now")
+        tmux("set", "-p", "-t", pane, "@claude_restart_pending", "now" if now else "back")
     n = len(moved)
     if n:
         subprocess.Popen([os.path.join(HERE, "hivemux-claude-update"), "watch"], stdin=subprocess.DEVNULL,
@@ -493,9 +714,9 @@ def draw(out, rows, sel, here, session, proj, typing, asking, msg, cols, lines):
             ps = [s for s, v in proj.items() if v == key]
             if ps:
                 extra += tr(f"  · 프로젝트 {len(ps)}개", f"  · {len(ps)} project(s)")
-        raw = f" ▌ {mark} {name}{extra}"
+        raw = f"   {mark} {name}{extra}"
         if i == sel:
-            buf.append(f"{bg(SEL_BG)}{fg(ACC)} ▌ {fg(mc)}{mark} {fg(TEXT)}{BOLD}{name}{RST}{bg(SEL_BG)}{fg(T3)}{extra}"
+            buf.append(f"{bg(SEL_BG)}   {fg(mc)}{mark} {fg(TEXT)}{BOLD}{name}{RST}{bg(SEL_BG)}{fg(T3)}{extra}"
                        + " " * max(0, cols - 2 - width(raw)) + RST + bg(BG) + "\r\n")
         else:
             buf.append(f"{bg(BG)}   {fg(mc)}{mark} {fg(TEXT)}{name}{fg(T3)}{extra}\r\n")
@@ -657,7 +878,11 @@ def main(argv):
         for r in rows:
             print(("* " if r["all"] else "  ") + r["name"].ljust(16) + (r.get("email") or tr("(로그인 안 됨)", "(not logged in)"))
                   + (f"   [{', '.join(r['projects'])}]" if r["projects"] else "")
-                  + (tr("   (앱에 숨김)", "   (hidden from the app)") if r["hidden"] else ""))
+                  + (tr("   (앱에 숨김)", "   (hidden from the app)") if r["hidden"] else "")
+                  + (tr("   (한도 시 이어 감)", "   (goes on at a limit)") if r["name"] == fallback() else ""))
+        for a, u in sorted(limited().items()):
+            print(tr(f"  {a} 는 사용 한도에 걸려 {time.strftime('%m-%d %H:%M', time.localtime(u))} 까지 {fallback() or '-'} 로 돕니다",
+                     f"  {a} is at its usage limit: on {fallback() or '-'} until {time.strftime('%m-%d %H:%M', time.localtime(u))}"))
     elif cmd == "add" and len(argv) > 1:
         name = argv[1]
         if not NAME_RE.match(name) or name in ("default", "all"):
@@ -667,6 +892,41 @@ def main(argv):
             raise SystemExit(tr("로그인하지 못했습니다.", "Login did not finish."))
         env()
         print(tr(f"{name} 계정을 추가했습니다: hivemux account use {name}", f"Added {name}: hivemux account use {name}"))
+    elif cmd == "add-key" and len(argv) > 1:
+        name = argv[1]
+        if not NAME_RE.match(name) or name in ("default", "all") or (name in names() and not api_key(name)):
+            raise SystemExit(tr("사용할 수 없는 이름입니다.", "That name cannot be used."))
+        key = (getpass.getpass(tr("API 키 (sk-ant-…, 화면에 보이지 않습니다): ", "API key (sk-ant-…, not shown): "))
+               if sys.stdin.isatty() else sys.stdin.readline()).strip()
+        if not key.startswith("sk-ant-"):
+            raise SystemExit(tr("sk-ant- 로 시작하는 API 키가 아닙니다.", "That is not an API key (sk-ant-…)."))
+        why = check_key(key)
+        if why:
+            raise SystemExit(tr(f"키를 확인하지 못했습니다: {why}", f"Could not check the key: {why}"))
+        add_key(name, key)
+        print(tr(f"{name} 계정을 추가했습니다 (API 키). 한도에 걸리면 이어 가게 하려면: hivemux account fallback {name}",
+                 f"Added {name} (API key). To go on with it at a usage limit: hivemux account fallback {name}"))
+    elif cmd == "fallback" and len(argv) > 1:
+        if argv[1] == "off":
+            try:
+                os.unlink(FALLBACK)
+            except OSError:
+                pass
+            print(tr("사용 한도에 걸려도 다른 계정으로 넘어가지 않습니다.", "A usage limit no longer moves Claudes to another account."))
+        elif api_key(argv[1]):
+            os.makedirs(DATA, exist_ok=True)
+            write_atomic(FALLBACK, argv[1] + "\n")
+            print(tr(f"구독이 사용 한도에 걸리면 그 Claude 들을 {argv[1]} (API 키) 로 같은 대화에서 이어 갑니다. 한도가 풀리면 되돌립니다.",
+                     f"At a subscription's usage limit its Claudes go on with {argv[1]} (API key) in the same conversation, and come back when it resets."))
+        else:
+            raise SystemExit(tr(f"{argv[1]} 는 API 키 계정이 아닙니다: hivemux account add-key {argv[1]}",
+                                f"{argv[1]} is not an API key account: hivemux account add-key {argv[1]}"))
+    elif cmd == "limit" and len(argv) > 1:        # the StopFailure hook / StopFailure 훅
+        at_limit(argv[1], argv[2] if len(argv) > 2 else "", argv[3] if len(argv) > 3 else "")
+    elif cmd == "go-on" and len(argv) > 1:        # the SessionStart hook / SessionStart 훅
+        go_on(argv[1])
+    elif cmd == "watch-limits":
+        watch_loop()
     elif cmd == "use" and len(argv) > 1:
         n = use(argv[1], session)
         if n:

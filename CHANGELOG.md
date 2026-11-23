@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Accounts, go on with an API key at the usage limit: `hivemux account add-key <name>` adds an account that runs
+  on an Anthropic API key (asked for, checked, and approved for Claude Code beforehand), and `hivemux account
+  fallback <name>` moves the Claudes of a subscription at its usage limit onto it in the same conversation; the
+  one the limit cut off is asked to go on. They move back when the limit resets (the time in the limit message,
+  else five hours), once off the screen and not working, also when stopped by an API error. The status line
+  shows the account they run on.
+- Account popup: the selected row has no bar on its left.
+
 - A Claude that Claude Code moved into its background daemon (it can do so while a subagent runs) lost its pane:
   the hooks ran there without TMUX_PANE, so the pane stayed "running" with an agent for days, without diets or
   done notifications, and a resume opened the conversation from before the move. The hook now finds the pane

@@ -307,6 +307,15 @@ to it; every Claude carries on in the same conversation.
   its turn ends), and again whenever it connects anew (a restart, a resume).
   It holds through `/clear` and reboots; the same menu item connects them
   again. A whole account: `hivemux account hide shared`.
+- **Go on with an API key at the limit.** `hivemux account add-key api` adds
+  an account that runs on an Anthropic API key (it asks for the key, checks
+  it, and answers Claude Code's "use this key?" for you).
+  `hivemux account fallback api` then moves the Claudes of a subscription that
+  hits its usage limit onto that key, in the same conversation, and the one the
+  limit cut off is asked to go on. When the limit resets (the time in the
+  limit message, else five hours), they move back once they are off the screen
+  and not working. API use is billed per request. `hivemux account fallback
+  off` stops it.
 - **Where you are.** The status line shows `◉ work` when the account in use
   is not the default one. `hivemux account list` shows every account, its
   email and the projects on it.

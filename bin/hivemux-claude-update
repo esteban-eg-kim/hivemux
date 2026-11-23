@@ -69,7 +69,7 @@ outdated() { # outdated <pid> <current binary> <updated 0|1>
 # Restart one marked pane if it is free now; 0 = done with it (restarted or nothing to do), 1 = later
 # 표시한 칸 하나를 지금 한가하면 다시 시작한다. 0 = 끝 (다시 시작했거나 할 일 없음), 1 = 나중에
 restart() {
-  local pane="$1" pp pid st at sid cwd cmd i
+  local pane="$1" pp pid st at sid cwd cmd i pend
   pp="$(t display -p -t "$pane" '#{pane_pid}')" || return 0
   [ -n "$pp" ] || return 0
   pid="$(claude_pid "$pp")"
@@ -90,10 +90,13 @@ restart() {
   st="$(t show -pqv -t "$pane" @claude_state)"; at="$(t show -pqv -t "$pane" @claude_state_at)"
   # "now" (a switch of account, bin/hivemux-account): also on a screen, and also stopped by an API error (a rate limit)
   # "now" (계정 전환, bin/hivemux-account): 화면에 보여도, API 오류(요청 한도)로 멈췄어도
-  if [ "$(t show -pqv -t "$pane" @claude_restart_pending)" = now ]; then
+  # "back" (a usage limit reset, bin/hivemux-account): off the screens, but also stopped by an API error (the API
+  # key's credit ran out) / "back" (사용 한도가 풀림): 화면에 없을 때. 다만 API 오류 (API 키 크레딧이 떨어짐) 로 멈췄어도
+  pend="$(t show -pqv -t "$pane" @claude_restart_pending)"
+  if [ "$pend" = now ]; then
     case "$st" in run) return 1 ;; wait) [[ "$(t show -pqv -t "$pane" @claude_wait)" == error* ]] || return 1 ;; esac
   else
-    case "$st" in run|wait) return 1 ;; esac
+    case "$st" in run) return 1 ;; wait) [ "$pend" = back ] && [[ "$(t show -pqv -t "$pane" @claude_wait)" == error* ]] || return 1 ;; esac
     t list-clients -F '#{window_id}' | grep -qxF "$(t display -p -t "$pane" '#{window_id}')" && return 1
   fi
   [ "$st" = done ] && t set -p -t "$pane" @claude_restore "$st $at"

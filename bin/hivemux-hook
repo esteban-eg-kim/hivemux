@@ -251,6 +251,12 @@ case "$event" in
       # 컨텍스트 크기는 이전 대화의 것이었다: 첫 응답이 끝날 때까지 다이어트가 안 된 것처럼 보였다
       clear|compact) t set -pu -t "$TMUX_PANE" @claude_ctx; t set -pu -t "$TMUX_PANE" @claude_ctx_at ;;
     esac
+    # moved to the API key account at a usage limit: go on with what it cut (bin/hivemux-account at_limit)
+    # 사용 한도로 API 키 계정에 옮김: 끊긴 일을 이어 한다 (bin/hivemux-account at_limit)
+    if [ -n "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @hivemux-continue 2>/dev/null)" ]; then
+      t set -pu -t "$TMUX_PANE" @hivemux-continue
+      ( "$(dirname "$0")/hivemux-account" go-on "$TMUX_PANE" >/dev/null 2>&1 & )
+    fi
     # a Claude kept out of the Claude app stays so in its next conversation and after a reboot (bin/hivemux-account hide)
     # Claude 앱에서 숨긴 Claude 는 다음 대화와 재부팅 뒤에도 숨긴 채 (bin/hivemux-account hide)
     hc="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux/hidden-claudes"
@@ -401,6 +407,11 @@ case "$event" in
     # API 오류(요청 한도, 과부하, 인증 등)로 응답이 끊김: Stop 이 오지 않으니 확인하도록 입력 필요로 표시
     why error "$(printf '%s' "$input" | "$JQ" -r '[.error, .error_type, .message, .reason][] | strings' 2>/dev/null | head -1)"
     state wait
+    # a subscription at its usage limit goes on with the API key account set for it (bin/hivemux-account fallback)
+    # 사용 한도에 걸린 구독은 정해 둔 API 키 계정으로 이어 간다 (bin/hivemux-account fallback)
+    [ "$(field error)" = rate_limit ] && [ -s "${XDG_DATA_HOME:-$HOME/.local/share}/hivemux/account-fallback" ] &&
+      ( "$(dirname "$0")/hivemux-account" limit "$TMUX_PANE" "$(field last_assistant_message) $(field error_details)" \
+        "$(field transcript_path)" >/dev/null 2>&1 & )
     ;;
   SessionEnd)
     t set -pu -t "$TMUX_PANE" @claude_state
