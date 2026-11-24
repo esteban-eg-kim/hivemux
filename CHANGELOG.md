@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.79 — 2026-11-24
 
 - Sidebar, much lighter: with 60 Claudes and 59 resting sidebars it used 35% of a core and the tmux server
   14%; now 6% and 4%, and a sixth of the output goes to the terminal. The visible sidebar drew every resting
