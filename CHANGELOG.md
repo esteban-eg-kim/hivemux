@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.78 — 2026-11-24
 
 - Accounts, go on with an API key at the usage limit: `hivemux account add-key <name>` adds an account that
   runs on an Anthropic API key (asked for, checked, and approved for Claude Code beforehand), and `hivemux
