@@ -10,7 +10,7 @@ bin/hivemux-sidebar 가 각 창 왼쪽 칸에서 실행한다.
 - click or press 1-9 to jump; double/right click to rename; q or Esc returns focus
   클릭하거나 1-9 를 누르면 이동, 더블/오른쪽 클릭은 이름 바꾸기, q 나 Esc 는 원래 칸으로
 """
-import errno, functools, math, os, queue, re, shlex, socket, select, shutil, signal, subprocess, sys, termios, threading, time, tty, unicodedata
+import errno, functools, os, queue, re, shlex, socket, select, shutil, signal, subprocess, sys, termios, threading, time, tty, unicodedata
 
 # Ignore the redraw signal (SIGUSR1) first, so it cannot kill us before the handler is installed
 # 바로 다시 그리기 신호(SIGUSR1)를 처리기 등록 전에 받아도 종료되지 않게 먼저 무시한다
@@ -114,18 +114,20 @@ def cwidth(c):
     return 0 if unicodedata.combining(c) else 2 if unicodedata.east_asian_width(c) in "WF" else 1
 
 
+@functools.lru_cache(maxsize=4096)
 def width(s):
     return sum(cwidth(c) for c in s)
 
 
+@functools.lru_cache(maxsize=1024)
 def fit(s, w):
-    out = ""
-    for c in s:
-        if width(out + c) > w:
-            out = out[:-1] + "…" if out else ""
+    n = 0
+    for i, c in enumerate(s):
+        n += cwidth(c)
+        if n > w:
+            out = s[:i - 1] + "…" if i else ""
             return out + " " * max(0, w - width(out))
-        out += c
-    return out + " " * (w - width(out))
+    return s + " " * (w - n)
 
 
 def tmux(*a):
@@ -153,15 +155,14 @@ C = {
     "bg":      (22, 24, 29),     # sidebar background / 사이드바 바탕
     "card":    (30, 33, 40),     # card / 카드
     "card_hi": (42, 47, 58),     # badges, menu / 배지, 메뉴
-    "card_sel": (58, 65, 82),    # selected card / 선택된 카드
-    "frame":   (225, 230, 240),  # side lines of the selected card / 선택된 카드 양옆 선
+    "card_sel": (66, 74, 94),    # selected card / 선택된 카드
     "rule":    (44, 48, 57),     # divider / 구분선
     "text":    (230, 233, 239),  # text / 본문
     "text2":   (154, 163, 178),  # secondary text / 보조
     "text3":   (98, 106, 120),   # dim text / 흐림
     "run":     (90, 169, 255),
     "run_hi":  (170, 215, 255),
-    "glow":    (52, 104, 168),   # glow band for running cards / 작업 중 빛 띠
+    "glow":    (58, 116, 186),   # band of light over running cards / 작업 중 카드를 지나는 빛 띠
     "wait":    (245, 165, 36),
     "wait_bg": (52, 40, 18),
     "wait_hi": (78, 58, 20),
@@ -169,7 +170,7 @@ C = {
     # 멈춘 카드 (애니메이션 없음: 원격 화면, @hivemux-anim off)는 바탕색으로 구분한다
     "run_bg":      (26, 43, 68),
     "run_bg_sel":  (44, 78, 126),
-    "wait_bg_sel": (96, 70, 22),
+    "wait_bg_sel": (116, 84, 24),
     "done":    (62, 207, 142),
     "idle":    (92, 99, 112),
     "home":    (132, 126, 206),  # clocked out, at home (bin/hivemux-shift) / 퇴근해서 집에 감
@@ -218,7 +219,17 @@ PROJECT_HUES = [(167, 139, 250), (244, 114, 182), (45, 212, 191), (251, 146, 60)
 FRAME = 0
 NOW_T = 0.0      # animation clock (seconds); motion is time-based so frame rate only changes smoothness
                  # 애니메이션 시계(초). 시간 기준이라 프레임 수는 부드러움만 바꾼다
-TICK = 1 / 30    # animation frame interval (30 fps) / 애니메이션 프레임 간격(초당 30)
+TICK = 1 / 15    # animation frame interval (15 fps; the spinner steps 10 times a second) / 애니메이션 프레임 간격(초당 15. 스피너는 10걸음)
+# where the spinners of the last render are: [(row, column, background, colour, bold)], 0-based. Between changes only these
+# cells are drawn: the whole list, 50 cards of it, was made again for every frame
+# 마지막 render 의 스피너 자리: [(줄, 열, 바탕, 색, 굵게)], 0부터. 바뀐 것이 없는 동안은 이 칸만 그린다. 전에는 프레임마다
+# 카드 50장짜리 목록 전체를 다시 만들었다
+SPOTS = []
+# the running cards' rows, for the band of light: [(row, column, cells, background)]; a frame draws the cells whose
+# brightness (one of GLOW_STEPS) changed, not the card
+# 빛 띠가 지나갈 작업 중 카드의 줄: [(줄, 열, 칸들, 바탕)]. 프레임마다 카드가 아니라 밝기 (GLOW_STEPS 단계) 가 바뀐 칸만 그린다
+GLOWS = []
+GLOW_STEPS, GLOW_R = 5, 3.2
 SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 ANIM = True
 REST = 2.0                           # see REST_SH / REST_SH 참고
@@ -351,6 +362,7 @@ def home_cards(panes):
 PENDING = None      # menu action to run once the closed menu is off the screen / 닫힌 메뉴가 화면에서 지워진 뒤 실행할 동작
 
 
+@functools.lru_cache(maxsize=4096)
 def sgr(bg, fg, bold=False):
     # bold may be (bold, colour): also underline the cell in that colour (a thin line under a card)
     # bold 가 (굵게, 색) 이면 그 색 밑줄도 긋는다 (카드 아래 가는 선)
@@ -361,16 +373,62 @@ def sgr(bg, fg, bold=False):
     return "\x1b[0;48;2;%d;%d;%d;38;2;%d;%d;%d%s%sm" % (*bg, *fg, ";1" if bold else "", ul)
 
 
+@functools.lru_cache(maxsize=4096)
 def mix(a, b, t):
     t = max(0.0, min(1.0, t))
     return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+
+def glow_levels(n, t):
+    """The band of light over a card n columns wide at time t: the brightness of each column. It crosses at 11 columns a
+    second, then rests a moment / t 초에 폭 n 인 카드를 지나는 빛 띠: 열마다의 밝기. 초당 11칸으로 지나가고 잠깐 쉰다"""
+    pos = t * 11.0 % (n + 30) - 6
+    return tuple(int(GLOW_STEPS * 2.718 ** (-((x - pos) / GLOW_R) ** 2) + .5) for x in range(n))
+
+
+class Motion:
+    """What moves between two renders: the spinners and the band of light, drawn cell by cell over the frame
+    두 render 사이에 움직이는 것: 스피너와 빛 띠. 화면 위에 칸 단위로 그린다"""
+
+    def __init__(self):
+        self.spots, self.glows, self.step, self.lit, self.fresh = [], [], -1, (), False
+
+    def take(self, covered):
+        """Right after a render; True when the frame has to be drawn whole, or a band would stay where a card was
+        (covered: the menu lies over the cards) / render 바로 뒤에. 화면을 통째로 그려야 하면 True: 아니면 카드가 있던
+        자리에 띠가 남는다 (covered: 메뉴가 카드를 덮음)"""
+        spots, glows = ([], []) if covered else (list(SPOTS), list(GLOWS))
+        moved = any(self.lit) and [g[:2] for g in glows] != [g[:2] for g in self.glows]
+        self.spots, self.glows, self.fresh = spots, glows, True
+        if moved:
+            self.lit = ()
+        return moved
+
+    def frame(self, t):
+        step = int(t * 10) % len(SPIN)
+        n = sum(cwidth(c[0]) for c in self.glows[0][2]) if self.glows else 0
+        was, now = (self.lit if len(self.lit) == n else (0,) * n), glow_levels(n, t)
+        icons, out = {(y, x) for y, x, *_ in self.spots}, []
+        if self.fresh and any(now) or was != now:
+            for y, x, cells, bg in self.glows:
+                col, at, look = 0, -1, None
+                for ch, _, fg, b in cells:
+                    w = cwidth(ch)
+                    if (now[col] != was[col] or self.fresh and now[col]) and (y, x + col) not in icons:
+                        k = mix(bg, C["glow"], now[col] / GLOW_STEPS), fg, b
+                        out.append(("" if at == col else f"\x1b[{y + 1};{x + col + 1}H") + ("" if look == k else sgr(*k)) + ch)
+                        at, look = col + w, k
+                    col += w
+        if step != self.step or self.fresh or n and now[1] != was[1]:
+            out += [f"\x1b[{y + 1};{x + 1}H{sgr(mix(bg, C['glow'], now[1] / GLOW_STEPS if n else 0), fg, b)}{SPIN[step]}" for y, x, bg, fg, b in self.spots]
+        self.step, self.lit, self.fresh = step, now, False
+        return "".join(out) + "\x1b[0m" if out else ""
 
 
 def hue_of(name):
     return PROJECT_HUES[sum(ord(c) for c in name) % len(PROJECT_HUES)]
 
 
-AGES = {"@claude_state_at"}     # a time, shown as an age (see paint_resting) / 경과 시간으로 보이는 시각
 PANES = []      # the panes of the last snapshot (see paint_resting) / 마지막 스냅숏의 칸들 (paint_resting 참고)
 
 
@@ -479,18 +537,6 @@ class Line:
     def right(self, text, fg, bg=None, bold=False, margin=0):
         self.fill(self.w - margin - width(text), bg)
         return self.put(text, fg, bg, bold)
-
-    def glow(self, start, end, pos, base, color, radius=3.2):
-        """Blend a soft glow centered at pos into the background of columns start..end. / start~end 열 바탕에 pos 중심의 부드러운 빛을 섞는다."""
-        out, col = [], 0
-        for ch, bg, fg, b in self.cells:
-            if start <= col < end and bg == base:
-                d = (col - pos) / radius
-                bg = mix(base, color, 2.718 ** (-d * d))
-            out.append((ch, bg, fg, b))
-            col += width(ch)
-        self.cells = out
-        return self
 
     def tint(self, bg=None, fg=None):
         """Recolor the whole line (drag feedback) / 줄 전체 색 바꾸기 (끌기 표시)"""
@@ -605,7 +651,7 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
         tile = mix(C["bg"], hue, 0.20 if cur else 0.12)
         head_bg = mix(C["bg"], hue, 0.45 if cur else 0.30)
         S = lambda bg=tile: Line(cw, bg)
-        rows, cards = [], {}
+        rows, cards, spots, glows = [], {}, [], []
         hd = S(head_bg).put(" ").put(sess, C["text"], head_bg, bold=True, limit=cw - 3)
         if len(members) > 1:
             hd.right(str(len(members)), mix(C["text"], hue, 0.4), head_bg, margin=1)
@@ -635,17 +681,15 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
             st = p["@claude_state"] if p["@claude_state"] in STATE_TEXT else "idle"
             sel = p["pane_id"] == current
             card = C["card_sel"] if sel else C["card"]
-            bar = C[st]
+            hue_ = C[st]
             icon = STATE_ICON[st]
-            t_ = NOW_T
+            # the state is told by the card's colour and its sign / 상태는 카드 색과 기호로 보인다
             if st == "wait":
-                card = mix(C["wait_bg"], C["wait_hi"], (0.5 + 0.5 * math.sin(t_ * 2.25))) if ANIM else \
-                    C["wait_bg_sel"] if sel else C["wait_hi"]
-            if st == "run" and not ANIM:
+                card = C["wait_bg_sel"] if sel else C["wait_hi"]
+            if st == "run":
                 card = C["run_bg_sel"] if sel else C["run_bg"]
             if st == "run" and ANIM:
-                icon = SPIN[int(t_ * 10) % len(SPIN)]
-                bar = mix(C["run"], C["run_hi"], 0.5 + 0.5 * math.sin(t_ * 3.1))
+                icon = SPIN[int(NOW_T * 10) % len(SPIN)]
             dim = st in ("idle", "home")
             t = age(p["@claude_state_at"], now) if not dim else ""
             # at rest, the size of its context instead (bin/hivemux-team, every request reads it again)
@@ -654,44 +698,34 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
                 t = f"{int(p['@claude_ctx']) // 1000}K"
             key = f"⌥{i}" if 0 < i <= 9 else ""
             name = task_name(p)
-            bar_ch = "▌" if sel else "▎"
             drag_src = drag_dst = False
             if dragging and DRAG["kind"] == "card":
                 drag_src = p["pane_id"] == DRAG["src"]
                 drag_dst = p["pane_id"] == DRAG["over"] and not drag_src
                 if drag_dst:
-                    card, bar, bar_ch = C["drop"], C["run"], "▌"
+                    card = C["drop"]
 
             def card_line():
-                return S().put(" ", C["text"], tile).put(bar_ch, bar, card).put(" ", C["text"], card)
+                return S().put(" ", C["text"], tile).put(" ", C["text"], card)
 
             r1 = card_line()
             r1.put(name, C["text"] if not dim or sel else C["text2"], card, bold=True,
                    limit=x1 - (width(key) + 2 if key else 1))
             r1.fill(x1 - 1 - width(key), card).put(key, C["text"] if sel else C["text3"], card).fill(x1, card).fill(cw)
             r2 = card_line()
-            r2.put(f"{icon} {state_line(p, st)}", bar if st != "idle" else C["text3"], card, bold=st == "wait",
+            r2.put(f"{icon} {state_line(p, st)}", hue_ if st != "idle" else C["text3"], card, bold=st == "wait",
                    limit=x1 - (max(width(t), 3) if t else 0) - 2)   # room for "59s", so the line does not shift as it ages / "59s" 자리: 시간이 지나도 줄이 밀리지 않게
             r2.fill(x1 - 1 - width(t), card).put(t, C["text2"] if st != "wait" else C["wait"], card).fill(x1, card).fill(cw)
             lns = [r1, r2]
             if mi < len(members) - 1:       # a thin line under the card, before the next one / 다음 카드 앞에 가는 선
                 r2.cells = [(ch, bg_, fg_, (b_, head_bg) if 1 <= k < len(r2.cells) - 1 else b_)
                             for k, (ch, bg_, fg_, b_) in enumerate(r2.cells)]
-            if sel and not drag_dst:        # a bright line on both sides of this window's card / 이 창의 카드 양옆에 밝은 선
-                for r in lns:
-                    r.cells[0] = ("▐", tile, C["frame"], False)
-                    r.cells[-1] = ("▌", tile, C["frame"], False)
             if drag_src:
                 for r in lns:
                     r.tint(fg=C["text3"])
-            if st == "run" and ANIM and not drag_src and not drag_dst:
-                span = x1 - x0
-                # fractional position (11 columns/s): the gaussian glow blends neighbouring
-                # cells, so the band moves between cells instead of jumping a cell at a time
-                # 소수점 위치(초당 11칸): 가우시안 빛이 이웃 칸에 섞여 칸 단위로 튀지 않고 사이를 지나간다
-                pos = x0 + (t_ * 11.0) % (span + 12) - 6
-                for r in lns:
-                    r.glow(x0 + 1, x1, pos, card, C["glow"])
+            elif st == "run" and ANIM:
+                spots.append((len(rows) + 1, 2, card, hue_, r2.cells[2][3]))
+                glows.extend((len(rows) + k, x0, r.cells[1:-1], card) for k, r in enumerate(lns))
             for r in lns:
                 cards[len(rows)] = p["pane_id"]
                 rows.append(r)
@@ -701,18 +735,21 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
             t = age(ho[0], now)
             r = S().put(" ").put(f"✉ {ho[1]} → {ho[2]}", C["text2"], tile, limit=cw - width(t) - 3)
             rows.append(r.fill(cw - 1 - width(t), tile).put(t, C["text3"], tile).fill(cw))
-        return rows, cards
+        return rows, cards, spots, glows
 
     def build():
-        """Lay the boxes out; returns (lines, {row: [(x0, x1, pane)]}, {row: [(x0, x1, session)]})
-        상자를 배치한다. 돌려주는 값: (줄들, {줄: [(x0, x1, 칸)]}, {줄: [(x0, x1, 세션)]})"""
+        """Lay the boxes out; returns (lines, {row: [(x0, x1, pane)]}, {row: [(x0, x1, session)]}, spinners (see SPOTS))
+        상자를 배치한다. 돌려주는 값: (줄들, {줄: [(x0, x1, 칸)]}, {줄: [(x0, x1, 세션)]}, 스피너 자리 (SPOTS 참고))"""
         cols = [[] for _ in range(ncol)]            # per column: [(rows, cards, sess)] / 열마다
         hts = [0] * ncol
+        sp, gl = [], []
         for sess, members in groups:
-            rows, cards = box(sess, members)
+            rows, cards, spots, glows = box(sess, members)
             k = hts.index(min(hts))
             gap = 1 if cols[k] else 0
             cols[k].append((rows, cards, sess, hts[k] + gap))
+            sp.extend((hts[k] + gap + j, 1 + k * (cw + COL_GAP) + x, *look) for j, x, *look in spots)
+            gl.extend((hts[k] + gap + j, 1 + k * (cw + COL_GAP) + x, *look) for j, x, *look in glows)
             hts[k] += gap + len(rows)
         height = max(hts) if hts else 0
         out = [L().put(" ") for _ in range(height)]
@@ -734,18 +771,18 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
                     ln.fill(cx)
                     ln.cells += [("▀", C["bg"], tile, False)] * cw
                     ln.n += cw
-        return out, tg, hg
+        return out, tg, hg, sp, gl
 
-    global SCROLL, SCROLL_TO
+    global SCROLL, SCROLL_TO, SPOTS, GLOWS
     avail = h - 3 - len(lines)          # rows for the list / 목록에 쓸 줄 수
     # If it does not fit, the list scrolls (cards stay two lines, projects stay apart)
     # 넘치면 목록을 스크롤한다 (카드는 두 줄, 프로젝트 사이 빈 줄은 그대로)
-    body, tg, hg = build()
+    body, tg, hg, sp, gl = build()
     if not items and not sessions and not homes:
         body = [L(), L().put(tr("  실행 중인 Claude가 없습니다", "  No Claude sessions yet"), C["text2"]), L(),
                 L().put("  ", C["text3"]).put("prefix ⇧C", C["text"]).put(tr("  새 Claude", "  new Claude"), C["text3"]),
                 L().put("  ", C["text3"]).put(tr("hm 폴더", "hm <dir>"), C["text"]).put(tr("    프로젝트 열기", "   open project"), C["text3"])]
-        tg, hg = {}, {}
+        tg, hg, sp, gl = {}, {}, [], []
     top_max = max(0, len(body) - avail)
     if current != SCROLL_TO:            # bring this window's card into view / 이 창의 카드가 보이게
         SCROLL_TO = current
@@ -757,6 +794,7 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
     lines += body[SCROLL:SCROLL + avail]
     targets = {base + k: v for k, v in tg.items() if SCROLL <= k < SCROLL + avail}
     heads = {base + k: v for k, v in hg.items() if SCROLL <= k < SCROLL + avail}
+    SPOTS, GLOWS = ([(base + j, x, *look) for j, x, *look in l if SCROLL <= j < SCROLL + avail and base + j < h - 3] for l in (sp, gl))
     # more above / below: an arrow at the right end of the rule above / below the list
     # 위/아래에 더 있음: 목록 위/아래 구분선 오른쪽 끝에 화살표
     if SCROLL:
@@ -1173,15 +1211,22 @@ def clear_interrupted(items, runs, now):
     for pid in [k for k in runs if not k.startswith("bg") and not any(p["pane_id"] == k and p["@claude_state"] == "run" for p in items)]:
         del runs[pid]
     track_bg_shells(items, runs, now)
-    for p in items:
-        if p["@claude_state"] == "run" and p.get("@claude_bg"):
-            continue                    # background agents at work while Claude itself waits / Claude 는 쉬어도 배경 에이전트가 일한다
-        if p["@claude_state"] != "run":
-            continue
+    # (background agents at work while Claude itself waits are left out / Claude 는 쉬어도 배경 에이전트가 일하는 칸은 뺀다)
+    busy = [p for p in items if p["@claude_state"] == "run" and not p.get("@claude_bg")]
+    if not busy:
+        return
+    # every one's screen from one tmux call; a pane gone meanwhile ends the list, the rest come with the next poll
+    # 모든 칸의 화면을 tmux 한 번으로. 그 사이 사라진 칸이 있으면 거기서 끝나고 나머지는 다음에 읽는다
+    args = [a for p in busy for a in ("display", "-p", "-t", p["pane_id"], "\x1e#{pane_id} #{pane_in_mode}", ";", "capture-pane", "-p", "-t", p["pane_id"], ";")]
+    shots = {}
+    for part in tmux(*args[:-1]).replace("\\036", "\x1e").split("\x1e")[1:]:
+        first, _, screen = part.partition("\n")
+        shots[first.split(" ")[0]] = (first.endswith(" 1"), screen)
+    for p in busy:
         pid, at = p["pane_id"], p["@claude_state_at"]
-        if tmux("display", "-p", "-t", pid, "#{pane_in_mode}").strip() == "1":
+        if pid not in shots or shots[pid][0]:
             continue                    # scrolled back: the screen is not Claude's now / 스크롤 중: 지금 화면이 아니다
-        tail = [ln for ln in tmux("capture-pane", "-p", "-t", pid).splitlines() if ln.strip()][-12:]
+        tail = [ln for ln in shots[pid][1].splitlines() if ln.strip()][-12:]
         st = runs.get(pid)
         missing = st[1] if st and st[0] == at else 0
         if not tail or any(BUSY_RE.search(ln) or SPIN_RE.match(ln) for ln in tail):
@@ -1286,8 +1331,7 @@ def clear_quit(shells):
     killed): after three polls with a shell in front, clear it like the SessionEnd hook does
     Claude 가 끝났는데 상태가 칸에 남음 (SessionEnd 가 아직 안 왔거나 강제 종료): 셸이 세 번 연속 앞에
     있으면 SessionEnd 훅처럼 지운다"""
-    panes = [l.split(" ") for l in tmux("list-panes", "-a", "-F", "#{pane_id} #{pane_current_command} #{@claude_state}").splitlines()]
-    stale = {p[0] for p in panes if len(p) == 3 and p[2] and p[1].lstrip("-") in SHELLS}
+    stale = {p["pane_id"] for p in PANES if p["@claude_state"] and p["pane_current_command"].lstrip("-") in SHELLS}
     for pid in list(shells):
         if pid not in stale:
             del shells[pid]
@@ -1364,13 +1408,13 @@ def paint_resting(painted, scroll):
     """Keep the frames of resting sidebars (see REST_SH) current: a resting sidebar cannot draw, and the
     frame it left grew old, so the window you went back to after a while showed it and then jumped to the
     new one. One visible sidebar (the lowest pane number) draws them into their panes, only the rows
-    that changed, and only when what it shows changed or its ages are 15 seconds old (drawing all of them
-    every second took a tenth of a core) (painted: pane -> (size, rows, what it showed, when))
+    that changed, and only when what it shows changed or its ages are 30 seconds old (drawing all of them
+    every second took a third of a core) (painted: pane -> (size, rows, what it showed, when))
     쉬는 사이드바(REST_SH 참고)의 화면을 최신으로 둔다: 쉬는 사이드바는 그리지 못해서 남긴 화면이 낡았고,
     한참 만에 돌아간 창이 그 화면을 보이다가 새 화면으로 튀었다. 보이는 사이드바 하나(칸 번호가 가장
-    작은 것)가 그 칸들에 그려 준다. 보여 줄 것이 바뀌었거나 시간 표시가 15초 지났을 때만, 바뀐 줄만
-    (매초 모두 그리면 CPU 코어의 10분의 1을 썼다) (painted: 칸 -> (크기, 줄들, 보여 준 것, 시각))"""
-    global SCROLL, SCROLL_TO, OFFICE_BTN, SHIFT_BTN, UPDATE_BTN
+    작은 것)가 그 칸들에 그려 준다. 보여 줄 것이 바뀌었거나 시간 표시가 30초 지났을 때만, 바뀐 줄만
+    (매초 모두 그리면 CPU 코어의 3분의 1을 썼다) (painted: 칸 -> (크기, 줄들, 보여 준 것, 시각))"""
+    global SCROLL, SCROLL_TO, OFFICE_BTN, SHIFT_BTN, UPDATE_BTN, SPOTS, GLOWS
     side = [p for p in PANES if p["pane_title"] == "hivemux-sidebar"]
     live = [p["pane_id"] for p in side if not p["@hivemux-rest"] and p["window_active"] == "1"
             and p["session_attached"] not in ("", "0")]
@@ -1378,32 +1422,49 @@ def paint_resting(painted, scroll):
         painted.clear()
         return
     now = time.time()
+    # the same for every one of them but the card marked and the project: read once, not once a sidebar (there were 82)
+    # 표시할 카드와 프로젝트 말고는 모두 같다: 사이드바마다가 아니라 (82개였다) 한 번만 읽는다
+    v = view(PANES, ME)
+    if not v:
+        return
+    items, _, _, _, sessions, homes = v
+    # what a card shows: the whole pane title changes every second while a Claude works (its first letter turns), so
+    # every resting sidebar was drawn again every second
+    # 카드에 보이는 것만: 칸 제목은 Claude 가 일하는 동안 매초 바뀌어 (첫 글자가 돈다) 쉬는 사이드바를 매초 모두 다시 그렸다
+    shows = repr([(q["pane_id"], q["session_name"], q["@claude_state"], task_name(q), state_line(q, q["@claude_state"])
+                   if q["@claude_state"] in STATE_TEXT else "", q.get("@hivemux-team"), q.get("@hivemux-roleorder"), q.get("@hivemux-handoff"))
+                  for q in items + homes] + [sessions, scroll, clocked_out(), update_new(), REMOTE_HERE])
+    by_win = {}
+    for q in PANES:
+        by_win.setdefault(q["window_id"], []).append(q)
     for p in side:
-        time.sleep(.003)     # on the writer thread: let the visible sidebar's frames through between panes / 쓰기 스레드에서: 칸 사이마다 보이는 사이드바의 프레임을 먼저 보낸다
         pid = p["pane_id"]
-        v = view(PANES, pid) if p["@hivemux-rest"] == "1" else None
-        if not v:
+        if p["@hivemux-rest"] != "1":
             painted.pop(pid, None)
             continue
-        items, current, _, cur_sess, sessions, homes = v
         size = int(p["pane_width"]), int(p["pane_height"])
-        sig = repr(([{k: x for k, x in q.items() if k not in AGES} for q in items],
-                    current, cur_sess, sessions, homes, scroll))
+        wins = [q for q in by_win[p["window_id"]] if q["pane_id"] != pid]
+        act = next((q for q in wins if q["pane_active"] == "1"), None) or next((q for q in wins if q["pane_last"] == "1"), None) or (wins[0] if wins else None)
+        current, cur_sess = act["pane_id"] if act else "", p["session_name"]
+        sig = shows, current, cur_sess
         old = painted.get(pid)
-        if old and old[0] == size and old[2] == sig and now - old[3] < 15:
+        # a change goes out within 3 seconds, the ages every 30: a window you go to draws its own at once
+        # 바뀐 것은 3초 안에, 경과 시간은 30초마다: 옮겨 간 창은 바로 자기 화면을 그린다
+        if old and old[0] == size and now - old[3] < (30 if old[2] == sig else 3):
             continue
+        time.sleep(.003)     # on the writer thread: let the visible sidebar's frames through between panes / 쓰기 스레드에서: 칸 사이마다 보이는 사이드바의 프레임을 먼저 보낸다
         with RENDER_LOCK:
-            keep = SCROLL, SCROLL_TO, OFFICE_BTN, SHIFT_BTN, UPDATE_BTN
+            keep = SCROLL, SCROLL_TO, OFFICE_BTN, SHIFT_BTN, UPDATE_BTN, SPOTS, GLOWS
             try:
                 SCROLL, SCROLL_TO = scroll, None       # as it will start when woken / 깨어날 때처럼
                 lines, _ = render(items, current, *size, cur_sess, sessions, homes)
             finally:
-                SCROLL, SCROLL_TO, OFFICE_BTN, SHIFT_BTN, UPDATE_BTN = keep
-        # the rows that changed, but all of them every 15 seconds: rows it took as unchanged may not be
+                SCROLL, SCROLL_TO, OFFICE_BTN, SHIFT_BTN, UPDATE_BTN, SPOTS, GLOWS = keep
+        # the rows that changed, but all of them every 30 seconds: rows it took as unchanged may not be
         # what the pane shows (the sidebar drew there itself while awake)
-        # 바뀐 줄만, 단 15초마다 모두: 안 바뀌었다고 본 줄이 칸에 보이는 것과 다를 수 있다 (깨어 있던
+        # 바뀐 줄만, 단 30초마다 모두: 안 바뀌었다고 본 줄이 칸에 보이는 것과 다를 수 있다 (깨어 있던
         # 사이드바가 직접 그렸다)
-        if old and old[0] == size and now - old[3] < 15:
+        if old and old[0] == size and now - old[3] < 30:
             frame = "".join(f"\x1b[{i + 1};1H{ln}" for i, ln in enumerate(lines) if i >= len(old[1]) or old[1][i] != ln)
         else:
             frame = "\x1b[H" + "\r\n".join(lines)
@@ -1471,6 +1532,7 @@ def main():
     scrolled = 0.0                   # when the wheel last turned here / 여기서 휠을 마지막으로 굴린 시각
     board_blink = False
     REMOTE_ON = False
+    dirty, motion = True, Motion()   # something may look different / 다르게 보일 수 있음
 
     def poll_once(scroll_now):
         """One poll: the panes, the settings, and the checks that read panes' screens (on the poller thread)
@@ -1480,15 +1542,18 @@ def main():
         got = {"snap": snapshot()}
         if got["snap"] is None:
             return got
+        # the settings and the screens in one tmux call, not one each (36 a second were started)
+        # 설정과 화면을 tmux 한 번으로. 따로 부르지 않는다 (초당 36개를 띄웠다)
+        head, *rest_ = (tmux("display", "-p", "#{@hivemux-scroll}\t#{@hivemux-anim}\t#{@hivemux-sidebar-rest}\t#{@hivemux-fps}\t#{@hivemux-notify}\t#{@hivemux-remote-clients}",
+                             ";", "list-clients", "-F", "#{client_name} #{window_id}").splitlines() or [""])
+        v, anim, rest, fps, notify, remote = [x.strip() for x in (head.split("\t") + [""] * 6)[:6]]
         scroll = None
-        v = tmux("show", "-gqv", "@hivemux-scroll").strip()
         if v != shared:
             shared = v
             if v.isdigit() and not scroll_now:
                 scroll = int(v)
         got["scroll"], got["shared"] = scroll, shared
-        anim = tmux("show", "-gqv", "@hivemux-anim").strip() != "off"
-        rest = tmux("show", "-gqv", "@hivemux-sidebar-rest").strip()
+        anim = anim != "off"
         got["rest"] = (float(rest) or float("inf")) if rest.isdigit() else 2.0
         # a screen attached from another Mac (bin/hivemux-attach): every animation frame and
         # status line spinner step would go over the network and make its typing lag, so keep
@@ -1497,8 +1562,8 @@ def main():
         # 네트워크로 가서 입력이 느려지므로, 그 화면이 이 창을 보는 동안 멈춘다 (스피너는 붙어 있는 동안)
         # only screens still attached count: a detach the hook missed leaves its name behind
         # 지금 붙어 있는 화면만 센다: 훅이 놓친 분리는 이름을 남긴다
-        remote = set(tmux("show", "-gqv", "@hivemux-remote-clients").split())
-        clients = [l.split(" ", 1) for l in tmux("list-clients", "-F", "#{client_name} #{window_id}").splitlines() if " " in l]
+        remote = set(remote.split())
+        clients = [l.split(" ", 1) for l in rest_ if " " in l]
         remote_on, remote_here = any(c in remote for c, _ in clients), None
         if remote_on:
             mine = tmux("display", "-p", "-t", ME, "#{window_id}").strip()
@@ -1512,17 +1577,15 @@ def main():
                 if remote_here:
                     remote_here = tmux("show", "-gqv", f"@hivemux-name-{remote_here}").strip() or remote_here
         got["anim"], got["remote_on"], got["remote_here"] = anim, remote_on, remote_here
-        # @hivemux-fps: animation frames per second (default 30; lower saves CPU)
-        # @hivemux-fps: 초당 애니메이션 프레임 (기본 30, 낮추면 CPU 절약)
-        fps = tmux("show", "-gqv", "@hivemux-fps").strip()
-        got["tick"] = 1 / max(5, min(60, int(fps))) if fps.isdigit() else 1 / 30
+        # @hivemux-fps: animation frames per second (default 15) / @hivemux-fps: 초당 애니메이션 프레임 (기본 15)
+        got["tick"] = 1 / max(2, min(30, int(fps))) if fps.isdigit() else 1 / 15
         snap = got["snap"]
         if snap[2]:
             clear_answered(snap[0], waits, nowf)
             clear_interrupted(snap[0], runs, nowf)
             clear_quit(quits)
         notify_changes(snap[0], seen, sent, nowf,
-                       snap[2] and tmux("show", "-gqv", "@hivemux-notify").strip() != "off")
+                       snap[2] and notify != "off")
         return got
 
     def quick_poll():
@@ -1542,7 +1605,7 @@ def main():
         shared = scroll.strip()
         got.update(scroll=int(shared) if shared.isdigit() else None, shared=shared, anim=anim.strip() != "off",
                    rest=(float(rest) or float("inf")) if rest.strip().isdigit() else 2.0, remote_on=False, remote_here=None,
-                   tick=1 / max(5, min(60, int(fps))) if fps.strip().isdigit() else 1 / 30)
+                   tick=1 / max(2, min(30, int(fps))) if fps.strip().isdigit() else 1 / 15)
         return got
 
     box, box_lock, want = [None], threading.Lock(), threading.Event()
@@ -1628,19 +1691,29 @@ def main():
                     except BlockingIOError:
                         pass
                 continue
-            animating = visible and ANIM and any(p["@claude_state"] in ("run", "wait") for p in items)
+            animating = visible and ANIM and any(p["@claude_state"] == "run" for p in items)
+            # drawn between changes: the cells that move only (Motion) / 바뀐 것이 없는 동안: 움직이는 칸만 (Motion)
+            if not dirty and got is None and prev is not None and not (woke or resized[0] or MENU or DRAG or scrolled or PENDING):
+                moves = motion.frame(time.time()) if animating else ""
+                if moves:
+                    out.write(moves)
+                    out.flush()
+                still = True
+            else:
+                still = False
+            dirty = False
             FRAME += 1
             NOW_T = time.time()
+            # Spinner for running windows in the top status line (driven by the visible sidebar)
+            # 맨 위 창 목록의 작업 중 스피너 (보이는 사이드바 하나가 맡는다)
+            # 2 steps/s: each one is a tmux call and draws the whole status line again
+            # 초당 2번: 한 번마다 tmux 를 부르고 상태줄 전체를 다시 그린다
             if visible:
-                # Spinner for running windows in the top status line (driven by the visible sidebar)
-                # 맨 위 창 목록의 작업 중 스피너 (보이는 사이드바 하나가 맡는다)
-                # 6 steps/s, independent of the frame rate, so tmux is not asked to redraw 30x/s
-                # 프레임 수와 상관없이 초당 6번: tmux 상태줄을 초당 30번 다시 그리지 않게
-                spin = SPIN[int(NOW_T * 6) % len(SPIN)] if animating and not REMOTE_ON and any(p["@claude_state"] == "run" for p in items) else ""
+                spin = SPIN[int(NOW_T * 2) % len(SPIN)] if animating and not REMOTE_ON and any(p["@claude_state"] == "run" for p in items) else ""
                 if spin != last_spin:
-                    later.put(lambda spin=spin: (tmux("set", "-g", "@claude_spin", spin) if spin else tmux("set", "-gu", "@claude_spin"),
-                                                 tmux("refresh-client", "-S")))
+                    later.put(lambda spin=spin: tmux("set", *(("-g", "@claude_spin", spin) if spin else ("-gu", "@claude_spin")), ";", "refresh-client", "-S"))
                     last_spin = spin
+            if visible and not (still and not board_blink):
                 # a finished task you are looking at becomes "seen": on the screen that has the keyboard
                 # focus, not one that is only attached (another Ghostty window, another Mac), where it
                 # used to turn idle at once while you looked elsewhere
@@ -1682,11 +1755,13 @@ def main():
             # (a field without a state change) showed old for a moment in the window you switched to
             # 보일 때 그린다. 숨은 사이드바는 첫 화면, 깨울 때 (프로젝트 닫힘, 상태 바뀜), 그리고 읽을 때마다
             # 바뀐 줄만 그린다: 훅이 깨우지 않은 변화 (상태는 그대로인 항목) 가 옮겨 간 창에서 잠깐 낡게 보였다
-            if visible or prev is None or woke or polled:
+            if not still and (visible or prev is None or woke or polled):
                 woke = polled = False
                 w, h = os.get_terminal_size()
                 with RENDER_LOCK:
                     lines, (targets, heads) = render(items, current, w, h, cur_sess, sessions, homes)
+                    if motion.take(bool(MENU) or not animating):
+                        prev = None
                 # Draw only rows that changed since the last frame; a full redraw only on
                 # the first frame or a resize. Cuts what tmux has to parse by ~10x.
                 # 직전 프레임과 달라진 줄만 그린다. 첫 프레임과 크기 변경 때만 전체를 그린다.
@@ -1699,7 +1774,7 @@ def main():
                 else:
                     frame = "".join(f"\x1b[{i + 1};1H{ln}" for i, ln in enumerate(lines) if i >= len(prev) or prev[i] != ln)
                 if frame:
-                    out.write(frame + "\x1b[0m")
+                    out.write(frame + "\x1b[0m" + (motion.frame(NOW_T) if animating else ""))
                     out.flush()
                     if FRAME_LOG:
                         with open(FRAME_LOG, "a") as dbg:
@@ -1737,6 +1812,7 @@ def main():
                 else:
                     wait_s = min(wait_s, 0.26 - (time.time() - scrolled))
             r, _, _ = select.select([fd, WAKE_R], [], [], wait_s)
+            dirty = bool(r) or not animating
             if WAKE_R in r:
                 try:
                     got_bytes = os.read(WAKE_R, 512)

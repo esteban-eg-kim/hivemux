@@ -71,8 +71,8 @@ set -g automatic-rename-format "#{?#{==:#{pane_title},hivemux-sidebar},#{window_
 run-shell 'w=$(cat "#{@hivemux-data}/sidebar-width" 2>/dev/null); tmux set -g @hivemux-sidebar-width "${w:-32}"'
 # running/waiting animations; set to off to disable
 set -gq @hivemux-anim on
-# animation frames per second (5-60); lower it to save CPU, e.g. 15
-set -gq @hivemux-fps 30
+# animation frames per second (2-30)
+set -gq @hivemux-fps 15
 # desktop notification when a task needs input or finishes (sent through the terminal, also over ssh); off to disable
 # 작업이 입력 필요가 되거나 끝나면 데스크톱 알림 (터미널을 거쳐 보내므로 ssh 로 붙어도 온다). off 로 끔
 set -gq @hivemux-notify on

@@ -20,9 +20,9 @@ macOS and Linux (on Linux, `Option` is `Alt`).
 ## Features
 
 - **One board for every session.** A box per project in its own color, with a
-  card per Claude showing live state and elapsed time. Running cards glow,
-  waiting cards pulse amber, and the one you are in has a white line on each
-  side. Widen the sidebar for 2 or 3 columns; a long list scrolls with the wheel.
+  card per Claude showing live state and elapsed time. A band of light
+  crosses running cards, waiting cards turn amber, and the one you are in is
+  lighter. Widen the sidebar for 2 or 3 columns; a long list scrolls with the wheel.
 - **Teams.** Give a project a team of Claudes with roles (research, planning,
   design, dev, QA, marketing), each in its own window, handing work to each
   other by name. Tell the lead the goal; it plans and hands the work out. Set
@@ -660,7 +660,7 @@ and none are while you are clocked out.
 hivemux doctor                         # check dependencies, wiring and the ssh server
 hivemux-panes list                     # panes hivemux will resume after reboot
 tmux set -g @hivemux-anim off          # stop animations (to keep them off: menu → Settings)
-tmux set -g @hivemux-fps 15            # fewer animation frames, less CPU (default 30)
+tmux set -g @hivemux-fps 5             # fewer animation frames (default 15)
 hivemux-sidebar respawn                # restart every sidebar
 touch ~/tmux_no_auto_restore           # skip restore on next launch
 ```

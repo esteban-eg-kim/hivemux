@@ -256,27 +256,23 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
 .side2 .sum .r { color: #5aa9ff; } .side2 .sum .w { color: #f5a524; font-weight: 700; }
 .side2 .bx { background: color-mix(in srgb, var(--h) 12%, #16181d); margin: 6px 6px 0; padding-bottom: 5px; }
 .side2 .bx .cd + .cd { box-shadow: inset 0 1px 0 color-mix(in srgb, var(--h) 30%, #16181d); }
-.side2 .bx .cd + .cd.sel { box-shadow: -4px 0 0 #e1e6f0, 4px 0 0 #e1e6f0, inset 0 1px 0 color-mix(in srgb, var(--h) 30%, #16181d); }
 .side2 .bx.cur { background: color-mix(in srgb, var(--h) 20%, #16181d); }
 .side2 .pj { display: flex; align-items: center; padding: 1px 8px; margin-bottom: 5px; color: #e6e9ef; font-weight: 700; background: color-mix(in srgb, var(--h) 30%, #16181d); }
 .side2 .bx.cur .pj { background: color-mix(in srgb, var(--h) 45%, #16181d); }
 .side2 .pj span { margin-left: auto; color: color-mix(in srgb, var(--h) 40%, #e6e9ef); font-weight: 400; }
-.side2 .cd { margin: 0 8px; display: grid; grid-template-columns: 1fr auto; column-gap: 6px; padding: 3px 8px; background: #1e2128; border-left: 2px solid #5c6370; color: #e6e9ef; }
+.side2 .cd { margin: 0 8px; display: grid; grid-template-columns: 1fr auto; column-gap: 6px; padding: 3px 8px; background: #1e2128; color: #e6e9ef; }
 .side2 .cd .t { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .side2 .cd b { color: #626a78; font-weight: 400; }
 .side2 .cd .a { color: #9aa3b2; }
-.side2 .cd.run { border-left-color: #5aa9ff; } .side2 .cd.run .s { color: #5aa9ff; }
-.side2 .cd.done { border-left-color: #3ecf8e; } .side2 .cd.done .s { color: #3ecf8e; }
+.side2 .cd.run { background: #1a2b44; } .side2 .cd.run .s { color: #5aa9ff; }
+.side2 .cd.done .s { color: #3ecf8e; }
 .side2 .cd.idle .s { color: #626a78; } .side2 .cd.idle .t { color: #9aa3b2; }
-.side2 .cd.wait { background: #342812; border-left-color: #f5a524; } .side2 .cd.wait .s { color: #f5a524; font-weight: 700; } .side2 .cd.wait .a { color: #f5a524; }
-.side2 .cd.sel { background: #3a4152; border-left-width: 4px; box-shadow: -4px 0 0 #e1e6f0, 4px 0 0 #e1e6f0; } .side2 .cd.sel b { color: #e6e9ef; }
-.side2 .cd.run { position: relative; overflow: hidden; animation: pulse 1.6s ease-in-out infinite; }
-.side2 .cd.run::after { content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 40%; background: radial-gradient(ellipse at center, rgba(52,104,168,.75), transparent 70%); animation: sweep 1.8s linear infinite; pointer-events: none; }
-.side2 .cd.wait { animation: blink 2.2s ease-in-out infinite; }
-@keyframes sweep { to { left: 110%; } }
-@keyframes pulse { 0%,100% { border-left-color: #5aa9ff; } 50% { border-left-color: #aad7ff; } }
-@keyframes blink { 0%,100% { background: #342812; } 50% { background: #4e3a14; } }
-@media (prefers-reduced-motion: reduce) { .side2 .cd.run, .side2 .cd.wait, .side2 .cd.run::after { animation: none; } }
+.side2 .cd.wait { background: #4e3a14; } .side2 .cd.wait .s { color: #f5a524; font-weight: 700; } .side2 .cd.wait .a { color: #f5a524; }
+.side2 .cd.sel { background: #424a5e; } .side2 .cd.sel b { color: #e6e9ef; }
+.side2 .cd.run { position: relative; overflow: hidden; }
+.side2 .cd.run::after { content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 40%; background: radial-gradient(ellipse at center, rgba(58,116,186,.75), transparent 70%); animation: sweep 3.8s linear infinite; pointer-events: none; }
+@keyframes sweep { 50%, 100% { left: 110%; } }
+@media (prefers-reduced-motion: reduce) { .side2 .cd.run::after { animation: none; } }
 .side2 .ft { margin-top: auto; margin-inline: 12px; padding-top: 8px; border-top: 1px solid #2c3039; display: grid; gap: 4px; color: #626a78; }
 .side2 .ft kbd { background: #2a2f3a; color: #e6e9ef; border: 0; font-size: 0.75rem; padding: 0 5px; min-width: 0; }
 .side2 .ft .w kbd { background: #f5a524; color: #16181d; } .side2 .ft .w { color: #f5a524; }
@@ -360,7 +356,7 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
 
     <div class="st"><div>
       <h3>See every task and jump to it</h3>
-      <p>The <b>sidebar</b> on the left is the board. Whichever project you are in, it always shows every Claude in every project as cards, grouped by project, with the task name. The color of the card's left bar is its state; a card that needs your input turns amber. The task you are looking at is the <b>lighter card with a white line on each side</b>.</p>
+      <p>The <b>sidebar</b> on the left is the board. Whichever project you are in, it always shows every Claude in every project as cards, grouped by project, with the task name. The sign and its color are the state; a running card is blue, and one that needs your input is amber. The task you are looking at is the <b>lighter card</b>.</p>
       <div class="screen" role="img" aria-label="Example tmux screen: window list on top, sidebar on the left, work pane on the right">
         <div class="tbar"><span class="sess">web</span><span class="win">1:claude <span class="st-wait">●</span></span><span class="win">2:shell</span><span class="win cur">3:login-bug <span class="st-wait">●</span></span><span class="grow"></span><span class="clock">10-06 11:20</span></div>
         <div class="side2">
@@ -389,7 +385,7 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
       </div>
       <p><kbd>Option</kbd>+number jumps straight to that Claude, even in another project. Clicking a card does the same.</p>
       <p><kbd>Option</kbd>+<kbd>0</kbd> jumps to the Claude that has waited longest. With nothing amber, it goes to a finished green card you have not seen yet. Press it repeatedly to work through everything that is waiting.</p>
-      <p class="result">Running cards have a light band sweeping across and a spinner. Cards that need input pulse amber. The top window list shows a spinner next to running windows too. Numbers follow project names and stay put when states change, so they are easy to remember. The second line of each card shows the state and elapsed time, so you can decide what to look at first. Each project is a box with a header band in the project's color. Widen the sidebar and the boxes go into 2 or 3 columns; cards of one project are split by a thin line in its color, with no blank row; when they do not fit, the list scrolls with the mouse wheel. ▲ ▼ at the end of a rule show more above or below, and every window shares the scroll position, so going to another task keeps the list where it was. To hide the sidebar, press <kbd>Ctrl</kbd>+<kbd>A</kbd> then <kbd>b</kbd>; press again to bring it back.</p>
+      <p class="result">Running cards have a light band sweeping across and a spinner. Cards that need input turn amber. The top window list shows a spinner next to running windows too. Numbers follow project names and stay put when states change, so they are easy to remember. The second line of each card shows the state and elapsed time, so you can decide what to look at first. Each project is a box with a header band in the project's color. Widen the sidebar and the boxes go into 2 or 3 columns; cards of one project are split by a thin line in its color, with no blank row; when they do not fit, the list scrolls with the mouse wheel. ▲ ▼ at the end of a rule show more above or below, and every window shares the scroll position, so going to another task keeps the list where it was. To hide the sidebar, press <kbd>Ctrl</kbd>+<kbd>A</kbd> then <kbd>b</kbd>; press again to bring it back.</p>
     </div></div>
 
     <div class="st"><div>
@@ -471,18 +467,18 @@ claude -c
     <div><b>Project box</b><span>One box per project (tmux session): a header band in the project's color with its name and the number of Claudes (when more than one), its Claude cards below. The project you are in is stronger</span></div>
     <div><b>Task name</b><span>Claude's conversation title or the -n name. Claude may retitle it as the conversation goes</span></div>
     <div><b>⌥ number</b><span>Top right of the card: the number for Option+number</span></div>
-    <div><b>White side lines</b><span>The task you are looking at</span></div>
+    <div><b>Lighter card</b><span>The task you are looking at</span></div>
     <div><b>Top line: web 1:claude …</b><span>Current project and its windows. The highlighted one is the current window</span></div>
   </div>
   <div class="scroll"><table>
     <thead><tr><th>Card</th><th>Meaning</th><th>What to do</th></tr></thead>
     <tbody>
-      <tr><td><span class="pill" style="background:#875f00;color:#ffd787">● needs input</span></td><td>Waiting for an approval or an answer. The whole card pulses amber; the number is how long it has waited</td><td>Look at it first. Option+0</td></tr>
-      <tr><td><span class="pill" style="background:#303030;color:#87d787;border-left:3px solid #5fd787">✓ done</span></td><td>Finished, not seen yet. Green bar</td><td>Check the result; it turns idle once you look</td></tr>
-      <tr><td><span class="pill" style="background:#303030;color:#87d7ff;border-left:3px solid #5fafff">◐ running</span></td><td>Working. A light band sweeps across and the blue bar pulses; the number is how long it has run</td><td>Let it work</td></tr>
-      <tr><td><span class="pill" style="background:#303030;color:#8a8a8a;border-left:3px solid #585858">○ idle</span></td><td>Waiting for your next request; you have seen the result</td><td>Go there to give a new task</td></tr>
-      <tr><td><span class="pill" style="background:#303030;color:#9a94e0;border-left:3px solid #847ece">☾ home · right-click to clock in</span></td><td>A Claude clocked out by itself. The card stays, dimmed, with no ⌥ number</td><td>Right-click → Clock in brings it back in the same conversation (a plain click does nothing)</td></tr>
-      <tr><td><span class="pill" style="background:#3a4152;color:#e6e9ef;box-shadow:-3px 0 0 #e1e6f0,3px 0 0 #e1e6f0;margin-inline:3px">White side lines</span></td><td>The task you are looking at</td><td>Nothing</td></tr>
+      <tr><td><span class="pill" style="background:#875f00;color:#ffd787">● needs input</span></td><td>Waiting for an approval or an answer. The whole card is amber; the number is how long it has waited</td><td>Look at it first. Option+0</td></tr>
+      <tr><td><span class="pill" style="background:#303030;color:#87d787">✓ done</span></td><td>Finished, not seen yet. Green bar</td><td>Check the result; it turns idle once you look</td></tr>
+      <tr><td><span class="pill" style="background:#303030;color:#87d7ff">◐ running</span></td><td>Working. A light band sweeps across a blue card; the number is how long it has run</td><td>Let it work</td></tr>
+      <tr><td><span class="pill" style="background:#303030;color:#8a8a8a">○ idle</span></td><td>Waiting for your next request; you have seen the result</td><td>Go there to give a new task</td></tr>
+      <tr><td><span class="pill" style="background:#303030;color:#9a94e0">☾ home · right-click to clock in</span></td><td>A Claude clocked out by itself. The card stays, dimmed, with no ⌥ number</td><td>Right-click → Clock in brings it back in the same conversation (a plain click does nothing)</td></tr>
+      <tr><td><span class="pill" style="background:#3a4152;color:#e6e9ef">Lighter card</span></td><td>The task you are looking at</td><td>Nothing</td></tr>
     </tbody>
   </table></div>
   <p>A card's second line adds a short note to the state. A waiting card says what it waits for: <b>approve · Run the DB migration</b> (the description Claude writes for each command, or the file for an edit), <b>question · Which session store?</b>, <b>plan</b>, <b>input</b> (an MCP server asking) or <b>error</b> (stopped on an API error). A finished card says how many files the turn changed, as in <b>done · 7 files</b>. When a turn ends while background agents still work, it stays running as <b>2 agents running</b> and turns done once Claude takes up their results and really finishes. A Claude clocked out but still busy shows <b>overtime</b>.</p>
@@ -787,8 +783,8 @@ hivemux-sidebar respawn</pre></div>
     <details class="issue" data-c="term"><summary>Turn off the animations<span class="pill part tag">Terminal</span></summary><div class="body">
       <p>In the sidebar's right-click menu → <b>Settings</b>, set Animation to <b>off</b>. It stops at once and stays off after restarts. To turn it off just for now, use the command below.</p>
       <div class="code"><button class="copy" type="button">Copy</button><pre>tmux set -g @hivemux-anim off
-<span class="cmt"># or keep them and use less CPU with fewer frames (default 30)</span>
-tmux set -g @hivemux-fps 15</pre></div>
+<span class="cmt"># or keep them and use less CPU with fewer frames (default 15)</span>
+tmux set -g @hivemux-fps 5</pre></div>
     </div></details>
     <details class="issue" data-c="term"><summary>Setup says tmux 3.2: need 3.3 or newer (Linux)<span class="pill part tag">Terminal</span></summary><div class="body">
       <p>The distribution's tmux is too old. Ubuntu 22.04 has 3.2; Ubuntu 24.04+, Debian 12+, Fedora and Arch have 3.3 or newer. Upgrade the system (or install a newer tmux) and run <code>hivemux setup</code> again.</p>

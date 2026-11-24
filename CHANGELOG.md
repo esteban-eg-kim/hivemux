@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Sidebar, much lighter: with 60 Claudes and 59 resting sidebars it used 35% of a core and the tmux server
+  14%; now 6% and 4%, and a sixth of the output goes to the terminal. The visible sidebar drew every resting
+  one again each second, because the first letter of Claude's title turns while it works; they are drawn when
+  what a card shows changes, at most every 3 seconds. Between changes only the cells that move are drawn (the
+  spinners, and the cells of the light band whose brightness changed) instead of the whole list being made
+  again 30 times a second. A poll starts a few tmux commands instead of dozens, and the status line's spinner
+  steps twice a second.
+- Sidebar cards have no bar on their left, and the one you are in no white lines at its sides: the state is
+  told by the sign and its color, a running card is blue, one that needs input is amber (it no longer pulses),
+  the one you are in is lighter. The light band crosses a running card, then rests a moment. `@hivemux-fps` is
+  15 by default.
+
 ## 0.1.78 — 2026-11-24
 
 - Accounts, go on with an API key at the usage limit: `hivemux account add-key <name>` adds an account that

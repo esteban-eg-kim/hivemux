@@ -256,27 +256,23 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
 .side2 .sum .r { color: #5aa9ff; } .side2 .sum .w { color: #f5a524; font-weight: 700; }
 .side2 .bx { background: color-mix(in srgb, var(--h) 12%, #16181d); margin: 6px 6px 0; padding-bottom: 5px; }
 .side2 .bx .cd + .cd { box-shadow: inset 0 1px 0 color-mix(in srgb, var(--h) 30%, #16181d); }
-.side2 .bx .cd + .cd.sel { box-shadow: -4px 0 0 #e1e6f0, 4px 0 0 #e1e6f0, inset 0 1px 0 color-mix(in srgb, var(--h) 30%, #16181d); }
 .side2 .bx.cur { background: color-mix(in srgb, var(--h) 20%, #16181d); }
 .side2 .pj { display: flex; align-items: center; padding: 1px 8px; margin-bottom: 5px; color: #e6e9ef; font-weight: 700; background: color-mix(in srgb, var(--h) 30%, #16181d); }
 .side2 .bx.cur .pj { background: color-mix(in srgb, var(--h) 45%, #16181d); }
 .side2 .pj span { margin-left: auto; color: color-mix(in srgb, var(--h) 40%, #e6e9ef); font-weight: 400; }
-.side2 .cd { margin: 0 8px; display: grid; grid-template-columns: 1fr auto; column-gap: 6px; padding: 3px 8px; background: #1e2128; border-left: 2px solid #5c6370; color: #e6e9ef; }
+.side2 .cd { margin: 0 8px; display: grid; grid-template-columns: 1fr auto; column-gap: 6px; padding: 3px 8px; background: #1e2128; color: #e6e9ef; }
 .side2 .cd .t { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .side2 .cd b { color: #626a78; font-weight: 400; }
 .side2 .cd .a { color: #9aa3b2; }
-.side2 .cd.run { border-left-color: #5aa9ff; } .side2 .cd.run .s { color: #5aa9ff; }
-.side2 .cd.done { border-left-color: #3ecf8e; } .side2 .cd.done .s { color: #3ecf8e; }
+.side2 .cd.run { background: #1a2b44; } .side2 .cd.run .s { color: #5aa9ff; }
+.side2 .cd.done .s { color: #3ecf8e; }
 .side2 .cd.idle .s { color: #626a78; } .side2 .cd.idle .t { color: #9aa3b2; }
-.side2 .cd.wait { background: #342812; border-left-color: #f5a524; } .side2 .cd.wait .s { color: #f5a524; font-weight: 700; } .side2 .cd.wait .a { color: #f5a524; }
-.side2 .cd.sel { background: #3a4152; border-left-width: 4px; box-shadow: -4px 0 0 #e1e6f0, 4px 0 0 #e1e6f0; } .side2 .cd.sel b { color: #e6e9ef; }
-.side2 .cd.run { position: relative; overflow: hidden; animation: pulse 1.6s ease-in-out infinite; }
-.side2 .cd.run::after { content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 40%; background: radial-gradient(ellipse at center, rgba(52,104,168,.75), transparent 70%); animation: sweep 1.8s linear infinite; pointer-events: none; }
-.side2 .cd.wait { animation: blink 2.2s ease-in-out infinite; }
-@keyframes sweep { to { left: 110%; } }
-@keyframes pulse { 0%,100% { border-left-color: #5aa9ff; } 50% { border-left-color: #aad7ff; } }
-@keyframes blink { 0%,100% { background: #342812; } 50% { background: #4e3a14; } }
-@media (prefers-reduced-motion: reduce) { .side2 .cd.run, .side2 .cd.wait, .side2 .cd.run::after { animation: none; } }
+.side2 .cd.wait { background: #4e3a14; } .side2 .cd.wait .s { color: #f5a524; font-weight: 700; } .side2 .cd.wait .a { color: #f5a524; }
+.side2 .cd.sel { background: #424a5e; } .side2 .cd.sel b { color: #e6e9ef; }
+.side2 .cd.run { position: relative; overflow: hidden; }
+.side2 .cd.run::after { content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 40%; background: radial-gradient(ellipse at center, rgba(58,116,186,.75), transparent 70%); animation: sweep 3.8s linear infinite; pointer-events: none; }
+@keyframes sweep { 50%, 100% { left: 110%; } }
+@media (prefers-reduced-motion: reduce) { .side2 .cd.run::after { animation: none; } }
 .side2 .ft { margin-top: auto; margin-inline: 12px; padding-top: 8px; border-top: 1px solid #2c3039; display: grid; gap: 4px; color: #626a78; }
 .side2 .ft kbd { background: #2a2f3a; color: #e6e9ef; border: 0; font-size: 0.75rem; padding: 0 5px; min-width: 0; }
 .side2 .ft .w kbd { background: #f5a524; color: #16181d; } .side2 .ft .w { color: #f5a524; }
@@ -360,7 +356,7 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
 
     <div class="st"><div>
       <h3>모든 작업 상태 보기와 바로 이동</h3>
-      <p>화면 왼쪽의 <b>사이드바</b>가 작업 상태판입니다. 어느 프로젝트를 보고 있든 모든 프로젝트의 Claude가 프로젝트별로 묶여 작업 이름과 함께 카드로 항상 표시됩니다. 카드 왼쪽 선의 색이 상태이고, 입력이 필요한 작업은 카드 전체가 호박색입니다. 지금 보고 있는 작업은 <b>양옆에 흰 선이 있는 밝은 카드</b>로 표시됩니다.</p>
+      <p>화면 왼쪽의 <b>사이드바</b>가 작업 상태판입니다. 어느 프로젝트를 보고 있든 모든 프로젝트의 Claude가 프로젝트별로 묶여 작업 이름과 함께 카드로 항상 표시됩니다. 기호와 글자 색이 상태이고, 작업 중인 카드는 파란 바탕, 입력이 필요한 카드는 호박색 바탕입니다. 지금 보고 있는 작업은 <b>밝은 카드</b>로 표시됩니다.</p>
       <div class="screen" role="img" aria-label="tmux 화면 예시: 맨 위 창 목록, 왼쪽 사이드바, 오른쪽 작업 칸">
         <div class="tbar"><span class="sess">web</span><span class="win">1:claude <span class="st-wait">●</span></span><span class="win">2:shell</span><span class="win cur">3:login-bug <span class="st-wait">●</span></span><span class="grow"></span><span class="clock">10-06 11:20</span></div>
         <div class="side2">
@@ -389,7 +385,7 @@ ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
       </div>
       <p><kbd>Option</kbd>+번호를 누르면 그 Claude로 바로 갑니다. 프로젝트가 달라도 한 번에 이동합니다. 사이드바의 타일을 클릭해도 됩니다.</p>
       <p><kbd>Option</kbd>+<kbd>0</kbd>은 가장 오래 기다린 Claude로 갑니다. 주황색 항목이 없으면 끝났는데 아직 안 본 초록색 항목으로 갑니다. 이 키만 반복해서 누르면 기다리는 작업을 차례로 처리할 수 있습니다.</p>
-      <p class="result">작업 중인 카드는 밝은 빛 띠가 계속 훑고 지나가고 스피너가 돕니다. 입력이 필요한 카드는 호박색으로 깜빡입니다. 맨 위 창 목록에서도 작업 중인 창 옆에 스피너가 돕니다. 번호는 프로젝트 이름순으로 매겨지고 작업이 바뀌어도 그대로라서 손에 익습니다. 타일 아랫줄에 상태와 경과 시간이 보여서 무엇을 먼저 볼지 정할 수 있습니다. 각 프로젝트는 프로젝트 색 머리 띠가 달린 상자로 묶입니다. 사이드바를 넓히면 상자가 2열, 3열로 늘어나고, 같은 프로젝트의 카드는 빈 줄 없이 프로젝트 색 가는 선으로 나뉩니다. 세로로 다 들어가지 않으면 마우스 휠로 스크롤합니다. 위나 아래에 더 있으면 구분선 끝에 ▲ ▼가 보이고, 스크롤 위치는 모든 창이 함께 써서 다른 작업으로 옮겨도 그대로입니다. 사이드바가 거슬리면 <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>b</kbd>로 숨기고 다시 보일 수 있습니다.</p>
+      <p class="result">작업 중인 카드는 밝은 빛 띠가 훑고 지나가고 스피너가 돕니다. 입력이 필요한 카드는 호박색이 됩니다. 맨 위 창 목록에서도 작업 중인 창 옆에 스피너가 돕니다. 번호는 프로젝트 이름순으로 매겨지고 작업이 바뀌어도 그대로라서 손에 익습니다. 타일 아랫줄에 상태와 경과 시간이 보여서 무엇을 먼저 볼지 정할 수 있습니다. 각 프로젝트는 프로젝트 색 머리 띠가 달린 상자로 묶입니다. 사이드바를 넓히면 상자가 2열, 3열로 늘어나고, 같은 프로젝트의 카드는 빈 줄 없이 프로젝트 색 가는 선으로 나뉩니다. 세로로 다 들어가지 않으면 마우스 휠로 스크롤합니다. 위나 아래에 더 있으면 구분선 끝에 ▲ ▼가 보이고, 스크롤 위치는 모든 창이 함께 써서 다른 작업으로 옮겨도 그대로입니다. 사이드바가 거슬리면 <kbd>Ctrl</kbd>+<kbd>A</kbd> 다음 <kbd>b</kbd>로 숨기고 다시 보일 수 있습니다.</p>
     </div></div>
 
     <div class="st"><div>
@@ -481,18 +477,18 @@ claude -c
     <div><b>프로젝트 상자</b><span>프로젝트(세션)마다 상자 하나. 프로젝트 색 머리 띠에 이름과 Claude 수(2개 이상일 때)가 있고, 그 아래에 Claude 카드가 들어갑니다. 지금 보는 프로젝트는 더 진하게 표시</span></div>
     <div><b>작업 이름</b><span>Claude가 정한 대화 제목이나 -n 이름. 대화가 진행되면 Claude가 제목을 바꿉니다</span></div>
     <div><b>⌥ 번호</b><span>카드 오른쪽 위. Option+번호로 이동할 때 쓰는 번호</span></div>
-    <div><b>양옆 흰 선</b><span>지금 보고 있는 작업</span></div>
+    <div><b>밝은 카드</b><span>지금 보고 있는 작업</span></div>
     <div><b>맨 위 줄 web 1:claude …</b><span>지금 프로젝트 이름과 창 목록. 밝게 표시된 것이 현재 창</span></div>
   </div>
   <div class="scroll"><table>
     <thead><tr><th>카드</th><th>뜻</th><th>할 일</th></tr></thead>
     <tbody>
-      <tr><td><span class="pill" style="background:#875f00;color:#ffd787">● 입력 필요</span></td><td>승인이나 답을 기다림. 카드 전체가 호박색으로 깜빡임. 오른쪽 숫자는 기다린 시간</td><td>가장 먼저 보기. Option+0</td></tr>
-      <tr><td><span class="pill" style="background:#303030;color:#87d787;border-left:3px solid #5fd787">✓ 완료</span></td><td>응답을 끝냈고 아직 안 봄. 초록 선</td><td>결과 확인. 열어 보면 대기로 바뀜</td></tr>
-      <tr><td><span class="pill" style="background:#303030;color:#87d7ff;border-left:3px solid #5fafff">◐ 작업 중</span></td><td>작업 중. 빛 띠가 훑고 지나가고 파란 선이 맥박처럼 밝아짐. 오른쪽 숫자는 작업 시간</td><td>기다리기</td></tr>
-      <tr><td><span class="pill" style="background:#303030;color:#8a8a8a;border-left:3px solid #585858">○ 대기</span></td><td>다음 지시를 기다리는 상태. 결과는 이미 봄</td><td>새 지시를 줄 때 이동</td></tr>
-      <tr><td><span class="pill" style="background:#303030;color:#9a94e0;border-left:3px solid #847ece">☾ 퇴근 · 오른쪽 클릭으로 출근</span></td><td>혼자 퇴근한 Claude. 카드가 흐리게 남고 ⌥ 번호가 없음</td><td>오른쪽 클릭 → 출근으로 같은 대화에 돌아옴 (그냥 누르면 아무 일 없음)</td></tr>
-      <tr><td><span class="pill" style="background:#3a4152;color:#e6e9ef;box-shadow:-3px 0 0 #e1e6f0,3px 0 0 #e1e6f0;margin-inline:3px">양옆 흰 선</span></td><td>지금 보고 있는 작업</td><td>없음</td></tr>
+      <tr><td><span class="pill" style="background:#875f00;color:#ffd787">● 입력 필요</span></td><td>승인이나 답을 기다림. 카드 전체가 호박색. 오른쪽 숫자는 기다린 시간</td><td>가장 먼저 보기. Option+0</td></tr>
+      <tr><td><span class="pill" style="background:#303030;color:#87d787">✓ 완료</span></td><td>응답을 끝냈고 아직 안 봄</td><td>결과 확인. 열어 보면 대기로 바뀜</td></tr>
+      <tr><td><span class="pill" style="background:#303030;color:#87d7ff">◐ 작업 중</span></td><td>작업 중. 파란 바탕에 빛 띠가 훑고 지나감. 오른쪽 숫자는 작업 시간</td><td>기다리기</td></tr>
+      <tr><td><span class="pill" style="background:#303030;color:#8a8a8a">○ 대기</span></td><td>다음 지시를 기다리는 상태. 결과는 이미 봄</td><td>새 지시를 줄 때 이동</td></tr>
+      <tr><td><span class="pill" style="background:#303030;color:#9a94e0">☾ 퇴근 · 오른쪽 클릭으로 출근</span></td><td>혼자 퇴근한 Claude. 카드가 흐리게 남고 ⌥ 번호가 없음</td><td>오른쪽 클릭 → 출근으로 같은 대화에 돌아옴 (그냥 누르면 아무 일 없음)</td></tr>
+      <tr><td><span class="pill" style="background:#3a4152;color:#e6e9ef">밝은 카드</span></td><td>지금 보고 있는 작업</td><td>없음</td></tr>
     </tbody>
   </table></div>
   <p>카드 둘째 줄에는 상태와 함께 한 줄 설명이 붙습니다. 입력 필요 카드는 무엇을 기다리는지 보여 줍니다. <b>승인 · DB 마이그레이션 실행</b>처럼 Claude가 명령마다 직접 쓰는 설명(파일을 고치는 승인이면 파일 이름), <b>질문 · 세션 저장소로 무엇을 쓸까요?</b>, <b>계획 승인</b>, MCP 서버가 묻는 <b>입력</b>, API 오류로 멈춘 <b>오류</b>입니다. 완료 카드는 <b>완료 · 파일 7개</b>처럼 그 턴에 고친 파일 수를 보여 줍니다. 턴은 끝났지만 배경 에이전트가 아직 일하면 <b>에이전트 2개 실행 중</b>으로 작업 중에 머물고, 결과를 받아 정말 끝날 때 완료가 됩니다. 퇴근했지만 아직 일하는 Claude에는 <b>야근 후 퇴근</b>이 붙습니다.</p>
@@ -800,8 +796,8 @@ hivemux-sidebar respawn</pre></div>
     <details class="issue" data-c="term"><summary>깜빡이는 효과를 끄고 싶다<span class="pill part tag">터미널</span></summary><div class="body">
       <p>사이드바 오른쪽 클릭 메뉴 → <b>설정</b>에서 애니메이션을 <b>끄기</b>로 바꾸면 바로 멈추고, 저장되어 재시작 뒤에도 꺼져 있습니다. 명령으로 이번만 끄려면 아래처럼 하세요.</p>
       <div class="code"><button class="copy" type="button">복사</button><pre>tmux set -g @hivemux-anim off
-<span class="cmt"># 끄지 않고 CPU만 줄이려면 초당 프레임을 낮추세요 (기본 30)</span>
-tmux set -g @hivemux-fps 15</pre></div>
+<span class="cmt"># 끄지 않고 CPU만 줄이려면 초당 프레임을 낮추세요 (기본 15)</span>
+tmux set -g @hivemux-fps 5</pre></div>
     </div></details>
     <details class="issue" data-c="term"><summary>setup이 tmux 3.2: need 3.3 or newer로 멈춘다 (Linux)<span class="pill part tag">터미널</span></summary><div class="body">
       <p>배포판의 tmux가 너무 오래됐습니다. Ubuntu 22.04는 3.2이고, Ubuntu 24.04 이상, Debian 12 이상, Fedora, Arch에는 3.3 이상이 있습니다. 시스템을 올리거나 새 tmux를 설치한 뒤 <code>hivemux setup</code>을 다시 실행하세요.</p>
