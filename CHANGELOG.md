@@ -2,64 +2,65 @@
 
 ## Unreleased
 
-- Accounts, go on with an API key at the usage limit: `hivemux account add-key <name>` adds an account that runs
-  on an Anthropic API key (asked for, checked, and approved for Claude Code beforehand), and `hivemux account
-  fallback <name>` moves the Claudes of a subscription at its usage limit onto it in the same conversation; the
-  one the limit cut off is asked to go on. They move back when the limit resets (the time in the limit message,
-  else five hours), once off the screen and not working, also when stopped by an API error. The status line
-  shows the account they run on. In the account popup: **Add API key account…** and **At a usage limit, go on
-  with** (the first API key account added is picked). The key shows as you paste it (the middle of a long one
-  left out); the paste brackets and spaces are dropped, and the popup no longer loses what is past the first
-  64 bytes of a paste, which cut keys short and had them refused.
-- Accounts: a subscription Claude Code cannot use (a payment past due, billing, an account on hold) also goes on
-  with the API key account, for a day or until that account is chosen again; it went on failing before.
-- Accounts: the account to go on with at a usage limit can be set per project, in **Account for this project…**
-  (`hivemux account fallback <name|off|all> -s <project>`): only the projects picked go on with the API key.
-- Accounts, the API key account goes on through the Agent SDK by default (`bin/hivemux-sdk`): promotion credits
-  that are for the Agent SDK only stopped Claude Code at "Credit balance too low". A small Claude Code made with
-  the SDK runs in the pane with the same folder, tools, settings, CLAUDE.md, hooks and team role prompt; the
-  conversation passes as documents, as a diet does (a handoff written from the end of the Claude Code
-  conversation, and what it did, written after each turn). When the subscription can be used again it turns back
-  into Claude Code on the same conversation, which reads what was done first. `hivemux account runner <name>
-  claude` runs Claude Code on the key instead. Its screen is laid out as Claude Code's: the prompt between two
-  rules with a status line under it (model, cost), `\` Enter or Esc Enter for a new line, a spinner with the
-  seconds while it works, Esc to stop, slash commands with Tab completion (/help, /clear, /model, /cost, /back,
-  /exit; others such as /compact go to the SDK) and the input history.
-  The prompt stays while it works, as in Claude Code: what you send then joins the work under way (the SDK takes
-  it in at its next step), and the spinner sits above the prompt. Set the project to another API key account
-  while it runs and it starts again on that key at a quiet moment, resuming the same SDK conversation (all of it,
-  not a handoff); a reboot on the API resumes it too. Going back to Claude Code ends it.
-  The prompt is pinned to the bottom rows, as in Claude Code: the answer scrolls in the rows above (the terminal's
-  scroll region, kept in tmux's history too) and the prompt is not drawn again for each line, so it no longer
-  shakes while the answer comes. Typing no longer stutters: drawing the prompt asked tmux for the language on every key
-  and every tick. Ctrl+V pastes the clipboard's image as `[Image #n]` and sends it with the message, as in
-  Claude Code; an image file's path (dragged into the terminal) is sent as the image too. A path that starts with
-  a slash is no longer taken for a command. Its session carries the name others message it by (a team role's `<project>-<role>`,
-  else the conversation's): a team gone to the API took made-up names ("ohmyhome-d1") and lost each other.
-  It diets as a team role does, without typing into a prompt: through the API each turn sends the whole
-  conversation again and is paid for. Past the line, once the answer has been seen, it brings the notes up to
-  date and starts a fresh SDK conversation from them. A team role keeps its team's line, notes and diet.log;
-  any other Claude diets too, at 150K tokens (`@hivemux-sdk-diet`, thousands, `off` to turn it off), with its
-  notes in `handoff/<id>.notes.md`. The status line and the sidebar's bar show its context size. Shift+Enter makes a
-  new line: it asks for extended keys as Claude Code does, so tmux tells Shift+Enter from Enter. Backspace or
-  Delete takes a whole `[Image #n]` at once, as in Claude Code. The status line shows the effort, and `/effort
-  low|medium|high|xhigh|max` changes it (connecting again on the same conversation).
-  Enter on the completion menu takes the command picked ("/eff" went to Claude as it was), the menu also offers
-  the SDK's own commands and skills, and a command neither knows is not sent.
+- Accounts, go on with an API key at the usage limit: `hivemux account add-key <name>` adds an account that
+  runs on an Anthropic API key (asked for, checked, and approved for Claude Code beforehand), and `hivemux
+  account fallback <name>` moves the Claudes of a subscription at its usage limit onto it in the same
+  conversation; the one the limit cut off is asked to go on. They move back when the limit resets (the time in
+  the limit message, else five hours), once off the screen and not working, also when stopped by an API error.
+  The status line shows the account they run on. In the account popup: **Add API key account…** and **At a
+  usage limit, go on with** (the first API key account added is picked). The key shows as you paste it (the
+  middle of a long one left out); the paste brackets and spaces are dropped, and the popup no longer loses
+  what is past the first 64 bytes of a paste, which cut keys short and had them refused.
+- Accounts: a subscription Claude Code cannot use (a payment past due, billing, an account on hold) also goes
+  on with the API key account, for a day or until that account is chosen again; it went on failing before.
+- Accounts: the account to go on with at a usage limit can be set per project, in **Account for this
+  project…** (`hivemux account fallback <name|off|all> -s <project>`): only the projects picked go on with the
+  API key.
+- Accounts, the API key account goes on through the Agent SDK by default (`bin/hivemux-sdk`): promotion
+  credits that are for the Agent SDK only stopped Claude Code at "Credit balance too low". A small Claude Code
+  made with the SDK runs in the pane with the same folder, tools, settings, CLAUDE.md, hooks and team role
+  prompt; the conversation passes as documents, as a diet does (a handoff written from the end of the Claude
+  Code conversation, and what it did, written after each turn). When the subscription can be used again it
+  turns back into Claude Code on the same conversation, which reads what was done first. `hivemux account
+  runner <name> claude` runs Claude Code on the key instead. Its screen is laid out as Claude Code's: the
+  prompt between two rules with a status line under it (model, cost), `\` Enter or Esc Enter for a new line, a
+  spinner with the seconds while it works, Esc to stop, slash commands with Tab completion (/help, /clear,
+  /model, /cost, /back, /exit; others such as /compact go to the SDK) and the input history. The prompt stays
+  while it works, as in Claude Code: what you send then joins the work under way (the SDK takes it in at its
+  next step), and the spinner sits above the prompt. Set the project to another API key account while it runs
+  and it starts again on that key at a quiet moment, resuming the same SDK conversation (all of it, not a
+  handoff); a reboot on the API resumes it too. Going back to Claude Code ends it. The prompt is pinned to the
+  bottom rows, as in Claude Code: the answer scrolls in the rows above (the terminal's scroll region, kept in
+  tmux's history too) and the prompt is not drawn again for each line, so it no longer shakes while the answer
+  comes. Typing no longer stutters: drawing the prompt asked tmux for the language on every key and every
+  tick. Ctrl+V pastes the clipboard's image as `[Image #n]` and sends it with the message, as in Claude Code;
+  an image file's path (dragged into the terminal) is sent as the image too. A path that starts with a slash
+  is no longer taken for a command. Its session carries the name others message it by (a team role's
+  `<project>-<role>`, else the conversation's): a team gone to the API took made-up names ("ohmyhome-d1") and
+  lost each other. It diets as a team role does, without typing into a prompt: through the API each turn sends
+  the whole conversation again and is paid for. Past the line, once the answer has been seen, it brings the
+  notes up to date and starts a fresh SDK conversation from them. A team role keeps its team's line, notes and
+  diet.log; any other Claude diets too, at 150K tokens (`@hivemux-sdk-diet`, thousands, `off` to turn it off),
+  with its notes in `handoff/<id>.notes.md`. The status line and the sidebar's bar show its context size.
+  Shift+Enter makes a new line: it asks for extended keys as Claude Code does, so tmux tells Shift+Enter from
+  Enter. Backspace or Delete takes a whole `[Image #n]` at once, as in Claude Code. The status line shows the
+  effort, and `/effort low|medium|high|xhigh|max` changes it (connecting again on the same conversation).
+  Enter on the completion menu takes the command picked ("/eff" went to Claude as it was), the menu also
+  offers the SDK's own commands and skills, and a command neither knows is not sent.
 - A conversation Claude Code moved into its daemon kept running there when its pane was restarted (an account
-  switch), and the resume was refused ("That session is running in the background"): it is stopped first. A team
-  role whose conversation the team did not see start comes back with its role's model, effort and prompt. It keeps the pane's title on the conversation's name, as Claude Code does: the sidebar showed the shell's
+  switch), and the resume was refused ("That session is running in the background"): it is stopped first. A
+  team role whose conversation the team did not see start comes back with its role's model, effort and prompt.
+  It keeps the pane's title on the conversation's name, as Claude Code does: the sidebar showed the shell's
   command line ("cd … --resume …") as the card's name.
 - Account popup: the selected row has no bar on its left.
-
-- A Claude that Claude Code moved into its background daemon (it can do so while a subagent runs) lost its pane:
-  the hooks ran there without TMUX_PANE, so the pane stayed "running" with an agent for days, without diets or
-  done notifications, and a resume opened the conversation from before the move. The hook now finds the pane
-  through the Claude that spawned the daemon and keeps the new conversation on it.
-- Agent SDK: a big tool result (over 1MB on one line, a large file or image) stopped the pane with
-  "JSON message exceeded maximum buffer size"; the limit is now 256MB, and a broken connection connects again
-  on the same conversation instead of quitting. A pane that stopped while on the API comes back as Claude Code
-  with what was done through the API, as a return from the SDK does.
+- A Claude that Claude Code moved into its background daemon (it can do so while a subagent runs) lost its
+  pane: the hooks ran there without TMUX_PANE, so the pane stayed "running" with an agent for days, without
+  diets or done notifications, and a resume opened the conversation from before the move. The hook now finds
+  the pane through the Claude that spawned the daemon and keeps the new conversation on it.
+- Agent SDK: a big tool result (over 1MB on one line, a large file or image) stopped the pane with "JSON
+  message exceeded maximum buffer size"; the limit is now 256MB, and a broken connection connects again on the
+  same conversation instead of quitting. A pane that stopped while on the API comes back as Claude Code with
+  what was done through the API, as a return from the SDK does.
 
 ## 0.1.77 — 2026-11-22
 
