@@ -600,6 +600,9 @@ async def run(argv):
             system_prompt={"type": "preset", "preset": "claude_code", **({"append": append} if append else {})},
             setting_sources=["user", "project", "local"],
             env={"HIVEMUX_SDK": "1", "HIVEMUX_SDK_FOR": sid},
+            # a big tool result (a file, an image) is one JSON line over the 1MB default
+            # 큰 도구 결과 (파일, 이미지) 는 한 줄이 기본 1MB 를 넘는다
+            max_buffer_size=256 * 1024 * 1024,
             # its notices go above the prompt, not over it / 알림은 입력창 위로. 입력창 위에 덮어쓰지 않게
             stderr=lambda line: pin.out(f"{GRAY}{line.rstrip()}{RST}"),
         )
@@ -758,7 +761,26 @@ async def run(argv):
         await client.query(with_images(wrap(text), st["pasted"]))
 
     async def reader(client):
+        try:
+            await read_all(client)
+        except Exception as e:
+            # the stream broke: connect again on the same conversation, not die
+            # 흐름이 끊겼다: 죽지 않고 같은 대화로 다시 연결한다
+            out(RED + tr(f"  연결이 끊겼습니다 ({clip(str(e), 120)}). 같은 대화로 다시 연결합니다…",
+                         f"  The connection broke ({clip(str(e), 120)}). Connecting again on the same conversation…") + RST)
+            resume[0] = st.get("sdk_sid") or sdk_session(sid)
+            if st["busy"] and not st["next"]:
+                st["next"] = tr("연결이 끊겨 마지막 답을 받지 못했습니다. 하던 일이 남았으면 이어서 하고, 끝났으면 그 답을 짧게 다시 알려 주세요.",
+                                  "The connection broke before your last answer reached me. Go on if work is left; if it was done, give that answer again in short.")
+            st["clear"] = True
+            if session.app.is_running:
+                session.app.exit(result="")
+
+    async def read_all(client):
         async for m in client.receive_messages():
+            # keep the conversation from its first message, so a break mid-turn still resumes it
+            # 첫 메시지부터 대화를 잡아 둔다. 턴 중간에 끊겨도 이어 간다
+            st["sdk_sid"] = getattr(m, "session_id", None) or (getattr(m, "data", None) or {}).get("session_id") or st.get("sdk_sid", "")
             if isinstance(m, AssistantMessage) and not st["busy"]:
                 # what was sent during the last turn (after Esc, say) runs as a turn of its own
                 # 지난 턴 동안 보낸 것 (Esc 뒤 등) 은 따로 한 턴으로 돈다
@@ -980,6 +1002,10 @@ async def run(argv):
                     while not st["back"] and not st["done"] and not st["clear"] and not st["switch"]:
                         if st["diet_start"]:
                             await diet_notes(client)
+                        if pin.on:
+                            # each prompt starts on the pinned rows, wherever a break or a reconnect left the cursor
+                            # 입력창은 늘 고정한 줄에서 시작한다. 끊김이나 다시 연결이 커서를 어디에 두었든
+                            pin.place()
                         try:
                             text = await session.prompt_async(message)
                         except EOFError:
@@ -1015,6 +1041,9 @@ def main(argv):
     if argv[:1] == ["install"]:
         install()
         return
+    if argv[:1] == ["back"]:        # from bin/hivemux-claude / bin/hivemux-claude 에서
+        vals, _, _ = parse(argv[1:])
+        go_back(vals.get("--resume") or vals.get("-r") or "", argv[1:])
     py = install()
     if os.path.realpath(sys.executable) != os.path.realpath(py) and os.environ.get("HIVEMUX_SDK_IN_VENV") != "1":
         os.environ["HIVEMUX_SDK_IN_VENV"] = "1"

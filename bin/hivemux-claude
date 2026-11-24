@@ -42,6 +42,12 @@ if [ -n "$name" ] && [ "$name" != default ] && [ -d "$DATA/accounts/$name" ]; th
 # default: forget only a dir of ours (a shell started under another account); one you set yourself stays
 # 기본 계정: 우리 폴더일 때만 지운다 (다른 계정일 때 연 셸). 직접 정한 것은 그대로
 elif [[ "$CLAUDE_CONFIG_DIR" == "$DATA/accounts/"* ]]; then unset CLAUDE_CONFIG_DIR; fi
+# a conversation the API went on with (bin/hivemux-sdk) comes back with what was done there, even when its pane
+# stopped first / API 로 이어 간 대화 (bin/hivemux-sdk) 는 그 칸이 먼저 멈췄어도 거기서 한 일과 함께 돌아온다
+prev=""; for a in "$@"; do
+  [[ "$prev" == --resume || "$prev" == -r ]] && [ -f "$DATA/handoff/$a.back.md" ] &&
+    exec "$(dirname "$(realpath "$0")")/hivemux-sdk" back "$@"
+  prev="$a"; done
 via=""; [ -n "$TMUX_PANE" ] && via="$(tmux show -pqv -t "$TMUX_PANE" @claude_launch 2>/dev/null)"
 if [ -n "$via" ]; then read -ra via <<< "$via"; exec "${via[@]}" "$@"; fi
 exec claude "$@"
