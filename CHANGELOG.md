@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.80 — 2026-11-25
 
 - Diets, when they should: a role whose last answer asked something was not put on a diet until you had
   answered, and any answer with the word "question" counted ("no questions left"). Of the 5.5 billion tokens
