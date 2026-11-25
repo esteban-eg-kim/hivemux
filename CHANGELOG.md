@@ -15,6 +15,8 @@
   - The pane gets Claude Code's own context figure and the window (`@claude_ctx_live`, `@claude_ctx_window`)
     and the limits (`@claude_limit_5h`, `@claude_limit_7d`). A `claude -p` or Agent SDK run in the pane leaves
     it alone.
+- Sidebar: a process whose command line `ps` cut in the middle of a Korean letter stopped a poll (`UnicodeDecodeError`
+  in sidebar-errors.log).
 
 ## 0.1.81 — 2026-11-25
 

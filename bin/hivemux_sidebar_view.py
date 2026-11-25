@@ -1312,7 +1312,7 @@ def bg_shells(items):
     """{pane: (shells, shells that are not servers)}: the shells a pane's Claude runs, from one ps
     {칸: (셸 수, 서버가 아닌 셸 수)}: 칸의 Claude 가 돌리는 셸. ps 한 번으로"""
     kids = {}
-    for ln in subprocess.run(["ps", "-ax", "-o", "pid=,ppid=,comm=,args="], capture_output=True, text=True).stdout.splitlines():
+    for ln in subprocess.run(["ps", "-ax", "-o", "pid=,ppid=,comm=,args="], capture_output=True, text=True, errors="replace").stdout.splitlines():
         f = ln.split(None, 3)
         if len(f) >= 3:
             kids.setdefault(f[1], []).append((f[0], f[2], f[3] if len(f) > 3 else ""))
