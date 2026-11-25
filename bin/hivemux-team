@@ -286,6 +286,18 @@ def toml_dumps(d):
     return "\n".join(out) + "\n"
 
 
+# Tools a role does without. Every request carries the description of every tool: a role that had just started
+# was at 52K tokens, 6K of it these four, which 192 conversations of three teams never used. team.toml: tools_off
+# of the team replaces this list, tools_off of a role adds to it (Artifact, for a role that publishes no pages, is
+# another 13K). Claude Code starts with them off, so a running role takes a change when it starts again
+# 역할이 쓰지 않는 도구. 요청마다 모든 도구의 설명이 함께 간다: 막 시작한 역할이 52K 토큰이었고 그중 6K 가 이 넷인데,
+# 세 팀의 대화 192개가 한 번도 쓰지 않았다. team.toml 에서 팀의 tools_off 는 이 목록을 바꾸고, 역할의 tools_off 는
+# 더한다 (페이지를 올리지 않는 역할의 Artifact 는 13K 가 더 된다). Claude Code 가 시작할 때 끄므로, 도는 역할은 다시
+# 시작해야 바뀐다
+TOOLS_OFF = ["Workflow", "SendFeedback", "ReportFindings", "ScheduleWakeup"]
+NOTES_MAX = 8000
+
+
 # ── teams ──────────────────────────────────────────────────────────────────────────────────────────────
 def load(folder):
     """team.toml of a template or a project's .hivemux/, with each role's defaults filled in
@@ -293,7 +305,8 @@ def load(folder):
     with open(os.path.join(folder, "team.toml"), encoding="utf-8") as f:
         team = toml_loads(f.read())
     # diet.at: thousands of tokens of context (every request reads them again) / 컨텍스트 천 토큰 단위 (매 요청이 다시 읽는다)
-    diet = {"at": 120, "how": "renew", **(team.get("diet") or {})}
+    # diet.notes: the notes' size in letters (a fresh start reads all of them) / 노트 글자 수 (새로 시작하면 다 읽는다)
+    diet = {"at": 120, "how": "renew", "notes": NOTES_MAX, **(team.get("diet") or {})}
     roles = []
     for r in team.get("role") or []:
         if not re.fullmatch(r"[a-z][a-z0-9_-]{0,23}", str(r.get("id", ""))):
@@ -301,6 +314,7 @@ def load(folder):
         r = {"model": "sonnet", "effort": "medium", "prompt": f"roles/{r['id']}.md", "lead": False, "readonly": False,
              "worktree": False, "owns": "", **r}
         r["diet"] = {**diet, **(r.get("diet") or {})}
+        r["tools_off"] = [str(t) for t in [*(team.get("tools_off", TOOLS_OFF) or []), *(r.get("tools_off") or [])]]
         roles.append(r)
     team["role"] = roles
     team["diet"] = diet
@@ -506,8 +520,13 @@ def build_prompt(session, folder, team, role):
         if role["worktree"]:
             lines.append(f"너는 자기 워크트리 {worktree_of(folder, role)} 에서 브랜치 team/{role['id']} 로 일한다.")
         lines += ["", "## 노트",
-                  f"{os.path.join(team_dir(folder), 'notes', role['id'] + '.md')} 를 최신으로 둔다: 지금 상태, 결정한 것, 남은 일, 중요한 파일.",
-                  "일을 한 차례 끝낼 때마다 고친다. 대화가 비워지면(새로 시작) 이 노트를 먼저 읽고 이어 간다."]
+                  f"{notes_path(folder, role['id'])} 를 최신으로, {role['diet']['notes']}자 이하로 둔다: 지금 상태, 바로 이어 할 일, 앞으로도 지킬 결정, 중요한 파일.",
+                  f"일을 한 차례 끝낼 때마다 고친다. 끝난 일의 기록과 지난 결정의 까닭은 {ref_path(folder, role['id'])} 로 옮기고 필요할 때 찾아본다. 노트 사본은 만들지 않는다.",
+                  "대화가 비워지면(새로 시작) 이 노트로 이어 간다.",
+                  "", "## 컨텍스트 아끼기",
+                  "읽은 것은 모두 대화에 남아 요청마다 다시 읽힌다. 큰 파일은 통째로 열지 말고 찾아서 필요한 줄만 읽는다.",
+                  "팀원이 요약을 줬으면 자세한 파일까지 열지 않는다. 다른 역할의 창이나 세션 목록을 훑지 않는다.",
+                  "여러 파일을 넓게 봐야 하면 하위 에이전트에 맡기고 결론만 받는다."]
     else:
         lines.append("Hand off briefly: what you did in one line, the result's file path, what you want from them, how to check it.")
         if lead and lead["id"] != role["id"]:
@@ -521,8 +540,13 @@ def build_prompt(session, folder, team, role):
         if role["worktree"]:
             lines.append(f"You work in your own worktree {worktree_of(folder, role)}, on branch team/{role['id']}.")
         lines += ["", "## Notes",
-                  f"Keep {os.path.join(team_dir(folder), 'notes', role['id'] + '.md')} current: state, decisions, what is left, key files.",
-                  "Update it after each piece of work. When the conversation is cleared (a fresh start), read it first and go on."]
+                  f"Keep {notes_path(folder, role['id'])} current and within {role['diet']['notes']} letters: state, what comes next, decisions that still hold, key files.",
+                  f"Update it after each piece of work. Records of finished work and the reasons of past decisions go to {ref_path(folder, role['id'])}, looked up when needed. Make no copies of the notes.",
+                  "When the conversation is cleared (a fresh start), go on from these notes.",
+                  "", "## Context",
+                  "What you read stays in the conversation and is read again with every request. Search a large file and read the lines you need, not all of it.",
+                  "When a teammate gave a summary, do not open the files behind it. Do not look through other roles' windows or the list of sessions.",
+                  "When many files must be looked over, leave it to a subagent and take its conclusion."]
     return "\n".join(lines) + "\n"
 
 
@@ -548,6 +572,8 @@ def flags(session, folder, team, role):
         extra["env"] = {"CLAUDE_CODE_SUBAGENT_MODEL": u["subagents"]}
     if extra:
         out += ["--settings", json.dumps(extra, separators=(",", ":"))]
+    if role["tools_off"]:
+        out += ["--disallowedTools=" + ",".join(dict.fromkeys(role["tools_off"]))]
     out += ["--append-system-prompt-file", path]
     # read-only is not without Edit and Write: its notes, questions and reports must be written, so where it
     # writes is checked instead (may_write, from bin/hivemux-hook's PreToolUse)
@@ -1394,6 +1420,11 @@ def notes_path(folder, rid):
     return os.path.join(team_dir(folder), "notes", rid + ".md")
 
 
+def ref_path(folder, rid):
+    """What the notes leave out: records and reasons, looked up when needed / 노트에서 뺀 것: 기록과 까닭. 필요할 때 찾아본다"""
+    return os.path.join(team_dir(folder), "notes", rid + "-ref.md")
+
+
 def work_dir(folder, role):
     """A role's own folder for what it keeps (a read-only role's reports) / 역할이 남길 것을 두는 자기 폴더 (읽기 전용 역할의 보고서)"""
     return os.path.join(team_dir(folder), "work", role["id"])
@@ -1411,7 +1442,7 @@ def may_write(pane, path):
     session, folder, team, role = found
     cwd = tmux("show", "-pqv", "-t", pane, "@claude_pwd").strip() or folder
     real = os.path.realpath(os.path.join(cwd, os.path.expanduser(path)))
-    ok = [notes_path(folder, role["id"]), os.path.join(team_dir(folder), "questions.md")]
+    ok = [notes_path(folder, role["id"]), ref_path(folder, role["id"]), os.path.join(team_dir(folder), "questions.md")]
     dirs = [work_dir(folder, role)] + [os.path.join(folder, o.strip()) for o in str(role.get("owns") or "").split(",") if o.strip()]
     inside = lambda d: real == os.path.realpath(d) or real.startswith(os.path.realpath(d).rstrip("/") + "/")
     allow = any(real == os.path.realpath(f) for f in ok) or any(inside(d) for d in dirs)
@@ -1443,6 +1474,80 @@ def diet_log(folder, rid, how, before, after):
         f.write(f"{int(time.time())}\t{rid}\t{how}\t{before}\t{after}\n")
 
 
+def notes_ask(path, most, ref, questions=""):
+    """What a Claude is told to write before its conversation is cleared (bin/hivemux-sdk asks the same)
+    대화를 비우기 전에 쓰게 하는 것 (bin/hivemux-sdk 도 같게 묻는다)"""
+    n = len(_read(path))
+    if lang() == "ko":
+        q = (f"사용자의 답을 기다리는 질문은 {questions} 에 (답을 기다림) 으로 있으면 새 대화에 그대로 전해진다. 거기 없는 것은 더하고, 노트에는 옮겨 적지 마라. "
+             if questions else "사용자에게 물었는데 아직 답이 없는 질문은 원문 그대로 적어라. ")
+        return (f"(hivemux 다이어트) 대화가 커져서 곧 새로 시작한다. {path} 를 {most}자 이하로 최신으로 정리해라 (지금 {n}자). "
+                f"새 대화가 통째로 읽으니 이어 가는 데 쓰는 것만 둔다: 지금 상태, 바로 이어 할 일과 그때 볼 파일의 줄, 앞으로도 지킬 결정. {q}"
+                f"끝난 일의 기록, 지난 결정의 까닭, 파일 목록은 {ref} 로 옮겨라. 노트 사본은 만들지 마라. 정리만 하고 다른 일은 하지 마라.")
+    q = (f"Questions waiting for the user's answer are carried over as they are when {questions} has them as (waiting for an answer). Add any it lacks, and do not copy them into the notes. "
+         if questions else "Write questions to the user still unanswered word for word. ")
+    return (f"(hivemux diet) The conversation is large, so it starts fresh soon. Bring {path} up to date within {most} letters (now {n}). "
+            f"The fresh conversation reads all of it, so keep only what carries on: state, what comes next and the lines of the files it needs, decisions that still hold. {q}"
+            f"Move records of finished work, reasons of past decisions and lists of files to {ref}. Make no copies of the notes. Only that, nothing else.")
+
+
+def fresh_ask(files, again=False):
+    """The first message of a fresh start. The files go with it (@), so no request is spent on opening them, nor on
+    opening them again in parts / 새로 시작한 대화의 첫 메시지. 파일이 함께 붙어 (@) 여는 데, 나눠 다시 여는 데 요청을 쓰지 않는다"""
+    at = " ".join(f'@"{f}"' if " " in f else "@" + f for f in files)
+    if lang() == "ko":
+        return (f"(hivemux 다이어트 뒤 새로 시작) {at} 가 이 메시지에 붙어 있다 (붙어 있지 않을 때만 읽어라). "
+                + ("거기 '다시 보여 줄 답' 을 먼저 사용자에게 고치지 말고 그대로 보여 줘라. " if again else "")
+                + "사용자의 답을 기다리는 질문이 있으면 원문 그대로 다시 보여 주고, 하던 일을 이어서 해라. 미리 다 알아 두려 하지 마라: "
+                  "판, 스펙, 보고서, 다른 역할의 창을 훑지 말고 지금 할 한 가지에 필요한 줄만 찾아 읽어라. 이어서 할 일이 없으면 기다려라.")
+    return (f"(hivemux: fresh start after a diet) {at} are attached to this message (read them only if they are not). "
+            + ("First show the user the 'Answer to show again' there exactly as written. " if again else "")
+            + "If questions to the user are still unanswered, show them again word for word, then carry on with your work. Do not catch up on everything first: "
+              "no looking through the board, specs, reports or other roles' windows; find and read only the lines the next step needs. If nothing is left, wait.")
+
+
+START_QUESTIONS = 6000                  # letters of open questions carried over / 넘겨주는 열린 질문의 글자 수
+
+
+def start_note(session, folder, team, role):
+    """What a fresh start would otherwise open files for, as run/<role>.start.md: the answer that was on screen, the
+    role's open questions, what the team is doing, its hand-offs of the last hour. Returns (path, answer to show)
+    새로 시작하면 파일을 열어 찾아보던 것을 run/<역할>.start.md 로: 화면에 있던 답, 이 역할의 열린 질문, 팀이 하는 일, 지난
+    한 시간의 넘김. (경로, 다시 보여 줄 답이 있나) 를 돌려준다"""
+    out = [tr("# 새로 시작할 때 (hivemux 가 씀) · ", "# At a fresh start (written by hivemux) · ") + time.strftime("%Y-%m-%d %H:%M")]
+    last = _read(last_path(folder, role["id"])).strip()
+    if last:
+        out += ["", tr("## 다시 보여 줄 답", "## Answer to show again"), last]
+    qs, left = [q for q in open_questions(folder) if label(role) in q["head"]], START_QUESTIONS
+    if qs:
+        out += ["", tr("## 사용자의 답을 기다리는 질문", "## Questions waiting for the user")]
+    for k, q in enumerate(qs):
+        left -= len(q["body"])
+        if left < 0 and k:
+            rest = ", ".join(str(x["i"] + 1) for x in qs[k:])
+            out += ["", tr(f"나머지 {len(qs) - k}개는 questions.md 의 {rest}번째 줄부터", f"{len(qs) - k} more: questions.md from lines {rest}")]
+            break
+        out += ["", "### " + q["head"], q["body"]]
+    states = {"run": tr("일하는 중", "working"), "wait": tr("사용자를 기다림", "waiting for the user")}
+    by = {p["role"]: p for p in panes(session) if p["role"]}
+    mates = [f"- {session}-{r['id']} ({label(r)}): " + (states.get(by[r["id"]]["state"], tr("쉬는 중", "resting")) if r["id"] in by else tr("꺼짐", "off"))
+             for r in ranked(team) if r["id"] != role["id"]]
+    if mates:
+        out += ["", tr("## 팀", "## Team")] + mates
+    hand = []
+    for l in _read(os.path.join(team_dir(folder), "handoffs.log")).splitlines()[-80:]:
+        t = (l.split("\t") + [""] * 4)[:4]
+        if t[0].isdigit() and time.time() - int(t[0]) < 3600 and role["id"] in t[1:3]:
+            hand.append(f"- {time.strftime('%H:%M', time.localtime(int(t[0])))} {t[1]} → {t[2]}: {t[3][:120]}")
+    if hand:
+        out += ["", tr("## 지난 한 시간에 주고받은 것", "## Hand-offs of the last hour")] + hand[-8:]
+    path = os.path.join(team_dir(folder), "run", role["id"] + ".start.md")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(out) + "\n")
+    return path, bool(last)
+
+
 def diet_begin(pane, folder, role, n):
     """Start a diet now, if the prompt is free / 입력창이 비었으면 지금 다이어트를 시작한다"""
     if not prompt_free(pane):
@@ -1456,9 +1561,9 @@ def diet_begin(pane, folder, role, n):
                                     else "keep what the role notes hold (state, decisions, what is left, key file paths) and the requests to and from teammates"))
     else:
         tmux("set", "-p", "-t", pane, "@hivemux-diet", "notes")
-        path = notes_path(folder, role["id"])
-        type_in(pane, (f"(hivemux 다이어트) 대화가 커져서 곧 새로 시작한다. {path} 를 지금 상태, 결정한 것, 남은 일, 중요한 파일, 사용자에게 물었는데 아직 답이 없는 질문(원문 그대로)으로 최신으로 정리해라. 정리만 하고 다른 일은 하지 마라."
-                       if ko else f"(hivemux diet) The conversation is large, so it starts fresh soon. Bring {path} up to date: state, decisions, what is left, key files, and questions to the user still unanswered (word for word). Only that, nothing else."))
+        tmux("set", "-pu", "-t", pane, "@hivemux-diet-trim")
+        type_in(pane, notes_ask(notes_path(folder, role["id"]), role["diet"]["notes"], ref_path(folder, role["id"]),
+                                os.path.join(team_dir(folder), "questions.md")))
     return True
 
 
@@ -1479,6 +1584,17 @@ def on_stop(pane, transcript):
         return                          # background work goes on / 배경 일이 이어진다
     if st == "notes":                   # notes written: clear / 노트를 썼다: 비운다
         if prompt_free(pane):
+            # far past their size they are cut once more, while what they leave out is still known
+            # 크기를 훨씬 넘으면 한 번 더 줄인다. 빼는 것이 무엇인지 아직 알 때
+            path, most = notes_path(folder, role["id"]), int(role["diet"]["notes"])
+            size = len(_read(path))
+            if size > most * 1.5 and not tmux("show", "-pqv", "-t", pane, "@hivemux-diet-trim").strip():
+                tmux("set", "-p", "-t", pane, "@hivemux-diet-trim", "1")
+                ref = ref_path(folder, role["id"])
+                type_in(pane, tr(f"(hivemux 다이어트) {path} 가 아직 {size}자다. 새 대화가 통째로 읽으니 {most}자 이하로 줄여라: 바로 이어 할 일에 쓰지 않는 것은 {ref} 로 옮겨라. 이것만 해라.",
+                                 f"(hivemux diet) {path} is still {size} letters. The fresh conversation reads all of it: bring it within {most}, moving what the next steps do not need to {ref}. Only that."))
+                return
+            tmux("set", "-pu", "-t", pane, "@hivemux-diet-trim")
             tmux("set", "-p", "-t", pane, "@hivemux-diet", "clear")
             type_in(pane, "/clear")
         return
@@ -1495,26 +1611,32 @@ def on_stop(pane, transcript):
         tmux("set", "-pu", "-t", pane, "@hivemux-diet")
         tmux("set", "-pu", "-t", pane, "@hivemux-diet-before")
         return
-    # an answer that asks the user something stays on screen until the user has answered: a diet then cleared a
-    # question before anyone read it / 사용자에게 묻는 답변은 사용자가 답할 때까지 화면에 둔다: 다이어트가 아무도
-    # 읽기 전에 질문을 지운 적이 있다
-    if not st and asks_user(last_answer(transcript)):
-        return
     if st == "pending" or (not st and role["diet"]["how"] != "off" and n >= diet_line(folder, role)):
-        # an answer to the user's own question, or a window the user is looking at: a diet now cleared what they
-        # were reading. It waits until they have seen it and moved away (seen)
-        # 사용자가 물은 것의 답이거나, 사용자가 보고 있는 창: 지금 다이어트하면 읽던 것이 지워졌다. 보고 나서 다른
-        # 데로 갈 때까지 기다린다 (seen)
+        # an answer to the user's own question, one that asks the user something, or a window the user is looking
+        # at: a diet now cleared what they were reading. It waits until they have seen it and moved away (seen).
+        # An answer that asks waits like the others, and is shown again after the fresh start: it used to wait for
+        # the answer, so a role that always had a question open never dieted (of a week's 5.5 billion tokens read by
+        # one team, half were past the line, most of them held by this)
+        # 사용자가 물은 것의 답, 사용자에게 묻는 답, 사용자가 보고 있는 창: 지금 다이어트하면 읽던 것이 지워졌다. 보고 나서
+        # 다른 데로 갈 때까지 기다린다 (seen). 묻는 답도 똑같이 기다리고 새로 시작한 뒤 다시 보여 준다: 답을 받을 때까지
+        # 기다리게 했더니 늘 열린 질문이 있는 역할은 다이어트를 못 했다 (한 팀이 한 주에 읽은 55억 토큰의 절반이 기준을
+        # 넘긴 것이었고, 거의 이것이 막은 것이었다)
         # past half again its line it goes ahead anyway, keeping the last answer to show again after the fresh
         # start: a window always in front of you never dieted / 기준의 1.5배를 넘으면 그래도 한다. 마지막 답은 남겨
         # 새로 시작한 뒤 다시 보여 준다: 늘 켜 둔 창은 다이어트를 영영 못 했다
-        held = tmux("show", "-pqv", "-t", pane, "@hivemux-asked").strip() or watched(pane)
-        if held and n >= diet_line(folder, role) * 1.5 and role["diet"]["how"] != "compact":
-            try:
-                with open(last_path(folder, role["id"]), "w") as f:
-                    f.write(last_answer(transcript))
-            except OSError:
-                pass
+        text = last_answer(transcript)
+        asks = asks_user(text)
+        held = tmux("show", "-pqv", "-t", pane, "@hivemux-asked").strip() or asks or watched(pane)
+        over = held and n >= diet_line(folder, role) * 1.5 and role["diet"]["how"] != "compact"
+        try:
+            if asks or over:
+                with open(last_path(folder, role["id"]), "w", encoding="utf-8") as f:
+                    f.write(text)
+            else:
+                os.remove(last_path(folder, role["id"]))    # an older turn's / 예전 턴의 것
+        except OSError:
+            pass
+        if over:
             tmux("set", "-pu", "-t", pane, "@hivemux-asked")
             held = ""
         if held:
@@ -1561,10 +1683,12 @@ def on_seen(pane):
     away = 0.0
     for _ in range(6 * 360):            # six hours at most / 많아야 여섯 시간
         time.sleep(10)
+        st = tmux("show", "-pqv", "-t", pane, "@claude_state").strip()
+        if st == "idle":                # they have seen what they asked for / 물은 것의 답을 봤다
+            tmux("set", "-pu", "-t", pane, "@hivemux-asked")
         if (tmux("show", "-pqv", "-t", pane, "@hivemux-diet-watch").strip() != me
                 or tmux("show", "-pqv", "-t", pane, "@hivemux-diet").strip() != "pending"):
             return
-        st = tmux("show", "-pqv", "-t", pane, "@claude_state").strip()
         if st in ("run", "wait", ""):
             break                       # a new turn, or gone / 새 턴, 또는 없어짐
         if st != "idle" or watched(pane):
@@ -1606,9 +1730,11 @@ def last_answer(transcript):
 
 
 def asks_user(text):
-    """Does the answer ask the user something? / 답변이 사용자에게 무언가 묻나"""
-    t = text[-3000:]
-    return bool(re.search(r"\?\s*($|\n)|질문|답해 주|알려 주|정해 주|골라 주|확인해 주|답을 받|답변.*기다|would you|should I|do you want|let me know|please (confirm|choose|tell)", t, re.I))
+    """Does the answer end by asking the user something? A word like "question" alone does not: "no questions left",
+    "still waiting for question 5" / 답변이 사용자에게 무언가 물으며 끝나나? "질문" 이라는 말만으로는 아니다: "질문은
+    없습니다", "5번 질문의 답을 기다립니다\""""
+    t = text[-800:]
+    return bool(re.search(r"\?[\s*)\"']*($|\n)|(답|알려|정|골라|확인|선택|승인|말씀)\s?(해|하여)?\s?(주세요|주십시오|주시|줘)|would you|should I|do you want|let me know|please (confirm|choose|tell)", t, re.I))
 
 
 def diet_line(folder, role):
@@ -1678,9 +1804,18 @@ def answer_questions(folder, role=None, index=None):
     return hit
 
 
-def on_prompt(pane):
-    """bin/hivemux-hook, UserPromptSubmit in a role's window: the user answered that role's open questions
-    역할 창의 UserPromptSubmit: 사용자가 그 역할의 열린 질문에 답했다"""
+# A prompt the user did not type: a teammate's message, a notice of Claude Code's, a diet's own step
+# 사용자가 친 것이 아닌 프롬프트: 팀원의 메시지, Claude Code 의 알림, 다이어트가 친 단계
+NOT_USER_RE = re.compile(r"\s*(<[a-z]+(-[a-z]+)+[\s>]|\[(Cross-session|SYSTEM)|Another Claude session|\(hivemux|/)", re.I)
+
+
+def on_prompt(pane, text=""):
+    """bin/hivemux-hook, UserPromptSubmit in a role's window: the user answered that role's open questions. A
+    teammate's message comes as one too, and used to mark them answered and hold the diet
+    역할 창의 UserPromptSubmit: 사용자가 그 역할의 열린 질문에 답했다. 팀원의 메시지도 이렇게 와서, 질문을 답한 것으로
+    적고 다이어트를 미루게 했다"""
+    if NOT_USER_RE.match(text):
+        return
     found = role_of(pane)
     if found:
         answer_questions(found[1], found[3])
@@ -1752,14 +1887,8 @@ def on_start(pane, sid, source):
     if st == "clear" and source == "clear":
         time.sleep(1.0)
         tmux("set", "-p", "-t", pane, "@hivemux-diet", "after")
-        path = notes_path(folder, role["id"])
-        last = last_path(folder, role["id"])
-        again = ""
-        if os.path.isfile(last):       # the answer that was on screen (on_stop) / 화면에 있던 답 (on_stop)
-            again = (f" 먼저 {last} 를 읽고, 그 내용을 사용자에게 고치지 말고 그대로 다시 보여 줘라 (다이어트 직전에 사용자가 읽던 답이다)."
-                     if lang() == "ko" else f" First read {last} and show it to the user again exactly as written (the answer they were reading right before the diet).")
-        type_in(pane, (f"(hivemux 다이어트 뒤 새로 시작){again} {path} 를 읽고 하던 일을 이어서 해라. 사용자의 답을 기다리는 질문이 있으면 그 질문을 원문 그대로 다시 보여 줘라. 이어서 할 일이 없으면 기다려라."
-                       if lang() == "ko" else f"(hivemux: fresh start after a diet){again} Read {path} and carry on with your work. If questions to the user are still unanswered, show them again word for word. If nothing is left, wait."))
+        start, again = start_note(session, folder, team, role)
+        type_in(pane, fresh_ask([start, notes_path(folder, role["id"])], again))
     elif st == "compacting" and source == "compact":
         tmux("set", "-p", "-t", pane, "@hivemux-diet", "after")
 
@@ -2169,7 +2298,7 @@ def main(argv):
         n = ctx_tokens(args[1])
         if n:
             tmux("set", "-p", "-t", args[0], "@claude_ctx", str(n))
-    elif cmd == "prompted" and len(args) == 1:
+    elif cmd == "prompted" and len(args) in (1, 2):
         on_prompt(*args)
     elif cmd == "seen" and len(args) == 1:
         on_seen(*args)

@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- Diets, when they should: a role whose last answer asked something was not put on a diet until you had
+  answered, and any answer with the word "question" counted ("no questions left"). Of the 5.5 billion tokens
+  one team read in a week, half were past the line, four fifths of those behind this. An answer that asks
+  now waits like any other you have not read (until you looked and were away a minute, or half again the
+  line), and is shown again after the fresh start. Only the end of the answer counts, and only if it asks.
+- A teammate's message no longer marks a role's open questions answered, nor holds its diet as if you had
+  asked something: both took any prompt for yours.
+- A fresh start is smaller. Roles do without Workflow, SendFeedback, ReportFindings and ScheduleWakeup,
+  whose descriptions went with every request (52K tokens at the start, 46K now), and the template's dev, QA
+  and marketer without Artifact (33K). `tools_off` in `team.toml` changes it for the team or adds for a
+  role; a running role takes it when it starts again.
+- What a role hands over: notes of 8,000 letters at most (`notes` in `[diet]`; asked once more when far
+  past), records and reasons in `notes/<role>-ref.md`, no copies. The fresh start comes with the notes and
+  what it used to open files for (the answer to show again, its open questions, what teammates are doing,
+  the hand-offs of the last hour) attached, so it opens neither, and is told to read only the lines its next
+  step needs. The same through the Agent SDK.
+
 ## 0.1.79 — 2026-11-24
 
 - Sidebar, much lighter: with 60 Claudes and 59 resting sidebars it used 35% of a core and the tmux server

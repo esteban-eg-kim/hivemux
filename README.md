@@ -136,15 +136,20 @@ the work out, and the roles pass what they finish down the flow.
   `◆ <team name>`, the lead marked ★, the project's other Claudes after them.
 - **Questions for you.** Roles write what they need from you to
   `.hivemux/questions.md`; the team page shows the open ones, each with **Mark
-  as answered**, and typing into a role's window marks its questions answered.
+  as answered**, and what you type into a role's window marks its questions answered.
 - **Diets.** hivemux notes how much context each Claude carries. A role past its
   line (120K tokens, 160K for dev) brings its notes up to date when it rests,
   `/clear`s and carries on from the notes under the same name, so the others
   keep messaging it. It never clears a window you are looking at, nor an answer
   to something you asked before you have read it: it waits until you have been
   away from that window for a minute (or left it untouched for five). Past half
-  again its line it goes ahead and shows the last answer again after. The page shows each role's context against its line and
-  has a **Diet now** button.
+  again its line it goes ahead and shows the last answer again after. An answer
+  that asks you something waits in the same way and is shown again, with the
+  role's open questions. A role keeps its notes short (8,000 letters, `notes` in
+  `[diet]`) and starts fresh with them attached. Roles do without tools a team
+  has no use for (`tools_off` in `team.toml`, for the team or a role), which
+  every request would carry. The page shows each role's context against its line
+  and has a **Diet now** button.
 - **The day's report.** The **Report** tab of the team page (or `hivemux team
   report`): time worked, hand-offs, tasks done, tokens and diets; a timeline of
   who worked and waited when, with the hand-offs as arrows between roles; where

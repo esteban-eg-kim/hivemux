@@ -365,6 +365,12 @@ def team_module():
     return TEAM[0]
 
 
+def plain_notes(sid):
+    """The notes of a Claude that is no team role / 팀 역할이 아닌 Claude 의 노트"""
+    return {"notes": os.path.join(HANDOFF, f"{sid or 'new'}.notes.md"), "ref": os.path.join(HANDOFF, f"{sid or 'new'}.notes-ref.md"),
+            "most": team_module().NOTES_MAX, "questions": ""}
+
+
 def diet_plan(pane, sid):
     """{line, notes, log(before, after)}, or None when off / 기준, 노트, 기록. 끄면 None"""
     try:
@@ -376,8 +382,9 @@ def diet_plan(pane, sid):
         session, folder, team, role = found
         if role["diet"]["how"] == "off":
             return None
-        return {"line": t.diet_line(folder, role), "notes": t.notes_path(folder, role["id"]),
-                "log": lambda b, a: t.diet_log(folder, role["id"], "sdk", b, a)}
+        return {"line": t.diet_line(folder, role), "notes": t.notes_path(folder, role["id"]), "most": role["diet"]["notes"],
+                "ref": t.ref_path(folder, role["id"]), "questions": os.path.join(t.team_dir(folder), "questions.md"),
+                "start": lambda: t.start_note(session, folder, team, role)[0], "log": lambda b, a: t.diet_log(folder, role["id"], "sdk", b, a)}
     at = tmux("show", "-gqv", "@hivemux-sdk-diet").strip() or str(SDK_DIET_AT)
     if not at.isdigit():
         return None
@@ -398,7 +405,7 @@ def diet_plan(pane, sid):
         with open(log, "a") as f:
             f.write(f"{int(time.time())}\t{sid}\tsdk\t{b}\t{a}\n")
 
-    return {"line": line, "notes": os.path.join(HANDOFF, f"{sid or 'new'}.notes.md"), "log": write}
+    return {"line": line, **plain_notes(sid), "log": write}
 
 
 def usage_tokens(u):
@@ -597,6 +604,7 @@ async def run(argv):
         return ClaudeAgentOptions(resume=r or None, extra_args={"name": peer} if peer else {},
             cwd=cwd, model=model[0] or None, effort=effort[0] or None,
             permission_mode=vals.get("--permission-mode") or "auto",
+            disallowed_tools=[t.strip() for t in (vals.get("--disallowedTools") or vals.get("--disallowed-tools") or "").split(",") if t.strip()],
             system_prompt={"type": "preset", "preset": "claude_code", **({"append": append} if append else {})},
             setting_sources=["user", "project", "local"],
             env={"HIVEMUX_SDK": "1", "HIVEMUX_SDK_FOR": sid},
@@ -847,17 +855,19 @@ async def run(argv):
             asks, held = t.asks_user(last), t.watched(pane) if pane else False
         except Exception:
             asks, held = False, False
-        # an answer that asks the user something waits for the answer; a window being read waits until they look
-        # away, unless past half again the line: then the last answer is shown again after the fresh start
-        # 사용자에게 묻는 답은 답을 기다린다. 읽는 중인 창은 다른 데를 볼 때까지 기다린다. 기준의 1.5배를 넘으면
-        # 그래도 하고, 마지막 답은 새로 시작한 뒤 다시 보여 준다
-        if asks:
-            return
-        if held and st["ctx"] >= plan["line"] * 1.5:
+        # an answer that asks the user something, or a window being read, waits until they look away, unless past half
+        # again the line; the answer is then shown again after the fresh start (bin/hivemux-team on_stop)
+        # 사용자에게 묻는 답이나 읽는 중인 창은 다른 데를 볼 때까지 기다린다. 기준의 1.5배를 넘으면 그래도 한다. 그 답은
+        # 새로 시작한 뒤 다시 보여 준다 (bin/hivemux-team on_stop)
+        over = held and st["ctx"] >= plan["line"] * 1.5
+        last_md = os.path.join(HANDOFF, f"{sid or 'new'}.last.md")
+        if asks or over:
             os.makedirs(HANDOFF, exist_ok=True)
-            with open(os.path.join(HANDOFF, f"{sid or 'new'}.last.md"), "w") as f:
+            with open(last_md, "w", encoding="utf-8") as f:
                 f.write(last)
-            held = False
+        elif os.path.exists(last_md):
+            os.unlink(last_md)
+        held = held and not over
         st["diet"] = "pending" if held else "go"
 
     async def watch_back():
@@ -897,28 +907,27 @@ async def run(argv):
         st["diet"], st["diet_before"] = "notes", st["ctx"]
         out(GRAY + tr(f"  ⎿ 다이어트: 대화가 {st['ctx'] // 1000}K 토큰이라 노트를 정리하고 새로 시작합니다",
                       f"  ⎿ Diet: the conversation is {st['ctx'] // 1000}K tokens; bringing the notes up to date, then a fresh start") + RST)
-        await send(client, tr(f"(hivemux 다이어트) 대화가 커져서 곧 새로 시작한다. {plan['notes']} 를 지금 상태, 결정한 것, 남은 일, 중요한 파일, "
-                              "사용자에게 물었는데 아직 답이 없는 질문(원문 그대로)으로 최신으로 정리해라. 정리만 하고 다른 일은 하지 마라.",
-                              f"(hivemux diet) The conversation is large, so it starts fresh soon. Bring {plan['notes']} up to date: state, "
-                              "decisions, what is left, key files, and questions to the user still unanswered (word for word). Only that, nothing else."))
+        t = team_module()
+        await send(client, t.notes_ask(plan["notes"], plan["most"], plan["ref"], plan["questions"]))
 
     def diet_fresh():
         """A new SDK conversation that reads the notes (and shows again the answer being read) / 노트를 읽는 새 SDK 대화"""
-        plan = diet_plan(pane, sid) or {"notes": os.path.join(HANDOFF, f"{sid or 'new'}.notes.md")}
+        plan = diet_plan(pane, sid) or plain_notes(sid)
         last = os.path.join(HANDOFF, f"{sid or 'new'}.last.md")
         again = ""
         if os.path.isfile(last):
             again = tr(f" 먼저 {last} 를 읽고, 그 내용을 사용자에게 고치지 말고 그대로 다시 보여 줘라 (다이어트 직전에 사용자가 읽던 답이다).",
                        f" First read {last} and show it to the user again exactly as written (the answer they were reading right before the diet).")
+        files = " ".join(([plan["start"]()] if plan.get("start") else []) + [plan["notes"]])
         try:
             os.unlink(sdk_file(sid))
         except OSError:
             pass
         resume[0], st["first"], st["ctx_first"], st["diet"] = "", False, 0, "after"
-        st["next"] = tr(f"(hivemux 다이어트 뒤 새로 시작){again} {plan['notes']} 를 읽고 하던 일을 이어서 해라. 사용자의 답을 기다리는 질문이 있으면 "
-                        "그 질문을 원문 그대로 다시 보여 줘라. 이어서 할 일이 없으면 기다려라.",
-                        f"(hivemux: fresh start after a diet){again} Read {plan['notes']} and carry on with your work. If questions to the "
-                        "user are still unanswered, show them again word for word. If nothing is left, wait.")
+        st["next"] = tr(f"(hivemux 다이어트 뒤 새로 시작){again} {files} 를 읽고 하던 일을 이어서 해라. 사용자의 답을 기다리는 질문이 있으면 "
+                        "그 질문을 원문 그대로 다시 보여 줘라. 미리 다 알아 두려 하지 말고 지금 할 한 가지에 필요한 줄만 찾아 읽어라. 이어서 할 일이 없으면 기다려라.",
+                        f"(hivemux: fresh start after a diet){again} Read {files} and carry on with your work. If questions to the "
+                        "user are still unanswered, show them again word for word. Do not catch up on everything first: find and read only the lines the next step needs. If nothing is left, wait.")
         out(GRAY + tr("  ⎿ 새 대화로 시작합니다", "  ⎿ Starting a fresh conversation") + RST)
 
     async def slash(client, text):
