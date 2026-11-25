@@ -1967,7 +1967,7 @@ def question_done(session, index):
 def claude_pid(pane):
     """The pid of the Claude running in a pane (a child of its shell) / 칸에서 도는 Claude 의 pid (셸의 자식)"""
     shell = tmux("display", "-p", "-t", pane, "#{pane_pid}").strip()
-    out = subprocess.run(["ps", "-ax", "-o", "pid=,ppid=,comm="], capture_output=True, text=True).stdout
+    out = subprocess.run(["ps", "-ax", "-o", "pid=,ppid=,comm="], capture_output=True, text=True, errors="replace").stdout
     for line in out.splitlines():
         p = line.split(None, 2)
         if len(p) == 3 and p[1] == shell and os.path.basename(p[2].strip()) == "claude":
@@ -2044,7 +2044,7 @@ def role_by_address(session, team, to, folder=None, at=None):
         return r
     rid = None
     if at is None:
-        out = subprocess.run(["ps", "-o", "ppid=", "-p", m.group(1)], capture_output=True, text=True).stdout.strip()
+        out = subprocess.run(["ps", "-o", "ppid=", "-p", m.group(1)], capture_output=True, text=True, errors="replace").stdout.strip()
         pp = {l.split()[0]: l.split()[1] for l in tmux("list-panes", "-s", "-t", f"={session}", "-F", "#{pane_pid} #{@hivemux-role}").splitlines() if len(l.split()) == 2}
         rid = pp.get(out)
     if not rid and folder:

@@ -578,7 +578,7 @@ def claude_pid(shell_pid):
     """The Claude under a pane's shell: its child, or a grandchild (a shell the profile starts again)
     칸 셸 아래의 Claude: 자식, 또는 손자 (프로필이 셸을 한 번 더 띄운 경우)"""
     kids = {}
-    for ln in subprocess.run(["ps", "-ax", "-o", "pid=,ppid=,comm="], capture_output=True, text=True).stdout.splitlines():
+    for ln in subprocess.run(["ps", "-ax", "-o", "pid=,ppid=,comm="], capture_output=True, text=True, errors="replace").stdout.splitlines():
         p = ln.split(None, 2)
         if len(p) == 3:
             kids.setdefault(p[1], []).append((p[0], p[2]))
@@ -604,7 +604,7 @@ def running_dir(pid):
             return ""
     except OSError:
         pass
-    out = subprocess.run(["ps", "-E", "-ww", "-o", "command=", "-p", pid], capture_output=True, text=True).stdout
+    out = subprocess.run(["ps", "-E", "-ww", "-o", "command=", "-p", pid], capture_output=True, text=True, errors="replace").stdout
     m = re.search(r"(?:^|\s)CLAUDE_CONFIG_DIR=(\S+)", out)
     return m.group(1) if m else ""
 

@@ -612,7 +612,7 @@ def connections():
         if st.st_uid != os.getuid() or not stat.S_ISSOCK(st.st_mode):
             continue
         pid = sock.rsplit("-", 1)[1]
-        args = subprocess.run(["ps", "-o", "args=", "-p", pid], capture_output=True, text=True).stdout.split()
+        args = subprocess.run(["ps", "-o", "args=", "-p", pid], capture_output=True, text=True, errors="replace").stdout.split()
         i = next((i for i, a in enumerate(args) if a.endswith("hivemux-ports")), None)
         if i is not None and i + 1 < len(args) and not args[i + 1].startswith("-"):
             out.append((args[i + 1], sock))
@@ -1243,7 +1243,7 @@ def open_window(popup=False, page="/"):
     url = f"http://127.0.0.1:{port}{page}"
     try:                                        # already open: bring it to the front / 이미 열려 있으면 앞으로
         pid = int(open(WINDOW_PID).read())
-        if APP_NAME in subprocess.run(["ps", "-o", "args=", "-p", str(pid)], capture_output=True, text=True).stdout:
+        if APP_NAME in subprocess.run(["ps", "-o", "args=", "-p", str(pid)], capture_output=True, text=True, errors="replace").stdout:
             if page != "/":                     # it goes there at its next poll / 다음 읽기 때 그리로 간다
                 urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{port}/nav", method="POST",
                                        data=json.dumps({"path": page}).encode()), timeout=2).read()
@@ -1367,7 +1367,7 @@ def running_window():
         pid = int(open(WINDOW_PID).read())
     except (OSError, ValueError):
         return False
-    return APP_NAME in subprocess.run(["ps", "-o", "args=", "-p", str(pid)], capture_output=True, text=True).stdout
+    return APP_NAME in subprocess.run(["ps", "-o", "args=", "-p", str(pid)], capture_output=True, text=True, errors="replace").stdout
 
 
 def main(argv):
