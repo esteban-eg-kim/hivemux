@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.1.81 — 2026-11-25
 
 - The settings, open path, new project, connect and sidebar width popups have no bar on the left of the
