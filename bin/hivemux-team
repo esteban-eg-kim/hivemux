@@ -2171,7 +2171,9 @@ def _prompt_text(o):
                          ("<command-name>", "(슬래시 명령)", "(a slash command)")):
         if s.startswith(head):
             return tr(ko, en)
-    return s
+    # hivemux's own requests by their name, without the paths after it / hivemux 의 요청은 이름만. 뒤의 경로는 뺀다
+    m = re.match(r"(\(hivemux[^)]*\))", s)
+    return m.group(1) if m else s
 
 
 def _tokens(sids, start, end):
