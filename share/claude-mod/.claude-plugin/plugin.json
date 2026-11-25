@@ -1,0 +1,7 @@
+{
+  "name": "hivemux",
+  "version": "0.1.0",
+  "description": "hivemux inside Claude Code: the exact context and each account's usage limits for the sidebar, a line above the prompt, and team diets run inside Claude Code instead of typed into it",
+  "license": "MIT",
+  "types": "./types/index.d.ts"
+}

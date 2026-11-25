@@ -275,6 +275,46 @@ _update = [None, ""]
 _update_tick = [0.0]
 
 
+LIMITS = os.path.join(os.path.dirname(ORDER_FILE), "limits")
+_limits = [0.0, []]
+
+
+def week_limits():
+    """[(account, week % used)] the Claudes reported (share/claude-mod: <data>/limits/<account>.tsv), the default
+    account first; a week that has reset since counts as 0, a reading older than a week is left out. Read again
+    every five seconds
+    Claude 들이 알려 온 계정별 주간 한도 사용률 (share/claude-mod: <data>/limits/<계정>.tsv). 기본 계정이 먼저. 그
+    뒤로 초기화된 주는 0, 일주일보다 오래된 값은 뺀다. 5초마다 다시 읽는다"""
+    now = time.time()
+    if now - _limits[0] < 5:
+        return _limits[1]
+    rows = []
+    try:
+        names = sorted(os.listdir(LIMITS), key=lambda f: (f != "default.tsv", f))
+    except OSError:
+        names = []
+    for f in names:
+        if not f.endswith(".tsv"):
+            continue
+        try:
+            with open(os.path.join(LIMITS, f)) as fh:
+                week, resets, _, _, at = (fh.readline().rstrip("\n").split("\t") + [""] * 5)[:5]
+            pct = float(week)
+        except (OSError, ValueError):
+            continue
+        if not at.isdigit() or now - int(at) > 8 * 86400:
+            continue
+        try:
+            import datetime
+            if resets and datetime.datetime.fromisoformat(resets.replace("Z", "+00:00")).timestamp() < now:
+                pct = 0.0
+        except ValueError:
+            pass
+        rows.append((f[:-4], pct))
+    _limits[:] = [now, rows]
+    return rows
+
+
 def update_new():
     """The newer version, read again only when the file changes / 더 새 버전. 파일이 바뀔 때만 다시 읽는다"""
     try:
@@ -774,7 +814,10 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
         return out, tg, hg, sp, gl
 
     global SCROLL, SCROLL_TO, SPOTS, GLOWS
-    avail = h - 3 - len(lines)          # rows for the list / 목록에 쓸 줄 수
+    # each account's week (share/claude-mod), a row under the list's rule / 계정마다 주간 한도. 목록 아래 구분선 밑 한 줄
+    wl = week_limits()
+    foot = 4 if wl else 3
+    avail = h - foot - len(lines)       # rows for the list / 목록에 쓸 줄 수
     # If it does not fit, the list scrolls (cards stay two lines, projects stay apart)
     # 넘치면 목록을 스크롤한다 (카드는 두 줄, 프로젝트 사이 빈 줄은 그대로)
     body, tg, hg, sp, gl = build()
@@ -794,18 +837,26 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
     lines += body[SCROLL:SCROLL + avail]
     targets = {base + k: v for k, v in tg.items() if SCROLL <= k < SCROLL + avail}
     heads = {base + k: v for k, v in hg.items() if SCROLL <= k < SCROLL + avail}
-    SPOTS, GLOWS = ([(base + j, x, *look) for j, x, *look in l if SCROLL <= j < SCROLL + avail and base + j < h - 3] for l in (sp, gl))
+    SPOTS, GLOWS = ([(base + j, x, *look) for j, x, *look in l if SCROLL <= j < SCROLL + avail and base + j < h - foot] for l in (sp, gl))
     # more above / below: an arrow at the right end of the rule above / below the list
     # 위/아래에 더 있음: 목록 위/아래 구분선 오른쪽 끝에 화살표
     if SCROLL:
         lines[base + SCROLL - 1].cells[w - 5:w - 2] = [(c, BG, C["text2"], True) for c in " ▲ "]
     more_below = SCROLL < top_max
-    lines = lines[:h - 3]
-    while len(lines) < h - 3:
+    lines = lines[:h - foot]
+    while len(lines) < h - foot:
         lines.append(L())
     lines.append(L().put(" " + "─" * (w - 2), C["rule"]))
     if more_below:
         lines[-1].cells[w - 5:w - 2] = [(c, BG, C["text2"], True) for c in " ▼ "]
+    if wl:
+        lim = L().put(tr("  주간 ", "  week "), C["text3"])
+        for i, (acc, pct) in enumerate(wl):
+            if i:
+                lim.put(" · ", C["text3"])
+            name = tr("기본", "default") if acc == "default" else acc
+            lim.put(f"{name} ", C["text2"]).put(f"{pct:.0f}%", C["wait"] if pct >= 70 else C["text2"], bold=pct >= 90)
+        lines.append(lim)
     k = L().put("  ")
     if n_wait:
         k.put(" ⌥0 ", C["bg"], C["wait"], True).put(tr("  기다리는 작업으로", "  go to waiting"), C["wait"])

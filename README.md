@@ -379,6 +379,11 @@ to it; every Claude carries on in the same conversation.
   @hivemux-sdk-diet 200`, or `off`). Its Python (`claude-agent-sdk`, `prompt_toolkit`) is
   set up once in `~/.local/share/hivemux/sdk/venv`, with Python 3.10 or newer.
   `hivemux account runner api claude` runs Claude Code on the key instead.
+- **How much of each account's week is used.** The sidebar's bottom shows
+  every account's weekly limit as its Claudes last reported it (`week default
+  23% · work 92%`, amber from 70%), the account popup and `hivemux account
+  list` the same with when it resets. Claude Code reports it to hivemux's mod
+  after each turn; an account no Claude ran on yet has none.
 - **Where you are.** The status line shows `◉ work` when the account in use
   is not the default one. `hivemux account list` shows every account, its
   email and the projects on it.
@@ -696,6 +701,7 @@ with its path pasted for Claude to read. Several at once, no folders, up to
 | sidebar | reads that state every second and draws the board (`hivemux-sidebar-view`) |
 | bee office | a small local server (`hivemux-office`) serves the office page to its window; `hivemux-bees` keeps the roster and the honey ledger, `hivemux-shift` clocks out and in |
 | teams | `hivemux-team` keeps a project's team in its `.hivemux/` and starts each role's Claude with its model, effort and prompt; the hook logs hand-offs and puts a role past its line on a diet |
+| mod | `share/claude-mod`, a Claude Code mod (2.1.287+) setup adds to `~/.claude/settings.json` (`env.CLAUDE_CODE_PLUGIN_DIRS`): it puts Claude Code's own context figure and each account's usage limits on the pane and in `~/.local/share/hivemux/limits/`, draws a line above the prompt, and runs what a team diet sends (`/clear`, the notes request) inside Claude Code, so what you are typing stays |
 | accounts | `hivemux-claude` starts Claude on the project's account; `hivemux-account` adds and switches them, `hivemux-artifacts` lists the HTML pages and reads the artifacts from the transcripts |
 
 On restore, `hivemux-panes` maps saved panes to Claude session ids and types

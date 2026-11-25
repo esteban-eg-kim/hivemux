@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- hivemux's mod for Claude Code (2.1.287 and later), which setup adds to `~/.claude/settings.json`
+  (`env.CLAUDE_CODE_PLUGIN_DIRS`, removed by uninstall; a Claude takes it when it starts again):
+  - Each account's weekly limit, as Claude Code reports it after each turn: at the bottom of the sidebar
+    (`week default 23% · work 92%`, amber from 70%), in the account popup and `hivemux account list` with when
+    it resets.
+  - A line above the prompt: the team role, the context against the window, the 5-hour and weekly limits and
+    the diet under way.
+  - A team diet's `/clear` and notes request run inside Claude Code instead of being typed into the pane: what
+    you were typing there stays as it was. The fresh start's request, with its attached notes, is still typed,
+    into the empty box after the `/clear`; so is anything the mod has not taken within four seconds.
+  - The pane gets Claude Code's own context figure and the window (`@claude_ctx_live`, `@claude_ctx_window`)
+    and the limits (`@claude_limit_5h`, `@claude_limit_7d`). A `claude -p` or Agent SDK run in the pane leaves
+    it alone.
+
 ## 0.1.81 — 2026-11-25
 
 - The settings, open path, new project, connect and sidebar width popups have no bar on the left of the

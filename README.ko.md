@@ -128,6 +128,7 @@ Claude 계정 하나가 사용 한도에 걸리면 다른 계정에 로그인해
 - **한도에 걸리면 API 키로:** 같은 팝업의 **API 키 계정 추가…** 에서 Anthropic API 키를 넣고(키를 확인하고 저장합니다), **사용 한도에 걸리면 이어 갈 계정**에서 고릅니다(처음 더한 것은 저절로 골라집니다). 명령으로는 `hivemux account add-key api`, `hivemux account fallback api`입니다. 그러면 구독이 사용 한도에 걸렸을 때 그 Claude들이 같은 칸에서 이 키로 이어 가고, 한도로 끊긴 Claude에게는 이어서 하라고 전합니다. 결제가 밀리거나 계정이 멈춰 구독을 쓸 수 없을 때도 하루 동안, 또는 그 계정을 다시 고를 때까지 이어 갑니다. 한도가 풀리면(한도 메시지의 시각, 없으면 5시간 뒤) 화면에 없고 일하지 않을 때 돌아옵니다. API는 쓴 만큼 요금이 나갑니다. `hivemux account fallback off`로 끄고, **이 프로젝트 계정…** 에서 프로젝트마다 따로 정할 수 있습니다(`hivemux account fallback api|off|all -s <프로젝트>`).
 
   기본은 **Agent SDK**로 이어 갑니다. Max, Ultra, Team 요금제에는 [월간 API 크레딧](https://support.claude.com/ko/articles/17154008-monthly-api-credits-for-max-ultra-and-team-plans)이 들어 있습니다($100, $200, 팀 최대 $500. claude.ai → 설정 → 청구에서 Console 조직을 연결해 받습니다). 이 크레딧은 그 조직의 키로 쓰는 Agent SDK에는 쓰이고 Claude Code에는 쓰이지 않아서, Claude Code를 이 키로 돌리면 "Credit balance too low"에서 멈춥니다. `bin/hivemux-sdk`는 hivemux가 SDK로 만든 Claude 터미널입니다. 쓰던 화면과 비슷하게 생겼고, 같은 칸에서 같은 폴더, 도구, 설정, CLAUDE.md, 훅, 팀 역할 지시문으로 일합니다. 대화는 문서로 넘깁니다. Claude Code 대화의 끝에서 쓴 넘김 문서(최근 요청과 답, 바뀐 파일, 역할 노트, 전체 대화의 경로)에서 시작하고, 한 일을 턴마다 적습니다. 구독을 다시 쓸 수 있으면 조용한 때에 같은 대화의 Claude Code로 돌아가 그 사이 한 일을 먼저 읽습니다. 그동안에도 팀 역할처럼 다이어트를 합니다(팀이 아니면 15만 토큰, `tmux set -g @hivemux-sdk-diet 200` 또는 `off`). 파이썬 3.10 이상이 필요하고 처음 한 번 준비합니다. `hivemux account runner api claude`로 두면 Claude Code를 그 키로 돌립니다.
+- **계정마다 주간 한도:** 사이드바 맨 아래에 계정마다 이번 주 한도를 얼마나 썼는지 나옵니다(`주간 기본 23% · work 92%`, 70%부터 호박색). 계정 팝업과 `hivemux account list`에는 초기화 시각도 함께 나옵니다. Claude Code가 답할 때마다 hivemux mod에 알려 주는 값이라, 아직 아무 Claude도 돌지 않은 계정은 나오지 않습니다.
 - **지금 계정:** 기본 계정이 아니면 상태줄에 `◉ work`가 보입니다. `hivemux account list`는 계정마다 이메일과 그 계정을 쓰는 프로젝트를 보여 줍니다.
 
 추가한 계정은 자기 Claude 설정 폴더(`~/.local/share/hivemux/accounts/<이름>`, `CLAUDE_CONFIG_DIR`로 씀)를 갖습니다. 로그인만 따로이고, 설정, 훅, 대화, 메모리, 스킬, 플러그인, 실행 중인 세션 목록은 `~/.claude`와 함께 씁니다. 그래서 대화가 어느 계정으로든 이어지고, 계정이 다른 Claude끼리도 메시지를 주고받습니다. `default`는 `~/.claude`의 로그인입니다. `hivemux account remove <이름>`은 로그아웃하고 지웁니다.
@@ -317,6 +318,7 @@ PDF 같은 파일도 됩니다. Finder에서 `⌘C`로 복사하고 원격 Claud
 | 사이드바 | 그 상태를 1초마다 읽어 상태판을 그립니다 (`hivemux-sidebar-view`) |
 | 벌 사무실 | 작은 로컬 서버(`hivemux-office`)가 사무실 페이지를 창에 보여 줍니다. `hivemux-bees`가 명부와 꿀 장부를, `hivemux-shift`가 퇴근·출근을 맡습니다 |
 | 팀 | `hivemux-team`이 프로젝트의 팀을 `.hivemux/`에 두고, 역할마다 모델, 노력, 지시문으로 Claude를 시작합니다. 훅이 업무 전달을 기록하고, 기준을 넘은 역할을 다이어트시킵니다 |
+| mod | `share/claude-mod`. setup이 `~/.claude/settings.json`(`env.CLAUDE_CODE_PLUGIN_DIRS`)에 더하는 Claude Code mod입니다(2.1.287 이상). Claude Code가 직접 아는 컨텍스트 크기와 계정마다의 사용 한도를 칸과 `~/.local/share/hivemux/limits/`에 적고, 입력창 위에 한 줄을 그리고, 팀 다이어트가 보내는 것(`/clear`, 노트 요청)을 Claude Code 안에서 실행해 쓰던 글을 건드리지 않습니다 |
 | 계정 | `hivemux-claude`가 프로젝트의 계정으로 Claude를 시작합니다. `hivemux-account`가 계정을 추가하고 바꾸며, `hivemux-artifacts`가 HTML 페이지를 모으고 대화 기록에서 아티팩트를 읽습니다 |
 
 복원할 때 `hivemux-panes`가 저장된 칸과 Claude 세션 ID를 짝지어, 칸마다 `claude --resume <id>`를 입력합니다. `/exit`로 직접 끝낸 세션은 재개하지 않고, 퇴근 중에는 아무것도 재개하지 않습니다.

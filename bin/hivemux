@@ -336,15 +336,20 @@ source-file \"$SHARE/keys.tmux\""
   local remote=false
   if [ "$REMOTE" = ask ] && ask "Enable Remote Control for every session? (continue from the Claude phone app)" y; then remote=true; fi
   local tmp; tmp="$(mktemp)"
-  jq --arg h "$HM_BIN/hivemux-hook" --argjson evs "$HOOK_EVENTS" --argjson remote "$remote" '
+  # hivemux's mod (share/claude-mod): Claude Code loads it from the folders this names, from 2.1.287 on
+  # hivemux mod (share/claude-mod): Claude Code 2.1.287 부터 여기 적힌 폴더에서 불러온다
+  jq --arg h "$HM_BIN/hivemux-hook" --argjson evs "$HOOK_EVENTS" --argjson remote "$remote" --arg mod "$SHARE/claude-mod" '
     def mine: (.command // "") | (contains("hivemux-hook") or contains("claude-tmux-hook"));
-    .hooks = (.hooks // {})
+    .env = (.env // {})
+    | .env.CLAUDE_CODE_PLUGIN_DIRS = ((((.env.CLAUDE_CODE_PLUGIN_DIRS // "") | split(":") | map(select(. != "" and (endswith("/claude-mod") | not)))) + [$mod]) | join(":"))
+    | .hooks = (.hooks // {})
     | reduce $evs[] as $ev (.;
         .hooks[$ev] = (((.hooks[$ev] // []) | map(.hooks = ((.hooks // []) | map(select(mine | not)))) | map(select((.hooks|length) > 0)))
                        + [{hooks: [{type: "command", command: ($h + " " + $ev), timeout: 5}]}]))
     | if $remote then .remoteControlAtStartup = true else . end
   ' "$CLAUDE_SETTINGS" > "$tmp" && jq empty "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS" || { bad "could not update settings"; exit 1; }
   ok "hooks for ${HOOK_EVENTS//\"/}"
+  ok "hivemux mod for Claude Code ($SHARE/claude-mod: context, usage limits, diets inside Claude Code; needs Claude Code 2.1.287+)"
   [ "$remote" = true ] && ok "Remote Control for all sessions" && { grep -qx remote "$DATA/setup-flags" 2>/dev/null || echo "remote" >> "$DATA/setup-flags"; }
 
   step "5/5 Ghostty ($GHOSTTY_CONF)"
@@ -445,7 +450,10 @@ uninstall() {
       if .hooks then .hooks |= (with_entries(.value |= (map(.hooks = ((.hooks // []) | map(select(mine | not)))) | map(select((.hooks|length) > 0))))
                               | with_entries(select(.value|length > 0))) else . end
       | if $rr then del(.remoteControlAtStartup) else . end
-    ' "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS" && ok "Claude Code hooks removed"
+      | if .env.CLAUDE_CODE_PLUGIN_DIRS then .env.CLAUDE_CODE_PLUGIN_DIRS |= (split(":") | map(select(. != "" and (endswith("/claude-mod") | not))) | join(":")) else . end
+      | if .env.CLAUDE_CODE_PLUGIN_DIRS == "" then del(.env.CLAUDE_CODE_PLUGIN_DIRS) else . end
+      | if .env == {} then del(.env) else . end
+    ' "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS" && ok "Claude Code hooks and the hivemux mod removed"
   fi
   if tmux has-session 2>/dev/null; then
     tmux list-panes -a -F '#{pane_id} #{pane_title}' | awk '$2=="hivemux-sidebar"{print $1}' | while read -r p; do tmux kill-pane -t "$p"; done

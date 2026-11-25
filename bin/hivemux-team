@@ -1515,6 +1515,36 @@ def prompt_free(pane):
 
 
 def type_in(pane, text):
+    """Have the pane's Claude take text as typed. With hivemux's mod in it (share/claude-mod, @hivemux-mod) the mod
+    runs it inside Claude Code: what the person is typing stays as it was. Typed into the pane, text joined their
+    draft. A prompt with @file mentions is still typed (the mod's prompt does not attach them; hivemux sends
+    those right after a /clear, into an empty box), and so is anything the mod has not taken within four seconds.
+    Claude 가 text 를 입력받게 한다. hivemux mod 가 있으면 (share/claude-mod, @hivemux-mod) mod 가 Claude Code 안에서
+    실행한다: 사람이 쓰던 글은 그대로다. 칸에 쳐 넣으면 쓰던 글에 붙었다. @파일 언급이 있는 프롬프트는 쳐 넣는다
+    (mod 의 프롬프트는 붙이지 않는다. hivemux 는 그것을 /clear 직후 빈 입력창에 보낸다). mod 가 4초 안에 가져가지 않아도 쳐 넣는다"""
+    if "@/" not in text and tmux("show", "-pqv", "-t", pane, "@hivemux-mod").strip() == "1":
+        box = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux", "mod")
+        path = os.path.join(box, pane.lstrip("%") + ".do")
+        os.makedirs(box, exist_ok=True)
+        for _ in range(40):         # one still waiting goes first / 아직 기다리는 것이 먼저
+            if not os.path.exists(path):
+                break
+            time.sleep(0.1)
+        else:
+            path = ""
+        if path:
+            tmp = f"{path}.{os.getpid()}.tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump({"text": text}, f, ensure_ascii=False)
+            os.replace(tmp, path)
+            for _ in range(40):
+                time.sleep(0.1)
+                if not os.path.exists(path):
+                    return
+            try:
+                os.unlink(path)     # not taken: typed after all / 가져가지 않았다: 쳐 넣는다
+            except FileNotFoundError:
+                return
     tmux("send-keys", "-t", pane, "-l", text)
     tmux("send-keys", "-t", pane, "Enter")
 

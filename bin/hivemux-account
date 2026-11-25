@@ -783,6 +783,27 @@ def label(n):
     return tr("기본 계정", "Default account") if n == "default" else n
 
 
+def week_used(name):
+    """"23% (11-30 18:00)": the account's week as its Claudes last reported it (share/claude-mod: <data>/limits/
+    <name>.tsv), "" when none did; a week that has reset since is 0%
+    "23% (11-30 18:00)": 그 계정의 Claude 들이 마지막으로 알려 온 주간 한도 (share/claude-mod: <data>/limits/<name>.tsv).
+    없으면 "". 그 뒤 초기화된 주는 0%"""
+    try:
+        with open(os.path.join(DATA, "limits", f"{name}.tsv")) as f:
+            week, resets = (f.readline().rstrip("\n").split("\t") + ["", ""])[:2]
+        pct = float(week)
+    except (OSError, ValueError):
+        return ""
+    import datetime
+    try:
+        end = datetime.datetime.fromisoformat(resets.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return f"{pct:.0f}%"
+    if end < time.time():
+        return "0%"
+    return f"{pct:.0f}% ({time.strftime('%m-%d %H:%M', time.localtime(end))})"
+
+
 def draw(out, rows, sel, here, session, proj, typing, asking, msg, cols, lines, keying=None):
     buf = ["\x1b[H\x1b[2J", bg(BG), "\r\n"]
     head = (tr(f"프로젝트 {session} 에서 사용할 계정을 선택하십시오.", f"Choose the account for project {session}.") if session
@@ -857,7 +878,9 @@ def ui(session):
                     if session else [])
             for a in ["default", *names()]:
                 w = who(a)
-                rows.append((a, label(a), w.get("email") or tr("로그인되어 있지 않습니다", "Not logged in")))
+                wk = week_used(a)
+                rows.append((a, label(a), (w.get("email") or tr("로그인되어 있지 않습니다", "Not logged in"))
+                             + (tr(f"  · 주간 {wk}", f"  · week {wk}") if wk else "")))
             rows.append(("+", tr("계정 추가…", "Add account…"), ""))
             rows.append(("+key", tr("API 키 계정 추가…", "Add API key account…"), ""))
             # the account Claudes go on with at a usage limit: for all projects, or this project's own
@@ -1042,7 +1065,8 @@ def main(argv):
             print(("* " if r["all"] else "  ") + r["name"].ljust(16) + (r.get("email") or tr("(로그인 안 됨)", "(not logged in)"))
                   + (f"   [{', '.join(r['projects'])}]" if r["projects"] else "")
                   + (tr("   (앱에 숨김)", "   (hidden from the app)") if r["hidden"] else "")
-                  + (tr("   (한도 시 이어 감)", "   (goes on at a limit)") if r["name"] == fallback() else ""))
+                  + (tr("   (한도 시 이어 감)", "   (goes on at a limit)") if r["name"] == fallback() else "")
+                  + (tr(f"   주간 {week_used(r['name'])}", f"   week {week_used(r['name'])}") if week_used(r["name"]) else ""))
         for p_, n in sorted(fallbacks()[1].items()):
             print(tr(f"  프로젝트 {p_}: 한도 시 {'넘어가지 않음' if n == 'off' else n + ' 로 이어 감'}",
                      f"  project {p_}: at a limit {'stays' if n == 'off' else 'goes on with ' + n}"))
