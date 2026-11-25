@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.1.80 — 2026-11-25
 
 - Diets, when they should: a role whose last answer asked something was not put on a diet until you had
