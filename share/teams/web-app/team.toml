@@ -14,8 +14,6 @@ starters_en = ["Build a shop MVP with sign-in, a cart and checkout", "Many peopl
 
 # a role past this many thousand tokens of context, at rest, starts fresh from its notes
 # 컨텍스트가 이 천 토큰을 넘고 쉬면 노트를 남기고 새로 시작한다
-# tools_off: tools a role does without (bin/hivemux-team TOOLS_OFF); Artifact alone is 13K tokens of every request
-# tools_off: 역할이 쓰지 않는 도구 (bin/hivemux-team TOOLS_OFF). Artifact 하나가 요청마다 13K 토큰이다
 [diet]
 at = 120
 how = "renew"
@@ -58,7 +56,6 @@ model = "sonnet"
 advisor = "opus"
 effort = "high"
 prompt = "roles/dev.md"
-tools_off = ["Artifact"]
 owns = "its own worktree"
 worktree = true
 diet = { at = 160 }
@@ -70,7 +67,6 @@ name_en = "QA"
 model = "sonnet"
 effort = "medium"
 prompt = "roles/qa.md"
-tools_off = ["Artifact"]
 readonly = true
 
 [[role]]
@@ -80,5 +76,4 @@ name_en = "Marketing"
 model = "haiku"
 effort = "medium"
 prompt = "roles/marketer.md"
-tools_off = ["Artifact"]
 owns = "docs/marketing/"

@@ -238,6 +238,9 @@ case "$event" in
     # 먼저 사이드바에: 훅은 5초를 받는데, 바쁜 맥 (출근, Claude 여럿) 에서 끝까지 가기 전에 끝나 첫 입력 전까지
     # 카드가 보이지 않았다. 끝에서 다른 상태로 바꿀 수 있다
     [ -z "$("$TMUX_BIN" show -pqv -t "$TMUX_PANE" @claude_restore 2>/dev/null)" ] && state idle
+    # pages to show as HTML files (bin/hivemux-team pages_rule): what it prints goes into the conversation
+    # 보여 줄 페이지를 HTML 파일로 (bin/hivemux-team pages_rule): 찍은 글이 대화에 들어간다
+    case "$(field source)" in startup|clear|compact) "$(dirname "$0")/hivemux-team" pages-rule "$TMUX_PANE" 2>/dev/null ;; esac
     case "$(field source)" in
       startup|resume)
         # a new process makes its Remote Control connection with the name: start counting connections afresh

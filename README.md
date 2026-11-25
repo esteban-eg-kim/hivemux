@@ -227,8 +227,8 @@ a look of its own, at work in a glass office building in 3D:
   Claude's `/rename`); bees with none show the project, numbered `api #1`,
   `api #2` among themselves.
 - The **Team** link at the top opens the team page (see [Teams](#teams)), and
-  **Artifacts** lists every artifact your Claudes published (see
-  [Artifacts](#artifacts)).
+  **Pages** lists the HTML pages and artifacts your Claudes made (see
+  [Pages](#pages)).
 - The bees of computers connected with `hivemux connect` work in the same
   building; the list groups the sessions by computer.
 - Without the Swift compiler for the window app (always so on Linux), it opens
@@ -361,12 +361,25 @@ conversation goes on under any account and Claudes on different accounts still
 message each other. `default` is the login in `~/.claude`. `hivemux account
 remove <name>` logs out and removes it.
 
-### Artifacts
+### Pages
 
-An artifact (a claude.ai page a Claude published) opens only for the account
-that published it. Right-click → **Artifacts…** (or the Artifacts link in the
-bee office) lists every artifact your Claudes published, newest first, with
-the account it belongs to, read from the conversation transcripts, so the ones
+Right-click → **Pages…** (or the Pages link in the bee office) lists what your
+Claudes made for you to see.
+
+**HTML files**: those in the projects' `docs/` and in the roles' work folders.
+Settings → **Pages to show** → **HTML files** makes it the way: a Claude writes
+a page as one HTML file instead of publishing it, and publishes it as an
+artifact only when you want it shared (in a team, one role does: `share = true`,
+else the designer, else the lead; the others go without the Artifact tool, 13K
+tokens less in every request). The setting applies from the next conversation;
+a team can have its own on its page (`hivemux team pages`). From the list, open
+a file or its shared copy, copy the request to share it, or the request to
+gather what others said on the shared copy: their comments go to
+`<name>.share.md` next to the file, and what you decide into the file.
+
+**Artifacts**: an artifact (a claude.ai page a Claude published) opens only for
+the account that published it. This lists every one, newest first, with the
+account it belongs to, read from the conversation transcripts, so the ones
 from before you added accounts are there too. For one of another account:
 
 - **View copy** opens the copy hivemux keeps of the published file
@@ -500,7 +513,7 @@ the install command again (git install). Claude Code itself: right-click → Upd
 | `Option+1` … `9` | jump to that Claude (any session) |
 | `Option+0` / `prefix Space` | oldest waiting Claude, else oldest unseen finished one |
 | click card / project name | jump · double click a card: rename. A project whose Claude windows are all closed stays listed ("no Claude") until you close it |
-| right click | menu. On a task: go to, rename, move up/down, clock this Claude out, close Claude, new Claude, new project. On a clocked-out (dimmed) card: clock in, go to, close Claude. On a project name: rename, Team…, close project, account for this project, clock this project out / in, new Claude, new project. On empty space: new project. Every menu ends with Open path…, Ports…, Bee office, Artifacts…, (on empty space: Clock everyone out / in…), Update Claude…, Update hivemux…, Switch account…, Connect to…, Sidebar width… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes. A popup that asks starts on Cancel, so `Enter` alone never confirms |
+| right click | menu. On a task: go to, rename, move up/down, clock this Claude out, close Claude, new Claude, new project. On a clocked-out (dimmed) card: clock in, go to, close Claude. On a project name: rename, Team…, close project, account for this project, clock this project out / in, new Claude, new project. On empty space: new project. Every menu ends with Open path…, Ports…, Bee office, Pages…, (on empty space: Clock everyone out / in…), Update Claude…, Update hivemux…, Switch account…, Connect to…, Sidebar width… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes. A popup that asks starts on Cancel, so `Enter` alone never confirms |
 | menu → Team… | the project's team page in the bee office window: set up, start and stop a team, send the lead a goal (see [Teams](#teams)) |
 | menu → Close Claude | asks, then closes that Claude: its pane, or its window when nothing else is in it; a project's last window keeps its shell. Not resumed again, like `/exit`; `claude --resume` still continues the conversation |
 | menu → New project | folder browser in the middle: `Enter` starts the selected folder (like `hm`), `→` / `←` in and out, type to filter, `Ctrl+N` new folder |
@@ -653,7 +666,7 @@ with its path pasted for Claude to read. Several at once, no folders, up to
 | sidebar | reads that state every second and draws the board (`hivemux-sidebar-view`) |
 | bee office | a small local server (`hivemux-office`) serves the office page to its window; `hivemux-bees` keeps the roster and the honey ledger, `hivemux-shift` clocks out and in |
 | teams | `hivemux-team` keeps a project's team in its `.hivemux/` and starts each role's Claude with its model, effort and prompt; the hook logs hand-offs and puts a role past its line on a diet |
-| accounts | `hivemux-claude` starts Claude on the project's account; `hivemux-account` adds and switches them, `hivemux-artifacts` reads the artifacts from the transcripts |
+| accounts | `hivemux-claude` starts Claude on the project's account; `hivemux-account` adds and switches them, `hivemux-artifacts` lists the HTML pages and reads the artifacts from the transcripts |
 
 On restore, `hivemux-panes` maps saved panes to Claude session ids and types
 `claude --resume <id>` in each. Sessions you ended with `/exit` are not resumed,

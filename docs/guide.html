@@ -514,7 +514,7 @@ claude -c
     <li>벌을 누르면 그 세션으로 갑니다. ☰ 버튼(또는 <code>L</code>)을 누르면 세션 목록이 서랍으로 열리고, <b>꿀 순위</b> 탭에서 오늘, 이번 주, 이번 달 꿀을 가장 많이 모은 벌을 봅니다.</li>
     <li>⚙ 설정: 앞으로 튀어나오기 또는 줄만 서기, 소리, 화면 공유용 작업·프로젝트 이름 숨기기, 실제 해 따라 또는 늘 낮·늘 밤, 밤의 사무실 조명, 기다리는 벌의 층으로 가기, 목록 위치, 다른 창 위에 띄우기(<code>⌘T</code>)를 고릅니다.</li>
     <li>벌 이름표에는 세션에 붙인 이름(hivemux 이름 바꾸기나 Claude의 <code>/rename</code>)이 나옵니다. 이름이 없는 벌은 프로젝트 이름에 <code>api #1</code>, <code>api #2</code>처럼 번호를 붙입니다.</li>
-    <li>위쪽의 <b>팀</b> 링크는 팀 화면을(팀 참고), <b>아티팩트</b> 링크는 Claude가 게시한 아티팩트 목록을 엽니다(아티팩트 참고).</li>
+    <li>위쪽의 <b>팀</b> 링크는 팀 화면을(팀 참고), <b>페이지</b> 링크는 Claude가 만든 HTML 페이지와 아티팩트 목록을 엽니다(페이지 참고).</li>
     <li><code>hivemux connect</code>로 붙어 있는 컴퓨터의 벌도 같은 건물에서 일하고, 세션 목록은 컴퓨터별로 묶입니다.</li>
   </ul>
   <div class="shots">
@@ -552,7 +552,7 @@ claude -c
       <div class="key"><span class="combo">사이드바 카드 클릭</span><span class="d">그 Claude로 이동</span></div>
       <div class="key"><span class="combo">프로젝트 이름 클릭</span><span class="d">그 프로젝트로 이동. Claude 창을 모두 닫은 프로젝트도 "Claude 없음"으로 남고, 오른쪽 클릭 → 프로젝트 닫기로 정리합니다</span></div>
       <div class="key"><span class="combo">카드 더블클릭</span><span class="d">작업 이름 바꾸기</span></div>
-      <div class="key"><span class="combo">오른쪽 클릭</span><span class="d">메뉴. 작업 카드: 이동, 이름 바꾸기, 위로 / 아래로 옮기기, 이 Claude 퇴근, Claude 닫기, 이 프로젝트에 새 Claude, 새 프로젝트. 퇴근한 카드: 출근, 이동, Claude 닫기. 프로젝트 이름 줄: 이름 바꾸기, 팀, 프로젝트 닫기, 이 프로젝트 계정, 이 프로젝트 퇴근 / 출근, 새 Claude, 새 프로젝트. 빈 곳: 새 프로젝트, 모두 퇴근하기 / 모두 출근하기. 모든 메뉴 맨 아래에 경로 열기, 포트 목록, 벌 사무실, 아티팩트, Claude 업데이트, hivemux 업데이트, 계정 전환, 원격 연결, 사이드바 폭, 설정. 마우스를 올리면 강조되고 클릭하면 실행. <kbd>↑</kbd> <kbd>↓</kbd>와 <kbd>Enter</kbd>, 괄호 안 글자로도 고름. <kbd>Esc</kbd>나 바깥 클릭으로 닫힘</span></div>
+      <div class="key"><span class="combo">오른쪽 클릭</span><span class="d">메뉴. 작업 카드: 이동, 이름 바꾸기, 위로 / 아래로 옮기기, 이 Claude 퇴근, Claude 닫기, 이 프로젝트에 새 Claude, 새 프로젝트. 퇴근한 카드: 출근, 이동, Claude 닫기. 프로젝트 이름 줄: 이름 바꾸기, 팀, 프로젝트 닫기, 이 프로젝트 계정, 이 프로젝트 퇴근 / 출근, 새 Claude, 새 프로젝트. 빈 곳: 새 프로젝트, 모두 퇴근하기 / 모두 출근하기. 모든 메뉴 맨 아래에 경로 열기, 포트 목록, 벌 사무실, 페이지, Claude 업데이트, hivemux 업데이트, 계정 전환, 원격 연결, 사이드바 폭, 설정. 마우스를 올리면 강조되고 클릭하면 실행. <kbd>↑</kbd> <kbd>↓</kbd>와 <kbd>Enter</kbd>, 괄호 안 글자로도 고름. <kbd>Esc</kbd>나 바깥 클릭으로 닫힘</span></div>
       <div class="key"><span class="combo">메뉴 → Claude 닫기</span><span class="d">확인을 받은 뒤 그 Claude를 닫습니다. 같은 창에 다른 칸이 있으면 그 칸만, 프로젝트에 다른 창이 있으면 그 창을 닫고, 프로젝트의 마지막 창이면 Claude만 끄고 셸은 남깁니다(창을 닫으면 프로젝트가 닫히므로). <code>/exit</code>처럼 직접 닫은 것이라 재부팅이나 출근 때 다시 띄우지 않고, 벌 사무실의 그 벌은 퇴사합니다. 대화는 남아 <code>claude --resume</code>으로 이어갈 수 있습니다</span></div>
       <div class="key"><span class="combo">메뉴 → 새 프로젝트</span><span class="d">가운데 폴더 탐색 창이 열림. <kbd>Enter</kbd>는 고른 폴더에서 <code>hm</code>처럼 시작, <kbd>→</kbd> / <kbd>←</kbd>는 폴더 안 / 상위로, 글자를 치면 걸러 보기 (<code>.</code>으로 시작하면 숨김 폴더도), <kbd>Ctrl</kbd>+<kbd>N</kbd>은 새 폴더</span></div>
       <div class="key"><span class="combo">메뉴 → 사이드바 폭</span><span class="d">좁게 24 / 보통 32 / 넓게 44 또는 직접 정한 폭(<kbd>←</kbd> <kbd>→</kbd>). 고르는 동안은 바뀌지 않고 <kbd>Enter</kbd>나 클릭으로 한 번 적용. 느린 연결에서도 끌지 않고 바꿈</span></div>
@@ -716,7 +716,7 @@ hivemux connect me@work-mac.local</pre></div>
     <div class="card"><h3>한도에 걸리면 API 키로</h3><p>같은 팝업의 <b>API 키 계정 추가…</b>에서 Anthropic API 키 계정을 더하고 <b>사용 한도에 걸리면 이어 갈 계정</b>에서 고르면(처음 더한 계정은 저절로 골라집니다), 구독이 사용 한도에 걸렸을 때 그 Claude들이 같은 대화로 API 키에서 이어 일합니다. 한도로 끊긴 Claude에게는 이어서 하라고 전합니다. 결제가 밀려 구독을 쓸 수 없을 때도 하루 동안, 또는 그 계정을 다시 고를 때까지 API 키로 이어 갑니다. 한도가 풀리면(한도 메시지의 시각, 없으면 5시간 뒤) 화면에 없고 일하지 않을 때 구독으로 돌아옵니다. API는 쓴 만큼 요금이 나갑니다. 프로젝트 이름 오른쪽 클릭 → <b>이 프로젝트 계정…</b>의 같은 줄에서 프로젝트마다 따로 정할 수 있어, 고른 프로젝트만 API 키로 이어 가게 할 수 있습니다. 기본은 <b>Agent SDK</b>로 이어 갑니다: 프로모션 크레딧처럼 Claude Code에는 쓰이지 않는 크레딧이 있어서입니다. SDK로 만든 작은 Claude Code가 같은 칸, 같은 폴더, 같은 도구와 설정으로 일하고, 대화는 다이어트처럼 문서로 넘깁니다. 구독이 돌아오면 같은 대화의 Claude Code로 돌아가 그 사이 한 일을 먼저 읽습니다.</p></div>
     <div class="card"><h3>지금 계정</h3><p>기본 계정이 아니면 상태줄에 <code>◉ work</code>가 보입니다.</p></div>
     <div class="card"><h3>함께 쓰는 것</h3><p>추가한 계정은 자기 Claude 설정 폴더(<code>~/.local/share/hivemux/accounts/&lt;이름&gt;</code>, <code>CLAUDE_CONFIG_DIR</code>)를 갖습니다. 로그인만 따로이고, 설정, 훅, 대화, 메모리, 스킬, 플러그인, 실행 중인 세션 목록은 <code>~/.claude</code>와 함께 씁니다.</p></div>
-    <div class="card"><h3>아티팩트</h3><p>아티팩트는 게시한 계정으로만 열립니다. 오른쪽 클릭 → <b>아티팩트…</b>는 Claude가 게시한 아티팩트를 계정과 함께 보여 줍니다. <b>사본 보기</b>는 여기 남긴 사본을 열고, <b>다시 게시 요청 복사</b>는 지금 계정의 Claude에게 다시 게시를 부탁할 문구를 복사합니다.</p></div>
+    <div class="card"><h3>페이지</h3><p>오른쪽 클릭 → <b>페이지…</b>는 프로젝트의 HTML 파일과 Claude가 게시한 아티팩트를 보여 줍니다. 설정의 <b>보여 줄 페이지</b>를 <b>HTML 파일</b>로 두면 페이지를 파일로 만들고 공유하자고 할 때만 아티팩트로 올립니다. 공유본의 의견은 <b>의견 거두기 요청 복사</b>로 파일에 정리합니다. 아티팩트는 게시한 계정으로만 열립니다. <b>사본 보기</b>는 여기 남긴 사본을 열고, <b>다시 게시 요청 복사</b>는 지금 계정의 Claude에게 다시 게시를 부탁할 문구를 복사합니다.</p></div>
   </div>
   <div class="code"><button class="copy" type="button">복사</button><pre>hivemux account add work        <span class="cmt"># 한 번 로그인 (브라우저)</span>
 hivemux account use work        <span class="cmt"># 모든 프로젝트</span>
@@ -941,10 +941,10 @@ hivemux terminal iterm --off</pre></div>
     <div><code>hivemux-agents</code><span>Option+번호 이동, 기다리는 작업으로 이동, 목록 출력</span></div>
     <div><code>hivemux-rename</code>, <code>hivemux-rename-ui</code><span>작업 이름 바꾸기 팝업과 /rename 전달</span></div>
     <div><code>hivemux-new-project-ui</code><span>새 프로젝트 폴더 탐색 팝업</span></div>
-    <div><code>hivemux-settings</code>, <code>hivemux-settings-ui</code><span>설정 팝업 (언어, 애니메이션, 알림, 사이드바 폭, 폭 끌기, 편집기, 이 컴퓨터 이름)</span></div>
+    <div><code>hivemux-settings</code>, <code>hivemux-settings-ui</code><span>설정 팝업 (언어, 애니메이션, 알림, 사이드바 폭, 폭 끌기, 편집기, 보여 줄 페이지, 이 컴퓨터 이름)</span></div>
     <div><code>hivemux-modal</code><span>화면을 멈춘 사본 위에 팝업 띄우기</span></div>
     <div><code>hivemux-account</code><span><code>hivemux account</code>: Claude 계정 추가, 전환, 프로젝트별 계정 (<code>account</code>, <code>account-projects</code>, <code>accounts/</code>)</span></div>
-    <div><code>hivemux-artifacts</code><span>게시한 아티팩트 목록과 계정, 사본 (<code>artifacts/</code>)</span></div>
+    <div><code>hivemux-artifacts</code><span>HTML 페이지와 게시한 아티팩트 목록, 계정, 사본 (<code>artifacts/</code>)</span></div>
     <div><code>hivemux-claude</code><span>프로젝트의 계정으로 Claude 를 시작 (재개하는 곳들이 씀)</span></div>
     <div><code>hivemux-confirm</code><span>팝업 질문 끝의 확인·취소 버튼 (퇴근·출근, Claude 닫기, Claude 업데이트)</span></div>
     <div><code>hivemux-order</code><span>사이드바 작업 / 프로젝트 순서 바꾸기</span></div>

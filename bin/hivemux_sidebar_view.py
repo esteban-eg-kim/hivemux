@@ -1029,8 +1029,8 @@ def menu(y, pid=None, sess=None, items=(), homes=()):
     rows += [None, (tr("경로 열기…", "Open path…"), "o", lambda: bg_run(os.path.join(here, "hivemux-open"), pid or ME, client)),
              (tr("포트 목록…", "Ports…"), "t", lambda: bg_run(os.path.join(here, "hivemux-ports"), "--pick", client)),
              (tr("벌 사무실", "Bee office"), "b", office),
-             # what the Claudes published, with each one's account (bin/hivemux-artifacts) / 게시한 아티팩트와 그 계정
-             (tr("아티팩트…", "Artifacts…"), "f", lambda: bg_run(os.path.join(here, "hivemux-office"), "--artifacts"))]
+             # the pages the Claudes made: HTML files, and artifacts with each one's account (bin/hivemux-artifacts) / 만든 페이지: HTML 파일, 아티팩트와 그 계정
+             (tr("페이지…", "Pages…"), "f", lambda: bg_run(os.path.join(here, "hivemux-office"), "--artifacts"))]
     # everyone at once: only from empty space, so it never reads as this card's or this project's
     # 모두 한꺼번에: 빈 곳에서만. 이 카드나 이 프로젝트만의 일로 읽히지 않게
     if empty and (clocked_out() or homes):

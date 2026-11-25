@@ -999,6 +999,9 @@ function renderSetup(m) {
         <div class="moderow"><b>${tr('완료 알림', 'Done notifications')}</b>
           <div class="seg" role="group" aria-label="${tr('완료 알림', 'Done notifications')}">${[['lead', '리드만', 'Lead only'], ['all', '모든 역할', 'Every role']].map(([k, ko, en]) => `<button type="button" data-act="notify" data-v="${k}" aria-pressed="${(t.notify || 'lead') === k}">${tr(ko, en)}</button>`).join('')}</div>
           <span>${tr('입력이 필요할 때는 모든 역할이 알립니다', 'Every role still tells you when it needs input')}</span></div>
+        ${t.pages ? `<div class="moderow"><b>${tr('보여 줄 페이지', 'Pages to show')}</b>
+          <div class="seg" role="group" aria-label="${tr('보여 줄 페이지', 'Pages to show')}">${[['local', 'HTML 파일', 'HTML files'], ['artifact', 'claude.ai', 'claude.ai']].map(([k, ko, en]) => `<button type="button" data-act="pages" data-v="${k}" aria-pressed="${t.pages === k}">${tr(ko, en)}</button>`).join('')}</div>
+          <span>${t.pages === 'local' ? tr('공유하자고 할 때만 claude.ai 에 올립니다', 'Published on claude.ai only when you want it shared') : tr('아티팩트로 올립니다', 'Published as artifacts')}</span></div>` : ''}
         <div class="org" id="s-chart"></div>
         ${S.adding ? `<form class="addform" id="addform">
           <div><input class="text name" id="addname" style="min-height:44px;border:1px solid var(--edge);border-radius:10px;padding:0 12px;background:var(--panel);min-width:0" placeholder="${tr('새 역할 이름', 'New role name')}" aria-label="${tr('새 역할 이름', 'New role name')}">
@@ -1397,6 +1400,7 @@ const ACT = {
       tr('적용', 'Apply'), async () => { const r = await post('/team/mode', { ...P(), mode }); if (!r.ok) toast(r.say); t.roles.filter(x => x.running).forEach(x => { S.edited[x.id] = true; }); S.sig = ''; load(); });
   },
   notify: async b => { const r = await post('/team/notify', { ...P(), value: b.dataset.v }); if (!r.ok) toast(r.say); S.sig = ''; load(); },
+  pages: async b => { const r = await post('/team/pages', { ...P(), value: b.dataset.v }); if (!r.ok) toast(r.say); else { toast(tr('새 대화부터 적용합니다. 도구는 역할을 다시 시작할 때 바뀝니다.', 'Applies from the next conversation; tools change when a role starts again.')); } S.sig = ''; load(); },
   addopen: () => { S.adding = true; redraw(); $('#addname').focus(); },
   addcancel: () => { S.adding = false; redraw(); },
   ai: () => aiOpen(),

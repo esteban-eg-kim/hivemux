@@ -10,14 +10,20 @@
 - A teammate's message no longer marks a role's open questions answered, nor holds its diet as if you had
   asked something: both took any prompt for yours.
 - A fresh start is smaller. Roles do without Workflow, SendFeedback, ReportFindings and ScheduleWakeup,
-  whose descriptions went with every request (52K tokens at the start, 46K now), and the template's dev, QA
-  and marketer without Artifact (33K). `tools_off` in `team.toml` changes it for the team or adds for a
-  role; a running role takes it when it starts again.
+  whose descriptions went with every request (52K tokens at the start, 46K now; 33K without Artifact,
+  below). `tools_off` in `team.toml` changes it for the team or adds for a role; a running role takes it
+  when it starts again.
 - What a role hands over: notes of 8,000 letters at most (`notes` in `[diet]`; asked once more when far
   past), records and reasons in `notes/<role>-ref.md`, no copies. The fresh start comes with the notes and
   what it used to open files for (the answer to show again, its open questions, what teammates are doing,
   the hand-offs of the last hour) attached, so it opens neither, and is told to read only the lines its next
   step needs. The same through the Agent SDK.
+- Pages as files (settings: Pages to show; artifacts on claude.ai as before by default): Claudes write a
+  page you are to see as one HTML file in the project, and publish it as an artifact only when you want it
+  shared. In a team one role publishes and the others go without the Artifact tool, 13K tokens of every
+  request. The Artifacts list is now Pages: the projects' HTML files too, with what each was shared as, and
+  requests to copy that share one or gather the opinions left on it into `<name>.share.md` and the file.
+  `hivemux team pages` or the team page sets one team.
 
 ## 0.1.79 — 2026-11-24
 

@@ -5,10 +5,10 @@
   ↑↓ choose / 고르기    ←→ or Enter or click: change / 바꾸기    Esc close / 닫기
 
 Changes apply at once and are saved in $XDG_DATA_HOME/hivemux (lang, anim, notify,
-sidebar-width, resize, editor, mac-name, update); the width a moment after the last ←→, so stepping through
+sidebar-width, resize, editor, pages, mac-name, update); the width a moment after the last ←→, so stepping through
 the widths sends the screen once, not at every step (a screen from another computer).
 share/hivemux.tmux reads them back when tmux starts.
-바꾸면 바로 적용하고 $XDG_DATA_HOME/hivemux 에 (lang, anim, notify, sidebar-width, resize, editor, mac-name, update) 저장한다.
+바꾸면 바로 적용하고 $XDG_DATA_HOME/hivemux 에 (lang, anim, notify, sidebar-width, resize, editor, pages, mac-name, update) 저장한다.
 폭은 마지막 ←→ 조금 뒤에: 폭을 넘겨 가도 화면이 걸음마다가 아니라 한 번 간다 (다른 컴퓨터에서 붙은 화면).
 
   hivemux-settings-ui --width   only the sidebar width: Narrow / Medium / Wide or a number, applied on Enter
@@ -112,6 +112,10 @@ def settings():
                                                 ("release", tr("항상 놓을 때", "always on release"))],
          {"live": 1, "release": 2}.get(tmux("show", "-gqv", "@hivemux-resize").strip(), 0)),
         ("editor", tr("편집기", "Editor"), eds, next((i for i, (k, _) in enumerate(eds) if k == ed), 0)),
+        # pages to show: artifacts, or files shared only when you ask (bin/hivemux-team pages_rule)
+        # 보여 줄 페이지: 아티팩트, 또는 말할 때만 공유하는 파일 (bin/hivemux-team pages_rule)
+        ("pages", tr("보여 줄 페이지", "Pages to show"), [("artifact", "claude.ai"), ("local", tr("HTML 파일", "HTML files"))],
+         1 if tmux("show", "-gqv", "@hivemux-pages").strip() == "local" else 0),
         ("name", tr("이 컴퓨터 이름", "This computer's name"), [(nick, nick or own_name())], 0),
         # hivemux's own updates (bin/hivemux-update): tell me (the sidebar's bottom line, the office), on its own, or never
         # hivemux 자체 업데이트 (bin/hivemux-update): 알려 주기 (사이드바 아랫줄, 사무실), 알아서, 안 함
@@ -129,7 +133,7 @@ def apply(key, value):
         # the sidebars read the language when they start / 사이드바는 시작할 때 언어를 읽는다
         subprocess.Popen([os.path.join(HERE, "hivemux-sidebar"), "respawn"], stdin=subprocess.DEVNULL,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-    elif key in ("anim", "notify", "editor", "resize"):
+    elif key in ("anim", "notify", "editor", "resize", "pages"):
         tmux("set", "-g", "@hivemux-" + key, value)
         save(key, value)
     elif key == "name":
@@ -197,7 +201,8 @@ def main():
                     buf.append(f"\x1b[{y};{vx}H{fg(ACC)}‹ {fg(TEXT)}{BOLD}{v}{RST}{bg(SEL_BG)} {fg(ACC)}›" + RST + bg(BG))
                 else:
                     buf.append(f"\x1b[{y};1H   {fg(T2)}{label}\x1b[{y};{vx}H  {fg(T2)}{v}")
-            note = tr("언어를 바꾸면 사이드바를 다시 띄웁니다", "Changing the language restarts the sidebars")
+            note = tr("새 대화부터. 공유는 말할 때만 claude.ai 에", "From the next conversation; shared when you ask") \
+                if items[sel][0] == "pages" else tr("언어를 바꾸면 사이드바를 다시 띄웁니다", "Changing the language restarts the sidebars")
             buf.append(f"\x1b[{rows - 3};1H  {fg(T3)}{note}")
             buf.append(f"\x1b[{rows - 1};1H{fg(RULE)}  " + "─" * max(0, cols - 4))
             hint = (f"{fg(TEXT)}↑↓{fg(T3)} {tr('고르기', 'choose')}   {fg(TEXT)}←→{fg(T3)} {tr('바꾸기', 'change')}   "

@@ -20,8 +20,8 @@
   hivemux-office --team-api state|report|prompt|post …   (for another computer's team page / 다른 컴퓨터의 팀 화면용)
                                open it on the team page of that project (sidebar menu "Team…")
                                그 프로젝트의 팀 화면으로 연다 (사이드바 메뉴 "팀…")
-  hivemux-office --artifacts    open it on the list of artifacts your Claudes published (sidebar menu "Artifacts…")
-                               Claude 가 게시한 아티팩트 목록으로 연다 (사이드바 메뉴 "아티팩트…")
+  hivemux-office --artifacts    open it on the pages your Claudes made, HTML files and artifacts (sidebar menu "Pages…")
+                               Claude 가 만든 페이지 목록(HTML 파일, 아티팩트)으로 연다 (사이드바 메뉴 "페이지…")
   hivemux-office --build       build the window app now, quietly (hivemux setup runs it in the background)
                                창 앱을 지금 조용히 빌드 (hivemux setup 이 뒤에서 실행)
 
@@ -163,9 +163,29 @@ ARTIFACTS_LOCK = threading.Lock()     # one reader of the transcripts at a time 
 ARTIFACT_ID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
 
+def page_post(req):
+    """A page kept as an HTML file: open it, its shared copy or its folder, or copy a request about it
+    HTML 파일로 두는 페이지: 파일, 공유본, 폴더를 열거나, 요청을 복사"""
+    with ARTIFACTS_LOCK:
+        pg = next((x for x in artifacts.pages(teams.folders(), artifacts.listing()) if x["path"] == req.get("path")), None)
+    what = req.get("what")
+    if not pg or (what in ("shared", "gather") and not pg["shared"]):
+        return {"ok": False}
+    if what in ("open", "shared", "reveal"):
+        subprocess.run([os.path.join(HERE, "hivemux-os"), "reveal" if what == "reveal" else "open", pg["shared"]["url"] if what == "shared" else pg["path"]],
+                       stdin=subprocess.DEVNULL, capture_output=True)
+        return {"ok": True}
+    if what in ("share", "gather"):
+        subprocess.run([os.path.join(HERE, "hivemux-os"), "copy"], input=artifacts.page_prompt(pg, what, lang() == "ko").encode(), capture_output=True)
+        return {"ok": True}
+    return {"ok": False}
+
+
 def artifact_post(action, req, port):
     """open (the page on claude.ai, or the copy kept here) or copy the request to publish it again
     열기 (claude.ai 의 페이지, 또는 여기 남긴 사본), 또는 다시 게시 요청을 복사"""
+    if action == "page":
+        return page_post(req)
     aid = str(req.get("id", ""))
     if not ARTIFACT_ID.match(aid):
         return {"ok": False}
@@ -700,7 +720,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             Handler.last = time.time()
             with ARTIFACTS_LOCK:
                 items = artifacts.listing()
-            return self.send(200, json.dumps({"lang": lang(), "items": items, "current": artifacts.current_email()}, ensure_ascii=False))
+                pages = artifacts.pages(teams.folders(), items)
+            return self.send(200, json.dumps({"lang": lang(), "items": items, "pages": pages, "mode": teams.pages_setting(), "current": artifacts.current_email()}, ensure_ascii=False))
         if path.startswith("/artifacts/copy/"):     # the copy kept here (bin/hivemux-artifacts) / 여기 남긴 사본
             aid = path[len("/artifacts/copy/"):]
             full = artifacts.copy_path(aid)
@@ -747,7 +768,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self.send(403, "{}")
         if origin and origin not in (f"http://127.0.0.1:{self.server.server_port}", f"http://localhost:{self.server.server_port}"):
             return self.send(403, "{}")
-        if self.path not in ("/goto", "/shift", "/answer", "/nav", "/settings", "/update", "/artifacts/open", "/artifacts/prompt") and not self.path.startswith("/team/"):
+        if self.path not in ("/goto", "/shift", "/answer", "/nav", "/settings", "/update", "/artifacts/open", "/artifacts/prompt", "/artifacts/page") and not self.path.startswith("/team/"):
             return self.send(404, "{}")
         try:
             n = int(self.headers.get("Content-Length") or 0)
@@ -997,6 +1018,8 @@ def team_post(action, req):
         ok, msg = team_call(teams.rename_team, project, str(req.get("name", "")))
     elif action == "notify":
         ok, msg = team_call(teams.set_notify, project, str(req.get("value", "")))
+    elif action == "pages":
+        ok, msg = team_call(teams.set_pages, project, str(req.get("value", "")))
     elif action == "disband":
         ok, msg = team_call(teams.disband, project)
     elif action == "goal":
@@ -1394,7 +1417,7 @@ def main(argv):
             return
         page = "/team?project=" + urllib.parse.quote(argv[1]) + ("&ssh=" + urllib.parse.quote(ssh) if ssh else "")
         open_window(page=page)
-    elif argv[:1] == ["--artifacts"]:     # sidebar menu "Artifacts…" / 사이드바 메뉴 "아티팩트…"
+    elif argv[:1] == ["--artifacts"]:     # sidebar menu "Pages…" / 사이드바 메뉴 "페이지…"
         open_window(page="/artifacts")
     elif argv[:1] == ["--client"]:
         from_tmux(argv[1] if len(argv) > 1 else "")

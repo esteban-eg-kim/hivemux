@@ -3,14 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>hivemux artifacts</title>
+<title>hivemux pages</title>
 <link rel="icon" href="/logo.svg" type="image/svg+xml">
 <style>
-/* The artifacts page (bin/hivemux-office serves it at /artifacts): every artifact your Claudes published, read from the
-   transcripts by bin/hivemux-artifacts, with the account it belongs to. One of another account opens from the copy
+/* The pages your Claudes made (bin/hivemux-office serves it at /artifacts). HTML files of the projects, with what each
+   was shared as: a click opens one, or copies the request to share it or to gather what was said on it. Artifacts:
+   every one your Claudes published, read from the transcripts by bin/hivemux-artifacts, with the account it belongs to. One of another account opens from the copy
    kept here, or a click copies a request to publish it again under the account in use.
-   아티팩트 화면 (bin/hivemux-office 가 /artifacts 로 낸다): Claude 가 게시한 아티팩트 전부. bin/hivemux-artifacts 가
-   대화 기록에서 읽고, 어느 계정의 것인지 함께 보인다. 다른 계정의 것은 여기 남긴 사본으로 열거나, 지금 계정으로
+   Claude 가 만든 페이지 화면 (bin/hivemux-office 가 /artifacts 로 낸다). 프로젝트의 HTML 파일과 공유한 곳: 누르면 열거나,
+   공유 요청이나 의견 거두기 요청을 복사한다. 아티팩트: Claude 가 게시한 것 전부. bin/hivemux-artifacts 가 대화 기록에서 읽고, 어느 계정의 것인지 함께 보인다. 다른 계정의 것은 여기 남긴 사본으로 열거나, 지금 계정으로
    다시 게시해 달라는 요청을 복사한다. */
 :root {
   --bg: #e9edf3; --panel: #ffffff; --soft: #f6f8fb; --soft2: #eef1f5; --line: #d3d9e3; --fg: #1b1f27; --fg2: #3a4252; --muted: #5a6375;
@@ -78,15 +79,16 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
 <header class="top">
   <div class="bar">
     <span class="brand"><img src="/logo.svg" alt="" width="24" height="24">hivemux</span>
-    <nav class="seg" aria-label="화면"><a href="/" data-t="사무실|Office">사무실</a><span aria-current="page" data-t="아티팩트|Artifacts">아티팩트</span></nav>
+    <nav class="seg" aria-label="화면"><a href="/" data-t="사무실|Office">사무실</a><span aria-current="page" data-t="페이지|Pages">페이지</span></nav>
   </div>
 </header>
 <main><div class="wrap">
   <div>
-    <h1 data-t="아티팩트|Artifacts">아티팩트</h1>
-    <p class="sub" data-t="아티팩트는 게시한 계정으로 로그인해야 열립니다. 다른 계정의 것은 여기 남긴 사본으로 보시거나, 지금 계정으로 다시 게시해 달라는 요청을 복사해 Claude 에게 붙여 넣으십시오.|An artifact opens only when logged in to the account that published it. View one of another account from the copy kept here, or copy a request to publish it again under the account in use and paste it to Claude."></p>
+    <h1 data-t="페이지|Pages">페이지</h1>
+    <p class="sub" id="sub"></p>
   </div>
   <div class="tools">
+    <div class="seg" id="kinds" role="group"></div>
     <input class="search" id="q" type="search" autocomplete="off">
     <div class="seg acc" id="accs" role="group"></div>
   </div>
@@ -97,15 +99,13 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
 'use strict';
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-let L = 'ko', D = null, ACC = '';
+let L = 'ko', D = null, ACC = '', PROJ = '', KIND = '';
 const tr = (ko, en) => L === 'ko' ? ko : en;
 
 function texts() {
   document.documentElement.lang = L;
   for (const el of document.querySelectorAll('[data-t]')) { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); }
-  $('#q').placeholder = tr('제목, 프로젝트, 계정으로 찾기', 'Search by title, project or account');
-  $('#q').setAttribute('aria-label', $('#q').placeholder);
-  $('#accs').setAttribute('aria-label', tr('계정', 'Account'));
+  $('#kinds').setAttribute('aria-label', tr('종류', 'Kind'));
 }
 function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.hidden = false;
@@ -129,7 +129,16 @@ function accLabel(it) {
 
 function draw() {
   if (!D) return;
-  const q = $('#q').value.trim().toLowerCase();
+  const q = $('#q').value.trim().toLowerCase(), files = KIND === 'files';
+  $('#kinds').innerHTML = [['files', tr('HTML 파일', 'HTML files'), D.pages.length], ['artifacts', tr('아티팩트', 'Artifacts'), D.items.length]]
+    .map(([k, label, n]) => `<button type="button" data-kind="${k}" aria-pressed="${k === KIND}">${esc(label)}&nbsp;<span class="n">${n}</span></button>`).join('');
+  $('#sub').textContent = files
+    ? tr('프로젝트의 docs 폴더와 역할의 작업 폴더에 있는 HTML 파일입니다. 공유할 때는 요청을 복사해 그 프로젝트의 Claude 에게 붙여 넣으십시오. 공유본에 달린 의견도 같은 방법으로 거둬 파일에 정리합니다.', 'HTML files in the projects\u2019 docs folders and the roles\u2019 work folders. To share one, copy the request and paste it to a Claude of that project; opinions left on the shared copy are gathered back into the file the same way.')
+    : tr('아티팩트는 게시한 계정으로 로그인해야 열립니다. 다른 계정의 것은 여기 남긴 사본으로 보시거나, 지금 계정으로 다시 게시해 달라는 요청을 복사해 Claude 에게 붙여 넣으십시오.', 'An artifact opens only when logged in to the account that published it. View one of another account from the copy kept here, or copy a request to publish it again under the account in use and paste it to Claude.');
+  $('#q').placeholder = files ? tr('제목, 프로젝트, 경로로 찾기', 'Search by title, project or path') : tr('제목, 프로젝트, 계정으로 찾기', 'Search by title, project or account');
+  $('#q').setAttribute('aria-label', $('#q').placeholder);
+  $('#accs').setAttribute('aria-label', files ? tr('프로젝트', 'Project') : tr('계정', 'Account'));
+  if (files) return drawFiles(q);
   // account filter: all, then each email by count / 계정 거르기: 전체, 그다음 이메일별 (많은 순)
   const counts = {};
   for (const it of D.items) counts[it.email] = (counts[it.email] || 0) + 1;
@@ -164,18 +173,47 @@ function draw() {
   }).join('');
 }
 
+function drawFiles(q) {
+  const counts = {};
+  for (const p of D.pages) counts[p.project] = (counts[p.project] || 0) + 1;
+  if (PROJ && !counts[PROJ]) PROJ = '';
+  $('#accs').innerHTML = [['', tr('전체', 'All'), D.pages.length], ...Object.keys(counts).sort((a, b) => counts[b] - counts[a]).map(k => [k, k, counts[k]])]
+    .map(([k, label, n]) => `<button type="button" data-proj="${esc(k)}" aria-pressed="${k === PROJ}">${esc(label)} <span class="n">${n}</span></button>`).join('');
+  const rows = D.pages.filter(p => (!PROJ || p.project === PROJ) && (!q || [p.title, p.project, p.rel].some(v => String(v).toLowerCase().includes(q))));
+  if (!rows.length) {
+    $('#list').innerHTML = `<div class="empty">${esc(D.pages.length ? tr('찾는 페이지가 없습니다.', 'No page matches.') : tr('아직 HTML 파일이 없습니다.', 'No HTML files yet.'))}</div>`;
+    return;
+  }
+  const btn = (p, what, label, main) => `<button class="btn${main ? ' primary' : ''}" type="button" data-page="${esc(p.path)}" data-what="${what}">${esc(label)}</button>`;
+  $('#list').innerHTML = rows.slice(0, 200).map(p => `<div class="item">
+      <div style="min-width:0">
+        <div class="title" title="${esc(p.title)}">${esc(p.title)}</div>
+        <div class="meta"><span>${esc(p.project)}</span><span title="${esc(p.path)}">${esc(p.rel)}</span><span>${esc(when(p.at * 1000))}</span>
+          ${p.shared ? `<span class="who here"><span class="dot" aria-hidden="true"></span>${esc(tr('공유함', 'Shared') + ' ' + when(p.shared.at))}</span>` : ''}
+          ${p.notes ? `<span>${esc(tr('의견 기록 있음', 'Opinions noted'))}</span>` : ''}</div>
+      </div>
+      <div class="acts">${btn(p, 'open', tr('열기', 'Open'), true)}${p.shared ? btn(p, 'shared', tr('공유본', 'Shared copy')) + btn(p, 'gather', tr('의견 거두기 요청 복사', 'Copy request for opinions')) : ''}${btn(p, 'share', p.shared ? tr('다시 공유 요청 복사', 'Copy request to share again') : tr('공유 요청 복사', 'Copy request to share'))}${btn(p, 'reveal', tr('폴더', 'Folder'))}</div>
+    </div>`).join('') + (rows.length > 200 ? `<div class="empty">${esc(tr(`${rows.length - 200}개가 더 있습니다. 찾기나 프로젝트로 좁혀 보십시오.`, `${rows.length - 200} more. Narrow by search or project.`))}</div>` : '');
+}
+
 async function load() {
   try { D = await (await fetch('/artifacts/list', { cache: 'no-store' })).json(); }
   catch (e) { $('#list').innerHTML = `<div class="empty">${esc(tr('hivemux 에 연결할 수 없습니다.', 'Could not connect to hivemux.'))}</div>`; return; }
   if (D.lang && D.lang !== L) { L = D.lang; texts(); }
+  if (!KIND) KIND = D.mode === 'local' ? 'files' : 'artifacts';
   draw();
 }
 
-$('#accs').addEventListener('click', e => { const b = e.target.closest('[data-acc]'); if (b) { ACC = b.dataset.acc; draw(); } });
+$('#accs').addEventListener('click', e => { const b = e.target.closest('[data-acc]'); if (b) { ACC = b.dataset.acc; draw(); } const p = e.target.closest('[data-proj]'); if (p) { PROJ = p.dataset.proj; draw(); } });
+$('#kinds').addEventListener('click', e => { const b = e.target.closest('[data-kind]'); if (b) { KIND = b.dataset.kind; $('#q').value = ''; draw(); } });
 $('#q').addEventListener('input', draw);
 $('#list').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
-  if (b.dataset.open || b.dataset.copy) {
+  if (b.dataset.page) {
+    const w = b.dataset.what, r = await post('/artifacts/page', { path: b.dataset.page, what: w });
+    if (!r.ok) toast(tr('열지 못했습니다.', 'Could not open it.'));
+    else if (w === 'share' || w === 'gather') toast(tr('요청 문구를 복사했습니다. 그 프로젝트의 Claude 에 붙여 넣으십시오.', 'Request copied. Paste it to a Claude of that project.'));
+  } else if (b.dataset.open || b.dataset.copy) {
     const r = await post('/artifacts/open', { id: b.dataset.open || b.dataset.copy, what: b.dataset.copy ? 'copy' : 'url' });
     if (!r.ok) toast(tr('열지 못했습니다.', 'Could not open it.'));
     else if (b.dataset.open) {
