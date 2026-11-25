@@ -19,7 +19,7 @@ if [ "$2" = width ]; then
     "$HM_BIN/hivemux-settings-ui --width" 2>/dev/null || true
   exit 0
 fi
-"$HM_BIN/hivemux-modal" "$client" -E -w 56 -h 25 -b rounded \
+"$HM_BIN/hivemux-modal" "$client" -E -w 56 -h 29 -b rounded \
   -T "#[fg=#e6e9ef,bold] $(say "설정" "Settings") " -S "fg=#5aa9ff" -s "bg=#1e2128" \
   "$HM_BIN/hivemux-settings-ui" 2>/dev/null || true   # cancel (Esc) is not an error / 취소(Esc)도 정상 종료
 exit 0

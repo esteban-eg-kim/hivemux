@@ -82,7 +82,15 @@ def save(name, value):
 
 WIDTHS = list(range(24, 50, 2))
 PRESETS = [(24, ("좁게", "Narrow")), (32, ("보통", "Medium")), (44, ("넓게", "Wide"))]
+EARLY_AT = (80, 85, 90, 95, 98)
 SETTLE = 0.6          # seconds after the last ←→ on the width / 폭의 마지막 ←→ 뒤 이만큼 기다렸다가 적용
+
+
+def early_row(key, label):
+    """Off, or the percent of the window at which to move (95 by default) / 끔, 또는 옮길 비율 (기본 95)"""
+    values = [("off", tr("끄기", "off"))] + [(str(p), f"{p}%") for p in EARLY_AT]
+    now = read(key) or "95"
+    return (key, label, values, next((i for i, (v, _) in enumerate(values) if v == now), EARLY_AT.index(95) + 1))
 
 
 def settings():
@@ -116,6 +124,10 @@ def settings():
         # 보여 줄 페이지: 아티팩트, 또는 말할 때만 공유하는 파일 (bin/hivemux-team pages_rule)
         ("pages", tr("보여 줄 페이지", "Pages to show"), [("artifact", "claude.ai"), ("local", tr("HTML 파일", "HTML files"))],
          1 if tmux("show", "-gqv", "@hivemux-pages").strip() == "local" else 0),
+        # a subscription near its limit goes on with the fallback before a limit cuts a turn (bin/hivemux-account early)
+        # 한도 가까이 간 구독은 한도가 턴을 끊기 전에 이어 갈 계정으로 간다 (bin/hivemux-account early)
+        early_row("early-week", tr("미리 넘어가기 · 주간", "Move early · week")),
+        early_row("early-5h", tr("미리 넘어가기 · 5시간", "Move early · 5 hours")),
         ("name", tr("이 컴퓨터 이름", "This computer's name"), [(nick, nick or own_name())], 0),
         # hivemux's own updates (bin/hivemux-update): tell me (the sidebar's bottom line, the office), on its own, or never
         # hivemux 자체 업데이트 (bin/hivemux-update): 알려 주기 (사이드바 아랫줄, 사무실), 알아서, 안 함
@@ -148,6 +160,9 @@ def apply(key, value):
             except OSError:
                 pass
         tmux("refresh-client", "-S")
+    elif key in ("early-week", "early-5h"):
+        tmux("set", "-g", "@hivemux-" + key, value)
+        save(key, value)
     elif key == "update":
         save("update", value)
         # off: the notice goes now; on again: look at the next chance (bin/hivemux-update tick, from the sidebars)
@@ -202,7 +217,9 @@ def main():
                 else:
                     buf.append(f"\x1b[{y};1H   {fg(T2)}{label}\x1b[{y};{vx}H  {fg(T2)}{v}")
             note = tr("새 대화부터. 공유는 말할 때만 claude.ai 에", "From the next conversation; shared when you ask") \
-                if items[sel][0] == "pages" else tr("언어를 바꾸면 사이드바를 다시 띄웁니다", "Changing the language restarts the sidebars")
+                if items[sel][0] == "pages" else \
+                tr("한도 시 이어 갈 계정으로 미리 (계정 팝업에서 정함)", "To the limit's account, early (set in Account)") \
+                if items[sel][0].startswith("early") else tr("언어를 바꾸면 사이드바를 다시 띄웁니다", "Changing the language restarts the sidebars")
             buf.append(f"\x1b[{rows - 3};1H  {fg(T3)}{note}")
             buf.append(f"\x1b[{rows - 1};1H{fg(RULE)}  " + "─" * max(0, cols - 4))
             hint = (f"{fg(TEXT)}↑↓{fg(T3)} {tr('고르기', 'choose')}   {fg(TEXT)}←→{fg(T3)} {tr('바꾸기', 'change')}   "

@@ -30,8 +30,10 @@ num="${pane#%}"
 
 send_rename() {
   local name="$1"
-  t send-keys -t "$pane" -l "/rename $name"
-  t send-keys -t "$pane" Enter
+  if ! "$HM_BIN/hivemux-mod" send "$pane" "/rename $name" 2>/dev/null; then
+    t send-keys -t "$pane" -l "/rename $name"
+    t send-keys -t "$pane" Enter
+  fi
   t set -pu -t "$pane" @claude_rename_pending
 }
 
@@ -163,7 +165,12 @@ case "$1" in
     st="$(t show -pqv -t "$pane" @claude_state)"
     case "$st" in
       idle|done) send_rename "$name"; t display -d 1500 "$(say "이름 변경" "Renamed"): $name" ;;
-      *) t set -p -t "$pane" @claude_rename_pending "$name"
+      # with hivemux's mod it runs once Claude is free, typed into nothing (bin/hivemux-mod)
+      # hivemux mod 가 있으면 Claude 가 한가해질 때 실행된다. 어디에도 쳐 넣지 않는다 (bin/hivemux-mod)
+      *) if "$HM_BIN/hivemux-mod" send "$pane" "/rename $name" 2>/dev/null; then
+           t display -d 1500 "$(say "이름 변경 (작업이 끝나면 Claude 에도)" "Renamed (in Claude once it finishes)"): $name"; exit 0
+         fi
+         t set -p -t "$pane" @claude_rename_pending "$name"
          t display -d 2500 "$(say "Claude가 작업 중이라 끝나면 이름을 보냅니다" "Claude is busy; will rename when it finishes"): $name" ;;
     esac
     ;;

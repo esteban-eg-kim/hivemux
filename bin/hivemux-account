@@ -325,6 +325,58 @@ def at_limit(pane, msg, transcript="", error="rate_limit"):
     return n
 
 
+EARLY = {"week": ("early-week", "@claude_limit_7d", 0), "5h": ("early-5h", "@claude_limit_5h", 2)}
+
+
+def early_at(kind):
+    """The percent at which the account moves before its limit (Settings → Move before the limit), None = off
+    한도 전에 넘어가는 비율 (설정 → 미리 넘어가기). None = 끔"""
+    try:
+        v = open(os.path.join(DATA, EARLY[kind][0])).read().strip()
+    except OSError:
+        v = ""
+    if v == "off":
+        return None
+    return float(v) if v.replace(".", "", 1).isdigit() else 95.0
+
+
+def early(pane):
+    """(the Stop hook) The pane's subscription has used past the week's or five hours' line in Settings: its Claudes
+    go on with the fallback until that window resets, as at the limit, but each once it is free and off the screens,
+    so no turn is cut. Nothing without a fallback, on an API key, or for an account already moved
+    (Stop 훅) 칸의 구독이 설정의 주간이나 5시간 기준을 넘게 썼다: 한도에 걸렸을 때처럼 그 창이 풀릴 때까지 그 Claude
+    들은 이어 갈 계정으로 간다. 다만 하나씩 한가하고 화면에 없을 때 가서 턴이 끊기지 않는다. 이어 갈 계정이 없거나,
+    API 키이거나, 이미 옮긴 계정이면 하지 않는다"""
+    session = tmux("display", "-p", "-t", pane, "#{session_name}").strip()
+    name = tmux("show", "-pqv", "-t", pane, "@hivemux-mod-account").strip()
+    if not name or api_key(name) or name in limited() or not fallback(session):
+        return 0
+    try:
+        row = (open(os.path.join(DATA, "limits", f"{name}.tsv")).readline().rstrip("\n").split("\t") + [""] * 5)[:5]
+    except OSError:
+        return 0
+    until = 0
+    for kind, (_, opt, i) in EARLY.items():
+        line = early_at(kind)
+        try:
+            used = float(row[i])
+            end = datetime.datetime.fromisoformat(row[i + 1].replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            continue
+        if line is not None and used >= line and end > time.time():
+            until = max(until, int(end))
+    if not until:
+        return 0
+    lim = limited()
+    lim[name] = max(until, lim.get(name, 0))
+    os.makedirs(DATA, exist_ok=True)
+    write_atomic(LIMITED, "".join(f"{a}\t{u}\n" for a, u in sorted(lim.items())))
+    env()
+    n = restart(now=False)
+    watch_limits()
+    return n
+
+
 def watch_limits():
     """Start the watcher that moves the Claudes back when a limit resets / 한도가 풀리면 Claude 를 되돌리는 감시를 띄운다"""
     if limited():
@@ -1149,6 +1201,8 @@ def main(argv):
         print(resolve(session) if session else chosen()[0])
     elif cmd == "env":
         env()
+    elif cmd == "early" and len(argv) > 1:
+        early(argv[1])
     elif cmd == "--popup" and len(argv) > 1:
         popup(argv[1], session)
     elif cmd == "--ui":

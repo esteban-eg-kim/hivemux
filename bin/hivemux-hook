@@ -400,6 +400,14 @@ case "$event" in
     # the context size, and a team role past its line goes on a diet (bin/hivemux-team)
     # 컨텍스트 크기. 기준을 넘은 팀 역할은 다이어트한다 (bin/hivemux-team)
     ( "$(dirname "$0")/hivemux-team" stop "$TMUX_PANE" "$(field transcript_path)" >/dev/null 2>&1 & )
+    # near its usage limit (hivemux's mod puts the figures on the pane), the account goes on with its fallback before a
+    # limit cuts a turn: Settings → Move before the limit, 95% of the week and of five hours by default
+    # (bin/hivemux-account early) / 사용 한도 가까이 (hivemux mod 가 칸에 적는다): 한도가 턴을 끊기 전에 이어 갈 계정으로.
+    # 설정 → 미리 넘어가기, 기본은 주간과 5시간 모두 95%
+    IFS=$'\t' read -r lw l5 ew e5 < <(t display -p -t "$TMUX_PANE" '#{@claude_limit_7d}	#{@claude_limit_5h}	#{@hivemux-early-week}	#{@hivemux-early-5h}' 2>/dev/null)
+    if awk -v lw="$lw" -v l5="$l5" -v ew="${ew:-95}" -v e5="${e5:-95}" 'BEGIN { exit !((lw != "" && ew != "off" && lw + 0 >= ew + 0) || (l5 != "" && e5 != "off" && l5 + 0 >= e5 + 0)) }'; then
+      ( "$(dirname "$0")/hivemux-account" early "$TMUX_PANE" >/dev/null 2>&1 & )
+    fi
     # If a sidebar rename is pending, send it now that the turn has ended
     # 사이드바에서 바꾼 이름이 보류 중이면 응답이 끝난 지금 보낸다
     # otherwise a session with no name yet takes the sidebar's, and a reconnected Remote Control gets its name
