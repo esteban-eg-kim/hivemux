@@ -379,11 +379,12 @@ to it; every Claude carries on in the same conversation.
   @hivemux-sdk-diet 200`, or `off`). Its Python (`claude-agent-sdk`, `prompt_toolkit`) is
   set up once in `~/.local/share/hivemux/sdk/venv`, with Python 3.10 or newer.
   `hivemux account runner api claude` runs Claude Code on the key instead.
-- **Move before the limit.** A subscription that has used 95% of its week or
-  of its five hours goes on with the account set for a usage limit before the
-  limit cuts a turn, each Claude once it is free and off the screen; it comes
-  back when the window resets. Settings → **Move early · week** and **· 5
-  hours**: off, or 80 to 98% (95% by default).
+- **Move before the limit.** When a subscription has used 95% of its week or
+  of its five hours, a popup asks whether to go on with the account set for a
+  usage limit before the limit cuts a turn. On **Move**, each Claude moves once
+  it is free and off the screen and comes back when the window resets; on
+  **Stay** it asks no more until then. Settings → **Move early · week** and
+  **· 5 hours**: off, or 80 to 98% (95% by default).
 - **How much of each account's week is used.** The sidebar's bottom shows
   every account's weekly limit as its Claudes last reported it (`week default
   23% · work 92%`, amber from 70%), the account popup and `hivemux account

@@ -15,10 +15,11 @@
   - The pane gets Claude Code's own context figure and the window (`@claude_ctx_live`, `@claude_ctx_window`)
     and the limits (`@claude_limit_5h`, `@claude_limit_7d`). A `claude -p` or Agent SDK run in the pane leaves
     it alone.
-- Accounts, move before the limit: a subscription that has used 95% of its week or of five hours goes on with
-  the account set for a usage limit before the limit cuts a turn, each Claude once it is free and off the
-  screen, and comes back when that window resets. Settings → **Move early · week** and **· 5 hours** (off, 80
-  to 98%; 95% by default). It needs hivemux's mod and an account to go on with.
+- Accounts, move before the limit: when a subscription has used 95% of its week or of five hours, a popup asks
+  whether to go on with the account set for a usage limit before the limit cuts a turn. On **Move**, each
+  Claude moves once it is free and off the screen, and comes back when that window resets; on **Stay** it asks
+  no more until then. Settings → **Move early · week** and **· 5 hours** (off, 80 to 98%; 95% by default). It
+  needs hivemux's mod and an account to go on with.
 - Renaming a Claude that is working no longer waits for its turn to end to send `/rename`: hivemux's mod runs
   it once Claude is free, typed into nothing (`bin/hivemux-mod send`, which team diets use too).
 - Team report: the share of what the requests read that came from the cache, for the team and each role, and

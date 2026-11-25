@@ -124,8 +124,8 @@ def settings():
         # 보여 줄 페이지: 아티팩트, 또는 말할 때만 공유하는 파일 (bin/hivemux-team pages_rule)
         ("pages", tr("보여 줄 페이지", "Pages to show"), [("artifact", "claude.ai"), ("local", tr("HTML 파일", "HTML files"))],
          1 if tmux("show", "-gqv", "@hivemux-pages").strip() == "local" else 0),
-        # a subscription near its limit goes on with the fallback before a limit cuts a turn (bin/hivemux-account early)
-        # 한도 가까이 간 구독은 한도가 턴을 끊기 전에 이어 갈 계정으로 간다 (bin/hivemux-account early)
+        # a subscription near its limit asks to go on with the fallback before a limit cuts a turn (bin/hivemux-account early)
+        # 한도 가까이 간 구독은 한도가 턴을 끊기 전에 이어 갈 계정으로 갈지 묻는다 (bin/hivemux-account early)
         early_row("early-week", tr("미리 넘어가기 · 주간", "Move early · week")),
         early_row("early-5h", tr("미리 넘어가기 · 5시간", "Move early · 5 hours")),
         ("name", tr("이 컴퓨터 이름", "This computer's name"), [(nick, nick or own_name())], 0),
@@ -218,7 +218,7 @@ def main():
                     buf.append(f"\x1b[{y};1H   {fg(T2)}{label}\x1b[{y};{vx}H  {fg(T2)}{v}")
             note = tr("새 대화부터. 공유는 말할 때만 claude.ai 에", "From the next conversation; shared when you ask") \
                 if items[sel][0] == "pages" else \
-                tr("한도 시 이어 갈 계정으로 미리 (계정 팝업에서 정함)", "To the limit's account, early (set in Account)") \
+                tr("넘으면 한도 시 이어 갈 계정으로 갈지 묻습니다", "Past it, asks to go on with the limit's account") \
                 if items[sel][0].startswith("early") else tr("언어를 바꾸면 사이드바를 다시 띄웁니다", "Changing the language restarts the sidebars")
             buf.append(f"\x1b[{rows - 3};1H  {fg(T3)}{note}")
             buf.append(f"\x1b[{rows - 1};1H{fg(RULE)}  " + "─" * max(0, cols - 4))
