@@ -21,6 +21,9 @@
   default). It needs hivemux's mod and an account to go on with.
 - Renaming a Claude that is working no longer waits for its turn to end to send `/rename`: hivemux's mod runs it
   once Claude is free, typed into nothing (`bin/hivemux-mod send`, which team diets use too).
+- Team report: the share of what the requests read that came from the cache, for the team and each role, and
+  the five turns that read the most (a prompt and all the work after it, with how many requests it took). A
+  wrapped prompt reads as what it was: a teammate's message, a background task's notice, a compact.
 - Sidebar: a process whose command line `ps` cut in the middle of a Korean letter stopped a poll (`UnicodeDecodeError`
   in sidebar-errors.log).
 

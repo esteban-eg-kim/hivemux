@@ -2149,10 +2149,39 @@ def _transcript(sid):
     return hits[0] if hits else None
 
 
+def _prompt_text(o):
+    """The text of a prompt the person (or a teammate, or hivemux) sent; "" for a tool result or a meta line
+    사람이 (또는 팀원이나 hivemux 가) 보낸 프롬프트의 글. 도구 결과나 메타 줄이면 """""
+    m = o.get("message") if isinstance(o, dict) else None
+    if o.get("type") != "user" or o.get("isMeta") or o.get("isSidechain") or not isinstance(m, dict):
+        return ""
+    c = m.get("content")
+    if isinstance(c, list):
+        if any(isinstance(b, dict) and b.get("type") == "tool_result" for b in c):
+            return ""
+        c = " ".join(b.get("text", "") for b in c if isinstance(b, dict) and b.get("type") == "text")
+    s = re.sub(r"\s+", " ", str(c or "")).strip()
+    # what Claude Code wraps, in words / Claude Code 가 감싼 것을 말로
+    m = re.match(r"<cross-session-message[^>]*from=\"([^\"]*)\"[^>]*>(.*)", s)
+    if m:
+        return tr(f"(팀원 메시지 · {m.group(1)}) ", f"(a teammate's message · {m.group(1)}) ") + re.sub(r"<[^>]+>", "", m.group(2)).strip()
+    for head, ko, en in (("<task-notification", "(배경 작업이 끝났다는 알림)", "(a background task finished)"),
+                         ("This session is being continued", "(자동 압축 뒤 이어 가기)", "(going on after an automatic compact)"),
+                         ("<bash-", "(! 명령 결과)", "(output of a ! command)"),
+                         ("<command-name>", "(슬래시 명령)", "(a slash command)")):
+        if s.startswith(head):
+            return tr(ko, en)
+    return s
+
+
 def _tokens(sids, start, end):
-    """Tokens the role's requests read and wrote that day, and by which model / 그날 역할의 요청이 읽고 쓴 토큰과 모델"""
+    """Tokens the role's requests read and wrote that day, by which model, the part read from the cache, and its
+    costliest turns (a prompt and the requests that answered it) / 그날 역할의 요청이 읽고 쓴 토큰, 모델, 캐시에서
+    읽은 몫, 가장 많이 쓴 턴 (프롬프트 하나와 그에 답한 요청들)"""
     import datetime
     total, models, seen = 0, {}, set()
+    cache = {"read": 0, "input": 0}
+    turns, turn = [], None
     for sid in sids:
         path = _transcript(sid)
         if not path:
@@ -2163,11 +2192,16 @@ def _tokens(sids, start, end):
             continue
         with f:
             for line in f:
-                if '"usage"' not in line:
+                if '"usage"' not in line and '"type":"user"' not in line:
                     continue
                 try:
                     o = json.loads(line)
                 except ValueError:
+                    continue
+                said = _prompt_text(o) if '"type":"user"' in line else ""
+                if said:
+                    turn = {"prompt": said[:160], "at": o.get("timestamp", ""), "tokens": 0, "requests": 0}
+                    turns.append(turn)
                     continue
                 m = o.get("message") if isinstance(o, dict) else None
                 if not isinstance(m, dict) or m.get("role") != "assistant" or not isinstance(m.get("usage"), dict):
@@ -2186,7 +2220,18 @@ def _tokens(sids, start, end):
                 total += n
                 key = re.sub(r"^claude-|-\d.*$", "", str(m.get("model", "")))
                 models[key] = models.get(key, 0) + n
-    return total, models
+                cache["read"] += int(u.get("cache_read_input_tokens") or 0)
+                cache["input"] += sum(int(u.get(k) or 0) for k in ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"))
+                if turn is not None:
+                    turn["tokens"] += n
+                    turn["requests"] += 1
+    for x in turns:
+        try:
+            x["at"] = int(datetime.datetime.fromisoformat(str(x["at"]).replace("Z", "+00:00")).timestamp())
+        except ValueError:
+            x["at"] = 0
+    top = sorted((x for x in turns if x["tokens"]), key=lambda x: -x["tokens"])[:5]
+    return total, models, cache, top
 
 
 def report(session, date=None):
@@ -2200,7 +2245,8 @@ def report(session, date=None):
     now = int(time.time())
     names = {r["id"]: label(r) for r in team["role"]}
     roles = {r["id"]: {"id": r["id"], "name": label(r), "model": r["model"], "effort": r["effort"], "segs": [], "work": 0,
-                       "files": [], "commits": [], "tokens": 0, "models": {}, "diets": 0, "honey": 0, "handoffs": 0} for r in ranked(team)}
+                       "files": [], "commits": [], "tokens": 0, "models": {}, "cache": {"read": 0, "input": 0}, "turns": [], "diets": 0, "honey": 0,
+                       "handoffs": 0} for r in ranked(team)}
     # states: what each role did when (a state lasts until the next one) / 상태: 다음 상태까지 이어진다
     by = {}
     for at, rid, st in _log(folder, "states.log", start - 86400, end, 3):
@@ -2274,7 +2320,7 @@ def report(session, date=None):
     except OSError:
         pass
     for rid, r in roles.items():
-        r["tokens"], r["models"] = _tokens(allsids.get(rid, []), start, end)
+        r["tokens"], r["models"], r["cache"], r["turns"] = _tokens(allsids.get(rid, []), start, end)
         rr = next(x for x in team["role"] if x["id"] == rid)
         if rr["worktree"]:
             g = subprocess.run(["git", "-C", folder, "log", f"team/{rid}", f"--since=@{start}", f"--until=@{end}", "--format=%h\t%ct\t%s"],
