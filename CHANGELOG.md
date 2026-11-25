@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.82 — 2026-11-25
 
 - hivemux's mod for Claude Code (2.1.287 and later), which setup adds to `~/.claude/settings.json`
   (`env.CLAUDE_CODE_PLUGIN_DIRS`, removed by uninstall; a Claude takes it when it starts again):
