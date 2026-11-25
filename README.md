@@ -9,13 +9,39 @@ in every tmux session: what it is working on, whether it is running, waiting for
 your approval, or done, and for how long. Press `Option+3` to jump to the third
 one, or `Option+0` to jump to whichever has waited longest. Close the terminal or
 reboot and everything comes back, with each Claude resumed in its pane. When a
-Claude account hits its usage limit, switch every project (or just one) to
-another account and each Claude carries on in the same conversation. It runs on
-macOS and Linux (on Linux, `Option` is `Alt`).
+Claude account hits its usage limit, the work goes on: switch to another account in the
+same conversation, or let hivemux go on with an API key by itself and come back
+when the limit resets. It runs on macOS and Linux (on Linux, `Option` is `Alt`).
 
 <p align="center">
   <img src="docs/preview-en.png" alt="hivemux sidebar preview" width="880">
 </p>
+
+## What's new
+
+<p align="center">
+  <img src="docs/img/api-en.png" alt="A Claude at its usage limit going on through the Agent SDK in the same pane: it picks up the work that was cut off, edits a file and runs the tests; the status line shows the model, context size and cost, and the sidebar shows it as running" width="880">
+</p>
+
+- **At the usage limit, go on with the API.** Add an API key once; when a
+  subscription hits its limit, its Claudes go on in the same pane with the same
+  folder, tools, settings and hooks, and turn back into Claude Code when the limit
+  resets. It runs on the Agent SDK, so the monthly API credits of the Max, Ultra
+  and Team plans ([$100, $200, up to $500](https://support.claude.com/en/articles/17154008-monthly-api-credits-for-max-ultra-and-team-plans))
+  work for it. They do not cover Claude Code itself. (0.1.78,
+  [how](#more-than-one-claude-account))
+- **Team diets that hold.** A role past its line starts fresh from short notes,
+  without the tools it does not use: 33K to 46K tokens at the start instead of
+  52K, and long days no longer fill up with reading. (0.1.80, [Teams](#teams))
+- **Pages as files.** Mockups and reports as one HTML file in the project,
+  published only when you want them shared; opinions come back into the file.
+  (0.1.80, [Pages](#pages))
+- **A lighter sidebar.** With 60 Claudes, from 35% of a core to 6%. (0.1.79)
+- **Dev servers on your phone.** `Option+W`, then `p`: the address and a QR code.
+  (0.1.75)
+
+Everything, by version: [CHANGELOG](CHANGELOG.md) or
+[hivemux.dev/new](https://hivemux.dev/new/).
 
 ## Features
 
@@ -44,8 +70,9 @@ macOS and Linux (on Linux, `Option` is `Alt`).
 - **More than one Claude account.** Hit a usage limit? Log in to another
   account once and switch to it, for every project or for one; each Claude
   restarts on it in the same conversation, and the status line shows
-  `◉ <account>`. A list of every artifact your Claudes published says which
-  account it belongs to. See [More than one Claude account](#more-than-one-claude-account).
+  `◉ <account>`. Or have them go on with an API key by themselves until the limit
+  resets. A list of every artifact your Claudes published says which account it
+  belongs to. See [More than one Claude account](#more-than-one-claude-account).
 - **Why it waits, and answer from the office.** A waiting card says what it
   waits for: an approval (with Claude's own one-line description of the
   command, or the file), a plan, a question, or an error; a finished one says
@@ -328,11 +355,14 @@ to it; every Claude carries on in the same conversation.
   (`hivemux account fallback api|off|all -s <project>`), so only the projects
   you pick go on with the key.
 
-  It goes on through the **Agent SDK** by default: some API credits (promotion
-  credits) are for the Agent SDK and not for Claude Code, which stops at
-  "Credit balance too low" on them. `bin/hivemux-sdk` is a small Claude Code
-  made with the SDK: it runs in the pane with the same folder, tools,
-  settings, CLAUDE.md, hooks and team role prompt. The conversation passes as
+  It goes on through the **Agent SDK** by default. Max, Ultra and Team plans
+  include [monthly API credits](https://support.claude.com/en/articles/17154008-monthly-api-credits-for-max-ultra-and-team-plans)
+  ($100, $200, up to $500 a team; claim them in claude.ai → Settings → Billing,
+  which links a Console organization). They cover the Agent SDK with a key of that
+  organization and not Claude Code, which stops at "Credit balance too low" on
+  them. `bin/hivemux-sdk` is hivemux's own terminal for Claude, made with the SDK
+  and laid out like the one you know: it runs in the pane with the same folder,
+  tools, settings, CLAUDE.md, hooks and team role prompt. The conversation passes as
   documents, as a diet does: it starts from a handoff written from the end of
   the Claude Code conversation (`~/.local/share/hivemux/handoff/<id>.in.md`:
   the last requests and answers, files changed, the role's notes, the path of

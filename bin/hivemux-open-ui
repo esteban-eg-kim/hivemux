@@ -377,7 +377,7 @@ def main():
                 icon = "↗" if it.get("url") else "▸" if it["isdir"] else "•"
                 name = cut_left(it["shown"] + ("/" if it["isdir"] else ""), cols - 8)
                 if i == sel:
-                    line = f"{bg(SEL_BG)}{fg(ACC)} ▌{fg(TEXT)}{BOLD} {icon} {name}{RST}{bg(SEL_BG)}"
+                    line = f"{bg(SEL_BG)}  {fg(TEXT)}{BOLD} {icon} {name}{RST}{bg(SEL_BG)}"
                     line += " " * max(0, cols - 5 - width(name)) + RST + bg(BG)
                 else:
                     line = f"{bg(BG)}   {fg(T3)}{icon} {fg(T2)}{name}"

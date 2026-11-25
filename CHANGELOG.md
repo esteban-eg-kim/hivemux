@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- The settings, open path, new project, connect and sidebar width popups have no bar on the left of the
+  selected row: it is told by its tint, as in the account and port lists.
+- Agent SDK: the status line under the prompt is plain text below the rule, as in Claude Code; it was drawn as
+  a filled gray bar.
+- READMEs: what is new, and how the monthly API credits of Max, Ultra and Team plans work with going on at the
+  usage limit (the Korean one had nothing on API keys). New pictures of everything, with the sidebar as it is
+  now, and `docs/preview/api.sh` for the API, account and phone ones.
+
 ## 0.1.80 — 2026-11-25
 
 - Diets, when they should: a role whose last answer asked something was not put on a diet until you had
@@ -77,7 +85,7 @@
   tick. Ctrl+V pastes the clipboard's image as `[Image #n]` and sends it with the message, as in Claude Code;
   an image file's path (dragged into the terminal) is sent as the image too. A path that starts with a slash
   is no longer taken for a command. Its session carries the name others message it by (a team role's
-  `<project>-<role>`, else the conversation's): a team gone to the API took made-up names ("ohmyhome-d1") and
+  `<project>-<role>`, else the conversation's): a team gone to the API took made-up names ("myapp-d1") and
   lost each other. It diets as a team role does, without typing into a prompt: through the API each turn sends
   the whole conversation again and is paid for. Past the line, once the answer has been seen, it brings the
   notes up to date and starts a fresh SDK conversation from them. A team role keeps its team's line, notes and

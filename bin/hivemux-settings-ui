@@ -194,10 +194,10 @@ def main():
                     shown = edit
                     while width(shown) > cols - vx - 3:
                         shown = shown[1:]
-                    buf.append(f"\x1b[{y};1H{bg(SEL_BG)}{fg(ACC)} ▌ {fg(TEXT)}{BOLD}{label}{RST}{bg(SEL_BG)}" + " " * max(0, cols - 4 - width(label)))
+                    buf.append(f"\x1b[{y};1H{bg(SEL_BG)}   {fg(TEXT)}{BOLD}{label}{RST}{bg(SEL_BG)}" + " " * max(0, cols - 4 - width(label)))
                     buf.append(f"\x1b[{y};{vx}H  {fg(TEXT)}{BOLD}{shown}{fg(ACC)}▏" + RST + bg(BG))
                 elif on:
-                    buf.append(f"\x1b[{y};1H{bg(SEL_BG)}{fg(ACC)} ▌ {fg(TEXT)}{BOLD}{label}{RST}{bg(SEL_BG)}" + " " * max(0, cols - 4 - width(label)))
+                    buf.append(f"\x1b[{y};1H{bg(SEL_BG)}   {fg(TEXT)}{BOLD}{label}{RST}{bg(SEL_BG)}" + " " * max(0, cols - 4 - width(label)))
                     buf.append(f"\x1b[{y};{vx}H{fg(ACC)}‹ {fg(TEXT)}{BOLD}{v}{RST}{bg(SEL_BG)} {fg(ACC)}›" + RST + bg(BG))
                 else:
                     buf.append(f"\x1b[{y};1H   {fg(T2)}{label}\x1b[{y};{vx}H  {fg(T2)}{v}")
@@ -309,11 +309,11 @@ def pick_width():
                 on = i == sel
                 val = (f"‹ {w}칸 ›" if lang() == "ko" else f"‹ {w} cols ›") if i == len(PRESETS) else tr(f"{w}칸", f"{w} cols")
                 mark = tr("  지금", "  now") if w == now else ""
-                line = f" {'▌' if on else ' '} {name}"
+                line = f"   {name}"
                 pad = " " * max(1, 14 - width(line))
                 body = f"{line}{pad}{val}{mark}"
                 if on:
-                    buf.append(f"\x1b[{y};1H{bg(SEL_BG)}{fg(ACC)} ▌ {fg(TEXT)}{BOLD}{name}{RST}{bg(SEL_BG)}{fg(TEXT)}"
+                    buf.append(f"\x1b[{y};1H{bg(SEL_BG)}   {fg(TEXT)}{BOLD}{name}{RST}{bg(SEL_BG)}{fg(TEXT)}"
                                f"{pad}{val}{fg(T3)}{mark}" + " " * max(0, cols - width(body)) + RST + bg(BG))
                 else:
                     buf.append(f"\x1b[{y};1H   {fg(T2)}{name}{pad}{val}{fg(T3)}{mark}")

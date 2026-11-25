@@ -138,7 +138,7 @@ def main():
             buf = ["\x1b[H", bg(BG), "\x1b[2J"]
             cnt = tr(f"폴더 {len(shown)}개", f"{len(shown)} folders")
             here = cut_left(pretty(cwd) + ("" if cwd == "/" else "/"), cols - width(cnt) - 8)
-            buf.append(f"\x1b[1;1H  {fg(ACC)}▍{fg(TEXT)}{BOLD}{here}{RST}{bg(BG)}")
+            buf.append(f"\x1b[1;1H  {fg(TEXT)}{BOLD}{here}{RST}{bg(BG)}")
             buf.append(f"\x1b[1;{max(1, cols - width(cnt) - 1)}H{fg(T3)}{cnt}")
             if naming:
                 buf.append(f"\x1b[2;1H  {fg(OK)}{tr('새 폴더 이름', 'New folder name')} {fg(TEXT)}{BOLD}{name}{RST}{bg(BG)}{fg(ACC)}▏")
@@ -166,7 +166,7 @@ def main():
                 label = cut(label, cols - 10 - (width(note) + 2 if note else 0))
                 right = f"{fg(T3)}{note}" if note else ""
                 if k == sel:
-                    line = f"\x1b[{y};1H{bg(SEL_BG)}{fg(ACC)} ▌ {fg(color)}{BOLD}{icon} {label}{RST}{bg(SEL_BG)}" + " " * max(0, cols - 6 - width(label))
+                    line = f"\x1b[{y};1H{bg(SEL_BG)}   {fg(color)}{BOLD}{icon} {label}{RST}{bg(SEL_BG)}" + " " * max(0, cols - 6 - width(label))
                     if note:
                         line += f"\x1b[{y};{cols - width(note) - 1}H{fg(T2)}{note}"
                     line += RST + bg(BG)

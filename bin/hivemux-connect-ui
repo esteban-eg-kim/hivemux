@@ -95,7 +95,7 @@ def main():
                 else:
                     label, note, color = tr("+ 호스트 추가…", "+ Add a host…"), "", OK
                 if i == sel and not adding:
-                    buf.append(f"\x1b[{y};1H{bg(SEL_BG)}{fg(ACC)} ▌ {fg(color)}{BOLD}{label}{RST}{bg(SEL_BG)}" + " " * max(0, cols - 4 - width(label)))
+                    buf.append(f"\x1b[{y};1H{bg(SEL_BG)}   {fg(color)}{BOLD}{label}{RST}{bg(SEL_BG)}" + " " * max(0, cols - 4 - width(label)))
                     if note:
                         buf.append(f"\x1b[{y};{cols - width(note) - 1}H{fg(T2)}{note}")
                     buf.append(RST + bg(BG))

@@ -6,7 +6,7 @@
   hivemux-sdk install                  prepare its Python (claude-agent-sdk, prompt_toolkit) / 쓸 파이썬을 준비
 
 Some API credits (promotion credits) are for the Agent SDK and not for Claude Code itself, so Claude Code on the
-key stops at "Credit balance too low". This is a small Claude Code of its own made with the Agent SDK: it runs in the
+key stops at "Credit balance too low". This is a terminal for Claude made with the Agent SDK: it runs in the
 pane, takes the same arguments (--resume, --model, --effort, --append-system-prompt-file of a team role), works in
 the same folder with the same tools, settings, CLAUDE.md and hooks (so the sidebar still shows its state).
 The conversations pass as documents, as a diet does: it does not resume the Claude Code conversation (that would
@@ -571,6 +571,7 @@ async def run(argv):
     from prompt_toolkit.formatted_text import ANSI
     from prompt_toolkit.history import FileHistory
     from prompt_toolkit.key_binding import KeyBindings
+    from prompt_toolkit.styles import Style
 
     vals, bools, prompt = parse(argv)
     sid = vals.get("--resume") or vals.get("-r") or ""
@@ -592,9 +593,9 @@ async def run(argv):
     resume = [sdk_session(sid) if sid else ""]
 
     # the name other sessions message it by: a team role's "<project>-<role>" (its teammates use it), else the
-    # conversation's; without it the SDK session took a made-up one ("ohmyhome-d1") and the team lost each other
+    # conversation's; without it the SDK session took a made-up one ("myapp-d1") and the team lost each other
     # 다른 세션이 메시지를 보낼 이름: 팀 역할은 "<프로젝트>-<역할>" (팀원이 그 이름을 쓴다), 아니면 대화 이름. 없으면
-    # SDK 세션이 지어낸 이름 ("ohmyhome-d1") 을 받아 팀원끼리 서로 찾지 못했다
+    # SDK 세션이 지어낸 이름 ("myapp-d1") 을 받아 팀원끼리 서로 찾지 못했다
     role = tmux("show", "-pqv", "-t", pane, "@hivemux-role").strip() if pane else ""
     proj = tmux("display", "-p", "-t", pane, "#{session_name}").strip() if pane else ""
     peer = f"{proj}-{role}" if role and proj else title_of(sid, pane)
@@ -750,6 +751,8 @@ async def run(argv):
     out = pin.out
     session = PromptSession(multiline=True, key_bindings=keys, bottom_toolbar=toolbar, refresh_interval=0.3,
                             erase_when_done=True,
+                            # the status line is plain text under the rule, not a filled bar / 상태줄은 선 아래 글자다. 칠한 막대가 아니다
+                            style=Style.from_dict({"bottom-toolbar": "noreverse"}),
                             history=FileHistory(os.path.join(DATA, "sdk", "history")),
                             completer=WordCompleter(lambda: words[0], sentence=True), complete_while_typing=True,
                             prompt_continuation=lambda width, n, soft: "  ")

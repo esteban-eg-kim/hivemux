@@ -68,6 +68,7 @@ C
     T set -p -t "$p" @claude_session "demo-$p"; T set -p -t "$p" @claude_state "$2"; T set -w -t "$p" @claude_state "$2"
     T set -p -t "$p" @claude_state_at "$((now - $3))"; T set -p -t "$p" @claude_name "$4"
   }
+  T set -g @hivemux-mac-name "Mac Studio"
   st api:claude run 240 "$N1"; st docs:claude done 60 "$N2"; st web:claude wait 120 "$N3"
   st web:login-bug wait 40 "$N4"; st wayfinder:claude idle 0 "$N5"
   # why the two wait (bin/hivemux-hook @claude_wait), the files the finished turn changed (@claude_touched)
@@ -114,6 +115,7 @@ C
 
   # 6. port list (Option+W): this Mac's dev servers, forwarded to a laptop connected to it
   # 6. 포트 목록 (Option+W): 이 Mac 의 개발 서버가 여기 붙은 노트북으로 이어짐
+  T set -g @hivemux-seen-MacBook-Air "$(date +%s)"
   T set -g @hivemux-ports-MacBook-Air "$(printf '5173 5173 node\n8000 8000 Python')"
   O send-keys -t 0 M-w; sleep 2
   shot "ports-$L" "web / login-bug"
