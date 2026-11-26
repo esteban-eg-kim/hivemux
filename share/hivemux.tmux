@@ -71,6 +71,7 @@ set -g automatic-rename-format "#{?#{==:#{pane_title},hivemux-sidebar},#{window_
 run-shell 'w=$(cat "#{@hivemux-data}/sidebar-width" 2>/dev/null); tmux set -g @hivemux-sidebar-width "${w:-32}"'
 # running/waiting animations; set to off to disable
 set -gq @hivemux-anim on
+set -gq @hivemux-theme graphite
 # animation frames per second (2-30)
 set -gq @hivemux-fps 15
 # desktop notification when a task needs input or finishes (sent through the terminal, also over ssh); off to disable
@@ -78,7 +79,7 @@ set -gq @hivemux-fps 15
 set -gq @hivemux-notify on
 # language, animation, notifications and editor chosen in the sidebar menu's Settings (saved files win over the lines above)
 # 사이드바 메뉴의 설정에서 고른 언어, 애니메이션, 알림, 편집기 (저장된 파일이 위 줄보다 우선)
-run-shell 'v=$(cat "#{@hivemux-data}/lang" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-lang "$v"; v=$(cat "#{@hivemux-data}/anim" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-anim "$v"; v=$(cat "#{@hivemux-data}/notify" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-notify "$v"; v=$(cat "#{@hivemux-data}/editor" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-editor "$v"; v=$(cat "#{@hivemux-data}/pages" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-pages "$v"; v=$(cat "#{@hivemux-data}/mac-name" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-mac-name "$v"; v=$(cat "#{@hivemux-data}/early-week" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-early-week "$v"; v=$(cat "#{@hivemux-data}/early-5h" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-early-5h "$v"; true'
+run-shell 'v=$(cat "#{@hivemux-data}/lang" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-lang "$v"; v=$(cat "#{@hivemux-data}/anim" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-anim "$v"; v=$(cat "#{@hivemux-data}/theme" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-theme "$v"; v=$(cat "#{@hivemux-data}/notify" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-notify "$v"; v=$(cat "#{@hivemux-data}/editor" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-editor "$v"; v=$(cat "#{@hivemux-data}/pages" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-pages "$v"; v=$(cat "#{@hivemux-data}/mac-name" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-mac-name "$v"; v=$(cat "#{@hivemux-data}/early-week" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-early-week "$v"; v=$(cat "#{@hivemux-data}/early-5h" 2>/dev/null); [ -n "$v" ] && tmux set -g @hivemux-early-5h "$v"; true'
 # the Claude account chosen for all projects and for each project (bin/hivemux-account) / 고른 Claude 계정 (bin/hivemux-account)
 # (before panes are restored, so they resume on it / 칸을 복원하기 전에. 그 계정으로 재개하게)
 run-shell "{ #{@hivemux-bin}/hivemux-account env; } >/dev/null 2>&1; true"

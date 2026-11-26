@@ -184,6 +184,24 @@ STATE_ICON = {"wait": "●", "run": "⋯", "done": "✓", "idle": "◦", "home":
 # the marks fuller, brighter than their state's text and bold: small and muted, they got lost in the line
 # 기호는 꽉 차게, 상태 글씨보다 밝고 굵게: 작고 흐려서 줄 안에 묻혔다
 MARK_COLOR = {"wait": (255, 180, 50), "run": (110, 182, 255), "done": (80, 222, 150)}
+# Themes (@hivemux-theme, Settings; read when the sidebar starts). graphite: grey tiles, colour only for the states.
+# prism: the same layout in the colours of old, each project's tile in its own colour, brighter states
+# 테마 (@hivemux-theme, 설정. 사이드바가 시작할 때 읽는다). graphite: 회색 판, 색은 상태에만.
+# prism: 같은 배치에 예전 색: 프로젝트마다 제 색의 판, 더 밝은 상태 색
+THEME = os.environ.get("HIVEMUX_THEME") or subprocess.run([TMUX, "show", "-gqv", "@hivemux-theme"],
+                                                          capture_output=True, text=True).stdout.strip() or "graphite"
+# project colours (fixed by a hash of the name), prism only / 프로젝트 색 (이름 해시로 고정), prism 에서만
+PROJECT_HUES = [(167, 139, 250), (244, 114, 182), (45, 212, 191), (251, 146, 60),
+                (96, 165, 250), (163, 230, 53), (250, 204, 21), (232, 121, 249)]
+if THEME == "prism":
+    C.update({"bg": (22, 24, 29), "text": (230, 233, 239), "text2": (154, 163, 178), "text3": (98, 106, 120),
+              "run": (90, 169, 255), "wait": (245, 165, 36), "done": (62, 207, 142), "home": (132, 126, 206),
+              "wait_hi": (88, 64, 18), "rule": (44, 48, 57), "card_hi": (42, 47, 58)})
+    MARK_COLOR = {"wait": (255, 176, 40), "run": (100, 178, 255), "done": (62, 220, 150)}
+
+
+def hue_of(name):
+    return PROJECT_HUES[sum(ord(c) for c in name) % len(PROJECT_HUES)]
 # why a pane waits (@claude_wait from bin/hivemux-hook: "<kind>\t<tool>\t<text>") / 칸이 기다리는 이유
 WHY_TEXT = {"approve": tr("승인", "approve"), "plan": tr("계획 승인", "plan"), "ask": tr("질문", "question"),
             "input": tr("입력", "input"), "error": tr("오류", "error")}
@@ -706,7 +724,13 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
         line, the project's other Claudes a row apart after them (bin/hivemux-team)
         프로젝트 하나: 이름 아래 회색 판, Claude 마다 한 줄, 그리고 {줄: 칸}. 이름은 위아래로 반 줄씩 더 큰 밝은 띠
         위에. 팀 역할은 ⁂ 와 팀 이름 아래 세로 줄 뒤에, 프로젝트의 다른 Claude 는 한 줄 띄워 그 뒤에 (bin/hivemux-team)"""
-        tile, band = C["tile"], C["tile_head"]
+        tile, band, guide_c, cur_c = C["tile"], C["tile_head"], C["guide"], C["cur"]
+        if THEME == "prism":
+            # the tile and its band in the project's colour, the one you are in a step deeper
+            # 판과 이름 띠는 그 프로젝트 색으로, 지금 있는 프로젝트는 한 단계 진하게
+            hue, here = hue_of(sess), sess == cur_sess
+            tile, band = mix(C["bg"], hue, .14 if here else .09), mix(C["bg"], hue, .42 if here else .28)
+            guide_c, cur_c = mix(C["text3"], hue, .55), mix(tile, C["text"], .12)
         S = lambda bg=tile: Line(cw, bg)
         rows, cards, spots = [], {}, []
         # a team's roles first (the lead first, then the flow) / 팀 역할 먼저 (리드 먼저, 그다음 흐름)
@@ -748,7 +772,7 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
             # done over an hour ago rests like idle / 끝난 지 한 시간 넘으면 대기처럼 쉰다
             old = st == "done" and p["@claude_state_at"].isdigit() and now - int(p["@claude_state_at"]) >= 3600
             dim = st in ("idle", "home") or old
-            bg = C["wait_hi"] if st == "wait" else C["cur"] if p["pane_id"] == current else tile
+            bg = C["wait_hi"] if st == "wait" else cur_c if p["pane_id"] == current else tile
             drag_src = dragging and DRAG["kind"] == "card" and p["pane_id"] == DRAG["src"]
             if dragging and DRAG["kind"] == "card" and p["pane_id"] == DRAG["over"] and not drag_src:
                 bg = C["drop"]
@@ -764,7 +788,7 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
             name = name[2:] if lead else name
             # clocked out but working on until done (bin/hivemux-shift) / 퇴근했지만 끝날 때까지 일한다 (bin/hivemux-shift)
             late = tr("  야근", "  overtime") if p.get("@claude_offwork") and st in ("run", "wait") else ""
-            r = S().put(guide, C["guide"]).put(" ", C["text"], bg)
+            r = S().put(guide, guide_c).put(" ", C["text"], bg)
             if st == "run" and ANIM:
                 spots.append((len(rows), r.used(), bg, hue_, True))
                 icon = SPIN[int(NOW_T * 10) % len(SPIN)]
@@ -775,7 +799,7 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
             r.fill(cw - 1 - width(t), bg).put(t, C["wait"] if st == "wait" else C["home"] if st == "home" else C["text3"], bg).fill(cw, bg)
             lns = [r]
             if st == "wait":
-                lns.append(S().put(guide, C["guide"]).put("   " + state_line(dict(p, **{"@claude_offwork": ""}), st), C["wait"], bg,
+                lns.append(S().put(guide, guide_c).put("   " + state_line(dict(p, **{"@claude_offwork": ""}), st), C["wait"], bg,
                                                           limit=cw - 1).fill(cw, bg))
             for x in lns:
                 if drag_src:
@@ -790,9 +814,9 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
                     t = age(ho[0], now)
                     # the envelope of the Nerd Font Ghostty carries: ✉ came out small and faint
                     # Ghostty 에 들어 있는 Nerd Font 의 편지: ✉ 는 작고 흐리게 나왔다
-                    r = S().put(guide, C["guide"]).put(" \uf0e0 ", C["text2"]).put(f"{ho[1]} → {ho[2]}", C["text3"], limit=cw - width(t) - 2)
+                    r = S().put(guide, guide_c).put(" \uf0e0 ", C["text2"]).put(f"{ho[1]} → {ho[2]}", C["text3"], limit=cw - width(t) - 2)
                     # a row of the line above it, apart from the roles / 위에 세로 줄만 있는 한 줄: 역할들과 떨어지게
-                    rows += [S().put(guide, C["guide"]).fill(cw), r.fill(cw - 1 - width(t)).put(t, C["text3"]).fill(cw)]
+                    rows += [S().put(guide, guide_c).fill(cw), r.fill(cw - 1 - width(t)).put(t, C["text3"]).fill(cw)]
         rows.append(S(C["bg"]).put("▀" * cw, tile))
         return rows, cards, spots, []
 
