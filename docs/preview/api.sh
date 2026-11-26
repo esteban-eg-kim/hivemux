@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build docs/img/{api,account,ports-phone}-{en,ko}.png: a Claude going on with the API at a usage limit (bin/hivemux-sdk,
+# Build docs/img/{api,account,early,ports-phone}-{en,ko}.png: a Claude going on with the API at a usage limit (bin/hivemux-sdk,
 # answered by fake-sdk: no API call), the account popup, and a dev server's QR code, with made-up data.
 # 사용 한도에서 API 로 이어 가는 Claude (bin/hivemux-sdk 를 fake-sdk 가 각본대로 답함: API 호출 없음), 계정 팝업, 개발 서버의
 # QR 코드 화면을 가짜 데이터로 docs/img/{api,account,ports-phone}-{en,ko}.png 로 만든다.
@@ -19,6 +19,10 @@ chmod +x "$D/sdk/venv/bin/python"
 echo '{"oauthAccount":{"emailAddress":"me@example.com","planDisplayName":"Ultra"}}' > "$HOME/.claude.json"
 echo '{"oauthAccount":{"emailAddress":"work@example.com","planDisplayName":"Max"}}' > "$D/accounts/work/.claude.json"
 echo 'demo-x7Qa' > "$D/accounts/api/api-key"; echo api > "$D/account-fallback"
+# what the accounts have used: the default at its weekly limit, work part way / 계정 사용량: 기본은 주간 한도, work 는 중간
+mkdir -p "$D/limits"; wk=$(date -u -v+2d +%Y-%m-%dT%H:%M:%SZ); fh=$(date -u -v+2H +%Y-%m-%dT%H:%M:%SZ)
+printf '100\t%s\t64\t%s\t%s\n' "$wk" "$fh" "$(date +%s)" > "$D/limits/default.tsv"
+printf '41\t%s\t12\t%s\t%s\n' "$wk" "$fh" "$(date +%s)" > "$D/limits/work.tsv"
 T() { tmux -L hmapi "$@"; }; O() { tmux -L hmapi-outer "$@"; }
 shot() { # shot <name> <title>
   python3 -c 'import time; time.sleep((0.3 - time.time()) % 1)'
@@ -75,6 +79,13 @@ C
   T run-shell -b "env HOME=$HOME XDG_DATA_HOME=$XDG_DATA_HOME HIVEMUX_LANG=$L $ROOT/bin/hivemux-account --popup \"\$(tmux -L hmapi list-clients -F '##{client_name}' | head -1)\""
   sleep 3
   shot "account-$L" "api / claude"
+  O send-keys -t 0 Escape; sleep 1.2
+
+  # before the limit: work near its week asks to go on with api / 한도 전에: 주간이 거의 찬 work 가 api 로 넘어갈지 묻는다
+  T display-popup -c "$(T list-clients -F '#{client_name}' | head -1)" -E -w 76 -h 13 -b rounded -T " hivemux " \
+    "env HOME=$HOME XDG_DATA_HOME=$XDG_DATA_HOME HIVEMUX_LANG=$L $ROOT/bin/hivemux-account --early-ui work api $((now + 172800)) week:96:$((now + 172800))" &
+  sleep 3
+  shot "early-$L" "api / claude"
   O send-keys -t 0 Escape; sleep 1.2
 
   # a dev server on a phone: its address and QR code / 휴대폰으로 여는 개발 서버: 주소와 QR 코드
