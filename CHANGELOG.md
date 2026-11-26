@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.86 — 2026-11-26
 
 - Bee office: a small management office on the plaza by the road, with a manager. He reads the paper at the
   counter, locks up when everyone clocks out and opens up when they clock in, welcomes a new bee at the gate
