@@ -859,7 +859,16 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
     global SCROLL, SCROLL_TO, SPOTS, GLOWS
     # each account's week (share/claude-mod), a row under the list's rule / 계정마다 주간 한도. 목록 아래 구분선 밑 한 줄
     wl = week_limits()
-    foot = 3 + (len(wl) + 1 if wl else 0)
+    names = [tr("기본", "default") if a == "default" else a for a, _, _ in wl]
+    nw = min(10, max((width(n) for n in names), default=0))
+    # a wide sidebar puts the accounts side by side, each a cell of name, bar, week and five hours
+    # 넓은 사이드바는 계정을 옆으로 나란히 둔다. 한 칸에 이름, 막대, 주간, 5시간
+    bar = max(4, min(14, w - nw - 18))
+    per_row = max(1, min(len(wl), (w - 1) // (nw + 25))) if wl else 1
+    if per_row > 1:
+        bar = 10
+    rows_l = -(-len(wl) // per_row)
+    foot = 3 + (rows_l + 1 if wl else 0)
     avail = h - foot - len(lines)       # rows for the list / 목록에 쓸 줄 수
     # If it does not fit, the list scrolls (cards stay two lines, projects stay apart)
     # 넘치면 목록을 스크롤한다 (카드는 두 줄, 프로젝트 사이 빈 줄은 그대로)
@@ -893,20 +902,24 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
     if more_below:
         lines[-1].cells[w - 5:w - 2] = [(c, BG, C["text2"], False) for c in " ▼ "]
     if wl:
-        # a row per account: the week as a bar, then the five hours / 계정마다 한 줄: 주간은 막대, 그 뒤에 5시간
-        names = [tr("기본", "default") if a == "default" else a for a, _, _ in wl]
-        nw = min(10, max(width(n) for n in names))
-        bar = max(4, min(14, w - nw - 18))
-        head = L().put("  " + " " * nw + " ", C["text3"]).put(fit(tr("주간", "week"), bar + 5), C["text3"])
-        lines.append(head.put(" " * max(0, bar + 5 - width(fit(tr("주간", "week"), bar + 5))) + tr(" 5시간", " 5h"), C["text3"]))
-        for name, (acc, week, five) in zip(names, wl):
-            ln = L().put("  " + fit(name, nw) + " " * (nw - width(fit(name, nw))) + " ", C["text2"])
-            if week is None:
-                ln.put(fit(tr("아직 모름", "not known yet"), w - ln.used() - 1), C["text3"])
-            else:
-                limit_bar(ln, week, bar).put(f" {week:3.0f}%", C["wait"] if week >= 70 else C["text2"])
-                if five is not None:
-                    ln.put(f"  {five:3.0f}%", C["wait"] if five >= 70 else C["text3"])
+        # an account a cell: the week as a bar, then the five hours; per_row cells side by side
+        # 계정마다 한 칸: 주간은 막대, 그 뒤에 5시간. per_row 칸씩 옆으로
+        span = nw + bar + 15 if per_row > 1 else w      # a cell and the gap after it / 한 칸과 그 뒤 간격
+        head = L()
+        for k in range(per_row):
+            head.fill(k * span).put("  " + " " * nw + " ", C["text3"]).put(fit(tr("주간", "week"), bar + 5), C["text3"])
+            head.put(" " * max(0, bar + 5 - width(fit(tr("주간", "week"), bar + 5))) + tr(" 5시간", " 5h"), C["text3"])
+        lines.append(head)
+        for r0 in range(0, len(wl), per_row):
+            ln = L()
+            for k, (name, (acc, week, five)) in enumerate(zip(names[r0:r0 + per_row], wl[r0:r0 + per_row])):
+                ln.fill(k * span).put("  " + fit(name, nw) + " " * (nw - width(fit(name, nw))) + " ", C["text2"])
+                if week is None:
+                    ln.put(fit(tr("아직 모름", "not known yet"), min(w - ln.used() - 1, bar + 11)), C["text3"])
+                else:
+                    limit_bar(ln, week, bar).put(f" {week:3.0f}%", C["wait"] if week >= 70 else C["text2"])
+                    if five is not None:
+                        ln.put(f"  {five:3.0f}%", C["wait"] if five >= 70 else C["text3"])
             lines.append(ln)
     k = L().put("  ")
     if n_wait:
