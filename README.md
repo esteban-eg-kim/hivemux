@@ -160,7 +160,7 @@ the work out, and the roles pass what they finish down the flow.
   page lists the recent ones, the end of the team's line in the sidebar shows the
   last one for half an hour (`✉ Planning → Dev · 2m`), and in the bee office a letter
   flies from one bee to the other. In the sidebar the roles sit together under
-  `⁂ <team name>` behind a vertical line, the lead marked "lead", the project's other Claudes a row apart after them.
+  `⁂ <team name>` behind a vertical line, the lead with a "lead" badge, the project's other Claudes a row apart after them.
 - **Questions for you.** Roles write what they need from you to
   `.hivemux/questions.md`; the team page shows the open ones, each with **Mark
   as answered**, and what you type into a role's window marks its questions answered.

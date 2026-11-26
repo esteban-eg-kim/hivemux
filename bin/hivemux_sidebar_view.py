@@ -175,6 +175,8 @@ C = {
     "tile_head": (40, 44, 52),   # the band of its name / 이름 띠
     "cur":     (44, 49, 58),     # this window's Claude / 이 창의 Claude
     "guide":   (92, 99, 112),    # the line before a team's roles / 팀 역할 앞의 세로 줄
+    "badge":   (78, 86, 104),    # the lead's badge / 리드 배지
+    "badge_fg": (236, 239, 244),
     "remote":  (156, 147, 191),  # "viewed from another Mac" note (the status line's ⇄ badge) / 원격 화면 안내 (상태줄 ⇄ 표시)
 }
 STATE_TEXT = {"wait": tr("입력 필요", "needs input"), "run": tr("작업 중", "running"), "done": tr("완료", "done"), "idle": tr("대기", "idle"),
@@ -724,13 +726,13 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
         line, the project's other Claudes a row apart after them (bin/hivemux-team)
         프로젝트 하나: 이름 아래 회색 판, Claude 마다 한 줄, 그리고 {줄: 칸}. 이름은 위아래로 반 줄씩 더 큰 밝은 띠
         위에. 팀 역할은 ⁂ 와 팀 이름 아래 세로 줄 뒤에, 프로젝트의 다른 Claude 는 한 줄 띄워 그 뒤에 (bin/hivemux-team)"""
-        tile, band, guide_c, cur_c = C["tile"], C["tile_head"], C["guide"], C["cur"]
+        tile, band, guide_c, cur_c, badge_c = C["tile"], C["tile_head"], C["guide"], C["cur"], C["badge"]
         if THEME == "prism":
             # the tile and its band in the project's colour, the one you are in a step deeper
             # 판과 이름 띠는 그 프로젝트 색으로, 지금 있는 프로젝트는 한 단계 진하게
             hue, here = hue_of(sess), sess == cur_sess
             tile, band = mix(C["bg"], hue, .14 if here else .09), mix(C["bg"], hue, .42 if here else .28)
-            guide_c, cur_c = mix(C["text3"], hue, .55), mix(tile, C["text"], .12)
+            guide_c, cur_c, badge_c = mix(C["text3"], hue, .55), mix(tile, C["text"], .12), mix(C["bg"], hue, .55)
         S = lambda bg=tile: Line(cw, bg)
         rows, cards, spots = [], {}, []
         # a team's roles first (the lead first, then the flow) / 팀 역할 먼저 (리드 먼저, 그다음 흐름)
@@ -784,7 +786,8 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
                 t = f"{int(p['@claude_ctx']) // 1000}K"
             name = task_name(p)
             # the lead says so in grey after its name, not with a star / 리드는 별 대신 이름 뒤에 회색으로
-            lead = tr("  리드", "  lead") if name.startswith("⭐ ") else ""
+            # the lead: a small badge after its name / 리드: 이름 뒤 작은 배지
+            lead = tr(" 리드 ", " lead ") if name.startswith("⭐ ") else ""
             name = name[2:] if lead else name
             # clocked out but working on until done (bin/hivemux-shift) / 퇴근했지만 끝날 때까지 일한다 (bin/hivemux-shift)
             late = tr("  야근", "  overtime") if p.get("@claude_offwork") and st in ("run", "wait") else ""
@@ -794,8 +797,10 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
                 icon = SPIN[int(NOW_T * 10) % len(SPIN)]
             r.put(icon, hue_, bg, bold=not dim).put(" ", hue_, bg)
             room = cw - (width(t) + 2 if t else 1)
-            r.put(name, C["text2"] if dim else C["text"], bg, limit=room - width(lead) - width(late))
-            r.put(lead, C["text3"], bg, limit=room).put(late, C["home"], bg, limit=room)
+            r.put(name, C["text2"] if dim else C["text"], bg, limit=room - (width(lead) + 1 if lead else 0) - width(late))
+            if lead and r.used() + 1 + width(lead) <= room:
+                r.put(" ", C["text"], bg).put(lead, C["badge_fg"], badge_c)
+            r.put(late, C["home"], bg, limit=room)
             r.fill(cw - 1 - width(t), bg).put(t, C["wait"] if st == "wait" else C["home"] if st == "home" else C["text3"], bg).fill(cw, bg)
             lns = [r]
             if st == "wait":

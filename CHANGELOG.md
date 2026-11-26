@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Sidebar: a team's lead wears a small "lead" badge after its name.
 - Sidebar themes, in Settings: Graphite, the grey tiles of 0.1.83, and Prism, the same layout with each project's
   tile and name band in its own colour and the brighter state colours of before.
 - Sidebar: the state marks stand out more: ● waiting, a ring ◦ for resting, bolder and brighter than their text.
