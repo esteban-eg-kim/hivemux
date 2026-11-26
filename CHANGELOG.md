@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Sidebar redrawn, quieter: a Claude is one row with a small mark (• waiting, ⋯ working, ✓ just done, · resting)
+  in muted colours, no boxes or bold. Projects at work come first, waiting before working before just done, in
+  as many columns as the width holds; a project of one Claude is that one row. The projects at rest go to their
+  own area at the bottom, a grey line each, in the same columns. A waiting Claude keeps its why on a second row,
+  the lead reads "lead" after its name.
 - Sidebar: each login account's limits get a row of their own under the list, the week as a small bar (amber
   from 70%) with its percent, then the five hours. An account no Claude has reported on yet reads "not known
   yet" instead of being left out.
