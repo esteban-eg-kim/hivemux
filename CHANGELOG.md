@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.87 — 2026-11-26
 
 - Sidebar foot: one strip, darker than the list, for what is about the system rather than a project: the
   accounts' usage under "Usage · week · 5h" (each account's name, its week as a bar with the percent and its
