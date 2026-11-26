@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.1.87 — 2026-11-26
 
 - Sidebar foot: one strip, darker than the list, for what is about the system rather than a project: the
