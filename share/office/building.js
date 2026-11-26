@@ -2314,7 +2314,11 @@ function space(t, dt) {
   haze.material.opacity = k * .45;
   if (!reduced) { clouds.rotation.y += dt * .006; globe.rotation.y = 0; }
   const ma = t * .02; moon.position.set(GLOBE_C.x + Math.cos(ma) * PLANET * 3.2, GLOBE_C.y + PLANET * .9, GLOBE_C.z + Math.sin(ma) * PLANET * 3.2); moon.visible = k > .2;
-  const near = Math.max(.5, d / 400); if (Math.abs(near - camera.near) > .05) { camera.near = near; camera.updateProjectionMatrix(); }
+  // the near plane follows the zoom: at distance / 400 it stayed at half a metre out to 200 m, with the far plane 20 km
+  // away, and the rooftop's stacked flat layers (deck, tiles, rugs) flickered through each other when zoomed out
+  // 가까운 면은 확대에 따라: 거리 / 400 이면 200m 까지 0.5m 에 머물러 (먼 면은 20km), 축소하면 루프탑의 겹친 평면
+  // (데크, 타일, 러그) 이 서로 뚫고 깜빡였다
+  const near = Math.min(60, Math.max(.5, d * .03)); if (Math.abs(near - camera.near) > camera.near * .1) { camera.near = near; camera.updateProjectionMatrix(); }
 }
 
 // ── 2D: the building as a cartoon cross-section ─────────────────────────────────────────────────────────

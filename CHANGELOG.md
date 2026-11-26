@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Bee office: no more flicker on the rooftop when zoomed out; the camera's near plane now follows the zoom.
 ## 0.1.87 — 2026-11-26
 
 - Sidebar foot: one strip, darker than the list, for what is about the system rather than a project: the
