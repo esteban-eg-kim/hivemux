@@ -44,7 +44,7 @@ set -g status-left-length 120
 # work area (@hivemux-badge: per session, written by bin/hivemux-sidebar-view; without a sidebar just the name)
 # 사이드바 폭의 이름표에 세션(프로젝트) 이름, 색은 사이드바 이름 띠 (@hivemux-badge-bg). 그래서 창 목록이 작업 칸 위에서 시작한다
 # (@hivemux-badge: 세션마다, bin/hivemux-sidebar-view 가 적는다. 사이드바가 없으면 이름만)
-set -g status-left "#[bg=#{?@hivemux-badge-bg,#{@hivemux-badge-bg},#282c34},fg=#e6e9ef,bold]#{?@hivemux-badge,#{@hivemux-badge},  ⬡ #S  }#[default]"
+set -g status-left "#[bg=#{?@hivemux-badge-bg,#{@hivemux-badge-bg},#282c34},fg=#5aa9ff]  ⬢ #[fg=#e6e9ef,bold]#{?@hivemux-badge,#{@hivemux-badge},#S  }#[default]"
 set -g status-right-length 160
 # continuum autosave is triggered from status-right (see Persistence below); not on a server that
 # started without restoring (@hivemux-nosave, bin/hivemux-attach): it would replace the snapshot with an empty one

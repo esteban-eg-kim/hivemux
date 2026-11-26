@@ -1024,15 +1024,17 @@ def badges(w, names):
     (@hivemux-badge)."""
     changed = False
     for s in names:
-        text = "  ⬡ " + s                       # hivemux's hexagon before the name / 이름 앞에 hivemux 육각형
-        if width(text) > w - 1:
+        # the name after hivemux's blue hexagon, which the status line draws (4 columns: "  ⬢ ")
+        # 이름. 그 앞의 hivemux 파란 육각형은 상태줄이 그린다 (4칸: "  ⬢ ")
+        n, text = w - 4, s
+        if width(text) > n - 1:
             cut = ""
             for c in text:
-                if width(cut + c) > w - 2:
+                if width(cut + c) > n - 2:
                     break
                 cut += c
             text = cut + "…"
-        v = (text + " " * (w - width(text))).replace("#", "##").replace("%", "%%")
+        v = (text + " " * max(0, n - width(text))).replace("#", "##").replace("%", "%%")
         if tmux("show", "-qv", "-t", f"={s}:", "@hivemux-badge").rstrip("\n") != v:
             tmux("set", "-t", f"={s}:", "@hivemux-badge", v)
             changed = True
