@@ -3,15 +3,17 @@
 ## Unreleased
 
 - Teams: a restart (an account switch, a usage limit, a Claude Code update) no longer catches a role in the
-  middle of its diet; it waits for it. A diet cut off some other way is forgotten, so the role diets again at its
-  next line.
-- A Claude brought back (a restart, clocking in, a reboot, a team starting) whose conversation has no messages, or
-  no transcript at all, starts fresh under the same name: `--resume` of it failed with "No conversation found" and
-  left the pane at its shell while the log said it had restarted. A Claude that does not stay up is now logged as
-  a failure, with what it said.
+  middle of its diet; it waits for it. A diet cut off some other way is forgotten, so the role diets again at
+  its next line.
+- A Claude brought back (a restart, clocking in, a reboot, a team starting) whose conversation has no
+  messages, or no transcript at all, starts fresh under the same name: `--resume` of it failed with "No
+  conversation found" and left the pane at its shell while the log said it had restarted. A Claude that does
+  not stay up is now logged as a failure, with what it said.
 - Sidebar: clicking a session from another Mac no longer makes the list jump or its note blink: while that
-  screen is attached, every window's sidebar keeps still and shows the same "⇄ Mac attached · animation off" row.
+  screen is attached, every window's sidebar keeps still and shows the same "⇄ Mac attached · animation off"
+  row.
 - Bee office: no more flicker on the rooftop when zoomed out; the camera's near plane now follows the zoom.
+
 ## 0.1.87 — 2026-11-26
 
 - Sidebar foot: one strip, darker than the list, for what is about the system rather than a project: the
