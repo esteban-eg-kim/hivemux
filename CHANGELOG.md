@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- The status line's left block shows hivemux, its name and the logo's three bars ▬▬▬, instead of the project you
+- The status line's left block shows hivemux, its name and the logo's three colours ▪▪▪, instead of the project you
   are in; in the sidebar the project you are in has hivemux's blue hexagon ⬢ before its name.
 - Sidebar head: "Claude" and how many, the office button on the right, then each state with its mark (● need input,
   ⋯ running, ✓ done), the words shorter or gone on a narrow sidebar; no rule under it. The project badge on the

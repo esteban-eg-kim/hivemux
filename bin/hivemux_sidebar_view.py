@@ -1025,7 +1025,7 @@ def status_text(items, w):
     상태줄 왼쪽 칸. 사이드바 폭 (w, 경계선 포함) 이라 창 목록이 작업 칸 위에서 시작한다: hivemux 이름과 그 뒤에
     로고의 세 막대. tmux 스타일 (#[...]) 이 들어 있다"""
     hexc = lambda c: "#%02x%02x%02x" % c
-    bars = "".join(f"#[fg={hexc(c)}]▬" for c in LOGO_BARS)
+    bars = "".join(f"#[fg={hexc(c)}]▪" for c in LOGO_BARS)
     return f"#[fg={hexc(C['text'])},bold]  hivemux #[nobold]{bars}" + " " * max(0, w - 13)
 
 
