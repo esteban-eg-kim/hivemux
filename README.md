@@ -48,7 +48,10 @@ Everything, by version: [CHANGELOG](CHANGELOG.md) or
 - **One board for every session.** A grey tile per project under its name, a
   line per Claude with its state and elapsed time. A running one spins, a
   waiting one turns amber with why it waits under it, and the one you are in is
-  lighter. Widen the sidebar for 2 or 3 columns; a long list scrolls with the wheel.
+  lighter and bold; the project you are in has a blue ⬢ before its name. The head
+  counts the Claudes and how many need input, work and just finished. Two themes in
+  Settings: Graphite (grey tiles) and Prism (each project in its own colour).
+  Widen the sidebar for 2 or 3 columns; a long list scrolls with the wheel.
 - **Teams.** Give a project a team of Claudes with roles (research, planning,
   design, dev, QA, marketing), each in its own window, handing work to each
   other by name. Tell the lead the goal; it plans and hands the work out. Set
