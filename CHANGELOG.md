@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Sidebar in quieter colours: a soft gold for waiting, slate blue for work, sage for done, project boxes in muted
+- Sidebar in calmer colours: a softer amber for waiting, blue for work, green for done, project boxes in softened
   tints; small marks (• waiting, ⋯ working, · idle) instead of the round ones, no bold. The lead reads "lead"
   after its name instead of a star, and the office button lost its bee.
 - Sidebar: each login account's limits get a row of their own under the list, the week as a small bar (amber

@@ -162,18 +162,18 @@ C = {
     "text":    (217, 220, 227),  # text / 본문
     "text2":   (160, 166, 177),  # secondary text / 보조
     "text3":   (115, 122, 134),  # dim text / 흐림
-    "run":     (134, 169, 214),
+    "run":     (110, 170, 240),
     "run_hi":  (190, 210, 235),
-    "glow":    (50, 68, 94),     # band of light over running cards / 작업 중 카드를 지나는 빛 띠
-    "wait":    (214, 164, 94),
-    "wait_bg": (38, 33, 24),
-    "wait_hi": (48, 40, 27),
+    "glow":    (54, 92, 140),     # band of light over running cards / 작업 중 카드를 지나는 빛 띠
+    "wait":    (232, 165, 62),
+    "wait_bg": (45, 37, 21),
+    "wait_hi": (64, 50, 24),
     # still cards (no animation: a remote screen, @hivemux-anim off) are told apart by a tinted background
     # 멈춘 카드 (애니메이션 없음: 원격 화면, @hivemux-anim off)는 바탕색으로 구분한다
-    "run_bg":      (29, 37, 49),
-    "run_bg_sel":  (40, 53, 72),
-    "wait_bg_sel": (66, 54, 34),
-    "done":    (140, 191, 162),
+    "run_bg":      (28, 40, 60),
+    "run_bg_sel":  (42, 66, 100),
+    "wait_bg_sel": (92, 70, 30),
+    "done":    (100, 200, 150),
     "idle":    (98, 105, 117),
     "home":    (156, 147, 191),  # clocked out, at home (bin/hivemux-shift) / 퇴근해서 집에 감
     "drop":    (36, 52, 78),     # drop target while dragging / 끄는 중 놓을 자리
@@ -216,8 +216,8 @@ def state_line(p, st):
     return STATE_TEXT[st]
 # Project dot colors (fixed by a hash of the name)
 # 프로젝트 점 색 (이름 해시로 고정)
-PROJECT_HUES = [(150, 140, 190), (190, 140, 160), (120, 175, 170), (200, 160, 120),
-                (130, 160, 200), (160, 180, 120), (195, 180, 120), (175, 140, 185)]   # muted / 차분한 색
+PROJECT_HUES = [(158, 140, 220), (217, 127, 171), (83, 194, 180), (226, 153, 90),
+                (113, 163, 225), (162, 205, 87), (222, 192, 70), (204, 131, 217)]   # softened / 조금 누그러뜨린 색
 
 FRAME = 0
 NOW_T = 0.0      # animation clock (seconds); motion is time-based so frame rate only changes smoothness
@@ -712,8 +712,8 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
         프로젝트 상자 하나: 폭 cw 의 줄들과 {줄: 칸} (카드 자리)"""
         hue = hue_of(sess)
         cur = sess == cur_sess
-        tile = mix(C["bg"], hue, 0.10 if cur else 0.06)
-        head_bg = mix(C["bg"], hue, 0.26 if cur else 0.16)
+        tile = mix(C["bg"], hue, 0.15 if cur else 0.09)
+        head_bg = mix(C["bg"], hue, 0.36 if cur else 0.24)
         S = lambda bg=tile: Line(cw, bg)
         rows, cards, spots, glows = [], {}, [], []
         hd = S(head_bg).put(" ").put(sess, C["text"], head_bg, limit=cw - 3)
