@@ -785,7 +785,9 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
                 ho = p.get("@hivemux-handoff", "").split("\t", 3)
                 if len(ho) == 4 and ho[0].isdigit() and now - int(ho[0]) < 1800:
                     t = age(ho[0], now)
-                    r = S().put(guide, C["guide"]).put(f" ✉ {ho[1]} → {ho[2]}", C["text3"], limit=cw - width(t) - 2)
+                    # the envelope of the Nerd Font Ghostty carries: ✉ came out small and faint
+                    # Ghostty 에 들어 있는 Nerd Font 의 편지: ✉ 는 작고 흐리게 나왔다
+                    r = S().put(guide, C["guide"]).put(" \uf0e0 ", C["text2"]).put(f"{ho[1]} → {ho[2]}", C["text3"], limit=cw - width(t) - 2)
                     # a row of the line above it, apart from the roles / 위에 세로 줄만 있는 한 줄: 역할들과 떨어지게
                     rows += [S().put(guide, C["guide"]).fill(cw), r.fill(cw - 1 - width(t)).put(t, C["text3"]).fill(cw)]
         rows.append(S(C["bg"]).put("▀" * cw, tile))
