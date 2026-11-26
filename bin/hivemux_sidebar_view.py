@@ -726,9 +726,7 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
                 hd.put(f"⋯{n_run}", C["run"], band)
         elif right:
             hd.right(right, C["text3"], band, margin=1)
-        # above the band a quarter row of it under three quarters of the background, which keep the tiles apart
-        # 띠 위로는 띠 4분의 1 줄, 그 위 바탕 4분의 3 줄이 판 사이를 띄운다
-        head = [S(C["bg"]).put("▂" * cw, band), hd.fill(cw, band), S().put("▀" * cw, band)]
+        head = [S(C["bg"]).put("▄" * cw, band), hd.fill(cw, band), S().put("▀" * cw, band)]
         if dragging and DRAG["kind"] == "group":
             if sess == DRAG["src"]:
                 hd.tint(fg=C["text3"])
@@ -795,7 +793,7 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
                     r = S().put(guide, C["guide"]).put(" \uf0e0 ", C["text2"]).put(f"{ho[1]} → {ho[2]}", C["text3"], limit=cw - width(t) - 2)
                     # a row of the line above it, apart from the roles / 위에 세로 줄만 있는 한 줄: 역할들과 떨어지게
                     rows += [S().put(guide, C["guide"]).fill(cw), r.fill(cw - 1 - width(t)).put(t, C["text3"]).fill(cw)]
-        # no half row under the tile: the next one's name band keeps them apart / 판 아래 반 줄은 두지 않는다: 다음 판 이름 띠 위가 사이를 띄운다
+        rows.append(S(C["bg"]).put("▀" * cw, tile))
         return rows, cards, spots, []
 
     def build():
@@ -807,7 +805,7 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
         for sess, members in groups:
             rows, cards, spots, glows = box(sess, members)
             k = hts.index(min(hts))
-            gap = 0                                 # the row above the name band keeps them apart / 이름 띠 위 줄이 사이를 띄운다
+            gap = 0                                 # the tiles' own half rows keep them apart / 판의 반 줄이 사이를 띄운다
             cols[k].append((rows, cards, sess, hts[k] + gap))
             sp.extend((hts[k] + gap + j, 1 + k * (cw + COL_GAP) + x, *look) for j, x, *look in spots)
             gl.extend((hts[k] + gap + j, 1 + k * (cw + COL_GAP) + x, *look) for j, x, *look in glows)

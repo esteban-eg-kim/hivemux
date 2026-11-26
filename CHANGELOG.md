@@ -2,7 +2,6 @@
 
 ## Unreleased
 
-- Sidebar: projects a quarter row closer together.
 - Sidebar: the state marks stand out more: ● waiting, a ring ◦ for resting, bolder and brighter than their text.
 ## 0.1.83 — 2026-11-26
 
