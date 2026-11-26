@@ -786,7 +786,8 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
                 if len(ho) == 4 and ho[0].isdigit() and now - int(ho[0]) < 1800:
                     t = age(ho[0], now)
                     r = S().put(guide, C["guide"]).put(f" ✉ {ho[1]} → {ho[2]}", C["text3"], limit=cw - width(t) - 2)
-                    rows.append(r.fill(cw - 1 - width(t)).put(t, C["text3"]).fill(cw))
+                    # a row of the line above it, apart from the roles / 위에 세로 줄만 있는 한 줄: 역할들과 떨어지게
+                    rows += [S().put(guide, C["guide"]).fill(cw), r.fill(cw - 1 - width(t)).put(t, C["text3"]).fill(cw)]
         rows.append(S(C["bg"]).put("▀" * cw, tile))
         return rows, cards, spots, []
 
