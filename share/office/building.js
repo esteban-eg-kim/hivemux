@@ -801,6 +801,11 @@ function managerFrame(t, dt, dist) {
     else if (here && st === 'sweep') { la.rotation.set(-.7, 0, .1); ra.rotation.set(-.55 + Math.sin(t * 4) * .35, 0, -.1); m.body.rotation.x = .18; m.body.rotation.z = Math.sin(t * 4) * .06; }
   }
   m.g.visible = (m.riding ? focus === null || m.y <= focus * FH + .1 : floorShown(m.floor)) && dist < 700;
+  // the booth's view follows him wherever he goes, the camera keeping its angle / 관리사무실 보기는 그를 따라간다. 카메라 각도는 그대로
+  if (view === 'booth' && !fly && !FLAT) {
+    const want = new THREE.Vector3(m.g.position.x, m.g.position.y + 1.1, m.g.position.z), d = want.sub(controls.target).multiplyScalar(Math.min(1, dt * 3));
+    controls.target.add(d); camera.position.add(d);
+  }
   // the lamp on the roof turns while an account is near its limit; the booth is lit in the dark
   // 계정이 한도에 가까우면 지붕 경광등이 돈다. 어두우면 관리사무실에 불이 켜진다
   if (W.beacon) { W.beacon.visible = MG.hot; if (MG.hot) W.beacon.material.color.setHSL(.07, 1, .45 + (reduced ? 0 : Math.max(0, Math.sin(t * 7)) * .25)); }
@@ -1521,15 +1526,18 @@ function applyFocus(instant) {
   if (focus !== null) view = 'office';
   if (W.res) W.res.group.visible = focus === null;
   const both = focus === null && view === 'office' && shiftOff;
-  const target = view === 'home' ? new THREE.Vector3(RES.x0 + 5.6, 9, 4) : both ? new THREE.Vector3(16, top * .4, 4) : focus === null ? new THREE.Vector3(0, top * .45, 1.5) : new THREE.Vector3(0, focus * FH + .6, 1.5);
-  const dist = view === 'home' ? fit(26, 26) : both ? fit(66, top + 14) : focus === null ? fit(X1 - X0 + 8, top + 14) : fit(X1 - X0 + 8, (Z1 - Z0) * .82 + 6);
+  const M = W.manager, mp = M ? { x: M.pos.x, y: M.y, z: M.pos.z } : { x: BOOTH.x, y: 0, z: BOOTH.z };
+  const target = view === 'booth' ? new THREE.Vector3(mp.x, mp.y + 1.1, mp.z) : view === 'home' ? new THREE.Vector3(RES.x0 + 5.6, 9, 4) : both ? new THREE.Vector3(16, top * .4, 4) : focus === null ? new THREE.Vector3(0, top * .45, 1.5) : new THREE.Vector3(0, focus * FH + .6, 1.5);
+  const dist = view === 'booth' ? fit(9, 6) : view === 'home' ? fit(26, 26) : both ? fit(66, top + 14) : focus === null ? fit(X1 - X0 + 8, top + 14) : fit(X1 - X0 + 8, (Z1 - Z0) * .82 + 6);
   const off = camera.position.clone().sub(controls.target); if (off.lengthSq() < 1) off.set(.62, .55, .78);
-  const sph = new THREE.Spherical().setFromVector3(off); sph.radius = dist; sph.phi = focus === null ? 1.1 : .78;   // the whole building from low, through the glass; a floor from above / 전체는 낮게, 유리 너머로. 한 층은 위에서
+  const sph = new THREE.Spherical().setFromVector3(off); sph.radius = dist; sph.phi = view === 'booth' ? 1.15 : focus === null ? 1.1 : .78;
+  if (view === 'booth') sph.theta = .45;   // from the front, a little from the right, where the door and the board are / 앞에서 조금 오른쪽: 문과 계량판이 보인다   // the whole building from low, through the glass; a floor from above / 전체는 낮게, 유리 너머로. 한 층은 위에서
   const pos = target.clone().add(new THREE.Vector3().setFromSpherical(sph));
   if (instant) { controls.target.copy(target); camera.position.copy(pos); } else fly = { t: 0, from: [camera.position.clone(), controls.target.clone()], to: [pos, target] };
   document.querySelectorAll('#floors button[data-f]').forEach(btn => btn.setAttribute('aria-pressed', String(btn.dataset.f === String(focus))));
   const sp = $('#spread'); if (sp) sp.setAttribute('aria-pressed', String(spread));
   const hv = $('#homeview'); if (hv) hv.setAttribute('aria-pressed', String(view === 'home'));
+  const mv = $('#boothview'); if (mv) mv.setAttribute('aria-pressed', String(view === 'booth'));
   // a new building (instant) keeps the zoom the viewer chose / 건물이 바뀌어도 (instant) 고른 확대는 그대로
   if (FLAT && W.floors.length && flat.svg.firstChild && (!instant || !flat.zoomed)) { flat.zoomed = true; zoomFocus(instant); }
 }
@@ -1546,6 +1554,10 @@ function drawFloorBar() {
   const hv = document.createElement('button'); hv.type = 'button'; hv.id = 'homeview'; hv.className = 'spread';
   hv.innerHTML = `<span class="fl"><b>⌂</b><span>${tr('벌집 아파트', 'Hive Residence')}</span></span><span class="ct"></span>`; hv.title = tr('벌집 아파트 (H)', 'Hive Residence (H)');
   hv.onclick = () => { focus = null; view = view === 'home' ? 'office' : 'home'; applyFocus(); }; nav.append(hv);
+  // the management office close up; the view follows the manager on his rounds / 관리사무실 가까이. 관리소장이 나가면 따라간다
+  const mv = document.createElement('button'); mv.type = 'button'; mv.id = 'boothview'; mv.className = 'spread';
+  mv.innerHTML = `<span class="fl"><b>⌂</b><span>${tr('관리사무실', 'Management')}</span></span>`; mv.title = tr('관리사무실 (M)', 'Management office (M)');
+  mv.onclick = () => { focus = null; view = view === 'booth' ? 'office' : 'booth'; applyFocus(); }; nav.append(mv);
   for (const F of [...W.floors].reverse()) add(F.i, F.kind === 'roof' ? 'R' : `${F.i + 1}F`, F.label);
 }
 function counts() {
@@ -1609,6 +1621,7 @@ addEventListener('keydown', e => {
   if (e.key === 'Escape' && drawerOpen) { setDrawer(false); return; }
   if (e.key === 'Escape' || e.key === '0') { focus = null; view = 'office'; applyFocus(); }
   else if (e.key === 'h' || e.key === 'H') { focus = null; view = view === 'home' ? 'office' : 'home'; applyFocus(); }
+  else if (e.key === 'm' || e.key === 'M') { focus = null; view = view === 'booth' ? 'office' : 'booth'; applyFocus(); }
   else if (e.key === 'e' || e.key === 'E') setSpread(!spread);
   else if (/^[1-9]$/.test(e.key) && +e.key <= W.floors.length) { focus = +e.key - 1; applyFocus(); }
   else if (e.key === 'PageUp' || e.key === 'ArrowUp' && e.altKey) { focus = Math.min(W.floors.length - 1, (focus ?? -1) + 1); applyFocus(); }
@@ -2318,7 +2331,7 @@ function space(t, dt) {
 // 건물과 아파트 사이 빈 땅은 좁혀 그린다: 그림은 그대로도 넓다
 const GAP0 = X1 + 1.5, GAP1 = RES.x0 - RES.r - 1, GAP = 3.5;
 const squeeze = x => x <= GAP0 ? x : x >= GAP1 ? x - (GAP1 - GAP0 - GAP) : GAP0 + (x - GAP0) * GAP / (GAP1 - GAP0);
-const FX0 = X0 - 2.5, FX1 = squeeze(RES.x0 + (RES.cols - 1) * 1.5 * RES.r + RES.r + 2.5), PLAZA_Z = 26;
+const FX0 = X0 - 7, FX1 = squeeze(RES.x0 + (RES.cols - 1) * 1.5 * RES.r + RES.r + 2.5), PLAZA_Z = 26;
 const flat = { svg: $('#flat'), k: 20, ox: 0, gy: 600, band: 100, order: '', tagsAt: 0, skyAt: 0, comb: -1, labels: [],
   view: { x: 0, y: 0, z: 1 }, to: { x: 0, y: 0, z: 1 }, vb: '' };   // the zoom: the corner and scale of the picture shown / 확대: 보이는 그림의 모서리와 배율
 const hex = c => '#' + new THREE.Color(c).getHexString();
@@ -2423,14 +2436,14 @@ function flatScene() {
   }
   // the management office on the plaza, by the road / 도로 옆 광장의 관리사무실
   {
-    const by = flat.gy + 20 + Math.min(1, (BOOTH.z - 1.2 - Z1) / (PLAZA_Z - Z1)) * 58, bh = 2.5 * k * .9, bx0 = sxOf(BOOTH.x - 1.6), bw = 3.2 * k;
+    const by = BOOTH2D(), bh = 2.5 * k * .9, bx0 = sxOf(BX2 - 1.6), bw = 3.2 * k;
     out.push(`<g class="f-booth"><rect x="${bx0}" y="${by - bh}" width="${bw}" height="${bh}" fill="#f1ece2" ${ink}/>` +
       `<rect x="${bx0 + bw * .08}" y="${by - bh * .78}" width="${bw * .55}" height="${bh * .38}" fill="#cfe6f2" ${ink}/>` +
       `<rect x="${bx0 + bw * .72}" y="${by - bh * .8}" width="${bw * .2}" height="${bh * .8}" fill="#8d6544" ${ink}/>` +
-      `<rect x="${bx0 - bw * .06}" y="${by - bh - 6}" width="${bw * 1.12}" height="8" fill="#2b2f36"/>` +
-      `<g id="f-beacon"></g><text x="${bx0 + bw / 2}" y="${by - bh - 12}" class="f-s" text-anchor="middle">${escape(tr('관리사무실', 'MANAGEMENT'))}</text></g>`);
+      `<rect x="${bx0 - bw * .06}" y="${by - bh - 12}" width="${bw * 1.12}" height="13" rx="2" fill="#2b2f36"/>` +
+      `<g id="f-beacon"></g><text x="${bx0 + bw / 2}" y="${by - bh - 2.5}" text-anchor="middle" fill="#f4f1ea" style="font: 700 9px var(--f-body)">${escape(tr('관리사무실', 'MANAGEMENT'))}</text></g>`);
   }
-  for (const x of [X0 - 1.6, X1 + 3, FX1 - 1]) out.push(`<path d="M${sxOf(x)} ${gy} v-26" stroke="#7a5638" stroke-width="7"/><circle cx="${sxOf(x)}" cy="${gy - 40}" r="20" fill="#4f9a5a" ${ink}/><circle cx="${sxOf(x) - 13}" cy="${gy - 30}" r="12" fill="#3f8a4c" ${ink}/>`);
+  for (const x of [X0 - 6.2, X1 + 3, FX1 - 1]) out.push(`<path d="M${sxOf(x)} ${gy} v-26" stroke="#7a5638" stroke-width="7"/><circle cx="${sxOf(x)}" cy="${gy - 40}" r="20" fill="#4f9a5a" ${ink}/><circle cx="${sxOf(x) - 13}" cy="${gy - 30}" r="12" fill="#3f8a4c" ${ink}/>`);
   out.push(`<g id="f-rain"></g><g id="f-bees"></g><g id="f-tags"></g>`);
   flat.svg.innerHTML = out.join('');
   zoomTo(flat.to, true);
@@ -2439,8 +2452,13 @@ function flatScene() {
   if (W.manager && W.manager.f2) W.manager.f2.el = null, W.manager.f2.art = '';
   flat.order = ''; flat.skyAt = 0; flat.comb = -1; flat.tagsAt = 0;
 }
+// in 2D the management office stands on the ground left of the building, where it can be seen / 2D 에서 관리사무실은
+// 건물 왼쪽 땅 위에 선다. 거기라야 보인다
+const BOOTH2D = () => flat.gy, BX2 = X0 - 3.6;
 // where a bee stands on the picture, before spreading / 벌이 그림에서 설 자리 (벌리기 전)
 function place2d(b) {
+  // the manager at his counter stands in the booth's window / 창구의 관리소장은 관리사무실 창 안에 선다
+  if (b === W.manager && b.arrived && b.goal && b.goal.key === 'seat') return { x: sxOf(BX2 - .4), y: BOOTH2D() - 3, row: 'plaza', z: 30 + BOOTH.z, s: .8 };
   const inside = b.riding || (b.floor >= 0 && b.pos.x > X0 - .2 && b.pos.x < X1 + .2 && b.pos.z > Z0 - .2 && b.pos.z < Z1 + .2);
   if (inside) return { x: sxOf(b.pos.x), y: syOf(b.y) - (b.riding ? 0 : back(b.pos.z) * flat.band * .22), row: b.riding ? 'lift' : b.floor, z: b.pos.z, s: 1 };
   if (b.y > .2) return { x: sxOf(b.pos.x), y: syOf(b.y), row: 'res', z: 0, s: .55 };     // up at or in a flat / 칸에 있거나 오르내리는 중
@@ -2547,7 +2565,7 @@ function flatFrame(t, dt) {
     $('#f-sun').innerHTML = d > .3 ? `<circle cx="${innerWidth - 120}" cy="150" r="30" fill="#ffd34d" ${ink}/>` : `<circle cx="${innerWidth - 120}" cy="150" r="24" fill="#f4f1ea" ${ink}/><circle cx="${innerWidth - 110}" cy="143" r="20" fill="${skyCol}"/>`;
     flat.svg.classList.toggle('f-dark', d < .35 || grey > .5);
     const bc = $('#f-beacon');
-    if (bc) bc.innerHTML = MG.hot ? `<circle class="f-blink" cx="${sxOf(BOOTH.x + 1.3)}" cy="${flat.gy + 20 + Math.min(1, (BOOTH.z - 1.2 - Z1) / (PLAZA_Z - Z1)) * 58 - 2.5 * flat.k * .9 - 12}" r="5" fill="#ff8a1e" ${ink}/>` : '';
+    if (bc) bc.innerHTML = MG.hot ? `<circle class="f-blink" cx="${sxOf(BX2 + 1.3)}" cy="${BOOTH2D() - 2.5 * flat.k * .9 - 17}" r="5" fill="#ff8a1e" ${ink}/>` : '';
     const rain = $('#f-rain'), wet = sky.rain > 0 || sky.snow > 0;
     if (rain && wet !== !!rain.firstChild) rain.innerHTML = wet
       ? Array.from({ length: 80 }, (_, n) => { const x = (n * 97) % innerWidth, y = (n * 53) % flat.gy; return sky.rain > 0 ? `<path d="M${x} ${y} l-4 14" stroke="#7d93a8" stroke-width="1.6"/>` : `<circle cx="${x}" cy="${y}" r="2.4" fill="#fff"/>`; }).join('') : '';
@@ -2579,6 +2597,11 @@ function zoomBy(f, cx = innerWidth / 2, cy = innerHeight / 2, instant) {
 }
 // the whole building, or one floor filling the window left of the floor bar / 건물 전체, 또는 층 표시줄 왼쪽을 채우는 한 층
 function zoomFocus(instant) {
+  if (view === 'booth') {   // the management office on the plaza / 광장의 관리사무실
+    const bar = innerWidth > 900 ? 250 : 0, x0 = sxOf(BX2 - 4), x1 = sxOf(BX2 + 6), y0 = BOOTH2D() - 90, y1 = BOOTH2D() + 40;
+    const z = Math.min(2.4, (innerWidth - bar - 32) / (x1 - x0), (innerHeight - 150) / (y1 - y0));
+    return zoomTo({ z, x: (x0 + x1) / 2 - (innerWidth - bar) / 2 / z, y: (y0 + y1) / 2 - innerHeight / 2 / z }, instant);
+  }
   const F = focus !== null && W.floors[focus];
   if (!F) return zoomTo({ x: 0, y: 0, z: 1 }, instant);
   const bar = innerWidth > 900 ? 250 : 0, x0 = sxOf(X0) - 16, x1 = sxOf(X1) + 16, y0 = syOf(F.y + FH) - 46, y1 = syOf(F.y) + 14;
@@ -2698,12 +2721,13 @@ function pong(t) {   // the ball flies while both ends are taken / 양쪽에 다
 }
 
 document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
-$('#hint').textContent = FLAT ? tr('벌을 누르면 그 창으로 · 휠: 확대 · 드래그: 옮기기 · 1~9: 층 · L: 목록 · Esc: 전체', 'Click a bee to open its window · wheel: zoom · drag: move · 1–9: floor · L: list · Esc: whole') : tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · E: 층 펼치기 · H: 아파트 · L: 목록 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · E: spread · H: residence · L: list · Esc: whole');
+$('#hint').textContent = FLAT ? tr('벌을 누르면 그 창으로 · 휠: 확대 · 드래그: 옮기기 · 1~9: 층 · M: 관리사무실 · L: 목록 · Esc: 전체', 'Click a bee to open its window · wheel: zoom · drag: move · 1–9: floor · M: management · L: list · Esc: whole') : tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · E: 층 펼치기 · H: 아파트 · M: 관리사무실 · L: 목록 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · E: spread · H: residence · M: management · L: list · Esc: whole');
 camera.position.set(52, 46, 64); controls.target.set(0, 5, 3);
 { const f = /[#&]f=(\d+)/.exec(location.hash); if (f) focus = +f[1]; }   // #f=1 opens on a floor / #f=1 은 그 층으로 연다
+if (/[#&]m(&|$)/.test(location.hash)) view = 'booth';   // #m opens on the management office / #m 은 관리사무실로 연다
 ground(); daylight(); setInterval(daylight, 20000);
 await poll(); setInterval(poll, 1500);
 setDrawer(drawerOpen);
 document.querySelectorAll('[data-t]').forEach(el => { const [ko, en] = el.dataset.t.split('|'); el.textContent = tr(ko, en); });
-$('#hint').textContent = FLAT ? tr('벌을 누르면 그 창으로 · 휠: 확대 · 드래그: 옮기기 · 1~9: 층 · L: 목록 · Esc: 전체', 'Click a bee to open its window · wheel: zoom · drag: move · 1–9: floor · L: list · Esc: whole') : tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · E: 층 펼치기 · H: 아파트 · L: 목록 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · E: spread · H: residence · L: list · Esc: whole');
+$('#hint').textContent = FLAT ? tr('벌을 누르면 그 창으로 · 휠: 확대 · 드래그: 옮기기 · 1~9: 층 · M: 관리사무실 · L: 목록 · Esc: 전체', 'Click a bee to open its window · wheel: zoom · drag: move · 1–9: floor · M: management · L: list · Esc: whole') : tr('드래그: 돌리기 · 오른쪽 드래그: 옮기기 · 휠: 확대 · 1~9: 층 · E: 층 펼치기 · H: 아파트 · M: 관리사무실 · L: 목록 · Esc: 전체', 'Drag: turn · right-drag: move · wheel: zoom · 1–9: floor · E: spread · H: residence · M: management · L: list · Esc: whole');
 frame();
