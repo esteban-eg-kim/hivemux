@@ -157,8 +157,8 @@ the work out, and the roles pass what they finish down the flow.
   them with one button; then a box sends the lead the goal, with example goals
   (`hivemux team goal "…"` does the same).
 - **Hand-offs.** Every message from one role to another is logged. The team
-  page lists the recent ones, the project's tile in the sidebar shows the last
-  one for half an hour (`✉ Planning → Dev · 2m`), and in the bee office a letter
+  page lists the recent ones, the end of the team's line in the sidebar shows the
+  last one for half an hour (`✉ Planning → Dev · 2m`), and in the bee office a letter
   flies from one bee to the other. In the sidebar the roles sit together under
   `⁂ <team name>` behind a vertical line, the lead marked "lead", the project's other Claudes a row apart after them.
 - **Questions for you.** Roles write what they need from you to

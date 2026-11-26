@@ -779,12 +779,14 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
                     x.tint(fg=C["text3"])
                 cards[len(rows)] = p["pane_id"]
                 rows.append(x)
-        # the team's last hand-off, for half an hour (bin/hivemux-team) / 팀의 마지막 넘김, 30분 동안
-        ho = (members[0][1].get("@hivemux-handoff", "") if members else "").split("\t", 3)
-        if len(ho) == 4 and ho[0].isdigit() and now - int(ho[0]) < 1800:
-            t = age(ho[0], now)
-            r = S().put(" ").put(f"✉ {ho[1]} → {ho[2]}", C["text3"], limit=cw - width(t) - 3)
-            rows.append(r.fill(cw - 1 - width(t)).put(t, C["text3"]).fill(cw))
+            # the team's last hand-off, for half an hour, at the end of its line (bin/hivemux-team)
+            # 팀의 마지막 넘김, 30분 동안, 팀 세로 줄 끝에 (bin/hivemux-team)
+            if role and (mi == len(members) - 1 or not members[mi + 1][1].get("@hivemux-rolename")):
+                ho = p.get("@hivemux-handoff", "").split("\t", 3)
+                if len(ho) == 4 and ho[0].isdigit() and now - int(ho[0]) < 1800:
+                    t = age(ho[0], now)
+                    r = S().put(guide, C["guide"]).put(f" ✉ {ho[1]} → {ho[2]}", C["text3"], limit=cw - width(t) - 2)
+                    rows.append(r.fill(cw - 1 - width(t)).put(t, C["text3"]).fill(cw))
         rows.append(S(C["bg"]).put("▀" * cw, tile))
         return rows, cards, spots, []
 
