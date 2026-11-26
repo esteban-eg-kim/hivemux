@@ -805,20 +805,18 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
     new = update_new()
     foot = 2 + (len(wl) + 1 if wl else 0) + (1 if new else 0)
     avail = h - foot - len(lines)       # rows for the list / 목록에 쓸 줄 수
-    # projects at work on top, waiting first, then working, then just finished; the ones at rest in their own area
-    # at the bottom, in the same columns / 일하는 프로젝트는 위에: 기다림, 작업, 방금 끝남 순. 쉬는 것은 아래 따로,
-    # 같은 열로
-    ranked = sorted(((rank(ms), k, s, ms) for k, (s, ms) in enumerate(groups)), key=lambda e: e[:2])
-    lay(split([block(s, ms) + [(Line(cw, BG).fill(cw), None, None, None)] for r, _, s, ms in ranked if r < 3], ncol), 0)
-    still = [(s, ms) for r, _, s, ms in ranked if r == 3]
-    if still:
-        per = -(-len(still) // ncol)
-        top = max(len(body), avail - 1 - per)   # at the bottom when it all fits / 다 들어가면 맨 아래에
-        while len(body) <= top:
-            body.append(L())
-        label = tr(f"  쉬는 프로젝트 {len(still)} ", f"  at rest {len(still)} ")
-        body[top] = L().put(label, C["text3"]).put("─" * (w - 3 - width(label)) + " ", C["rule"])
-        lay([[quiet(s, ms) for s, ms in still[k * per:(k + 1) * per]] for k in range(ncol)], top + 1)
+    # projects in their own order, where they always are: one at work as its rows and a blank row, one at rest as a
+    # grey line, the ones at rest next to each other close together / 프로젝트는 늘 같은 자리에, 프로젝트 순서대로:
+    # 일하는 것은 그 줄들과 빈 줄, 쉬는 것은 흐린 한 줄. 이어지는 쉬는 프로젝트는 붙여서
+    blocks, gap = [], lambda: (Line(cw, BG).fill(cw), None, None, None)
+    for s, ms in groups:
+        if rank(ms) < 3:
+            if blocks and len(blocks[-1]) == 1:     # after one at rest / 쉬는 프로젝트 뒤
+                blocks[-1].append(gap())
+            blocks.append(block(s, ms) + [gap()])
+        else:
+            blocks.append([quiet(s, ms)])
+    lay(split(blocks, ncol), 0)
     if not items and not sessions and not homes:
         body = [L(), L().put(tr("  실행 중인 Claude가 없습니다", "  No Claude sessions yet"), C["text2"]), L(),
                 L().put("  ", C["text3"]).put("prefix ⇧C", C["text"]).put(tr("  새 Claude", "  new Claude"), C["text3"]),
