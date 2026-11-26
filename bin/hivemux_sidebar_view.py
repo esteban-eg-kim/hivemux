@@ -185,6 +185,7 @@ STATE_ICON = {"wait": "●", "run": "⋯", "done": "✓", "idle": "◦", "home":
 # the marks fuller, brighter than their state's text and bold: small and muted, they got lost in the line
 # 기호는 꽉 차게, 상태 글씨보다 밝고 굵게: 작고 흐려서 줄 안에 묻혔다
 MARK_COLOR = {"wait": (255, 180, 50), "run": (110, 182, 255), "done": (80, 222, 150)}
+LOGO_BARS = [(90, 169, 255), (245, 165, 36), (62, 207, 142)]   # the logo's bars / 로고의 막대 (docs/logo)
 # Themes (@hivemux-theme, Settings; read when the sidebar starts). graphite: grey tiles, colour only for the states.
 # prism: the same layout in the colours of old, each project's tile in its own colour, brighter states
 # 테마 (@hivemux-theme, 설정. 사이드바가 시작할 때 읽는다). graphite: 회색 판, 색은 상태에만.
@@ -653,35 +654,25 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
 
     # Header: title + count
     # 머리: 제목 + 개수
-    # the title with how many Claudes, the bee office button (bin/hivemux-office) on the right
-    # 제목과 Claude 수, 오른쪽에 벌 사무실 버튼 (bin/hivemux-office)
-    hd = L().put("  Claude", C["text"], bold=True).put(f"  {len(items)}", C["text3"])
+    # hivemux's logo, as on the website: a dark square with its three bars, drawn in half blocks, and the name beside
+    # it; the bee office button (bin/hivemux-office) on the right. The counts are on the status line (see status_text)
+    # 홈페이지처럼 hivemux 로고: 세 막대가 든 어두운 네모 (반 칸 블록으로) 와 그 옆 이름. 오른쪽에 벌 사무실 버튼
+    # (bin/hivemux-office). 개수는 상태줄에 (status_text 참고)
+    sq = C["tile_head"]
+    logo = [L().put("  ").put(" ", bg=sq).put("▄" * 4, LOGO_BARS[k], sq).put(" ", bg=sq) for k in range(3)]
+    logo.append(L().put("  ").put("▀" * 6, sq))
+    logo[1].put("   hivemux", C["text"], bold=True)
     global OFFICE_BTN
     btn, OFFICE_BTN = tr(" 사무실 ", " office "), None
     x0 = w - 2 - width(btn)
-    if x0 >= hd.used() + 2:
-        hd.fill(x0).put(btn, C["text2"], C["card_hi"])
-        OFFICE_BTN = (len(lines) + 1, x0, x0 + width(btn))
-    lines += [L(), hd, L()]
-    # the states in a line, each with its mark: what waits first / 상태를 한 줄에, 기호와 함께. 기다리는 것 먼저
-    n_done = sum(1 for p in items if p["@claude_state"] == "done")
-    # the words shorter, then gone, when the sidebar is narrow / 사이드바가 좁으면 말을 줄이고, 그래도 좁으면 뺀다
-    counts = [(n, st) for n, st in ((n_wait, "wait"), (n_run, "run"), (n_done, "done")) if n]
-    for words, gap in (({"wait": tr("입력 필요", "need input"), "run": tr("작업 중", "running"), "done": tr("완료", "done")}, "    "),
-                       ({"wait": tr("기다림", "wait"), "run": tr("작업", "run"), "done": tr("완료", "done")}, "  "),
-                       ({}, "  ")):
-        parts = [(STATE_ICON[st] + " ", f"{n}", (" " + words[st] if words else "") + gap, st) for n, st in counts]
-        if sum(width(a + b + c) for a, b, c, _ in parts) - len(gap) <= w - 4:
-            break
+    if x0 >= logo[1].used() + 2:
+        logo[1].fill(x0).put(btn, C["text2"], C["card_hi"])
+        OFFICE_BTN = (len(lines) + 2, x0, x0 + width(btn))
+    lines += [L()] + logo
     summary = L().put("  ")
-    for a, b, c, st in parts:
-        summary.put(a, MARK_COLOR[st], bold=True).put(b, C[st]).put(c, C["text3"])
-    if not n_run and not n_wait and not n_done and items:
-        summary.put(tr("모두 대기 중", "all idle"), C["text3"])
-    # why the cards stand still: a screen from another Mac is looking at this window. At the right end
-    # of the summary, so the list below never moves; shorter forms when the counts leave less room
-    # 카드가 멈춘 이유: 다른 Mac 화면이 이 창을 보고 있다. 요약 줄 오른쪽 끝에 둬서 아래 목록이
-    # 움직이지 않게 한다. 개수가 자리를 차지하면 짧게 줄인다
+    # why the lines stand still: a screen from another Mac is looking at this window, said on a row under the logo;
+    # shorter forms when the sidebar is narrow
+    # 줄이 멈춘 이유: 다른 Mac 화면이 이 창을 보고 있다. 로고 아래 한 줄에. 사이드바가 좁으면 짧게 줄인다
     if REMOTE_HERE is not None:
         mac = REMOTE_HERE or tr("원격", "remote")
         # "animation off", not "paused": the Claudes go on working, only the drawing holds still
@@ -692,6 +683,8 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
             if summary.used() + 1 + width(note) <= w - 1:
                 summary.right(note, C["remote"], margin=1)
                 break
+    else:
+        summary = None
     global SHIFT_BTN
     SHIFT_BTN = None
     if clocked_out() and not items:
@@ -701,7 +694,9 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
         if REMOTE_HERE is not None:
             summary.right("⇄", C["remote"], margin=1)
         SHIFT_BTN = len(lines)
-    lines += [summary, L().fill(w)]
+    # a row for a note only when there is one / 안내할 것이 있을 때만 한 줄
+    if summary:
+        lines.append(summary)
 
     # groups in project order; a project with no Claude has no members (shown as "no Claude")
     # 프로젝트 순서의 묶음. Claude 가 없는 프로젝트는 멤버 없이 ("Claude 없음") 보인다
@@ -747,7 +742,10 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
         n_wait, n_run = sum(s == "wait" for s in looks.values()), sum(s == "run" for s in looks.values())
         right = " ".join(t for t in (f"•{n_wait}" if n_wait else "", f"⋯{n_run}" if n_run else "") if t) or \
             (str(len(members)) if len(members) > 1 else "")
-        hd = S(band).put(" ").put(sess, C["text"], band, bold=True, limit=cw - 1 - (width(right) + 2 if right else 0))
+        hd = S(band).put(" ")
+        if sess == cur_sess:            # the project you are in: hivemux's hexagon before it / 지금 프로젝트: 이름 앞에 육각형
+            hd.put("⬢ ", LOGO_BARS[0], band)
+        hd.put(sess, C["text"], band, bold=True, limit=cw - 1 - (width(right) + 2 if right else 0))
         if n_wait or n_run:
             hd.fill(cw - 1 - width(right), band)
             if n_wait:
@@ -1015,33 +1013,44 @@ BLINK_DONE = 10                    # seconds a finished one blinks / 완료가 �
 BADGE_WAIT, BADGE_DONE, STATUS_BG = "#ffb432", "#50de96", "#16181d"
 
 
-def badges(w, names):
-    """The project badge at the left of the status line: a block as wide as the sidebar (w, with
-    its border), so the window list starts above the work area, not above the sidebar. Written per
-    session (@hivemux-badge), since tmux cannot pad to a width it reads from an option.
-    상태줄 왼쪽의 프로젝트 이름표: 사이드바 폭(w, 경계선 포함)만큼의 칸. 그래서 창 목록이 사이드바가
-    아니라 작업 칸 위에서 시작한다. tmux 는 옵션에서 읽은 폭으로 채울 수 없어서 세션마다 적어 둔다
-    (@hivemux-badge)."""
+def status_text(items, w):
+    """The status line's left block, as wide as the sidebar (w, with its border), so the window list starts above the
+    work area: how many Claudes, then how many wait, work and just finished, with their marks; the words go when
+    there is no room. tmux styles in it (#[...])
+    상태줄 왼쪽 칸. 사이드바 폭 (w, 경계선 포함) 이라 창 목록이 작업 칸 위에서 시작한다: Claude 수, 그리고 기다림,
+    작업, 방금 끝남 수를 기호와 함께. 자리가 없으면 말은 뺀다. tmux 스타일 (#[...]) 이 들어 있다"""
+    hexc = lambda c: "#%02x%02x%02x" % c
+    counts = [(sum(p["@claude_state"] == st for p in items), st, word) for st, word in
+              (("wait", tr("입력 필요", "need input")), ("run", tr("작업 중", "running")), ("done", tr("완료", "done")))]
+    counts = [c for c in counts if c[0]]
+    head = tr(f"  Claude {len(items)}", f"  Claude {len(items)}")
+    for words in (True, False):
+        parts = [(f"{STATE_ICON[st]} ", f"{n}", f" {word}" if words else "") for n, st, word in counts]
+        need = width(head) + sum(3 + width(a + b + c) for a, b, c in parts)
+        if need <= w - 1:
+            break
+    out = f"#[fg={hexc(C['text2'])},nobold]  Claude #[fg={hexc(C['text'])},bold]{len(items)}#[nobold]"
+    for (a, b, c), (n, st, _) in zip(parts, counts):
+        out += f"   #[fg={hexc(MARK_COLOR[st])},bold]{a}#[nobold,fg={hexc(C[st])}]{b}#[fg={hexc(C['text3'])}]{c}"
+    return out + " " * max(0, w - min(need, w))
+
+
+_badge_clean = set()
+
+
+def badges(w, names, text):
+    """The status line's left block (status_text), the same on every project: one global option (@hivemux-badge),
+    and the projects' own, from the time it named the project, cleared once
+    상태줄 왼쪽 칸 (status_text). 어느 프로젝트에서나 같다: 전역 옵션 하나 (@hivemux-badge). 프로젝트 이름을 보이던
+    때의 프로젝트별 값은 한 번 지운다"""
     changed = False
+    if tmux("show", "-gqv", "@hivemux-badge").rstrip("\n") != text:
+        tmux("set", "-g", "@hivemux-badge", text)
+        changed = True
     for s in names:
-        # the name after hivemux's blue hexagon, which the status line draws (4 columns: "  ⬢ ")
-        # 이름. 그 앞의 hivemux 파란 육각형은 상태줄이 그린다 (4칸: "  ⬢ ")
-        n, text = w - 4, s
-        if width(text) > n - 1:
-            cut = ""
-            for c in text:
-                if width(cut + c) > n - 2:
-                    break
-                cut += c
-            text = cut + "…"
-        v = (text + " " * max(0, n - width(text))).replace("#", "##").replace("%", "%%")
-        if tmux("show", "-qv", "-t", f"={s}:", "@hivemux-badge").rstrip("\n") != v:
-            tmux("set", "-t", f"={s}:", "@hivemux-badge", v)
-            changed = True
-        # its colour: the sidebar's name band, in prism the project's own / 색: 사이드바 이름 띠, prism 은 그 프로젝트 색
-        bg = "#%02x%02x%02x" % (mix(C["bg"], hue_of(s), .42) if THEME == "prism" else C["tile_head"])
-        if tmux("show", "-qv", "-t", f"={s}:", "@hivemux-badge-bg").rstrip("\n") != bg:
-            tmux("set", "-t", f"={s}:", "@hivemux-badge-bg", bg)
+        if s not in _badge_clean:
+            _badge_clean.add(s)
+            tmux("set", "-qu", "-t", f"={s}:", "@hivemux-badge", ";", "set", "-qu", "-t", f"={s}:", "@hivemux-badge-bg")
             changed = True
     if changed:
         for c in tmux("list-clients", "-F", "#{client_name}").split():
@@ -1862,8 +1871,9 @@ def main():
                         bg_run(os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-team"), "seen", current)
                 # the pickup board (see board), redrawn on every screen only when it changes
                 # 호출판 (board 참고). 바뀔 때만 모든 화면의 상태줄을 다시 그린다
-                # the project badge, as wide as the sidebar (see badges) / 사이드바 폭의 프로젝트 이름표 (badges 참고)
-                key = (os.get_terminal_size()[0] + 1, tuple(s for s, _, _ in sessions))
+                # the status line's left block, as wide as the sidebar (see status_text) / 사이드바 폭의 상태줄 왼쪽 칸
+                key = (os.get_terminal_size()[0] + 1, tuple(s for s, _, _ in sessions),
+                       status_text(items, os.get_terminal_size()[0] + 1))
                 if key != last_badge:   # one tmux call a project: on the writer thread / 프로젝트마다 tmux 호출: 쓰기 스레드에서
                     later.put(lambda key=key: badges(*key))
                     last_badge = key
