@@ -1021,12 +1021,11 @@ BADGE_WAIT, BADGE_DONE, STATUS_BG = "#ffb432", "#50de96", "#16181d"
 
 def status_text(items, w):
     """The status line's left block, as wide as the sidebar (w, with its border), so the window list starts above the
-    work area: hivemux's name between the logo's blue and its amber and green. tmux styles in it (#[...])
-    상태줄 왼쪽 칸. 사이드바 폭 (w, 경계선 포함) 이라 창 목록이 작업 칸 위에서 시작한다: 로고의 파랑, hivemux 이름,
-    그 뒤에 주황과 초록. tmux 스타일 (#[...]) 이 들어 있다"""
+    work area: the logo's hexagon and hivemux's name. tmux styles in it (#[...])
+    상태줄 왼쪽 칸. 사이드바 폭 (w, 경계선 포함) 이라 창 목록이 작업 칸 위에서 시작한다: 로고의 육각형과 hivemux
+    이름. tmux 스타일 (#[...]) 이 들어 있다"""
     hexc = lambda c: "#%02x%02x%02x" % c
-    sq = [f"#[fg={hexc(c)}]▪" for c in LOGO_BARS]
-    return f"  {sq[0]} #[fg={hexc(C['text'])},bold]hivemux#[nobold] {sq[1]}{sq[2]}" + " " * max(0, w - 14)
+    return f"#[fg={hexc(C['text'])}]  ⬡ #[bold]hivemux#[nobold]" + " " * max(0, w - 11)
 
 
 _badge_clean = set()
