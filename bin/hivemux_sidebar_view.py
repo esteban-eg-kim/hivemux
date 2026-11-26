@@ -654,35 +654,43 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
 
     # Header: title + count
     # 머리: 제목 + 개수
-    # the title with how many Claudes, the bee office button (bin/hivemux-office) on the right
-    # 제목과 Claude 수, 오른쪽에 벌 사무실 버튼 (bin/hivemux-office)
+    # one row: the title with how many Claudes, the states with their marks (what waits first), the bee office button
+    # (bin/hivemux-office) on the right; the words shorter, then gone, when the sidebar is narrow
+    # 한 줄: 제목과 Claude 수, 상태와 기호 (기다리는 것 먼저), 오른쪽에 벌 사무실 버튼 (bin/hivemux-office).
+    # 사이드바가 좁으면 말을 줄이고, 그래도 좁으면 뺀다
     hd = L().put("  Claude", C["text"], bold=True).put(f"  {len(items)}", C["text3"])
     global OFFICE_BTN
     btn, OFFICE_BTN = tr(" 사무실 ", " office "), None
     x0 = w - 2 - width(btn)
-    if x0 >= hd.used() + 2:
+    n_done = sum(1 for p in items if p["@claude_state"] == "done")
+    counts = [(n, st) for n, st in ((n_wait, "wait"), (n_run, "run"), (n_done, "done")) if n]
+    # narrowest: the marks against their counts, and if that does not fit beside the office button, no button
+    # (it is in the right-click menu too) / 가장 좁으면 기호에 수를 붙이고, 그래도 사무실 버튼 옆에 안 들어가면
+    # 버튼을 뺀다 (오른쪽 클릭 메뉴에도 있다)
+    forms = [({"wait": tr("입력 필요", "need input"), "run": tr("작업 중", "running"), "done": tr("완료", "done")}, "   ", " "),
+             ({"wait": tr("기다림", "wait"), "run": tr("작업", "run"), "done": tr("완료", "done")}, "  ", " "),
+             ({}, "  ", " "), ({}, " ", "")]
+    for with_btn in (True, False):
+        room = (x0 - 2 if with_btn else w - 2) - hd.used()
+        for words, gap, sep in forms:
+            parts = [(gap, STATE_ICON[st] + sep, f"{n}", " " + words[st] if words else "", st) for n, st in counts]
+            if sum(width(g + a + b + c) for g, a, b, c, _ in parts) <= room:
+                break
+        else:
+            continue
+        break
+    else:
+        parts, with_btn = [], True
+    for g, a, b, c, st in parts:
+        hd.put(g, C["text3"]).put(a, MARK_COLOR[st], bold=True).put(b, C[st]).put(c, C["text3"])
+    if with_btn and x0 >= hd.used() + 2:
         hd.fill(x0).put(btn, C["text2"], C["card_hi"])
         OFFICE_BTN = (len(lines) + 1, x0, x0 + width(btn))
     lines += [L(), hd, L()]
-    # the states in a line, each with its mark: what waits first / 상태를 한 줄에, 기호와 함께. 기다리는 것 먼저
-    n_done = sum(1 for p in items if p["@claude_state"] == "done")
-    # the words shorter, then gone, when the sidebar is narrow / 사이드바가 좁으면 말을 줄이고, 그래도 좁으면 뺀다
-    counts = [(n, st) for n, st in ((n_wait, "wait"), (n_run, "run"), (n_done, "done")) if n]
-    for words, gap in (({"wait": tr("입력 필요", "need input"), "run": tr("작업 중", "running"), "done": tr("완료", "done")}, "    "),
-                       ({"wait": tr("기다림", "wait"), "run": tr("작업", "run"), "done": tr("완료", "done")}, "  "),
-                       ({}, "  ")):
-        parts = [(STATE_ICON[st] + " ", f"{n}", (" " + words[st] if words else "") + gap, st) for n, st in counts]
-        if sum(width(a + b + c) for a, b, c, _ in parts) - len(gap) <= w - 4:
-            break
     summary = L().put("  ")
-    for a, b, c, st in parts:
-        summary.put(a, MARK_COLOR[st], bold=True).put(b, C[st]).put(c, C["text3"])
-    if not n_run and not n_wait and not n_done and items:
-        summary.put(tr("모두 대기 중", "all idle"), C["text3"])
-    # why the cards stand still: a screen from another Mac is looking at this window. At the right end
-    # of the summary, so the list below never moves; shorter forms when the counts leave less room
-    # 카드가 멈춘 이유: 다른 Mac 화면이 이 창을 보고 있다. 요약 줄 오른쪽 끝에 둬서 아래 목록이
-    # 움직이지 않게 한다. 개수가 자리를 차지하면 짧게 줄인다
+    # why the lines stand still: a screen from another Mac is looking at this window, said on a row of its own;
+    # shorter forms when the sidebar is narrow
+    # 줄이 멈춘 이유: 다른 Mac 화면이 이 창을 보고 있다. 따로 한 줄에. 사이드바가 좁으면 짧게 줄인다
     if REMOTE_HERE is not None:
         mac = REMOTE_HERE or tr("원격", "remote")
         # "animation off", not "paused": the Claudes go on working, only the drawing holds still
@@ -693,6 +701,8 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
             if summary.used() + 1 + width(note) <= w - 1:
                 summary.right(note, C["remote"], margin=1)
                 break
+    else:
+        summary = None
     global SHIFT_BTN
     SHIFT_BTN = None
     if clocked_out() and not items:
@@ -702,7 +712,9 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
         if REMOTE_HERE is not None:
             summary.right("⇄", C["remote"], margin=1)
         SHIFT_BTN = len(lines)
-    lines += [summary, L().fill(w)]
+    # a row for a note only when there is one / 안내할 것이 있을 때만 한 줄
+    if summary:
+        lines += [summary, L().fill(w)]
 
     # groups in project order; a project with no Claude has no members (shown as "no Claude")
     # 프로젝트 순서의 묶음. Claude 가 없는 프로젝트는 멤버 없이 ("Claude 없음") 보인다
