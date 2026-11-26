@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Sidebar: the state marks stand out more, fuller (● waiting, ✔ done), bolder and brighter than their text.
 ## 0.1.83 — 2026-11-26
 
 - Sidebar redrawn simpler: a project is a grey tile under its name, which stands on a lighter band half a

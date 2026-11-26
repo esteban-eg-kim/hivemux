@@ -180,7 +180,10 @@ C = {
 STATE_TEXT = {"wait": tr("입력 필요", "needs input"), "run": tr("작업 중", "running"), "done": tr("완료", "done"), "idle": tr("대기", "idle"),
               "home": tr("퇴근 · 오른쪽 클릭으로 출근", "home · right-click to clock in")}
 # small marks that sit on the text line / 글자 줄에 앉는 작은 기호
-STATE_ICON = {"wait": "•", "run": "⋯", "done": "✓", "idle": "·", "home": "·"}
+STATE_ICON = {"wait": "●", "run": "⋯", "done": "✔", "idle": "·", "home": "·"}
+# the marks fuller, brighter than their state's text and bold: small and muted, they got lost in the line
+# 기호는 꽉 차게, 상태 글씨보다 밝고 굵게: 작고 흐려서 줄 안에 묻혔다
+MARK_COLOR = {"wait": (255, 180, 50), "run": (110, 182, 255), "done": (80, 222, 150)}
 # why a pane waits (@claude_wait from bin/hivemux-hook: "<kind>\t<tool>\t<text>") / 칸이 기다리는 이유
 WHY_TEXT = {"approve": tr("승인", "approve"), "plan": tr("계획 승인", "plan"), "ask": tr("질문", "question"),
             "input": tr("입력", "input"), "error": tr("오류", "error")}
@@ -749,7 +752,7 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
             drag_src = dragging and DRAG["kind"] == "card" and p["pane_id"] == DRAG["src"]
             if dragging and DRAG["kind"] == "card" and p["pane_id"] == DRAG["over"] and not drag_src:
                 bg = C["drop"]
-            icon, hue_ = ("·", C["home"] if st == "home" else C["text3"]) if dim else (STATE_ICON[st], C[st])
+            icon, hue_ = ("·", C["home"] if st == "home" else C["text3"]) if dim else (STATE_ICON[st], MARK_COLOR[st])
             t = age(p["@claude_state_at"], now) if not dim else tr("퇴근", "home") if st == "home" else ""
             # at rest, the size of its context instead (bin/hivemux-team, every request reads it again)
             # 쉬는 동안은 컨텍스트 크기 (bin/hivemux-team. 매 요청이 다시 읽는 양)
@@ -763,9 +766,9 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
             late = tr("  야근", "  overtime") if p.get("@claude_offwork") and st in ("run", "wait") else ""
             r = S().put(guide, C["guide"]).put(" ", C["text"], bg)
             if st == "run" and ANIM:
-                spots.append((len(rows), r.used(), bg, hue_, False))
+                spots.append((len(rows), r.used(), bg, hue_, True))
                 icon = SPIN[int(NOW_T * 10) % len(SPIN)]
-            r.put(icon + " ", hue_, bg)
+            r.put(icon, hue_, bg, bold=not dim).put(" ", hue_, bg)
             room = cw - (width(t) + 2 if t else 1)
             r.put(name, C["text2"] if dim else C["text"], bg, limit=room - width(lead) - width(late))
             r.put(lead, C["text3"], bg, limit=room).put(late, C["home"], bg, limit=room)
