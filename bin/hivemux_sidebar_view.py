@@ -173,6 +173,7 @@ C = {
     "drop":    (36, 52, 78),     # drop target while dragging / 끄는 중 놓을 자리
     "tile":    (28, 31, 37),     # a project's tile / 프로젝트 판
     "tile_head": (40, 44, 52),   # the band of its name / 이름 띠
+    "foot":    (16, 17, 21),     # the strip at the foot: usage, keys / 아래 띠: 사용량, 키
     "cur":     (54, 64, 82),     # this window's Claude / 이 창의 Claude
     "guide":   (92, 99, 112),    # the line before a team's roles / 팀 역할 앞의 세로 줄
     "star":    (226, 190, 110),  # the lead's star / 리드 별
@@ -886,21 +887,14 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
     wl = week_limits()
     names = [tr("기본", "default") if a == "default" else a for a, _, _ in wl]
     nw = min(10, max((width(n) for n in names), default=0))
-    # Usage on a tile of its own under a name band, like a project: a cell per account (its name, the week as a bar
-    # with its percent, the five hours), side by side when the sidebar is wide. Then the keys on a row, two when
-    # narrow / 사용량은 프로젝트처럼 이름 띠 아래 따로 판에: 계정마다 한 칸 (이름, 주간은 막대와 퍼센트, 5시간), 넓으면
-    # 옆으로. 그다음 키 안내 한 줄, 좁으면 두 줄
-    # a cell: " name  week ▂▂▂ 31%   5h 41%"; too narrow for the words, they go to the band ("week · 5h")
-    # 한 칸: " 이름  주간 ▂▂▂ 31%   5시간 41%". 말이 들어갈 자리가 없으면 띠로 올린다 ("주간 · 5시간")
+    # The foot: what is about the system, not a project, on a strip of its own, darker than the list: the accounts'
+    # usage (a cell each: its name, the week as a bar with its percent, the five hours; side by side when the sidebar
+    # is wide), the keys on chips, an update or the drag / 발: 프로젝트가 아니라 시스템에 관한 것을 목록보다 어두운
+    # 띠 하나에: 계정 사용량 (계정마다 한 칸: 이름, 주간은 막대와 퍼센트, 5시간. 넓으면 옆으로), 칩 위의 키, 업데이트나 끌기
     wk, fh = tr("주간", "week"), tr("5시간", "5h")
-    # (also when the words would keep the accounts from sitting side by side) / (말 때문에 계정을 옆으로 못 놓을 때도)
-    side = lambda f: max(1, min(len(wl), w // (f + 10 + 3))) if wl else 1   # n cells and the gaps between / 칸 n 개와 그 사이
-    words = w - 3 - nw - width(wk) - width(fh) - 17 >= 6 and side(nw + width(wk) + width(fh) + 17) >= side(nw + 14)
-    fixed = nw + (width(wk) + width(fh) + 17 if words else 14)
-    bar = max(4, min(14, w - 3 - fixed))
-    per_row = side(fixed)
-    if per_row > 1:
-        bar = 10
+    fixed = nw + 13                                          # name, "  ", " 31%", "  ", "41%" / 이름과 숫자 자리
+    per_row = max(1, min(len(wl), (w - 2) // (fixed + 10 + 3))) if wl else 1
+    bar = 10 if per_row > 1 else max(4, min(14, w - 5 - fixed))
     cell = fixed + bar
     rows_l = -(-len(wl) // per_row)
     keys = [(" ⌥0 ", tr("기다리는 작업으로", "go to waiting") if n_wait else tr("기다리는 작업", "next waiting")),
@@ -909,7 +903,7 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
     key_rows = 1 if one_row else 2
     new = update_new()
     extra = 1 if (dragging or new) else 0
-    foot = 1 + key_rows + extra + (rows_l + 3 if wl else 0)
+    foot = 2 + key_rows + extra + (rows_l + 2 if wl else 0)
     avail = h - foot - len(lines)       # rows for the list / 목록에 쓸 줄 수
     # If it does not fit, the list scrolls (cards stay two lines, projects stay apart)
     # 넘치면 목록을 스크롤한다 (카드는 두 줄, 프로젝트 사이 빈 줄은 그대로)
@@ -939,50 +933,43 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
     lines = lines[:h - foot]
     while len(lines) < h - foot:
         lines.append(L())
-    tile, band = C["tile"], C["tile_head"]
+    FB = C["foot"]
+    F = lambda: Line(w, FB)
+    lines.append(L().put("▄" * (w - 1), FB))             # the strip's soft top edge / 띠의 부드러운 위 끝
+    if more_below:      # more below the list: an arrow on that edge / 목록 아래에 더 있음: 그 끝에 화살표
+        lines[-1].cells[w - 5:w - 2] = [(c, BG, C["text2"], False) for c in " ▼ "]
     if wl:
-        lines.append(L().put(" ").put("▄" * (w - 2), band))
-        hd = L().put(" ").put("  " + tr("사용량", "Usage"), C["text2"], band, bold=True)
-        if not words:
-            hd.right(f"{wk} · {fh}", C["text3"], band, margin=2)
-        lines.append(hd.fill(w - 1, band))
-        lines.append(L().put(" ").put("▀" * (w - 2), band, tile))
+        hd = F().put("  " + tr("사용량", "Usage"), C["text2"], bold=True)
+        lines.append(hd.put(f"   {wk} · {fh}", C["text3"], limit=w - 2))
         for r0 in range(0, len(wl), per_row):
-            ln = L().put(" ").put(" ", bg=tile)
+            ln = F()
             for k, (name, (acc, week, five)) in enumerate(zip(names[r0:r0 + per_row], wl[r0:r0 + per_row])):
-                ln.fill(2 + k * (cell + 3), tile)
-                ln.put(" " + fit(name, nw) + " " * (nw - width(fit(name, nw))) + "  ", C["text"], tile)
+                ln.fill(2 + k * (cell + 3))
+                ln.put(fit(name, nw) + " " * (nw - width(fit(name, nw))) + "  ", C["text"])
                 if week is None:
-                    ln.put(fit(tr("아직 모름", "not known yet"), cell - nw - 3), C["text3"], tile)
+                    ln.put(fit(tr("아직 모름", "not known yet"), cell - nw - 2), C["text3"])
                     continue
-                ln.put(wk + " " if words else "", C["text3"], tile)
-                limit_bar(ln, week, bar, tile).put(f" {week:3.0f}%", C["wait"] if week >= 70 else C["text2"], tile)
-                ln.put("   " + fh + " " if words else "  ", C["text3"], tile)
-                ln.put("—" if five is None else f"{five:.0f}%", C["text3"] if five is None else C["wait"] if five >= 70 else C["text2"], tile)
-            lines.append(ln.fill(w - 1, tile))
-        lines.append(L().put(" ").put("▀" * (w - 2), tile))
-    else:
-        lines.append(L().put(" " + "─" * (w - 2), C["rule"]))
-    # more below the list: an arrow at the right end of the row under it / 목록 아래에 더 있음: 목록 바로 아래 줄 오른쪽 끝에 화살표
-    if more_below:
-        lines[h - foot].cells[w - 5:w - 2] = [(c, BG, C["text2"], False) for c in " ▼ "]
+                limit_bar(ln, week, bar, FB).put(f" {week:3.0f}%", C["wait"] if week >= 70 else C["text2"])
+                ln.put("  " + ("—" if five is None else f"{five:.0f}%"), C["text3"] if five is None else C["wait"] if five >= 70 else C["text2"])
+            lines.append(ln)
+        lines.append(F())                                 # apart from the keys / 키와 떨어지게
     # the keys, on chips / 키 안내, 칩 위에
     chip = lambda ln, key, text, hot=False: ln.put(key, C["wait"] if hot else C["text2"], C["wait_hi"] if hot else C["card_hi"]).put(" " + text, C["wait"] if hot else C["text3"])
-    k = L().put("  ")
+    k = F().put("  ")
     chip(k, *keys[0], hot=bool(n_wait))
     if one_row:
-        chip(k.put("    "), *keys[1])
-        lines.append(k)
+        lines.append(chip(k.put("    "), *keys[1]))
     else:
-        lines += [k, chip(L().put("  "), *keys[1])]
+        lines += [k, chip(F().put("  "), *keys[1])]
     global UPDATE_BTN
     UPDATE_BTN = None
     if dragging:
-        lines.append(L().put("  ").put(" ↕ ", C["run"], C["run_bg_sel"]).put(tr("  놓을 곳에서 떼기", "  release to drop"), C["run"]))
+        lines.append(F().put("  ").put(" ↕ ", C["run"], C["run_bg_sel"]).put(tr("  놓을 곳에서 떼기", "  release to drop"), C["run"]))
     elif new:
         # a newer hivemux: a click opens the update (bin/hivemux-update) / 더 새 hivemux: 누르면 업데이트 (bin/hivemux-update)
         UPDATE_BTN = len(lines)
-        lines.append(L().put("  ").put(f" {new} ", C["run"], C["run_bg_sel"]).put(tr("  hivemux 업데이트", "  update hivemux"), C["run"]))
+        lines.append(F().put("  ").put(f" {new} ", C["run"], C["run_bg_sel"]).put(tr("  hivemux 업데이트", "  update hivemux"), C["run"]))
+    lines.append(F())                                     # a row under, so the strip ends at the window's foot / 아래 한 줄: 띠가 창 바닥까지
     # Rightmost column: resize grip, a 7-row pill at the vertical middle
     # 오른쪽 끝 칸: 폭 조절 핸들. 세로 가운데 7줄짜리 알약 모양 막대
     #   ▄ rounded top / lighter bar with grip dots / ▀ rounded bottom; blue while dragging

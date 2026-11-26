@@ -2,9 +2,9 @@
 
 ## Unreleased
 
-- Sidebar foot: the accounts' usage on a tile of its own under a "Usage" band, like a project: each account's name,
-  its week as a bar with the percent and its five hours, labelled, side by side when the sidebar is wide (the
-  labels move up to the band when there is no room for them). The keys sit on chips in one row below it.
+- Sidebar foot: one strip, darker than the list, for what is about the system rather than a project: the
+  accounts' usage under "Usage · week · 5h" (each account's name, its week as a bar with the percent and its five
+  hours, side by side when the sidebar is wide), then the keys on chips in a row, an update or the drag.
 ## 0.1.86 — 2026-11-26
 
 - Bee office: a small management office on the plaza by the road, with a manager. He reads the paper at the
