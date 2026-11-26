@@ -40,11 +40,11 @@ set -g status-position top
 set -g status-interval 5
 set -g status-style "bg=#16181d,fg=#9aa3b2"
 set -g status-left-length 120
-# session (project) name on a blue badge as wide as the sidebar, so the window list starts above the
+# session (project) name on a badge as wide as the sidebar, in the colour of its name band (@hivemux-badge-bg), so the window list starts above the
 # work area (@hivemux-badge: per session, written by bin/hivemux-sidebar-view; without a sidebar just the name)
-# 사이드바 폭의 파란 바탕 세션(프로젝트) 이름. 그래서 창 목록이 작업 칸 위에서 시작한다
+# 사이드바 폭의 이름표에 세션(프로젝트) 이름, 색은 사이드바 이름 띠 (@hivemux-badge-bg). 그래서 창 목록이 작업 칸 위에서 시작한다
 # (@hivemux-badge: 세션마다, bin/hivemux-sidebar-view 가 적는다. 사이드바가 없으면 이름만)
-set -g status-left "#[bg=#2f6fb3,fg=#e6e9ef,bold]#{?@hivemux-badge,#{@hivemux-badge},  #S  }#[default]"
+set -g status-left "#[bg=#{?@hivemux-badge-bg,#{@hivemux-badge-bg},#282c34},fg=#e6e9ef,bold]#{?@hivemux-badge,#{@hivemux-badge},  #S  }#[default]"
 set -g status-right-length 160
 # continuum autosave is triggered from status-right (see Persistence below); not on a server that
 # started without restoring (@hivemux-nosave, bin/hivemux-attach): it would replace the snapshot with an empty one
@@ -56,8 +56,8 @@ set -g status-right-length 160
 # 그다음, 다른 Mac 에서 붙은 터미널 (bin/hivemux-attach 가 @hivemux-remote-clients 에 적음)이면 이 Mac 의 이름
 set -g status-right "#{?@hivemux-nosave,,#(#{@hivemux-continuum-save})}#{E:@hivemux-board}#{?#{m:* #{client_name} *,#{@hivemux-remote-clients}},#[bg=#{?#{e|>:#{s/^.* #{client_name}=([0-9]+) .*$/\\1/:@hivemux-rtt},150},#d9822b,#7c4dff}#,fg=#ffffff#,bold] ⇄ #{?@hivemux-mac-name,#{@hivemux-mac-name},#h}#{?#{m:* #{client_name}=*,#{@hivemux-rtt}},#[nobold] #{s/^.* #{client_name}=([0-9]+) .*$/\\1/:@hivemux-rtt}ms,} #[default] ,}#{?client_prefix,#[bg=#f5a524 fg=#16181d bold] PREFIX #[default] ,}#{?@hivemux-account,#[fg=#c9a0ff]◉ #{@hivemux-account}#[default]  ,}#[fg=#626a78]%m-%d  %H:%M  "
 set -g window-status-separator ""
-set -g window-status-format "#[fg=#626a78] #I #[fg=#9aa3b2]#W#{?#{==:#{@claude_state},run}, #[fg=#5aa9ff]#{?@claude_spin,#{@claude_spin},◐},}#{?#{==:#{@claude_state},wait}, #[fg=#f5a524]●,}#{?#{==:#{@claude_state},done}, #[fg=#3ecf8e]✓,} "
-set -g window-status-current-format "#[bg=#2a2f3a,fg=#9aa3b2] #I #[fg=#e6e9ef,bold]#W#[nobold]#{?#{==:#{@claude_state},run}, #[fg=#5aa9ff]#{?@claude_spin,#{@claude_spin},◐},}#{?#{==:#{@claude_state},wait}, #[fg=#f5a524]●,}#{?#{==:#{@claude_state},done}, #[fg=#3ecf8e]✓,} #[default]"
+set -g window-status-format "#[fg=#626a78] #I #[fg=#9aa3b2]#W#{?#{==:#{@claude_state},run}, #[fg=#6eb6ff]#{?@claude_spin,#{@claude_spin},⋯},}#{?#{==:#{@claude_state},wait}, #[fg=#ffb432]●,}#{?#{==:#{@claude_state},done}, #[fg=#50de96]✓,} "
+set -g window-status-current-format "#[bg=#2a2f3a,fg=#9aa3b2] #I #[fg=#e6e9ef,bold]#W#[nobold]#{?#{==:#{@claude_state},run}, #[fg=#6eb6ff]#{?@claude_spin,#{@claude_spin},⋯},}#{?#{==:#{@claude_state},wait}, #[fg=#ffb432]●,}#{?#{==:#{@claude_state},done}, #[fg=#50de96]✓,} #[default]"
 set -g pane-border-style "fg=#23262e"
 set -g pane-active-border-style "fg=#2c3039"
 set -g pane-border-lines single
