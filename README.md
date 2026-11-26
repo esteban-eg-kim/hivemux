@@ -45,9 +45,9 @@ Everything, by version: [CHANGELOG](CHANGELOG.md) or
 
 ## Features
 
-- **One board for every session.** A box per project in its own color, with a
-  card per Claude showing live state and elapsed time. A band of light
-  crosses running cards, waiting cards turn amber, and the one you are in is
+- **One board for every session.** A grey tile per project under its name, a
+  line per Claude with its state and elapsed time. A running one spins, a
+  waiting one turns amber with why it waits under it, and the one you are in is
   lighter. Widen the sidebar for 2 or 3 columns; a long list scrolls with the wheel.
 - **Teams.** Give a project a team of Claudes with roles (research, planning,
   design, dev, QA, marketing), each in its own window, handing work to each
@@ -157,10 +157,10 @@ the work out, and the roles pass what they finish down the flow.
   them with one button; then a box sends the lead the goal, with example goals
   (`hivemux team goal "…"` does the same).
 - **Hand-offs.** Every message from one role to another is logged. The team
-  page lists the recent ones, the project's box in the sidebar shows the last
+  page lists the recent ones, the project's tile in the sidebar shows the last
   one for half an hour (`✉ Planning → Dev · 2m`), and in the bee office a letter
   flies from one bee to the other. In the sidebar the roles sit together under
-  `◆ <team name>`, the lead marked ★, the project's other Claudes after them.
+  `⁂ <team name>` behind a vertical line, the lead marked "lead", the project's other Claudes a row apart after them.
 - **Questions for you.** Roles write what they need from you to
   `.hivemux/questions.md`; the team page shows the open ones, each with **Mark
   as answered**, and what you type into a role's window marks its questions answered.
@@ -572,7 +572,7 @@ the install command again (git install). Claude Code itself: right-click → Upd
 | `prefix b` | hide / show sidebars |
 | `prefix <` / `>` | sidebar 4 columns narrower / wider (keep pressing for more) |
 | `prefix s` / `prefix Shift+S` | session list / full tree |
-| drag the sidebar grip | resize; width is saved. Wider: project boxes in 2–3 columns. On a screen from another computer a guide line follows the mouse and the width changes once on release (Settings → Width drag) |
+| drag the sidebar grip | resize; width is saved. Wider: project tiles in 2–3 columns. On a screen from another computer a guide line follows the mouse and the width changes once on release (Settings → Width drag) |
 | mouse wheel on the sidebar | scroll when the list does not fit (shared by every window) |
 
 `prefix` is `Ctrl+A` with the recommended keys, otherwise tmux's `Ctrl+B`. On

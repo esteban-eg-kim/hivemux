@@ -155,9 +155,7 @@ def age(at, now):
 # 차분하게: 기다림은 옅은 금색, 작업은 슬레이트 블루, 완료는 세이지. 글씨는 회색 세 단계
 C = {
     "bg":      (21, 23, 27),     # sidebar background / 사이드바 바탕
-    "card":    (29, 32, 38),     # card / 카드
     "card_hi": (38, 42, 49),     # badges, menu / 배지, 메뉴
-    "card_sel": (46, 52, 63),    # selected card / 선택된 카드
     "rule":    (38, 42, 49),     # divider / 구분선
     "text":    (217, 220, 227),  # text / 본문
     "text2":   (160, 166, 177),  # secondary text / 보조
@@ -168,15 +166,15 @@ C = {
     "wait":    (232, 165, 62),
     "wait_bg": (45, 37, 21),
     "wait_hi": (64, 50, 24),
-    # still cards (no animation: a remote screen, @hivemux-anim off) are told apart by a tinted background
-    # 멈춘 카드 (애니메이션 없음: 원격 화면, @hivemux-anim off)는 바탕색으로 구분한다
-    "run_bg":      (28, 40, 60),
-    "run_bg_sel":  (42, 66, 100),
-    "wait_bg_sel": (92, 70, 30),
+    "run_bg_sel":  (42, 66, 100),  # the drag and update badges / 끌기, 업데이트 배지
     "done":    (100, 200, 150),
     "idle":    (98, 105, 117),
     "home":    (156, 147, 191),  # clocked out, at home (bin/hivemux-shift) / 퇴근해서 집에 감
     "drop":    (36, 52, 78),     # drop target while dragging / 끄는 중 놓을 자리
+    "tile":    (28, 31, 37),     # a project's tile / 프로젝트 판
+    "tile_head": (40, 44, 52),   # the band of its name / 이름 띠
+    "cur":     (44, 49, 58),     # this window's Claude / 이 창의 Claude
+    "guide":   (92, 99, 112),    # the line before a team's roles / 팀 역할 앞의 세로 줄
     "remote":  (156, 147, 191),  # "viewed from another Mac" note (the status line's ⇄ badge) / 원격 화면 안내 (상태줄 ⇄ 표시)
 }
 STATE_TEXT = {"wait": tr("입력 필요", "needs input"), "run": tr("작업 중", "running"), "done": tr("완료", "done"), "idle": tr("대기", "idle"),
@@ -214,10 +212,6 @@ def state_line(p, st):
         if n:
             return STATE_TEXT[st] + tr(f" · 파일 {n}개", f" · {n} file" + ("s" if n > 1 else ""))
     return STATE_TEXT[st]
-# Project dot colors (fixed by a hash of the name)
-# 프로젝트 점 색 (이름 해시로 고정)
-PROJECT_HUES = [(158, 140, 220), (217, 127, 171), (83, 194, 180), (226, 153, 90),
-                (113, 163, 225), (162, 205, 87), (222, 192, 70), (204, 131, 217)]   # softened / 조금 누그러뜨린 색
 
 FRAME = 0
 NOW_T = 0.0      # animation clock (seconds); motion is time-based so frame rate only changes smoothness
@@ -244,7 +238,7 @@ DRAG = None
 # 프로젝트 목록이 위로 넘어간 줄 수 (마우스 휠), 그리고 마지막으로 맞춰 보인 카드의 칸.
 # 새 사이드바는 자기 카드가 보이게 시작한다
 SCROLL, SCROLL_TO = 0, None
-BOX_MIN, COL_GAP = 20, 1   # narrowest project box, columns between boxes / 상자 최소 폭, 상자 사이 칸
+BOX_MIN, COL_GAP = 30, 2   # narrowest project tile, columns between tiles / 판 최소 폭, 판 사이 칸
 # Right-click menu while open: {"rows": [(label, key, action) | None], "y": row, "sel": index, "title", "at": {row: index}}
 # 열려 있는 오른쪽 클릭 메뉴: {"rows": [(이름, 키, 동작) | None], "y": 줄, "sel": 고른 번호, "title", "at": {줄: 번호}}
 MENU = None
@@ -489,10 +483,6 @@ class Motion:
         return "".join(out) + "\x1b[0m" if out else ""
 
 
-def hue_of(name):
-    return PROJECT_HUES[sum(ord(c) for c in name) % len(PROJECT_HUES)]
-
-
 PANES = []      # the panes of the last snapshot (see paint_resting) / 마지막 스냅숏의 칸들 (paint_resting 참고)
 
 
@@ -708,102 +698,91 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
     cw = (usable - COL_GAP * (ncol - 1)) // ncol
 
     def box(sess, members):
-        """One project box: rows of width cw, plus {row: pane} for its cards
-        프로젝트 상자 하나: 폭 cw 의 줄들과 {줄: 칸} (카드 자리)"""
-        hue = hue_of(sess)
-        cur = sess == cur_sess
-        tile = mix(C["bg"], hue, 0.15 if cur else 0.09)
-        head_bg = mix(C["bg"], hue, 0.36 if cur else 0.24)
+        """One project: a grey tile under its name, a line per Claude, plus {row: pane} for them. The name sits on a
+        lighter band half a row taller above and below; a team's roles hang under ⁂ and its name behind a vertical
+        line, the project's other Claudes a row apart after them (bin/hivemux-team)
+        프로젝트 하나: 이름 아래 회색 판, Claude 마다 한 줄, 그리고 {줄: 칸}. 이름은 위아래로 반 줄씩 더 큰 밝은 띠
+        위에. 팀 역할은 ⁂ 와 팀 이름 아래 세로 줄 뒤에, 프로젝트의 다른 Claude 는 한 줄 띄워 그 뒤에 (bin/hivemux-team)"""
+        tile, band = C["tile"], C["tile_head"]
         S = lambda bg=tile: Line(cw, bg)
-        rows, cards, spots, glows = [], {}, [], []
-        hd = S(head_bg).put(" ").put(sess, C["text"], head_bg, limit=cw - 3)
-        if len(members) > 1:
-            hd.right(str(len(members)), mix(C["text"], hue, 0.4), head_bg, margin=1)
-        hd.fill(cw, head_bg)
+        rows, cards, spots = [], {}, []
+        # a team's roles first (the lead first, then the flow) / 팀 역할 먼저 (리드 먼저, 그다음 흐름)
+        rank = lambda p: int(p.get("@hivemux-roleorder")) if str(p.get("@hivemux-roleorder", "")).isdigit() else 99
+        members = sorted(members, key=lambda m: (0, rank(m[1])) if m[1].get("@hivemux-rolename") else (1, 0))
+        team_name = next((m[1].get("@hivemux-team") for m in members if m[1].get("@hivemux-rolename")), "")
+        looks = {p["pane_id"]: p["@claude_state"] if p["@claude_state"] in STATE_TEXT else "idle" for _, p in members}
+        n_wait, n_run = sum(s == "wait" for s in looks.values()), sum(s == "run" for s in looks.values())
+        right = " ".join(t for t in (f"•{n_wait}" if n_wait else "", f"⋯{n_run}" if n_run else "") if t) or \
+            (str(len(members)) if len(members) > 1 else "")
+        hd = S(band).put(" ").put(sess, C["text"], band, bold=True, limit=cw - 1 - (width(right) + 2 if right else 0))
+        if n_wait or n_run:
+            hd.fill(cw - 1 - width(right), band)
+            if n_wait:
+                hd.put(f"•{n_wait}", C["wait"], band).put(" " if n_run else "", C["text3"], band)
+            if n_run:
+                hd.put(f"⋯{n_run}", C["run"], band)
+        elif right:
+            hd.right(right, C["text3"], band, margin=1)
+        head = [S(C["bg"]).put("▄" * cw, band), hd.fill(cw, band), S().put("▀" * cw, band)]
         if dragging and DRAG["kind"] == "group":
             if sess == DRAG["src"]:
                 hd.tint(fg=C["text3"])
             elif sess == DRAG["over"]:
                 hd.tint(bg=C["drop"])
-        rows.append(hd)
+        rows += head
         if not members:
             n = info.get(sess, (0, ""))[0]
             rows.append(S().put(" ").put(tr(f"Claude 없음 · 창 {n}개", f"no Claude · {n} window" + ("s" if n != 1 else "")),
-                                         C["text3"], tile, limit=cw - 1).fill(cw))
-        x0, x1 = 1, cw - 1                # card columns inside the box / 상자 안 카드 가로 범위
-        # a team's roles together under its name, the project's other Claudes after them (bin/hivemux-team)
-        # 팀 역할은 팀 이름 아래 한 묶음으로, 프로젝트의 다른 Claude 는 그 뒤에 (bin/hivemux-team)
-        # (the lead first, then the flow) / (리드 먼저, 그다음 흐름)
-        rank = lambda p: int(p.get("@hivemux-roleorder")) if str(p.get("@hivemux-roleorder", "")).isdigit() else 99
-        members = sorted(members, key=lambda m: (0, rank(m[1])) if m[1].get("@hivemux-rolename") else (1, 0))
-        team_name = next((m[1].get("@hivemux-team") for m in members if m[1].get("@hivemux-rolename")), "")
+                                         C["text3"], limit=cw - 1).fill(cw))
         for mi, (i, p) in enumerate(members):
-            if team_name and (mi == 0 or bool(members[mi - 1][1].get("@hivemux-rolename")) != bool(p.get("@hivemux-rolename"))):
-                label = tr(f"팀 · {team_name}", f"team · {team_name}") if p.get("@hivemux-rolename") else tr("팀 밖", "outside the team")
-                rows.append(S().put(" ").put(label, C["text3"], tile,
-                                             limit=cw - 2).fill(cw))
-            st = p["@claude_state"] if p["@claude_state"] in STATE_TEXT else "idle"
-            sel = p["pane_id"] == current
-            card = C["card_sel"] if sel else C["card"]
-            hue_ = C[st]
-            icon = STATE_ICON[st]
-            # the state is told by the card's colour and its sign / 상태는 카드 색과 기호로 보인다
-            if st == "wait":
-                card = C["wait_bg_sel"] if sel else C["wait_hi"]
-            if st == "run":
-                card = C["run_bg_sel"] if sel else C["run_bg"]
-            if st == "run" and ANIM:
-                icon = SPIN[int(NOW_T * 10) % len(SPIN)]
-            dim = st in ("idle", "home")
+            role = bool(p.get("@hivemux-rolename"))
+            if role and mi == 0:
+                rows.append(S().put(" ⁂ ", C["text3"]).put(team_name, C["text2"], limit=cw - 1).fill(cw))
+            elif team_name and not role and members[mi - 1][1].get("@hivemux-rolename"):
+                rows.append(S().fill(cw))             # the team and the others a row apart / 팀과 나머지 사이 한 줄
+            guide = " │" if role else ""
+            st = looks[p["pane_id"]]
+            # done over an hour ago rests like idle / 끝난 지 한 시간 넘으면 대기처럼 쉰다
+            old = st == "done" and p["@claude_state_at"].isdigit() and now - int(p["@claude_state_at"]) >= 3600
+            dim = st in ("idle", "home") or old
+            bg = C["wait_hi"] if st == "wait" else C["cur"] if p["pane_id"] == current else tile
+            drag_src = dragging and DRAG["kind"] == "card" and p["pane_id"] == DRAG["src"]
+            if dragging and DRAG["kind"] == "card" and p["pane_id"] == DRAG["over"] and not drag_src:
+                bg = C["drop"]
+            icon, hue_ = ("·", C["home"] if st == "home" else C["text3"]) if dim else (STATE_ICON[st], C[st])
             t = age(p["@claude_state_at"], now) if not dim else ""
             # at rest, the size of its context instead (bin/hivemux-team, every request reads it again)
             # 쉬는 동안은 컨텍스트 크기 (bin/hivemux-team. 매 요청이 다시 읽는 양)
             if not t and st == "idle" and p.get("@claude_ctx", "").isdigit():
                 t = f"{int(p['@claude_ctx']) // 1000}K"
-            key = f"⌥{i}" if 0 < i <= 9 else ""
             name = task_name(p)
             # the lead says so in grey after its name, not with a star / 리드는 별 대신 이름 뒤에 회색으로
             lead = tr("  리드", "  lead") if name.startswith("⭐ ") else ""
             name = name[2:] if lead else name
-            drag_src = drag_dst = False
-            if dragging and DRAG["kind"] == "card":
-                drag_src = p["pane_id"] == DRAG["src"]
-                drag_dst = p["pane_id"] == DRAG["over"] and not drag_src
-                if drag_dst:
-                    card = C["drop"]
-
-            def card_line():
-                return S().put(" ", C["text"], tile).put(" ", C["text"], card)
-
-            r1 = card_line()
-            r1.put(name, C["text"] if not dim or sel else C["text2"], card,
-                   limit=x1 - (width(key) + 2 if key else 1) - width(lead))
-            r1.put(lead, C["text3"], card, limit=x1 - (width(key) + 2 if key else 1))
-            r1.fill(x1 - 1 - width(key), card).put(key, C["text"] if sel else C["text3"], card).fill(x1, card).fill(cw)
-            r2 = card_line()
-            r2.put(f"{icon} {state_line(p, st)}", hue_ if st != "idle" else C["text3"], card,
-                   limit=x1 - (max(width(t), 3) if t else 0) - 2)   # room for "59s", so the line does not shift as it ages / "59s" 자리: 시간이 지나도 줄이 밀리지 않게
-            r2.fill(x1 - 1 - width(t), card).put(t, C["text2"] if st != "wait" else C["wait"], card).fill(x1, card).fill(cw)
-            lns = [r1, r2]
-            if mi < len(members) - 1:       # a thin line under the card, before the next one / 다음 카드 앞에 가는 선
-                r2.cells = [(ch, bg_, fg_, (b_, head_bg) if 1 <= k < len(r2.cells) - 1 else b_)
-                            for k, (ch, bg_, fg_, b_) in enumerate(r2.cells)]
-            if drag_src:
-                for r in lns:
-                    r.tint(fg=C["text3"])
-            elif st == "run" and ANIM:
-                spots.append((len(rows) + 1, 2, card, hue_, r2.cells[2][3]))
-                glows.extend((len(rows) + k, x0, r.cells[1:-1], card) for k, r in enumerate(lns))
-            for r in lns:
+            r = S().put(guide, C["guide"]).put(" ", C["text"], bg)
+            if st == "run" and ANIM:
+                spots.append((len(rows), r.used(), bg, hue_, False))
+                icon = SPIN[int(NOW_T * 10) % len(SPIN)]
+            r.put(icon + " ", hue_, bg)
+            room = cw - (width(t) + 2 if t else 1)
+            r.put(name, C["text2"] if dim else C["text"], bg, limit=room - width(lead)).put(lead, C["text3"], bg, limit=room)
+            r.fill(cw - 1 - width(t), bg).put(t, C["wait"] if st == "wait" else C["text3"], bg).fill(cw, bg)
+            lns = [r]
+            if st == "wait":
+                lns.append(S().put(guide, C["guide"]).put("   " + state_line(p, st), C["wait"], bg, limit=cw - 1).fill(cw, bg))
+            for x in lns:
+                if drag_src:
+                    x.tint(fg=C["text3"])
                 cards[len(rows)] = p["pane_id"]
-                rows.append(r)
+                rows.append(x)
         # the team's last hand-off, for half an hour (bin/hivemux-team) / 팀의 마지막 넘김, 30분 동안
         ho = (members[0][1].get("@hivemux-handoff", "") if members else "").split("\t", 3)
         if len(ho) == 4 and ho[0].isdigit() and now - int(ho[0]) < 1800:
             t = age(ho[0], now)
-            r = S().put(" ").put(f"✉ {ho[1]} → {ho[2]}", C["text2"], tile, limit=cw - width(t) - 3)
-            rows.append(r.fill(cw - 1 - width(t), tile).put(t, C["text3"], tile).fill(cw))
-        return rows, cards, spots, glows
+            r = S().put(" ").put(f"✉ {ho[1]} → {ho[2]}", C["text3"], limit=cw - width(t) - 3)
+            rows.append(r.fill(cw - 1 - width(t)).put(t, C["text3"]).fill(cw))
+        rows.append(S(C["bg"]).put("▀" * cw, tile))
+        return rows, cards, spots, []
 
     def build():
         """Lay the boxes out; returns (lines, {row: [(x0, x1, pane)]}, {row: [(x0, x1, session)]}, spinners (see SPOTS))
@@ -814,7 +793,7 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
         for sess, members in groups:
             rows, cards, spots, glows = box(sess, members)
             k = hts.index(min(hts))
-            gap = 1 if cols[k] else 0
+            gap = 0                                 # the tiles' own half rows keep them apart / 판의 반 줄이 사이를 띄운다
             cols[k].append((rows, cards, sess, hts[k] + gap))
             sp.extend((hts[k] + gap + j, 1 + k * (cw + COL_GAP) + x, *look) for j, x, *look in spots)
             gl.extend((hts[k] + gap + j, 1 + k * (cw + COL_GAP) + x, *look) for j, x, *look in glows)
@@ -834,11 +813,6 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
                         tg.setdefault(top + j, []).append((cx, cx + cw, cards[j]))
                     else:
                         hg.setdefault(top + j, []).append((cx, cx + cw, sess))
-                if i < len(col) - 1:        # the gap row: its upper half is this box's bottom / 사이 줄: 위 절반은 이 상자 아래 끝
-                    ln, tile = out[top + len(rows)], rows[-1].cells[0][1]
-                    ln.fill(cx)
-                    ln.cells += [("▀", C["bg"], tile, False)] * cw
-                    ln.n += cw
         return out, tg, hg, sp, gl
 
     global SCROLL, SCROLL_TO, SPOTS, GLOWS
