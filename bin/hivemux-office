@@ -299,6 +299,7 @@ def snapshot():
     # (also one Claude or one project clocked out by itself, while the rest work on)
     # (혼자 퇴근한 Claude 하나나 프로젝트 하나도. 나머지는 계속 일한다)
     out["letters"] = letters()
+    out["limits"] = limits()
     out["shift"] = sh = shift({p["bee"] for p in items if p["@claude_state"] in ("run", "wait")})
     home = set(sh["home"])
     out["sessions"] = [x for x in out["sessions"] if x["bee"] not in home]
@@ -887,6 +888,44 @@ def team_of(p):
             "ctx": int(p["@claude_ctx"]) if p["@claude_ctx"].isdigit() else 0, "line": line if how != "off" else 0,
             "dieting": p.get("@hivemux-diet", ""),
             "kickoff": int(ko[0]) if ko[0].isdigit() else 0, "goal": ko[1] if len(ko) > 1 else ""}
+
+
+def limits():
+    """Each login account's week and five hours used, as the Claudes reported them (share/claude-mod:
+    <data>/limits/<account>.tsv), for the manager's meter board; a window that has reset counts as 0, a reading
+    older than a week as none / 로그인 계정마다 주간, 5시간 사용률 (share/claude-mod: <data>/limits/<계정>.tsv).
+    관리소장의 계량판에. 초기화된 창은 0, 일주일보다 오래된 값은 없음"""
+    import datetime
+    now, out = time.time(), []
+    try:
+        names = sorted(f[:-4] for f in os.listdir(os.path.join(DATA, "limits")) if f.endswith(".tsv"))
+    except OSError:
+        return out
+    for name in sorted(names, key=lambda n: (n != "default", n)):
+        if os.path.exists(os.path.join(DATA, "accounts", name, "api-key")):
+            continue
+        try:
+            with open(os.path.join(DATA, "limits", name + ".tsv")) as f:
+                row = (f.readline().rstrip("\n").split("\t") + [""] * 5)[:5]
+        except OSError:
+            continue
+        got = []
+        for used, resets in ((row[0], row[1]), (row[2], row[3])):
+            try:
+                pct = float(used)
+            except ValueError:
+                pct = None
+            if pct is not None and (not row[4].isdigit() or now - int(row[4]) > 8 * 86400):
+                pct = None
+            try:
+                if pct is not None and resets and datetime.datetime.fromisoformat(resets.replace("Z", "+00:00")).timestamp() < now:
+                    pct = 0.0
+            except ValueError:
+                pass
+            got.append(pct)
+        if got[0] is not None or got[1] is not None:
+            out.append({"account": name, "week": got[0], "five": got[1]})
+    return out
 
 
 def letters():

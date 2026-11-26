@@ -642,6 +642,169 @@ function buildLobby(F, p) {
   for (const [x, z] of [[-7.4, 16.8], [-8.4, 18.4], [7.4, 16.8], [8.4, 18.4], [-2.6, 15.4], [2.6, 15.4], [-2.4, 20], [2.4, 20], [-3.8, 11.4], [3.8, 11.4]]) S('plaza', x, z, [-x * .2, 17.5 - z], 'chat');
   for (const [x, z] of [[4.6, -.6], [5.4, .8], [-6.4, -3.2], [6.4, -3.2]]) S('lobby', x, z, [-(x > 0 ? 1 : -1), .4], 'chat');
   for (const [x, z, ry] of [[-4.6, 13.6, 0], [4.6, 13.6, 0], [-4.6, 21.4, Math.PI], [4.6, 21.4, Math.PI]]) grid.block(x - 1.1, z - .3, x + 1.1, z + .3, .05);
+  buildBooth(F);
+}
+
+// ── the management office in front, and its manager / 앞쪽의 관리사무실과 관리소장 ─────────────────────────────
+// A small booth on the plaza by the road. The manager sits at its counter with the paper (in the evening, just
+// sits) and goes out on his rounds: he locks up when everyone clocks out and opens up when they clock in, greets a
+// new bee at the gate and waves one off, rings a hand bell by a bee that has waited long, reads the accounts'
+// meters on the board out front (a lamp turns on the roof from 70%, a phone call from 90%), sweeps the snow and
+// walks the plaza with a torch at night
+// 도로 옆 광장의 작은 관리사무실. 관리소장은 창구에 앉아 신문을 보고 (저녁에는 그냥 앉아 있다) 일하러 나간다: 모두
+// 퇴근하면 문단속, 출근하면 문을 열고, 새 벌은 정문에서 맞고 떠나는 벌은 배웅하고, 오래 기다리는 벌 곁에서 손종을
+// 울리고, 앞 판의 계정 계량기를 본다 (70% 부터 지붕 경광등, 90% 부터 전화). 눈이 오면 쓸고 밤에는 손전등을 들고 돈다
+const BOOTH = { x: -7.6, z: 23.2 };
+const MGR_SEAT = { floor: 0, x: BOOTH.x - .2, z: BOOTH.z + .1, look: [0, 1], seatY: .48 };
+// the meter board: each account's week as a dial-like bar / 계량판: 계정마다 주간 사용량 막대
+function meterDraw(c, w, h, list = []) {
+  c.fillStyle = '#23272e'; c.fillRect(0, 0, w, h);
+  c.fillStyle = '#f2b632'; c.font = '700 22px -apple-system, sans-serif'; c.fillText(tr('사용량 계량기', 'USAGE METER'), 14, 30);
+  if (!list.length) { c.fillStyle = '#8a90a0'; c.font = '500 18px -apple-system, sans-serif'; c.fillText(tr('아직 모름', 'not known yet'), 14, 70); return; }
+  list.slice(0, 3).forEach((a, k) => {
+    const y = 52 + k * 34, pct = Math.max(0, Math.min(100, a.week ?? 0)), hot = pct >= 70;
+    c.fillStyle = '#d9dce3'; c.font = '600 16px -apple-system, sans-serif'; c.fillText(a.account === 'default' ? tr('기본', 'default') : a.account.slice(0, 9), 14, y + 14);
+    c.fillStyle = '#3a3f48'; c.fillRect(104, y, 108, 16);
+    c.fillStyle = hot ? '#f5a524' : '#5aa9ff'; c.fillRect(104, y, 108 * pct / 100, 16);
+    c.fillStyle = hot ? '#f5a524' : '#d9dce3'; c.fillText(a.week === null || a.week === undefined ? '—' : `${Math.round(pct)}%`, 218, y + 14);
+  });
+}
+function buildBooth(F) {
+  const g = F.group, grid = F.grid, x = BOOTH.x, z = BOOTH.z, x0 = x - 1.6, x1 = x + 1.6, z0 = z - 1.2, z1 = z + 1.2, H = 2.5, low = .95;
+  const wall = mat(0xf1ece2, { roughness: .85 });
+  block(g, 3.3, .1, 2.5, C.concrete, x, 0, z, { cast: false });
+  block(g, 3.2, H, .12, wall, x, 0, z0); block(g, .12, H, 2.4, wall, x0, 0, z);              // back, left / 뒤, 왼쪽
+  block(g, 3.2, low, .12, wall, x, 0, z1); block(g, 3.2, H - low, .04, C.glass, x, low, z1, { cast: false });   // front: low wall, window / 앞: 낮은 벽, 창
+  // the right side: low walls and windows either side of the door / 오른쪽: 문 양옆 낮은 벽과 창
+  for (const [za, zb] of [[z0, z - .35], [z + .6, z1]]) {
+    block(g, .12, low, zb - za, wall, x1, 0, (za + zb) / 2); block(g, .04, H - low, zb - za, C.glass, x1, low, (za + zb) / 2, { cast: false });
+    grid.block(x1, za, x1, zb, .15);
+  }
+  block(g, .12, .35, .95, wall, x1, H - .35, z + .125);
+  block(g, 3.7, .14, 2.9, C.dark, x, H, z);                                                  // the roof / 지붕
+  block(g, 2.4, .9, .45, C.woodDark, x - .2, 0, z + .78); block(g, 2.5, .05, .55, C.stone, x - .2, .9, z + .78);   // the counter / 창구
+  block(g, .9, .04, .6, BEE.paper, x + .4, .95, z + .78, { cast: false });
+  chair(g, MGR_SEAT.x, MGR_SEAT.z - .15, [0, 1], 0, mat(0x34507a));
+  plant(g, x1 + .5, z1 - .1, .9);
+  grid.block(x0, z0, x1, z0, .15); grid.block(x0, z0, x0, z1, .15); grid.block(x0, z1, x1, z1, .15); grid.block(x - 1.4, z + .56, x + 1, z + 1, .05);
+  // its name on the roof, the meter board on the front wall / 지붕의 이름, 앞벽의 계량판
+  const sign = canvasTex(512, 96, c => { c.fillStyle = '#2b2f36'; c.fillRect(0, 0, 512, 96); c.fillStyle = '#f4f1ea'; c.font = '700 46px -apple-system, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(tr('관리사무실', 'MANAGEMENT'), 256, 50); });
+  put(g, geo('bsign', () => new THREE.PlaneGeometry(2.6, .48)), new THREE.MeshBasicMaterial({ map: sign }), x, H + .4, z1 + .2, { cast: false });
+  block(g, 2.6, .08, .06, C.dark, x, H + .14, z1 + .18, { cast: false });
+  W.meter = canvasTex(256, 160, meterDraw); W.meter.redraw(W.limits);
+  put(g, geo('meter', () => new THREE.PlaneGeometry(1.3, .8)), new THREE.MeshBasicMaterial({ map: W.meter }), x - .7, .52, z1 + .07, { cast: false }).userData.keep = true;
+  // the lamp on the roof, turning when an account nears its limit / 계정이 한도에 가까우면 도는 지붕 경광등
+  W.beacon = put(g, cylG(.1, .12, .2, 14), new THREE.MeshBasicMaterial({ color: 0xff8a1e }), x + 1.3, H + .24, z + .9, { cast: false });
+  W.beacon.userData.keep = true; W.beacon.visible = false;
+  // its own lamp inside, on in the dark / 안쪽 등. 어두우면 켜진다
+  W.boothLamp = new THREE.PointLight(0xffd9a0, 0, 7, 1.5); W.boothLamp.position.set(x - .2, H - .4, z + .2); g.add(W.boothLamp);
+  if (!W.manager) {
+    const m = W.manager = { key: 'manager', col: new THREE.Color(0x34507a), phase: 1.3, legs: [], pos: { x: MGR_SEAT.x, z: MGR_SEAT.z }, y: 0, floor: 0, facing: 0, arrived: true,
+      persona: { ...persona('manager'), sex: 'm', face: 'mustache', hat: 'cap', hatCol: 0x2c3e66, backwards: false, hair: 'side', hairCol: 0x9a9aa0, glasses: 'half', glassCol: 0x1d1d1f, wear: 'vest', size: 1.04, wide: 1.1 } };
+    makeBee(m); m.tag.visible = m.ask.visible = false; m.pick.forEach(o => { o.userData.bee = null; });
+    // what he holds: a hand bell, a broom, a torch / 손에 드는 것: 손종, 빗자루, 손전등
+    const hand = m.jar.parent;
+    m.bell = new THREE.Group(); hand.add(m.bell);
+    put(m.bell, geo('hbell', () => new THREE.ConeGeometry(.09, .15, 14, 1, true)), mat(0xe0b040, { roughness: .3, metalness: .7, side: THREE.DoubleSide }), 0, -.04, .05, { rx: Math.PI, cast: false });
+    put(m.bell, cylG(.02, .02, .13, 6), C.woodDark, 0, .08, .05, { cast: false });
+    m.broom = new THREE.Group(); hand.add(m.broom);
+    put(m.broom, cylG(.02, .02, 1.25, 6), C.wood, 0, -.35, .12, { cast: false }); block(m.broom, .34, .16, .08, mat(0xc9a35a), 0, -1.06, .12, { cast: false });
+    m.torch = new THREE.Group(); hand.add(m.torch);
+    put(m.torch, cylG(.035, .03, .22, 10), C.dark, 0, 0, .08, { rx: Math.PI / 2, cast: false }); put(m.torch, sphG(.04, 10), new THREE.MeshBasicMaterial({ color: 0xfff2b0 }), 0, 0, .2, { cast: false });
+    m.beam = new THREE.SpotLight(0xfff2c8, 0, 9, .45, .6, 1.2); m.beam.position.set(0, 0, .2); m.torch.add(m.beam); m.torch.add(m.beam.target); m.beam.target.position.set(0, -1.2, 3);
+    m.goal = { ...MGR_SEAT, pose: 'read', key: 'seat' };
+  }
+}
+
+// what the manager does / 관리소장이 하는 일
+const MG = { task: null, queue: [], seen: null, off: null, rang: new Map(), phoned: 0, outAt: 0, hot: false };
+const MGR_SPOTS = {
+  door: { floor: 0, x: 0, z: 11.6, look: [0, -1] },          // in front of the lobby's doors / 로비 문 앞
+  gate: { floor: 0, x: 2.4, z: 24.4, look: [0, 1] },         // the gate on the road / 도로 쪽 정문
+  sweep: [{ floor: 0, x: -2.8, z: 19.4, look: [1, 0] }, { floor: 0, x: 2.6, z: 13.2, look: [-1, 0] }, { floor: 0, x: -6.2, z: 13, look: [1, 0] }],
+  rounds: [{ floor: 0, x: -9.4, z: 12.4 }, { floor: 0, x: 9.4, z: 12.4 }, { floor: 0, x: 9.6, z: 23.6 }, { floor: 0, x: -3, z: 24.4 }],
+};
+const dark = () => (W.lampK || 0) > .5 || sky.day < .3;
+function mgrSeat() { return { ...MGR_SEAT, pose: shiftOff || dark() ? 'sit' : 'read', key: 'seat' }; }
+// to a spot, to do `pose` there for `secs`, saying `say` / 어느 곳으로 가서 secs 초 동안 pose 를 하며 say 를 말한다
+function mgrGo(kind, steps) {
+  const m = W.manager; MG.task = { kind, steps, k: 0, at: 0 };
+  mgrStep(m);
+}
+function mgrStep(m) {
+  const T = MG.task, s = T.steps[T.k];
+  m.goal = { ...s.goal, pose: s.pose, key: `${T.kind}${T.k}` }; m.arrived = false; m.sprint = !!s.run; T.at = 0;
+  route(m, m.goal);
+}
+function mgrHome() {
+  const m = W.manager; MG.task = null; MG.outAt = performance.now() / 1000;
+  m.goal = mgrSeat(); m.arrived = false; m.sprint = false; route(m, m.goal);
+}
+// after each poll: what has happened, and what to do when he is free / 매번 읽은 뒤: 일어난 일, 그리고 한가할 때 할 일
+function managerThink(list, home) {
+  const m = W.manager; if (!m || !m.goal) return;
+  const keys = new Set(list.map(s => s.key)), homeKeys = new Set(home.map(s => s.key)), now = performance.now() / 1000;
+  if (MG.seen) {
+    if (MG.off !== null && MG.off !== shiftOff) MG.queue.push(shiftOff ? 'lock' : 'open');
+    else {
+      if ([...keys].some(k => !MG.seen.has(k))) MG.queue.push('greet');
+      if ([...MG.seen].some(k => !keys.has(k) && !homeKeys.has(k))) MG.queue.push('bye');
+    }
+  }
+  MG.seen = keys; MG.off = shiftOff;
+  MG.queue = [...new Set(MG.queue)];
+  const hot = (W.limits || []).reduce((a, x) => Math.max(a, x.week ?? 0, x.five ?? 0), 0);
+  MG.hot = hot >= 70;
+  if (MG.task) return;
+  const say = (ko, en) => tr(ko, en);
+  const next = MG.queue.shift();
+  if (next === 'lock') return mgrGo('lock', [{ goal: MGR_SPOTS.door, pose: 'key', secs: 4, say: say('문단속 끝! 다들 수고했어요 🔒', 'All locked up. Good night 🔒') }]);
+  if (next === 'open') return mgrGo('open', [{ goal: MGR_SPOTS.door, pose: 'key', secs: 4, say: say('문 열었어요. 좋은 아침! 🔓', 'Doors open. Good morning! 🔓') }]);
+  if (next === 'greet') return mgrGo('greet', [{ goal: MGR_SPOTS.gate, pose: 'wave', secs: 6, say: say('어서 와요! 👋', 'Welcome aboard! 👋') }]);
+  if (next === 'bye') return mgrGo('bye', [{ goal: MGR_SPOTS.gate, pose: 'wave', secs: 5, say: say('수고했어요, 잘 가요 👋', 'Thanks for the work, bye 👋') }]);
+  // a bee that has waited long: ring the bell by it, once in ten minutes / 오래 기다린 벌: 그 곁에서 종을 울린다. 10분에 한 번
+  const waiter = [...bees.values()].filter(b => b.s.state === 'wait' && b.s.age > 150 && b.arrived && b.goal && b.floor >= 0 && now - (MG.rang.get(b.key) || -1e9) > 600)
+    .sort((a, b) => b.s.age - a.s.age)[0];
+  if (waiter && !shiftOff) {
+    MG.rang.set(waiter.key, now);
+    const lk = [waiter.pos.x - (waiter.pos.x + .9), waiter.pos.z - (waiter.pos.z + .5)];
+    return mgrGo('bell', [{ goal: { floor: waiter.floor, x: waiter.pos.x + .9, z: waiter.pos.z + .5, look: lk }, pose: 'bell', secs: 6, run: true,
+      say: say(`🔔 ${tagName(waiter.s)} 이(가) 기다려요!`, `🔔 ${tagName(waiter.s)} is waiting for you!`) }]);
+  }
+  if (hot >= 90 && now - MG.phoned > 1800) { MG.phoned = now; return mgrGo('phone', [{ goal: MGR_SEAT, pose: 'phone', secs: 8, say: say('📞 여보세요, 한도가 거의 찼어요!', '📞 Hello? We are almost at the limit!') }]); }
+  if (now - MG.outAt < 240) return;
+  if (sky.snow > 0) return mgrGo('sweep', MGR_SPOTS.sweep.map((p, k) => ({ goal: p, pose: 'sweep', secs: 9, say: k ? '' : say('눈 좀 치워야겠네 ❄️', 'Time to sweep the snow ❄️') })));
+  if (dark()) return mgrGo('rounds', MGR_SPOTS.rounds.map((p, k) => ({ goal: { ...p, look: [0, 1] }, pose: 'torch', secs: 1.5, say: k ? '' : say('순찰 돌 시간 🔦', 'On my rounds 🔦') })));
+}
+// every frame: walk, pose, say, and the booth's lamps / 매 프레임: 걷기, 자세, 말, 관리사무실 등
+function managerFrame(t, dt, dist) {
+  const m = W.manager; if (!m || !m.goal) return;
+  if (m.legs.length) step(m, dt); else m.moving = false;
+  if (!m.legs.length && !m.arrived) m.arrived = true;
+  const T = MG.task, now = performance.now() / 1000;
+  if (T && m.arrived) {
+    const s = T.steps[T.k];
+    if (!T.at) { T.at = now; if (s.say) sayOver(m, s.say, Math.max(3000, s.secs * 1000)); }
+    else if (now - T.at > s.secs) { if (++T.k < T.steps.length) mgrStep(m); else mgrHome(); }
+  }
+  if (!T && m.arrived && m.goal.key === 'seat' && m.goal.pose !== mgrSeat().pose) m.goal = mgrSeat();
+  animate(m, t, dt);
+  // his own poses on top of the bees' ones / 벌의 자세 위에 그만의 자세
+  const st = m.legs.length ? 'walk' : m.goal.pose, here = m.arrived && !m.legs.length, [la, ra] = m.arms, torch = T && T.kind === 'rounds';
+  m.bell.visible = st === 'bell' && here; m.broom.visible = st === 'sweep' && here; m.torch.visible = !!torch; m.beam.intensity = torch && dark() ? 14 : 0;
+  if (m.umbrella && (!T || m.goal.key === 'seat')) m.umbrella.visible = m.umbrella.visible && !(here && m.goal.key === 'seat');
+  if (!reduced) {
+    if (torch) { ra.rotation.set(-1.25, 0, -.1); }
+    else if (here && st === 'bell') { ra.rotation.set(-2.5 + Math.sin(t * 16) * .35, 0, -.25); m.body.position.y = 0; }
+    else if (here && st === 'wave') { ra.rotation.set(0, 0, -2.5 + Math.sin(t * 6) * .35); }
+    else if (here && st === 'key') { ra.rotation.set(-1.45, 0, -.1 + Math.sin(t * 3) * .4); m.head.rotation.x = .15; }
+    else if (here && st === 'sweep') { la.rotation.set(-.7, 0, .1); ra.rotation.set(-.55 + Math.sin(t * 4) * .35, 0, -.1); m.body.rotation.x = .18; m.body.rotation.z = Math.sin(t * 4) * .06; }
+  }
+  m.g.visible = (m.riding ? focus === null || m.y <= focus * FH + .1 : floorShown(m.floor)) && dist < 700;
+  // the lamp on the roof turns while an account is near its limit; the booth is lit in the dark
+  // 계정이 한도에 가까우면 지붕 경광등이 돈다. 어두우면 관리사무실에 불이 켜진다
+  if (W.beacon) { W.beacon.visible = MG.hot; if (MG.hot) W.beacon.material.color.setHSL(.07, 1, .45 + (reduced ? 0 : Math.max(0, Math.sin(t * 7)) * .25)); }
+  if (W.boothLamp) W.boothLamp.intensity = dark() ? 6 : 0;
 }
 
 function buildWork(F, p, nth) {
@@ -1312,6 +1475,9 @@ async function poll() {
   }
   first = false;
   if (shiftOff !== wasOff) applyFocus();
+  const lim = (d.offices || []).flatMap(o => o.limits || []);
+  if (JSON.stringify(lim) !== JSON.stringify(W.limits || [])) { W.limits = lim; if (W.meter) W.meter.redraw(lim); }
+  managerThink(list, home);
   syncHelpers(); counts(); boards(); homeLights();
   afterPoll(d);
 }
@@ -2172,7 +2338,7 @@ function pose2d(b) {
   if (b.flying || b.moving || b.riding) return 'walking';
   const st = b.legs.length ? b.legs[0].pose || 'walk' : b.goal ? b.goal.pose : 'walk';
   return { type: 'typing', wait: 'waiting', jar: 'done', coffee: 'resting', sit: 'resting', beer: 'beer', bar: 'standing', chat: 'chat', board: 'board',
-    pong: 'pong', swim: 'swim', clap: 'clapping', tv: 'tv', read: 'reading', phone: 'phone', walk: 'walking',
+    pong: 'pong', swim: 'swim', clap: 'clapping', tv: 'tv', read: 'reading', phone: 'phone', walk: 'walking', bell: 'waiting', wave: 'waiting',
     lie: b.goal && b.goal.home ? 'sleeping' : 'resting' }[st] || 'standing';
 }
 // The scene that only changes with the building: the sky, the ground, the floors and what is in them, the
@@ -2255,12 +2421,22 @@ function flatScene() {
       if (c.who && c.who.left) out.push(T(c.x, c.yc - .2, tr('빈집', 'VACANT'), 'f-vac'));
     });
   }
+  // the management office on the plaza, by the road / 도로 옆 광장의 관리사무실
+  {
+    const by = flat.gy + 20 + Math.min(1, (BOOTH.z - 1.2 - Z1) / (PLAZA_Z - Z1)) * 58, bh = 2.5 * k * .9, bx0 = sxOf(BOOTH.x - 1.6), bw = 3.2 * k;
+    out.push(`<g class="f-booth"><rect x="${bx0}" y="${by - bh}" width="${bw}" height="${bh}" fill="#f1ece2" ${ink}/>` +
+      `<rect x="${bx0 + bw * .08}" y="${by - bh * .78}" width="${bw * .55}" height="${bh * .38}" fill="#cfe6f2" ${ink}/>` +
+      `<rect x="${bx0 + bw * .72}" y="${by - bh * .8}" width="${bw * .2}" height="${bh * .8}" fill="#8d6544" ${ink}/>` +
+      `<rect x="${bx0 - bw * .06}" y="${by - bh - 6}" width="${bw * 1.12}" height="8" fill="#2b2f36"/>` +
+      `<g id="f-beacon"></g><text x="${bx0 + bw / 2}" y="${by - bh - 12}" class="f-s" text-anchor="middle">${escape(tr('관리사무실', 'MANAGEMENT'))}</text></g>`);
+  }
   for (const x of [X0 - 1.6, X1 + 3, FX1 - 1]) out.push(`<path d="M${sxOf(x)} ${gy} v-26" stroke="#7a5638" stroke-width="7"/><circle cx="${sxOf(x)}" cy="${gy - 40}" r="20" fill="#4f9a5a" ${ink}/><circle cx="${sxOf(x) - 13}" cy="${gy - 30}" r="12" fill="#3f8a4c" ${ink}/>`);
   out.push(`<g id="f-rain"></g><g id="f-bees"></g><g id="f-tags"></g>`);
   flat.svg.innerHTML = out.join('');
   zoomTo(flat.to, true);
   for (const b of bees.values()) if (b.f2) b.f2.el = null, b.f2.art = '';
   if (W.bartender && W.bartender.f2) W.bartender.f2.el = null, W.bartender.f2.art = '';
+  if (W.manager && W.manager.f2) W.manager.f2.el = null, W.manager.f2.art = '';
   flat.order = ''; flat.skyAt = 0; flat.comb = -1; flat.tagsAt = 0;
 }
 // where a bee stands on the picture, before spreading / 벌이 그림에서 설 자리 (벌리기 전)
@@ -2274,7 +2450,7 @@ function place2d(b) {
 function flatFrame(t, dt) {
   const layer = $('#f-bees'); if (!layer) return;
   zoomStep(dt);
-  const all = [...bees.values()]; if (W.bartender) all.push(W.bartender);
+  const all = [...bees.values()]; if (W.bartender) all.push(W.bartender); if (W.manager) all.push(W.manager);
   const size = flat.band * .52 / 100, rows = new Map();
   for (const b of all) {
     const p = place2d(b);
@@ -2310,7 +2486,7 @@ function flatFrame(t, dt) {
     }
     if (f.art !== art) {
       f.art = art; f.left = left;
-      f.el.innerHTML = BEE2D.pose[pose](b.s ? look2d(b) : { tone: '#ffd34d', hair: 2, hairColor: '#2a1f1a', hat: '', glasses: false, shirt: '#2b2f36' }).replace('<svg ', `<svg class="p-${pose}" width="110" height="100" `);
+      f.el.innerHTML = BEE2D.pose[pose](b.s || b === W.manager ? look2d(b) : { tone: '#ffd34d', hair: 2, hairColor: '#2a1f1a', hat: '', glasses: false, shirt: '#2b2f36' }).replace('<svg ', `<svg class="p-${pose}" width="110" height="100" `);
     }
     f.el.setAttribute('transform', f.left ? `translate(${f.x + 45 * f.s} ${f.y - 100 * f.s}) scale(${-f.s} ${f.s})` : `translate(${f.x - 45 * f.s} ${f.y - 100 * f.s}) scale(${f.s})`);
     f.el.style.opacity = focus === null || f.row === focus || f.row === 'lift' ? '' : '.3';
@@ -2344,6 +2520,12 @@ function flatFrame(t, dt) {
       const why = st === 'wait' && whyOf(b.s);
       if (why) tags.push(`<g transform="translate(${f.x + 14 * iz} ${y - 22 * iz}) scale(${iz})" class="f-why" data-bee="${b.key}"><rect x="0" y="-18" width="${[...why.label].length * 9 + 34}" height="22" rx="8" fill="#fff" stroke="#e8890c" stroke-width="2"/><text x="8" y="-2.5">${why.icon} ${escape(why.label)}</text></g>`);
     }
+    // what the manager says, over his head / 관리소장이 하는 말, 머리 위에
+    const M = W.manager;
+    if (M && M.f2 && M.sayObj && M.sayObj.visible) {
+      const text = M.sayEl.textContent, w = [...text].length * 8.4 + 22;
+      tags.push(`<g transform="translate(${M.f2.x} ${M.f2.y - 104 * M.f2.s - 8 * iz}) scale(${iz})" class="f-tag"><rect x="${-w / 2}" y="-17" width="${w}" height="22" rx="10" fill="#fff" stroke="#34507a" stroke-width="1.8"/><text x="0" y="-1.5" text-anchor="middle">${escape(text)}</text></g>`);
+    }
     $('#f-tags').innerHTML = tags.join('');
     // the honey wall fills with today's honey / 꿀 벽이 오늘의 꿀만큼 찬다
     const comb = $('#f-comb'), F = W.floors.find(F => F.kind === 'lobby');
@@ -2364,6 +2546,8 @@ function flatFrame(t, dt) {
     $('#f-grass').setAttribute('fill', mix('#3d5a3a', '#9fc483', .35 + d * .65)); $('#f-hill').setAttribute('fill', mix('#33502f', '#b5d79a', .35 + d * .65));
     $('#f-sun').innerHTML = d > .3 ? `<circle cx="${innerWidth - 120}" cy="150" r="30" fill="#ffd34d" ${ink}/>` : `<circle cx="${innerWidth - 120}" cy="150" r="24" fill="#f4f1ea" ${ink}/><circle cx="${innerWidth - 110}" cy="143" r="20" fill="${skyCol}"/>`;
     flat.svg.classList.toggle('f-dark', d < .35 || grey > .5);
+    const bc = $('#f-beacon');
+    if (bc) bc.innerHTML = MG.hot ? `<circle class="f-blink" cx="${sxOf(BOOTH.x + 1.3)}" cy="${flat.gy + 20 + Math.min(1, (BOOTH.z - 1.2 - Z1) / (PLAZA_Z - Z1)) * 58 - 2.5 * flat.k * .9 - 12}" r="5" fill="#ff8a1e" ${ink}/>` : '';
     const rain = $('#f-rain'), wet = sky.rain > 0 || sky.snow > 0;
     if (rain && wet !== !!rain.firstChild) rain.innerHTML = wet
       ? Array.from({ length: 80 }, (_, n) => { const x = (n * 97) % innerWidth, y = (n * 53) % flat.gy; return sky.rain > 0 ? `<path d="M${x} ${y} l-4 14" stroke="#7d93a8" stroke-width="1.6"/>` : `<circle cx="${x}" cy="${y}" r="2.4" fill="#fff"/>`; }).join('') : '';
@@ -2499,6 +2683,7 @@ function frame() {
   if (!reduced) { RIPPLE.offset.x = t * .02; RIPPLE.offset.y = Math.sin(t * .3) * .05; }
   for (const list of W.flames) if (list) list.forEach((f, k) => { f.scale.set(1, .8 + Math.sin(t * 9 + k * 2) * .2 + Math.sin(t * 13 + k) * .1, 1); });
   if (W.bartender) { const bt = W.bartender; animate(bt, t, dt); bt.g.visible = floorShown(bt.floor); }
+  managerFrame(t, dt, dist);
   for (const F of W.floors) F.group.traverse(o => { if (o.isCSS2DObject && o.userData.floorLabel !== undefined) o.visible = focus === o.userData.floorLabel; });
   if (FLAT) flatFrame(t, dt); else { renderer.render(scene, camera); labels.render(scene, camera); }
   requestAnimationFrame(frame);

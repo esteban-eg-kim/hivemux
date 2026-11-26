@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Bee office: a small management office on the plaza by the road, with a manager. He reads the paper at the
+  counter, locks up when everyone clocks out and opens up when they clock in, welcomes a new bee at the gate and
+  waves one off, rings a hand bell by a bee that has waited over two and a half minutes (once in ten), and reads
+  each account's usage on the meter board out front: a lamp turns on the roof from 70% of a limit, a phone call
+  from 90%. In the snow he sweeps the plaza, at night he walks it with a torch. In 2D too.
 ## 0.1.85 — 2026-11-26
 
 - The status line's left block shows hivemux, the logo's hexagon and its name (⬡ hivemux), instead of the

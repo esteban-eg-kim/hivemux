@@ -227,6 +227,13 @@ a look of its own, at work in a glass office building in 3D:
 - **Done** bees hold up a jar of honey; once you have looked, they go down to
   the lobby or up to the roof to rest. The honey wall in the lobby fills a cell
   for every task finished today, and a full comb puts a jar on the shelf under it.
+- **The manager.** A small management office stands on the plaza by the road,
+  and its manager sits at the counter with the paper. He locks up when everyone
+  clocks out and opens up when they clock in, welcomes a new bee at the gate and
+  waves one off, runs up to a bee that has waited long and rings a hand bell by
+  it, and reads the accounts' usage on the meter board out front: a lamp turns on
+  the roof from 70% of a limit, and from 90% he gets on the phone. He sweeps the
+  snow, and walks the plaza with a torch at night.
 - **Moving around.** Drag to turn, right-drag to move, wheel to zoom; the walls
   facing you are cut away. The floor bar on the right lists the floors with how
   many bees work, wait and are done on each: click one (or `1`–`9`) to open it,

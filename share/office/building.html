@@ -180,6 +180,8 @@ body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); }
 .pop[data-lvl="3"] .ring { border-color: var(--alert); animation: ring .7s ease-out infinite; }
 .pop[data-lvl="3"] .pop-card { border-color: var(--alert); }
 .pop[data-lvl="3"] .pop-w { color: var(--alert); }
+.f-blink { animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: .2; } }
 @keyframes ring { from { opacity: .9; transform: scale(.85); } to { opacity: 0; transform: scale(1.25); } }
 /* who clocks out or in, Mac by Mac / 누가 퇴근·출근할지, Mac 마다 */
 .shift { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: var(--scrim); padding-inline: 16px; }
