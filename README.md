@@ -700,9 +700,9 @@ with its path pasted for Claude to read. Several at once, no folders, up to
   Ghostty, else the desktop's terminal (`x-terminal-emulator`).
 - **Two screens, one project.** Two screens on the same project share it:
   switching windows on one moves the other.
-- **Light on the network.** While a remote screen looks at a window, its sidebar
-  keeps still (no spinners in the sidebar or the status line): every animation frame
-  would go over the network.
+- **Light on the network.** While a screen from another Mac is attached, the sidebars keep
+  still in every window (no spinners), because every animation frame would go over the network;
+  each shows `⇄ <Mac> attached · animation off` under its head.
 
 ## How it works
 
