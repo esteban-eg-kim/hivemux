@@ -1,6 +1,6 @@
 # <img src="docs/logo/hivemux-logo.svg" alt="" width="40"> hivemux
 
-[English](README.md) · **한국어** · [hivemux.dev](https://hivemux.dev/ko/) · [문서](https://hivemux.dev/ko/docs/)
+[English](README.md) · **한국어** · [hivemux.dev](https://hivemux.dev/ko/) · [문서](https://hivemux.dev/ko/docs/) · [가이드](https://hivemux.dev/ko/guides/)
 
 **Claude Code 세션 다섯 개를 동시에 돌려도, 지금 나를 기다리는 작업이 무엇인지 한눈에 봅니다.**
 
@@ -341,6 +341,22 @@ touch ~/tmux_no_auto_restore       # 다음 시작 때 복원 건너뛰기
 Linux에서 `tmux 3.2: need 3.3 or newer`가 나오면 배포판의 tmux가 너무 오래된 것입니다(Ubuntu 22.04). Ubuntu 24.04 이상, Debian 12 이상, Fedora, Arch를 쓰세요.
 
 자세한 내용은 [hivemux.dev 문서](https://hivemux.dev/ko/docs/)나 그림 가이드 [`docs/guide.html`](docs/guide.html)([English](docs/guide.en.html))에 있습니다. 내려받아 브라우저로 여세요.
+
+## 가이드
+
+hivemux 가 없어도 쓸 수 있는 Claude Code 실전 가이드입니다.
+
+- [Claude Code 세션 관리 총정리](https://hivemux.dev/ko/guides/claude-code-session-management/): ID, 이어 가기, 재시작, 여러 세션
+- [Claude Code 세션 ID 확인 방법](https://hivemux.dev/ko/guides/claude-code-session-id/): 지금 세션과 지난 세션
+- [Claude Code 세션 이어 가기](https://hivemux.dev/ko/guides/resume-claude-code-sessions/): `--continue`, `--resume`, `/resume`, 재부팅 뒤 복구
+- [대화를 잃지 않고 Claude Code 재시작하기](https://hivemux.dev/ko/guides/restart-claude-code/)
+- [Claude Code 여러 세션 동시에 실행하기](https://hivemux.dev/ko/guides/run-multiple-claude-code-sessions/)
+- [Claude Code 와 tmux](https://hivemux.dev/ko/guides/claude-code-tmux/), [터미널을 닫아도 계속 실행되게 하기](https://hivemux.dev/ko/guides/keep-claude-code-running/)
+- [Claude Code 입력 대기·작업 완료 알림](https://hivemux.dev/ko/guides/claude-code-notifications/)
+- [Claude Code 사용 한도에 걸렸을 때](https://hivemux.dev/ko/guides/claude-code-usage-limit/)
+- [Claude Code 세션 관리 도구 비교](https://hivemux.dev/ko/guides/session-managers/)
+
+전체 목록은 [hivemux.dev/ko/guides](https://hivemux.dev/ko/guides/)에 있습니다.
 
 ## 제거
 

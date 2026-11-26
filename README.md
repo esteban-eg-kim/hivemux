@@ -1,6 +1,6 @@
 # <img src="docs/logo/hivemux-logo.svg" alt="" width="40"> hivemux
 
-**English** · [한국어](README.ko.md) · [hivemux.dev](https://hivemux.dev) · [Docs](https://hivemux.dev/docs/)
+**English** · [한국어](README.ko.md) · [hivemux.dev](https://hivemux.dev) · [Docs](https://hivemux.dev/docs/) · [Guides](https://hivemux.dev/guides/)
 
 **Run five Claude Code sessions at once and always know which one needs you.**
 
@@ -741,6 +741,22 @@ On Linux, `tmux 3.2: need 3.3 or newer` means the distribution's tmux is too old
 (Ubuntu 22.04): use Ubuntu 24.04+, Debian 12+, Fedora or Arch.
 
 More in the docs at [hivemux.dev/docs](https://hivemux.dev/docs/), or the illustrated guide: [`docs/guide.en.html`](docs/guide.en.html) ([한국어](docs/guide.html)); download it and open it in a browser.
+
+## Guides
+
+Practical answers for working with Claude Code, with or without hivemux:
+
+- [Claude Code session management](https://hivemux.dev/guides/claude-code-session-management/): IDs, resume, restart and many sessions at once
+- [Find the Claude Code session ID](https://hivemux.dev/guides/claude-code-session-id/), current or past
+- [Resume a Claude Code session](https://hivemux.dev/guides/resume-claude-code-sessions/) with `--continue`, `--resume` and `/resume`, even after a reboot
+- [Restart Claude Code without losing the chat](https://hivemux.dev/guides/restart-claude-code/)
+- [Run multiple Claude Code sessions at once](https://hivemux.dev/guides/run-multiple-claude-code-sessions/)
+- [Claude Code with tmux](https://hivemux.dev/guides/claude-code-tmux/) and [keeping it running](https://hivemux.dev/guides/keep-claude-code-running/)
+- [Claude Code notifications](https://hivemux.dev/guides/claude-code-notifications/) for input and finished tasks
+- [When Claude Code hits its usage limit](https://hivemux.dev/guides/claude-code-usage-limit/)
+- [Claude Code session managers compared](https://hivemux.dev/guides/session-managers/)
+
+All of them at [hivemux.dev/guides](https://hivemux.dev/guides/).
 
 ## Uninstall
 
