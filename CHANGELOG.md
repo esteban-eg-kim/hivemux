@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.1.86 — 2026-11-26
 
 - Bee office: a small management office on the plaza by the road, with a manager. He reads the paper at the
