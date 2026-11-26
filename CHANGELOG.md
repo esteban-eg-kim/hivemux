@@ -8,6 +8,7 @@
   status line's marks and pickup badges the sidebar's colours.
 - Sidebar: the line of this window's Claude stands out more, lighter with its name bold. The lead wears a star
   after its name, gold in Graphite, yellow in Prism, instead of the word.
+
 ## 0.1.84 — 2026-11-26
 
 - Sidebar: a wide sidebar puts the accounts' limits side by side, two at 66 columns, three at 100.
