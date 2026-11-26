@@ -57,7 +57,7 @@ Everything, by version: [CHANGELOG](CHANGELOG.md) or
   [Teams](#teams).
 - **Notifications.** A desktop notification when a task needs input or finishes,
   except the one you are looking at. Turn it off in Settings.
-- **Jump anywhere.** `Option+1..9`, `Option+0` (oldest waiting), or click a card.
+- **Jump anywhere.** `Option+1..9`, `Option+0` (oldest waiting), or click a Claude's line.
 - **Pickup board.** Like the order board at a food court, the right of the top
   status line shows a round number badge (the task's `Option` number) for every
   task, in any project, that needs input (amber) or finished and is not seen
@@ -73,25 +73,22 @@ Everything, by version: [CHANGELOG](CHANGELOG.md) or
   `◉ <account>`. Or have them go on with an API key by themselves until the limit
   resets. A list of every artifact your Claudes published says which account it
   belongs to. See [More than one Claude account](#more-than-one-claude-account).
-- **Why it waits, and answer from the office.** A waiting card says what it
-  waits for: an approval (with Claude's own one-line description of the
-  command, or the file), a plan, a question, or an error; a finished one says
-  how many files the turn changed, and one whose turn ended with background
-  work still going says so until it really finishes ("2 agents running",
-  "waiting on 1 shell" for a build or a data import; a dev server does not
-  count). A resting card shows how much context the Claude carries (`142K`).
+- **Why it waits, and answer from the office.** A waiting Claude's line turns
+  amber and says under it what it waits for: an approval (with Claude's own
+  one-line description of the command, or the file), a plan, a question, or an
+  error. A resting one shows how much context the Claude carries (`142K`).
   In the bee office, click the waiting bee's bubble and press the answer there.
 - **Clock out, clock in.** Stop every Claude for the night and bring them all
   back in the morning, in the same conversations, while the bees go home to
   their flats in the Hive Residence and come back to work.
-- **Task names.** Shows Claude's own conversation title. Double-click a card
+- **Task names.** Shows Claude's own conversation title. Double-click a Claude's line
   (or right-click → Rename) to rename it; hivemux sends `/rename` to that Claude (waits if it is busy).
   A session with no name of its own gets the sidebar's name the first time its turn ends, so the Claude
   app lists it by that name instead of `<host>-local-<word>-<word>`. A Remote Control that reconnected (and lost
   its name in the app) is reconnected with the name (`tmux set -g @hivemux-autoname off` stops both).
-- **Your order.** Drag a card to reorder tasks, or a project header to reorder
+- **Your order.** Drag a Claude's line to reorder tasks, or a project header to reorder
   projects. `Option+N` numbers and the top window list follow the same order.
-  In a team, dragging a role card changes the team's order (the lead stays on top).
+  In a team, dragging a role's line changes the team's order (the lead stays on top).
 - **Work from your laptop.** Keep the Claudes running on a desktop Mac or a
   Linux server and pick them up from a laptop with `hivemux connect`. It is more
   than an ssh window: `Ctrl+V` pastes a screenshot from the laptop into the
@@ -297,9 +294,9 @@ one comes back in the same conversation (`claude --resume`) while the bees fly
 down and walk back to work. A reboot while clocked out leaves them home.
 
 One Claude or one project can also go home on its own while the rest work on:
-right-click its card → Clock this Claude out…, or a project's name → Clock this
-project out… Its card stays in the sidebar, dimmed ("home · right-click to
-clock in"); right-click it → Clock in brings it back in the same conversation
+right-click its line → Clock this Claude out…, or a project's name → Clock this
+project out… Its line stays in the sidebar, dimmed, with "home" on the right;
+right-click it → Clock in brings it back in the same conversation
 (a plain click does nothing, so a slip while picking a project is harmless).
 Clocking everyone in brings it back too.
 
@@ -310,7 +307,7 @@ Clocking everyone in brings it back too.
 
 A bee is a project and the Claude's name in it, so it stays the same bee, with
 the same look and flat, across `/clear`, new conversations and restarts. A new
-name is hired; closing that Claude (`/exit`, right-click its card → Close
+name is hired; closing that Claude (`/exit`, right-click its line → Close
 Claude…, or its window for ten minutes) or its project is leaving, and its flat
 stays empty with a sign until a newcomer moves in. The same name coming back is
 rehired, into its old flat if it is still free. The honey ranking marks who left
@@ -332,7 +329,7 @@ to it; every Claude carries on in the same conversation.
 - **One project.** Right-click a project's name → **Account for this
   project…** gives that project its own account (`hivemux account use work -s
   api`); "Same as all projects" undoes it.
-- **Shared with someone.** Right-click a card → **Hide from the Claude app**
+- **Shared with someone.** Right-click a Claude's line → **Hide from the Claude app**
   (or a project name → **Hide this project from the Claude app**, its team
   too) keeps those Claudes out of the Claude app and claude.ai: hivemux
   disconnects their Remote Control through `/remote-control` (a busy one when
@@ -553,14 +550,14 @@ the install command again (git install). Claude Code itself: right-click → Upd
 |---|---|
 | `Option+1` … `9` | jump to that Claude (any session) |
 | `Option+0` / `prefix Space` | oldest waiting Claude, else oldest unseen finished one |
-| click card / project name | jump · double click a card: rename. A project whose Claude windows are all closed stays listed ("no Claude") until you close it |
-| right click | menu. On a task: go to, rename, move up/down, clock this Claude out, close Claude, new Claude, new project. On a clocked-out (dimmed) card: clock in, go to, close Claude. On a project name: rename, Team…, close project, account for this project, clock this project out / in, new Claude, new project. On empty space: new project. Every menu ends with Open path…, Ports…, Bee office, Pages…, (on empty space: Clock everyone out / in…), Update Claude…, Update hivemux…, Switch account…, Connect to…, Sidebar width… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes. A popup that asks starts on Cancel, so `Enter` alone never confirms |
+| click a Claude / project name | jump · double click a Claude: rename. A project whose Claude windows are all closed stays listed ("no Claude") until you close it |
+| right click | menu. On a task: go to, rename, move up/down, clock this Claude out, close Claude, new Claude, new project. On a clocked-out (dimmed) Claude: clock in, go to, close Claude. On a project name: rename, Team…, close project, account for this project, clock this project out / in, new Claude, new project. On empty space: new project. Every menu ends with Open path…, Ports…, Bee office, Pages…, (on empty space: Clock everyone out / in…), Update Claude…, Update hivemux…, Switch account…, Connect to…, Sidebar width… and Settings. Choose with the mouse, `↑↓` `Enter` or the letter shown; `Esc` closes. A popup that asks starts on Cancel, so `Enter` alone never confirms |
 | menu → Team… | the project's team page in the bee office window: set up, start and stop a team, send the lead a goal (see [Teams](#teams)) |
 | menu → Close Claude | asks, then closes that Claude: its pane, or its window when nothing else is in it; a project's last window keeps its shell. Not resumed again, like `/exit`; `claude --resume` still continues the conversation |
 | menu → New project | folder browser in the middle: `Enter` starts the selected folder (like `hm`), `→` / `←` in and out, type to filter, `Ctrl+N` new folder |
 | menu → Sidebar width | Narrow 24 / Medium 32 / Wide 44 or a width of your own, applied once on Enter |
 | menu → Settings | language (한국어 / English), theme (Graphite: grey tiles; Prism: each project in its own colour), animation, notifications, sidebar width, width drag (live, or on release), editor for Open path, this computer's name (shown in the bee office and on remote screens); applied at once and saved |
-| drag card / project header | reorder tasks / projects |
+| drag a Claude / project header | reorder tasks / projects |
 | `prefix Shift+↑` / `↓` | move the current task up / down (at a project's edge, the project moves) |
 | `Option+O` / menu → Open path | open a file path or link from recent output (Enter editor from Settings, Tab default app, ^F Finder or the file manager, ^Y copy; on a screen from another computer, on that computer). Links include the address under a link's text, which a terminal shows without it: Enter opens it in the browser of the computer you look from |
 | `Option+W` / menu → Ports | dev server ports forwarded between computers (Enter opens in the browser of the computer they reach, p opens one to that computer's Wi-Fi for a phone with its address and QR code, ^Y copies the address) |
@@ -580,7 +577,7 @@ Linux, `Option` is `Alt`.
 
 <p align="center">
   <img src="docs/img/menu-en.png" alt="Right-click menu on a task" width="430">
-  <img src="docs/img/reorder-en.png" alt="Dragging a card to reorder" width="430">
+  <img src="docs/img/reorder-en.png" alt="Dragging a Claude's line to reorder" width="430">
   <img src="docs/img/new-project-en.png" alt="New project folder browser" width="430">
   <img src="docs/img/settings-en.png" alt="Settings popup" width="430">
 </p>
@@ -693,7 +690,7 @@ with its path pasted for Claude to read. Several at once, no folders, up to
 - **Two screens, one project.** Two screens on the same project share it:
   switching windows on one moves the other.
 - **Light on the network.** While a remote screen looks at a window, its sidebar
-  keeps still (no pulsing cards, no status line spinner): every animation frame
+  keeps still (no spinners in the sidebar or the status line): every animation frame
   would go over the network.
 
 ## How it works
