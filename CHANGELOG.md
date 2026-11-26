@@ -2,9 +2,9 @@
 
 ## Unreleased
 
-- Sidebar in calmer colours: a softer amber for waiting, blue for work, green for done, project boxes in softened
-  tints; small marks (• waiting, ⋯ working, · idle) instead of the round ones, no bold. The lead reads "lead"
-  after its name instead of a star, and the office button lost its bee.
+- Sidebar in calmer colours: a softer amber for waiting, blue for work, green for done, project boxes in
+  softened tints; small marks (• waiting, ⋯ working, · idle) instead of the round ones, no bold. The lead
+  reads "lead" after its name instead of a star, and the office button lost its bee.
 - Sidebar: each login account's limits get a row of their own under the list, the week as a small bar (amber
   from 70%) with its percent, then the five hours. An account no Claude has reported on yet reads "not known
   yet" instead of being left out.
