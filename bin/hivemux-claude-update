@@ -88,6 +88,15 @@ restart() {
     resume "$pane" "$sid" "$cwd"; log "resume $pane -> $sid (was stopped)"; return 0
   fi
   st="$(t show -pqv -t "$pane" @claude_state)"; at="$(t show -pqv -t "$pane" @claude_state_at)"
+  # a team role in the middle of a diet (bin/hivemux-team): notes written, /clear typed, the fresh conversation not
+  # yet told to read them. Stopped there, it came back in that empty conversation, which --resume refuses, and the
+  # pane was left at its shell. Wait for the diet, unless it has been stuck for two minutes
+  # 다이어트 중인 팀 역할 (bin/hivemux-team): 노트를 썼고 /clear 를 쳤는데 새 대화에 아직 노트를 읽으라고 하지 않음.
+  # 거기서 멈추면 그 빈 대화로 돌아왔고, --resume 이 거절해 칸에 셸만 남았다. 다이어트가 끝나길 기다린다. 2분째
+  # 그대로면 멈춘 것으로 보고 넘어간다
+  case "$(t show -pqv -t "$pane" @hivemux-diet)" in notes|clear|compacting)
+    [[ "$at" =~ ^[0-9]+$ ]] && [ $(( $(date +%s) - at )) -lt 120 ] && return 1 ;;
+  esac
   # "now" (a switch of account, bin/hivemux-account): also on a screen, and also stopped by an API error (a rate limit)
   # "now" (계정 전환, bin/hivemux-account): 화면에 보여도, API 오류(요청 한도)로 멈췄어도
   # "back" (a usage limit reset, bin/hivemux-account): off the screens, but also stopped by an API error (the API
@@ -114,8 +123,11 @@ restart() {
   return 0
 }
 
+# The conversation's transcript, on any account / 그 대화의 기록. 어느 계정이든
+transcript() { ls "$HOME"/.claude/projects/*/"$1".jsonl "$STATE_DIR"/accounts/*/projects/*/"$1".jsonl 2>/dev/null | head -1; }
+
 resume() { # resume <pane> <session id> <cwd>
-  local cwd="$3" role claude_cmd
+  local cwd="$3" role claude_cmd tr_ name
   # Claude Code may have moved the conversation into its daemon (bin/hivemux-hook): stopping the pane's Claude left it
   # running there, and the resume was refused ("That session is running in the background")
   # Claude Code 가 대화를 데몬으로 옮겼을 수 있다 (bin/hivemux-hook): 칸의 Claude 를 멈춰도 거기서 계속 돌아, 재개가
@@ -127,6 +139,18 @@ resume() { # resume <pane> <session id> <cwd>
   [ -d "$cwd" ] || cwd=""
   # a team role (bin/hivemux-team) comes back with its model, effort and prompt / 팀 역할은 모델, 노력, 지시문과 함께 돌아온다
   role="$("$HM_BIN/hivemux-team" resume-args "$1" "$2" "$cwd" 2>/dev/null)"
+  # a conversation with no messages yet (just after /clear): --resume refuses it and the pane was left at its
+  # shell, so start a fresh one under the same name; a team role mid-diet then reads its notes (bin/hivemux-team)
+  # 아직 메시지가 없는 대화 (/clear 직후): --resume 이 거절해 칸에 셸만 남았다. 같은 이름으로 새로 시작한다.
+  # 다이어트 중인 팀 역할은 그다음 노트를 읽는다 (bin/hivemux-team)
+  tr_="$(transcript "$2")"
+  if [ -n "$tr_" ] && ! grep -q '"type":"\(user\|assistant\)"' "$tr_"; then
+    name="$(t show -pqv -t "$1" @claude_title)"
+    log "fresh $1: $2 has no messages"
+    if [ -n "$cwd" ]; then t send-keys -t "$1" " cd $(printf '%q' "$cwd") && $claude_cmd${name:+ -n $(printf '%q' "$name")}${role:+ $role}" Enter
+    else t send-keys -t "$1" " $claude_cmd${name:+ -n $(printf '%q' "$name")}${role:+ $role}" Enter; fi
+    return
+  fi
   if [ -n "$cwd" ]; then t send-keys -t "$1" " cd $(printf '%q' "$cwd") && $claude_cmd --resume $2${role:+ $role}" Enter
   else t send-keys -t "$1" " $claude_cmd --resume $2${role:+ $role}" Enter; fi
 }

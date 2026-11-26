@@ -1660,6 +1660,12 @@ def start_note(session, folder, team, role):
     return path, bool(last)
 
 
+def diet_reset(pane):
+    """Forget a diet that was cut off / 끊긴 다이어트를 잊는다"""
+    for o in ("@hivemux-diet", "@hivemux-diet-before", "@hivemux-diet-trim"):
+        tmux("set", "-pu", "-t", pane, o)
+
+
 def diet_begin(pane, folder, role, n):
     """Start a diet now, if the prompt is free / 입력창이 비었으면 지금 다이어트를 시작한다"""
     if not prompt_free(pane):
@@ -1710,6 +1716,9 @@ def on_stop(pane, transcript):
             tmux("set", "-p", "-t", pane, "@hivemux-diet", "clear")
             type_in(pane, "/clear")
         return
+    if st == "clear":                   # a turn ended, yet the /clear never took: start over / /clear 가 안 됐다: 처음부터
+        diet_reset(pane)
+        st = ""
     if st == "after":                   # the first answer after it: how small it got / 그 뒤 첫 응답: 얼마나 줄었나
         before = tmux("show", "-pqv", "-t", pane, "@hivemux-diet-before").strip()
         # the size it started at, not at the end of that answer: a long first turn (the notes, then an hour of
@@ -1996,13 +2005,21 @@ def on_start(pane, sid, source):
         return
     session, folder, team, role = found
     remember_pid(folder, pane, role)
-    if st == "clear" and source == "clear":
+    # a fresh start in place of the /clear (bin/hivemux-claude-update: the cleared conversation was empty) carries on too
+    # /clear 대신 새로 시작함 (bin/hivemux-claude-update: 비운 대화가 비어 있었다): 그래도 이어 간다
+    if st == "clear" and source in ("clear", "startup"):
         time.sleep(1.0)
         tmux("set", "-p", "-t", pane, "@hivemux-diet", "after")
         start, again = start_note(session, folder, team, role)
         type_in(pane, fresh_ask([start, notes_path(folder, role["id"])], again))
     elif st == "compacting" and source == "compact":
         tmux("set", "-p", "-t", pane, "@hivemux-diet", "after")
+    elif st in ("notes", "clear", "compacting"):
+        # back in a conversation some other way mid-diet (a restart resumed the one before the /clear): the diet
+        # was cut off, and left as it was no Stop would ever start one again. The next Stop decides afresh
+        # 다이어트 도중 다른 길로 대화에 돌아옴 (다시 시작이 /clear 전 대화로 재개): 다이어트가 끊겼고, 그대로 두면
+        # 어느 Stop 도 다시 시작하지 않았다. 다음 Stop 이 새로 정한다
+        diet_reset(pane)
 
 
 # ── hand-offs / 넘김 ───────────────────────────────────────────────────────────────────────────────────
