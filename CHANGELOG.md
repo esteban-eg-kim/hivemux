@@ -2,14 +2,14 @@
 
 ## Unreleased
 
-- The status line's left block shows hivemux, the logo's hexagon and its name (⬡ hivemux), instead of the project you
-  are in; in the sidebar the project you are in has hivemux's blue hexagon ⬢ before its name.
-- Sidebar head in one row: "Claude" and how many, then each state with its mark (● need input, ⋯ running, ✓ done),
-  the office button on the right; on a narrow sidebar the words get shorter or go, and at the narrowest the
-  button gives way (it is in the right-click menu too). The status line's marks and pickup badges take the
-  sidebar's colours.
-- Sidebar: the line of this window's Claude stands out more, lighter with its name bold. The lead wears a star
-  after its name, gold in Graphite, yellow in Prism, instead of the word.
+- The status line's left block shows hivemux, the logo's hexagon and its name (⬡ hivemux), instead of the
+  project you are in; in the sidebar the project you are in has hivemux's blue hexagon ⬢ before its name.
+- Sidebar head in one row: "Claude" and how many, then each state with its mark (● need input, ⋯ running, ✓
+  done), the office button on the right; on a narrow sidebar the words get shorter or go, and at the
+  narrowest the button gives way (it is in the right-click menu too). The status line's marks and pickup
+  badges take the sidebar's colours.
+- Sidebar: the line of this window's Claude stands out more, lighter with its name bold. The lead wears a
+  star after its name, gold in Graphite, yellow in Prism, instead of the word.
 
 ## 0.1.84 — 2026-11-26
 
