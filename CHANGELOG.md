@@ -5,9 +5,10 @@
 - Sidebar redrawn simpler: a project is a grey tile under its name, which stands on a lighter band half a
   row taller above and below, with its waiting and working counts; no project colours, boxes in boxes or
   band of light. A Claude is one line with a small mark (• waiting, ⋯ working, ✓ done, · resting, done over
-  an hour ago too), its name and time; a waiting one keeps its why under it. A team's roles sit under ⁂ and
-  the team's name behind a vertical line, the lead with "lead" after its name, the project's other Claudes a
-  row apart after them. Calmer colours throughout; 66 columns now make two columns of tiles.
+  an hour ago too), its name and time; a waiting one keeps its why under it. One clocked out reads "home" on
+  the right in lavender, one working on after clocking out "overtime" after its name. A team's roles sit
+  under ⁂ and the team's name behind a vertical line, the lead with "lead" after its name, the project's
+  other Claudes a row apart after them. Calmer colours throughout; 66 columns now make two columns of tiles.
 - Sidebar: each login account's limits get a row of their own under the list, the week as a small bar (amber
   from 70%) with its percent, then the five hours. An account no Claude has reported on yet reads "not known
   yet" instead of being left out.

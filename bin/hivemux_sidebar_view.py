@@ -750,7 +750,7 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
             if dragging and DRAG["kind"] == "card" and p["pane_id"] == DRAG["over"] and not drag_src:
                 bg = C["drop"]
             icon, hue_ = ("·", C["home"] if st == "home" else C["text3"]) if dim else (STATE_ICON[st], C[st])
-            t = age(p["@claude_state_at"], now) if not dim else ""
+            t = age(p["@claude_state_at"], now) if not dim else tr("퇴근", "home") if st == "home" else ""
             # at rest, the size of its context instead (bin/hivemux-team, every request reads it again)
             # 쉬는 동안은 컨텍스트 크기 (bin/hivemux-team. 매 요청이 다시 읽는 양)
             if not t and st == "idle" and p.get("@claude_ctx", "").isdigit():
@@ -759,17 +759,21 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
             # the lead says so in grey after its name, not with a star / 리드는 별 대신 이름 뒤에 회색으로
             lead = tr("  리드", "  lead") if name.startswith("⭐ ") else ""
             name = name[2:] if lead else name
+            # clocked out but working on until done (bin/hivemux-shift) / 퇴근했지만 끝날 때까지 일한다 (bin/hivemux-shift)
+            late = tr("  야근", "  overtime") if p.get("@claude_offwork") and st in ("run", "wait") else ""
             r = S().put(guide, C["guide"]).put(" ", C["text"], bg)
             if st == "run" and ANIM:
                 spots.append((len(rows), r.used(), bg, hue_, False))
                 icon = SPIN[int(NOW_T * 10) % len(SPIN)]
             r.put(icon + " ", hue_, bg)
             room = cw - (width(t) + 2 if t else 1)
-            r.put(name, C["text2"] if dim else C["text"], bg, limit=room - width(lead)).put(lead, C["text3"], bg, limit=room)
-            r.fill(cw - 1 - width(t), bg).put(t, C["wait"] if st == "wait" else C["text3"], bg).fill(cw, bg)
+            r.put(name, C["text2"] if dim else C["text"], bg, limit=room - width(lead) - width(late))
+            r.put(lead, C["text3"], bg, limit=room).put(late, C["home"], bg, limit=room)
+            r.fill(cw - 1 - width(t), bg).put(t, C["wait"] if st == "wait" else C["home"] if st == "home" else C["text3"], bg).fill(cw, bg)
             lns = [r]
             if st == "wait":
-                lns.append(S().put(guide, C["guide"]).put("   " + state_line(p, st), C["wait"], bg, limit=cw - 1).fill(cw, bg))
+                lns.append(S().put(guide, C["guide"]).put("   " + state_line(dict(p, **{"@claude_offwork": ""}), st), C["wait"], bg,
+                                                          limit=cw - 1).fill(cw, bg))
             for x in lns:
                 if drag_src:
                     x.tint(fg=C["text3"])
