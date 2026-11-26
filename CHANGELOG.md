@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.88 — 2026-11-27
 
 - Teams: a restart (an account switch, a usage limit, a Claude Code update) no longer catches a role in the
   middle of its diet; it waits for it. A diet cut off some other way is forgotten, so the role diets again at
