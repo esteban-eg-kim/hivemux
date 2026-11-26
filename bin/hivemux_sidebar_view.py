@@ -267,6 +267,7 @@ BOX_MIN, COL_GAP = 30, 2   # narrowest project tile, columns between tiles / 판
 # 열려 있는 오른쪽 클릭 메뉴: {"rows": [(이름, 키, 동작) | None], "y": 줄, "sel": 고른 번호, "title", "at": {줄: 번호}}
 MENU = None
 REMOTE_HERE = None  # a screen from another Mac looks at this window: that Mac's name, or "" / 다른 Mac 화면이 이 창을 봄: 그 Mac 이름 또는 ""
+REMOTE_MAC = None   # a screen from another Mac is attached, to any window: its name, or "" / 다른 Mac 화면이 붙어 있음 (어느 창이든): 그 이름 또는 ""
 OFFICE_BTN = None   # (row, first column, end column) of the bee office button / 벌 사무실 버튼의 (줄, 첫 열, 끝 열)
 SHIFT_BTN = None    # row of "clocked out · clock in" / "퇴근 중 · 출근하기" 줄
 SHIFT_FILE = os.path.join(os.path.dirname(ORDER_FILE), "shift")
@@ -691,15 +692,21 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
     lines += [L(), hd, L()]
     summary = L().put("  ")
     # why the lines stand still: a screen from another Mac is looking at this window, said on a row of its own;
-    # shorter forms when the sidebar is narrow
-    # 줄이 멈춘 이유: 다른 Mac 화면이 이 창을 보고 있다. 따로 한 줄에. 사이드바가 좁으면 짧게 줄인다
-    if REMOTE_HERE is not None:
-        mac = REMOTE_HERE or tr("원격", "remote")
+    # shorter forms when the sidebar is narrow. The row is there in every window while that screen is attached:
+    # a click moving it to another window showed that window's last frame without the row, and the whole list
+    # jumped down a line when the sidebar there noticed it
+    # 줄이 멈춘 이유: 다른 Mac 화면이 이 창을 보고 있다. 따로 한 줄에. 사이드바가 좁으면 짧게 줄인다. 그 화면이 붙어
+    # 있는 동안은 모든 창에 이 줄이 있다: 클릭으로 다른 창에 가면 그 창의 마지막 화면이 줄 없이 보였다가, 그 창
+    # 사이드바가 알아채면 목록 전체가 한 줄 내려왔다
+    if REMOTE_MAC is not None:
+        mac = (REMOTE_HERE if REMOTE_HERE is not None else REMOTE_MAC) or tr("원격", "remote")
         # "animation off", not "paused": the Claudes go on working, only the drawing holds still
         # "멈춤" 이 아니라 "애니메이션 끔": Claude 는 계속 일하고, 그림만 가만히 있다
-        for note in (tr(f"⇄ {mac}에서 보는 중 · 애니메이션 끔", f"⇄ {mac} viewing · animation off"),
-                     tr(f"⇄ {mac} · 애니메이션 끔", f"⇄ {mac} · animation off"),
-                     tr("⇄ 원격 · 애니메이션 끔", "⇄ remote · animation off"), "⇄"):
+        notes = ((tr(f"⇄ {mac}에서 보는 중 · 애니메이션 끔", f"⇄ {mac} viewing · animation off"),
+                  tr(f"⇄ {mac} · 애니메이션 끔", f"⇄ {mac} · animation off"),
+                  tr("⇄ 원격 · 애니메이션 끔", "⇄ remote · animation off"), "⇄") if REMOTE_HERE is not None else
+                 (tr(f"⇄ {mac} 연결됨", f"⇄ {mac} connected"), tr("⇄ 원격 연결됨", "⇄ remote connected"), "⇄"))
+        for note in notes:
             if summary.used() + 1 + width(note) <= w - 1:
                 summary.right(note, C["remote"], margin=1)
                 break
@@ -711,7 +718,7 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
         # everyone went home: say so, and a click clocks in / 모두 퇴근: 그렇다고 보이고, 누르면 출근
         # (the paused note, if any, stays on the right, short) / (애니메이션 끔 표시가 있으면 오른쪽에 짧게 남긴다)
         summary = L().put("  ").put(tr("퇴근 중 · 눌러서 출근", "clocked out · click to clock in"), C["home"])
-        if REMOTE_HERE is not None:
+        if REMOTE_MAC is not None:
             summary.right("⇄", C["remote"], margin=1)
         SHIFT_BTN = len(lines)
     # a row for a note only when there is one / 안내할 것이 있을 때만 한 줄
@@ -1585,7 +1592,7 @@ def paint_resting(painted, scroll):
     # 카드에 보이는 것만: 칸 제목은 Claude 가 일하는 동안 매초 바뀌어 (첫 글자가 돈다) 쉬는 사이드바를 매초 모두 다시 그렸다
     shows = repr([(q["pane_id"], q["session_name"], q["@claude_state"], task_name(q), state_line(q, q["@claude_state"])
                    if q["@claude_state"] in STATE_TEXT else "", q.get("@hivemux-team"), q.get("@hivemux-roleorder"), q.get("@hivemux-handoff"))
-                  for q in items + homes] + [sessions, scroll, clocked_out(), update_new(), REMOTE_HERE])
+                  for q in items + homes] + [sessions, scroll, clocked_out(), update_new(), REMOTE_HERE, REMOTE_MAC])
     by_win = {}
     for q in PANES:
         by_win.setdefault(q["window_id"], []).append(q)
@@ -1662,7 +1669,7 @@ def main():
     signal.set_wakeup_fd(WAKE_W, warn_on_full_buffer=False)
     resized = [True]
     signal.signal(signal.SIGWINCH, lambda *_: resized.__setitem__(0, True))
-    global FRAME, ANIM, NOW_T, TICK, PENDING, REMOTE_HERE, REST
+    global FRAME, ANIM, NOW_T, TICK, PENDING, REMOTE_HERE, REMOTE_MAC, REST
     prev, prev_size = None, None     # last frame, for drawing only the rows that changed / 직전 프레임(바뀐 줄만 그리기용)
     border = os.path.join(os.path.dirname(os.path.realpath(__file__)), "hivemux-border")
     targets, heads, buf = {}, {}, ""
@@ -1716,19 +1723,21 @@ def main():
         # 지금 붙어 있는 화면만 센다: 훅이 놓친 분리는 이름을 남긴다
         remote = set(remote.split())
         clients = [l.split(" ", 1) for l in rest_ if " " in l]
-        remote_on, remote_here = any(c in remote for c, _ in clients), None
+        remote_on, remote_here, remote_mac = any(c in remote for c, _ in clients), None, None
         if remote_on:
             mine = tmux("display", "-p", "-t", ME, "#{window_id}").strip()
             here = [c for c, w in clients if c in remote and w == mine]
+            # the Mac's name when hivemux connect told it (bin/hivemux-attach), the one looking here first
+            # hivemux connect 가 알려 줬으면 그 Mac 이름. 여기를 보는 화면이 먼저
+            macs = dict(l.split(" ", 1) for l in tmux("show", "-gqv", "@hivemux-remote-from").splitlines() if " " in l)
+            remote_mac = next((macs[c] for c in here + [c for c, _ in clients if c in remote] if c in macs), "")
+            # the name it goes by there (Settings, sent by its hivemux-ports) / 그 Mac 에서 정한 이름 (설정, 그 Mac 의 hivemux-ports 가 보냄)
+            if remote_mac:
+                remote_mac = tmux("show", "-gqv", f"@hivemux-name-{remote_mac}").strip() or remote_mac
             if here:
                 anim = False
-                # the Mac's name when hivemux connect told it (bin/hivemux-attach) / hivemux connect 가 알려 줬으면 그 Mac 이름
-                macs = dict(l.split(" ", 1) for l in tmux("show", "-gqv", "@hivemux-remote-from").splitlines() if " " in l)
-                remote_here = next((macs[c] for c in here if c in macs), "")
-                # the name it goes by there (Settings, sent by its hivemux-ports) / 그 Mac 에서 정한 이름 (설정, 그 Mac 의 hivemux-ports 가 보냄)
-                if remote_here:
-                    remote_here = tmux("show", "-gqv", f"@hivemux-name-{remote_here}").strip() or remote_here
-        got["anim"], got["remote_on"], got["remote_here"] = anim, remote_on, remote_here
+                remote_here = remote_mac
+        got["anim"], got["remote_on"], got["remote_here"], got["remote_mac"] = anim, remote_on, remote_here, remote_mac
         # @hivemux-fps: animation frames per second (default 15) / @hivemux-fps: 초당 애니메이션 프레임 (기본 15)
         got["tick"] = 1 / max(2, min(30, int(fps))) if fps.isdigit() else 1 / 15
         snap = got["snap"]
@@ -1756,7 +1765,7 @@ def main():
             return None
         shared = scroll.strip()
         got.update(scroll=int(shared) if shared.isdigit() else None, shared=shared, anim=anim.strip() != "off",
-                   rest=(float(rest) or float("inf")) if rest.strip().isdigit() else 2.0, remote_on=False, remote_here=None,
+                   rest=(float(rest) or float("inf")) if rest.strip().isdigit() else 2.0, remote_on=False, remote_here=None, remote_mac=None,
                    tick=1 / max(2, min(30, int(fps))) if fps.strip().isdigit() else 1 / 15)
         return got
 
@@ -1823,7 +1832,8 @@ def main():
                 shared = got["shared"]
                 if got["scroll"] is not None and not scrolled:   # another sidebar scrolled / 다른 사이드바가 스크롤함
                     SCROLL = got["scroll"]
-                ANIM, REST, REMOTE_ON, REMOTE_HERE, TICK = got["anim"], got["rest"], got["remote_on"], got["remote_here"], got["tick"]
+                ANIM, REST, REMOTE_ON, REMOTE_HERE, REMOTE_MAC, TICK = (got["anim"], got["rest"], got["remote_on"], got["remote_here"],
+                                                                     got["remote_mac"], got["tick"])
                 paint, polled = snap[2], True
                 # woken from a rest: draw everything once more, in case a frame for the rest landed after the first
                 # 쉬다 깨어남: 쉬는 동안의 화면이 첫 화면 뒤에 왔을 수도 있어서 한 번 더 모두 그린다

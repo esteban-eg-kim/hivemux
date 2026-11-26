@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Sidebar: clicking a session from another Mac no longer makes the list jump; the "⇄ Mac" row stays in every
+  window while that screen is attached ("connected" where it is not looking, "animation off" where it is).
 - Bee office: no more flicker on the rooftop when zoomed out; the camera's near plane now follows the zoom.
 ## 0.1.87 — 2026-11-26
 
