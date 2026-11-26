@@ -1024,7 +1024,7 @@ def badges(w, names):
     (@hivemux-badge)."""
     changed = False
     for s in names:
-        text = "  " + s
+        text = "  ⬡ " + s                       # hivemux's hexagon before the name / 이름 앞에 hivemux 육각형
         if width(text) > w - 1:
             cut = ""
             for c in text:

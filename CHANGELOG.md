@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Status line: hivemux's hexagon ⬡ before the project's name on its badge.
 - Sidebar head: "Claude" and how many, the office button on the right, then each state with its mark (● need input,
   ⋯ running, ✓ done), the words shorter or gone on a narrow sidebar; no rule under it. The project badge on the
   status line takes the colour of the sidebar's name band (its project's colour in Prism) instead of blue, and the
