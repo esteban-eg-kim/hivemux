@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.84 — 2026-11-26
 
 - Sidebar: a wide sidebar puts the accounts' limits side by side, two at 66 columns, three at 100.
 - Sidebar: a team's lead wears a small "lead" badge after its name.
