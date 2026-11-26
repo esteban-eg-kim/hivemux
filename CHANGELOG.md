@@ -2,10 +2,8 @@
 
 ## Unreleased
 
-- The status line's left block no longer names the project you are in (the sidebar does): it counts the Claudes
-  and how many wait, work and just finished, with their marks. In the sidebar the project you are in has
-  hivemux's blue hexagon ⬢ before its name, and the head shows hivemux's logo, its three bars on a dark square,
-  with the name beside it, as on the website.
+- The status line's left block shows hivemux, its blue hexagon ⬢ and its name, instead of the project you are in;
+  in the sidebar the project you are in has the hexagon before its name.
 - Sidebar head: "Claude" and how many, the office button on the right, then each state with its mark (● need input,
   ⋯ running, ✓ done), the words shorter or gone on a narrow sidebar; no rule under it. The project badge on the
   status line takes the colour of the sidebar's name band (its project's colour in Prism) instead of blue, and the

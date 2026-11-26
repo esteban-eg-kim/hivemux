@@ -654,25 +654,35 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
 
     # Header: title + count
     # 머리: 제목 + 개수
-    # hivemux's logo, as on the website: a dark square with its three bars, drawn in half blocks, and the name beside
-    # it; the bee office button (bin/hivemux-office) on the right. The counts are on the status line (see status_text)
-    # 홈페이지처럼 hivemux 로고: 세 막대가 든 어두운 네모 (반 칸 블록으로) 와 그 옆 이름. 오른쪽에 벌 사무실 버튼
-    # (bin/hivemux-office). 개수는 상태줄에 (status_text 참고)
-    sq = C["tile_head"]
-    logo = [L().put("  ").put(" ", bg=sq).put("▄" * 4, LOGO_BARS[k], sq).put(" ", bg=sq) for k in range(3)]
-    logo.append(L().put("  ").put("▀" * 6, sq))
-    logo[1].put("   hivemux", C["text"], bold=True)
+    # the title with how many Claudes, the bee office button (bin/hivemux-office) on the right
+    # 제목과 Claude 수, 오른쪽에 벌 사무실 버튼 (bin/hivemux-office)
+    hd = L().put("  Claude", C["text"], bold=True).put(f"  {len(items)}", C["text3"])
     global OFFICE_BTN
     btn, OFFICE_BTN = tr(" 사무실 ", " office "), None
     x0 = w - 2 - width(btn)
-    if x0 >= logo[1].used() + 2:
-        logo[1].fill(x0).put(btn, C["text2"], C["card_hi"])
-        OFFICE_BTN = (len(lines) + 2, x0, x0 + width(btn))
-    lines += [L()] + logo
+    if x0 >= hd.used() + 2:
+        hd.fill(x0).put(btn, C["text2"], C["card_hi"])
+        OFFICE_BTN = (len(lines) + 1, x0, x0 + width(btn))
+    lines += [L(), hd, L()]
+    # the states in a line, each with its mark: what waits first / 상태를 한 줄에, 기호와 함께. 기다리는 것 먼저
+    n_done = sum(1 for p in items if p["@claude_state"] == "done")
+    # the words shorter, then gone, when the sidebar is narrow / 사이드바가 좁으면 말을 줄이고, 그래도 좁으면 뺀다
+    counts = [(n, st) for n, st in ((n_wait, "wait"), (n_run, "run"), (n_done, "done")) if n]
+    for words, gap in (({"wait": tr("입력 필요", "need input"), "run": tr("작업 중", "running"), "done": tr("완료", "done")}, "    "),
+                       ({"wait": tr("기다림", "wait"), "run": tr("작업", "run"), "done": tr("완료", "done")}, "  "),
+                       ({}, "  ")):
+        parts = [(STATE_ICON[st] + " ", f"{n}", (" " + words[st] if words else "") + gap, st) for n, st in counts]
+        if sum(width(a + b + c) for a, b, c, _ in parts) - len(gap) <= w - 4:
+            break
     summary = L().put("  ")
-    # why the lines stand still: a screen from another Mac is looking at this window, said on a row under the logo;
-    # shorter forms when the sidebar is narrow
-    # 줄이 멈춘 이유: 다른 Mac 화면이 이 창을 보고 있다. 로고 아래 한 줄에. 사이드바가 좁으면 짧게 줄인다
+    for a, b, c, st in parts:
+        summary.put(a, MARK_COLOR[st], bold=True).put(b, C[st]).put(c, C["text3"])
+    if not n_run and not n_wait and not n_done and items:
+        summary.put(tr("모두 대기 중", "all idle"), C["text3"])
+    # why the cards stand still: a screen from another Mac is looking at this window. At the right end
+    # of the summary, so the list below never moves; shorter forms when the counts leave less room
+    # 카드가 멈춘 이유: 다른 Mac 화면이 이 창을 보고 있다. 요약 줄 오른쪽 끝에 둬서 아래 목록이
+    # 움직이지 않게 한다. 개수가 자리를 차지하면 짧게 줄인다
     if REMOTE_HERE is not None:
         mac = REMOTE_HERE or tr("원격", "remote")
         # "animation off", not "paused": the Claudes go on working, only the drawing holds still
@@ -683,8 +693,6 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
             if summary.used() + 1 + width(note) <= w - 1:
                 summary.right(note, C["remote"], margin=1)
                 break
-    else:
-        summary = None
     global SHIFT_BTN
     SHIFT_BTN = None
     if clocked_out() and not items:
@@ -694,9 +702,7 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
         if REMOTE_HERE is not None:
             summary.right("⇄", C["remote"], margin=1)
         SHIFT_BTN = len(lines)
-    # a row for a note only when there is one / 안내할 것이 있을 때만 한 줄
-    if summary:
-        lines.append(summary)
+    lines += [summary, L().fill(w)]
 
     # groups in project order; a project with no Claude has no members (shown as "no Claude")
     # 프로젝트 순서의 묶음. Claude 가 없는 프로젝트는 멤버 없이 ("Claude 없음") 보인다
@@ -1015,24 +1021,11 @@ BADGE_WAIT, BADGE_DONE, STATUS_BG = "#ffb432", "#50de96", "#16181d"
 
 def status_text(items, w):
     """The status line's left block, as wide as the sidebar (w, with its border), so the window list starts above the
-    work area: how many Claudes, then how many wait, work and just finished, with their marks; the words go when
-    there is no room. tmux styles in it (#[...])
-    상태줄 왼쪽 칸. 사이드바 폭 (w, 경계선 포함) 이라 창 목록이 작업 칸 위에서 시작한다: Claude 수, 그리고 기다림,
-    작업, 방금 끝남 수를 기호와 함께. 자리가 없으면 말은 뺀다. tmux 스타일 (#[...]) 이 들어 있다"""
+    work area: hivemux's blue hexagon and its name. tmux styles in it (#[...])
+    상태줄 왼쪽 칸. 사이드바 폭 (w, 경계선 포함) 이라 창 목록이 작업 칸 위에서 시작한다: hivemux 파란 육각형과
+    이름. tmux 스타일 (#[...]) 이 들어 있다"""
     hexc = lambda c: "#%02x%02x%02x" % c
-    counts = [(sum(p["@claude_state"] == st for p in items), st, word) for st, word in
-              (("wait", tr("입력 필요", "need input")), ("run", tr("작업 중", "running")), ("done", tr("완료", "done")))]
-    counts = [c for c in counts if c[0]]
-    head = tr(f"  Claude {len(items)}", f"  Claude {len(items)}")
-    for words in (True, False):
-        parts = [(f"{STATE_ICON[st]} ", f"{n}", f" {word}" if words else "") for n, st, word in counts]
-        need = width(head) + sum(3 + width(a + b + c) for a, b, c in parts)
-        if need <= w - 1:
-            break
-    out = f"#[fg={hexc(C['text2'])},nobold]  Claude #[fg={hexc(C['text'])},bold]{len(items)}#[nobold]"
-    for (a, b, c), (n, st, _) in zip(parts, counts):
-        out += f"   #[fg={hexc(MARK_COLOR[st])},bold]{a}#[nobold,fg={hexc(C[st])}]{b}#[fg={hexc(C['text3'])}]{c}"
-    return out + " " * max(0, w - min(need, w))
+    return f"#[fg={hexc(LOGO_BARS[0])},nobold]  ⬢ #[fg={hexc(C['text'])},bold]hivemux#[nobold]" + " " * max(0, w - 11)
 
 
 _badge_clean = set()
