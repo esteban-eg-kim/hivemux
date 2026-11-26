@@ -1,0 +1,70 @@
+#!/bin/bash
+# Bring a pane's Claude back in its conversation: `claude --resume <id>` in the pane's shell, with a team role's
+# flags (bin/hivemux-team resume-args). Every path that brings a Claude back goes through here: a restart
+# (bin/hivemux-claude-update), clocking in (bin/hivemux-shift), a reboot (bin/hivemux-panes), a team starting
+# (bin/hivemux-team up).
+#   hivemux-resume <pane> <session id> <cwd or ""> [<log file>]
+# A conversation with no messages (just after /clear, or a Claude never asked anything) has nothing to resume:
+# Claude Code says "No conversation found" and the pane was left at its shell, while the log said it restarted.
+# Such a one starts fresh instead, under the same name. Ten seconds on it looks again, and a pane back at its
+# shell goes to the log as a failure, with the last thing it said. Exit 0: resumed, 3: started fresh.
+# 칸의 Claude 를 그 대화로 다시 띄운다: 칸의 셸에 `claude --resume <id>`, 팀 역할이면 역할 옵션과 함께
+# (bin/hivemux-team resume-args). Claude 를 다시 띄우는 모든 길이 여기를 지난다: 다시 시작 (bin/hivemux-claude-update),
+# 출근 (bin/hivemux-shift), 재부팅 (bin/hivemux-panes), 팀 시작 (bin/hivemux-team up).
+# 메시지가 없는 대화 (/clear 직후, 한 번도 묻지 않은 Claude) 는 이어 갈 것이 없다: Claude Code 가 "No conversation
+# found" 를 내고 칸에 셸만 남았는데 기록에는 다시 시작했다고 적혔다. 그런 것은 같은 이름으로 새로 시작한다.
+# 10초 뒤 다시 보고, 칸이 셸로 돌아와 있으면 마지막으로 나온 말과 함께 실패로 적는다. 종료 0: 재개, 3: 새로 시작.
+export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin"
+TMUX_BIN="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+t() { "$TMUX_BIN" "$@" 2>/dev/null; }
+HM_BIN="$(cd "$(dirname "$(realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
+STATE_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/hivemux"
+SHELLS='^-?(zsh|bash|fish|sh|dash|tcsh|ksh|login)$'
+pane="$1" sid="$2" cwd="$3" LOG="${4:-$STATE_DIR/resume.log}"
+log() { printf '%s %s\n' "$(date '+%F %T')" "$*" >> "$LOG"; }
+[ -n "$pane" ] && [ -n "$sid" ] || { echo "usage: hivemux-resume <pane> <session id> <cwd> [<log>]" >&2; exit 2; }
+[ -n "$cwd" ] && [ -d "$cwd" ] || cwd=""
+# read now: switching account (bin/hivemux-account) sets it while a restart runs / 지금 읽는다: 계정 전환이 도중에 정한다
+claude_cmd="${HIVEMUX_CLAUDE:-$(t show-environment -g HIVEMUX_CLAUDE | sed -n 's/^HIVEMUX_CLAUDE=//p')}"
+claude_cmd="${claude_cmd:-claude}"
+
+# the transcript, on any account: each account's projects folder links to ~/.claude/projects (bin/hivemux-account)
+# 대화 기록. 어느 계정이든: 계정마다 projects 폴더가 ~/.claude/projects 를 가리킨다 (bin/hivemux-account)
+dirs=("$HOME/.claude" "$STATE_DIR"/accounts/*)
+[ -n "$CLAUDE_CONFIG_DIR" ] && dirs+=("$CLAUDE_CONFIG_DIR")
+cfg="$(t show-environment -g CLAUDE_CONFIG_DIR | sed -n 's/^CLAUDE_CONFIG_DIR=//p')"; [ -n "$cfg" ] && dirs+=("$cfg")
+tr_=""
+for d in "${dirs[@]}"; do
+  for f in "$d"/projects/*/"$sid".jsonl; do [ -f "$f" ] && { tr_="$f"; break 2; }; done
+done
+
+# a team role (bin/hivemux-team) comes back with its model, effort and prompt / 팀 역할은 모델, 노력, 지시문과 함께 돌아온다
+role="$("$HM_BIN/hivemux-team" resume-args "$pane" "$sid" "$cwd" 2>/dev/null)"
+fresh=0
+if [ -n "$tr_" ] && grep -q '"type":"\(user\|assistant\)"' "$tr_"; then
+  run="$claude_cmd --resume $sid"
+else
+  # its name: the conversation's, else the pane's / 이름: 대화의 것, 없으면 칸의 것
+  name="$([ -n "$tr_" ] && grep -o '"type":"custom-title","customTitle":"[^"]*"' "$tr_" | tail -1 | cut -d'"' -f8)"
+  name="${name:-$(t show -pqv -t "$pane" @claude_title)}"
+  run="$claude_cmd${name:+ -n $(printf '%q' "$name")}"; fresh=3
+  log "fresh $pane: $sid has no messages$([ -n "$tr_" ] || echo " (no transcript)")"
+fi
+# a leading space keeps it out of the shell history (zsh hist_ignore_space, bash ignorespace)
+# 앞의 공백은 셸 기록에서 뺀다 (zsh hist_ignore_space, bash ignorespace)
+t send-keys -t "$pane" " ${cwd:+cd $(printf '%q' "$cwd") && }$run${role:+ $role}" Enter
+
+# still up ten seconds on, in the same shell (a pane started over since is someone else's)? What it said is what
+# came after the command, without the prompt it left / 10초 뒤에도 같은 셸에서 떠 있나 (그사이 다시 띄운 칸은 남의 것).
+# 남긴 말은 명령 뒤에 나온 것, 돌아온 프롬프트는 빼고
+shell="$(t display -p -t "$pane" '#{pane_pid}')"
+( sleep 10
+  [ "$(t display -p -t "$pane" '#{pane_pid}')" = "$shell" ] || exit 0
+  cmd="$(t display -p -t "$pane" '#{pane_current_command}')"
+  if [[ "$cmd" =~ $SHELLS ]]; then
+    said="$(t capture-pane -p -J -t "$pane" -S -40 | grep -v '^[[:space:]]*$' |
+            awk -v c="$claude_cmd" 'index($0, c) { n = 0; delete l; next } { l[++n] = $0 } END { for (i = 1; i < n; i++) print l[i] }' |
+            tail -2 | tr '\n' ' ' | cut -c1-240)"
+    log "fail $pane: Claude did not stay up ($sid): ${said:-(nothing)}"
+  fi ) </dev/null >/dev/null 2>&1 &
+exit "$fresh"

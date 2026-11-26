@@ -35,9 +35,7 @@ restore() {
   if [ "$(cut -d' ' -f1 "$STATE_DIR/shift" 2>/dev/null)" = off ]; then
     "$TMUX_BIN" set -g @hivemux-shift off; log "restore skipped (clocked out)"; exit 0
   fi
-  local claude_cmd="${HIVEMUX_CLAUDE:-$("$TMUX_BIN" show-environment -g HIVEMUX_CLAUDE 2>/dev/null | sed -n 's/^HIVEMUX_CLAUDE=//p')}"
-  claude_cmd="${claude_cmd:-claude}"
-  local target sid cwd via cmd role
+  local target sid cwd via cmd
   while IFS=$'\t' read -r target sid cwd via; do
     [ -n "$target" ] && [ -n "$sid" ] || continue
     # clocked out by itself (bin/hivemux-shift --pane / --project): it comes back when it clocks in
@@ -50,18 +48,11 @@ restore() {
       *) log "skip $target: busy ($cmd)"; continue ;;
     esac
     [ -d "$cwd" ] || cwd=""
-    # a team role (bin/hivemux-team) comes back with its model, effort and prompt / 팀 역할은 모델, 노력, 지시문과 함께 돌아온다
-    role="$("$HM_BIN/hivemux-team" resume-args "$target" "$sid" "$cwd" 2>/dev/null)"
     # started through a wrapper: bin/hivemux-claude runs it again / 래퍼로 시작함: bin/hivemux-claude 가 그것을 다시 실행한다
     [ -n "$via" ] && "$TMUX_BIN" set -p -t "$target" @claude_launch "$via"
-    # a leading space keeps it out of the shell history (zsh hist_ignore_space, bash ignorespace): with a shared
-    # history, ↑ in any shell brought back the last Claude resumed / 앞의 공백은 셸 기록에서 뺀다 (zsh
-    # hist_ignore_space, bash ignorespace). 기록을 공유하면 어느 셸에서든 ↑ 가 마지막에 재개한 Claude 를 꺼냈다
-    if [ -n "$cwd" ]; then
-      "$TMUX_BIN" send-keys -t "$target" " cd $(printf '%q' "$cwd") && $claude_cmd --resume $sid${role:+ $role}" Enter
-    else
-      "$TMUX_BIN" send-keys -t "$target" " $claude_cmd --resume $sid${role:+ $role}" Enter
-    fi
+    # with a team role's flags; an empty conversation starts fresh (bin/hivemux-resume)
+    # 팀 역할은 역할 옵션과 함께. 빈 대화는 새로 시작한다 (bin/hivemux-resume)
+    "$HM_BIN/hivemux-resume" "$target" "$sid" "$cwd" "$LOG"
     log "resume $target -> $sid ($cwd)"
   done < "$MAP"
 }

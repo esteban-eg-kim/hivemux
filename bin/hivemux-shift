@@ -31,8 +31,6 @@ SHIFT="$STATE_DIR/shift" LIST="$STATE_DIR/offwork.tsv" LOG="$STATE_DIR/shift.log
 mkdir -p "$STATE_DIR"
 log() { printf '%s %s\n' "$(date '+%F %T')" "$*" >> "$LOG"; }
 SHELLS='^-?(zsh|bash|fish|sh|dash|tcsh|ksh|login)$'
-claude_cmd="${HIVEMUX_CLAUDE:-$(t show-environment -g HIVEMUX_CLAUDE | sed -n 's/^HIVEMUX_CLAUDE=//p')}"
-claude_cmd="${claude_cmd:-claude}"
 
 claude_pid() { ps -ax -o pid=,ppid=,comm= | awk -v p="$1" '$2 == p && $3 ~ /(^|\/)(claude|node)$/ { print $1; exit }'; }
 running() {   # running [<scope>]: "<pane> <pane pid>" of every pane running a Claude / Claude 가 도는 칸마다
@@ -148,10 +146,9 @@ on() { # on [<scope>]
       done
       [[ "$cmd" =~ $SHELLS ]] || continue           # still on overtime / 아직 야근 중
       [ "$cwd" != - ] && [ -d "$cwd" ] || cwd=""
-      # a team role (bin/hivemux-team) comes back with its model, effort and prompt / 팀 역할은 모델, 노력, 지시문과 함께 돌아온다
-      role="$("$HM_BIN/hivemux-team" resume-args "$pane" "$sid" "$cwd" 2>/dev/null)"
-      if [ -n "$cwd" ]; then t send-keys -t "$pane" " cd $(printf '%q' "$cwd") && $claude_cmd --resume $sid${role:+ $role}" Enter
-      else t send-keys -t "$pane" " $claude_cmd --resume $sid${role:+ $role}" Enter; fi
+      # with a team role's flags; an empty conversation starts fresh (bin/hivemux-resume)
+      # 팀 역할은 역할 옵션과 함께. 빈 대화는 새로 시작한다 (bin/hivemux-resume)
+      "$HM_BIN/hivemux-resume" "$pane" "$sid" "$cwd" "$LOG"
       n=$((n + 1)); log "back $pane -> $sid ($bee)"
     done < "$LIST"
     if [ -s "$LIST.left" ]; then mv -f "$LIST.left" "$LIST"; else rm -f "$LIST" "$LIST.left"; fi

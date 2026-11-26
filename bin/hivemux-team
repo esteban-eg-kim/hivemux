@@ -790,15 +790,16 @@ def up(session, only=None):
             print(f"  {label(role)}: " + tr("출근", "back to work"))
             started += 1
             continue
-        args = flags(session, folder, team, role)
         sid = known.get(role["id"])
         if p and sid:
-            cmd = f" cd {shlex.quote(cwd)} && {claude_cmd()} --resume {shlex.quote(sid)} {shlex.join(args)}"
-            what = tr("이어서 시작", "resumed")
+            # with its flags; an empty conversation starts fresh (bin/hivemux-resume) / 역할 옵션과 함께. 빈 대화는 새로 시작한다
+            rc = subprocess.run([os.path.join(HERE, "hivemux-resume"), pane, sid, cwd], stdin=subprocess.DEVNULL,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode
+            what = tr("이어서 시작", "resumed") if rc == 0 else tr("시작", "started")
         else:
-            cmd = f" cd {shlex.quote(cwd)} && {claude_cmd()} -n {shlex.quote(session + '-' + role['id'])} {shlex.join(args)}"
+            args = flags(session, folder, team, role)
+            tmux("send-keys", "-t", pane, f" cd {shlex.quote(cwd)} && {claude_cmd()} -n {shlex.quote(session + '-' + role['id'])} {shlex.join(args)}", "Enter")
             what = tr("시작", "started")
-        tmux("send-keys", "-t", pane, cmd, "Enter")
         tmux("set", "-p", "-t", pane, "@hivemux-role-at", str(int(time.time())))
         u = uses(role, provider())
         print(f"  {label(role)}: {what} ({' · '.join(x for x in (u['model'], u['effort'], u['advisor'] and tr('조언 ', 'advisor ') + u['advisor']) if x)})")
