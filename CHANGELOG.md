@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.85 — 2026-11-26
 
 - The status line's left block shows hivemux, the logo's hexagon and its name (⬡ hivemux), instead of the
   project you are in; in the sidebar the project you are in has hivemux's blue hexagon ⬢ before its name.
