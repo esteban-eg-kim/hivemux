@@ -40,11 +40,11 @@ set -g status-position top
 set -g status-interval 5
 set -g status-style "bg=#16181d,fg=#9aa3b2"
 set -g status-left-length 120
-# the logo's three bars and hivemux's name on a block as wide as the sidebar, so the window list starts above the work
+# the logo's hexagon, hivemux's name and its three colours on a block as wide as the sidebar, so the window list starts above the work
 # area (@hivemux-badge, written by bin/hivemux-sidebar-view status_text)
-# 로고의 세 막대와 hivemux 이름. 사이드바 폭의 칸이라 창 목록이 작업 칸 위에서 시작한다
+# 로고의 육각형, hivemux 이름과 세 색. 사이드바 폭의 칸이라 창 목록이 작업 칸 위에서 시작한다
 # (@hivemux-badge, bin/hivemux-sidebar-view 의 status_text 가 적는다)
-set -g status-left "#[bg=#282c34,fg=#e6e9ef]#{?@hivemux-badge,#{E:@hivemux-badge},#[fg=#5aa9ff]  ▍#[fg=#f5a524]▍#[fg=#3ecf8e]▍ #[fg=#e6e9ef#,bold]hivemux  }#[default]"
+set -g status-left "#[bg=#282c34,fg=#e6e9ef]#{?@hivemux-badge,#{E:@hivemux-badge},#[fg=#e6e9ef]  ⬡ #[bold]hivemux #[nobold#,fg=#5aa9ff]▪#[fg=#f5a524]▪#[fg=#3ecf8e]▪  }#[default]"
 set -g status-right-length 160
 # continuum autosave is triggered from status-right (see Persistence below); not on a server that
 # started without restoring (@hivemux-nosave, bin/hivemux-attach): it would replace the snapshot with an empty one
