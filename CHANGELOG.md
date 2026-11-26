@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Sidebar: each login account's limits get a row of their own under the list, the week as a small bar (amber
+  from 70%) with its percent, then the five hours. An account no Claude has reported on yet reads "not known
+  yet" instead of being left out.
+
 ## 0.1.82 — 2026-11-25
 
 - hivemux's mod for Claude Code (2.1.287 and later), which setup adds to `~/.claude/settings.json`

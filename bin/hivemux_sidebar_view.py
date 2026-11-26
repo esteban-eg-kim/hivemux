@@ -280,39 +280,60 @@ _limits = [0.0, []]
 
 
 def week_limits():
-    """[(account, week % used)] the Claudes reported (share/claude-mod: <data>/limits/<account>.tsv), the default
-    account first; a week that has reset since counts as 0, a reading older than a week is left out. Read again
-    every five seconds
-    Claude 들이 알려 온 계정별 주간 한도 사용률 (share/claude-mod: <data>/limits/<계정>.tsv). 기본 계정이 먼저. 그
-    뒤로 초기화된 주는 0, 일주일보다 오래된 값은 뺀다. 5초마다 다시 읽는다"""
+    """[(account, week % used or None, five hours % used or None)] the Claudes reported (share/claude-mod:
+    <data>/limits/<account>.tsv), for every login account (API key accounts have no limit), the default first; a
+    window that has reset since counts as 0, a reading older than a week as none. Read again every five seconds
+    Claude 들이 알려 온 계정별 주간, 5시간 한도 사용률 (share/claude-mod: <data>/limits/<계정>.tsv). 로그인 계정 모두
+    (API 키 계정은 한도가 없다), 기본 계정이 먼저. 그 뒤로 초기화된 창은 0, 일주일보다 오래된 값은 없음. 5초마다 읽는다"""
+    import datetime
     now = time.time()
     if now - _limits[0] < 5:
         return _limits[1]
-    rows = []
+    accounts = os.path.join(os.path.dirname(LIMITS), "accounts")
     try:
-        names = sorted(os.listdir(LIMITS), key=lambda f: (f != "default.tsv", f))
+        names = [n for n in sorted(os.listdir(accounts)) if os.path.isdir(os.path.join(accounts, n))
+                 and not os.path.exists(os.path.join(accounts, n, "api-key"))]
     except OSError:
         names = []
-    for f in names:
-        if not f.endswith(".tsv"):
-            continue
+    try:
+        names += [f[:-4] for f in os.listdir(LIMITS) if f.endswith(".tsv") and f[:-4] not in names]
+    except OSError:
+        pass
+    rows = []
+    for name in ["default"] + sorted(set(names) - {"default"}):
         try:
-            with open(os.path.join(LIMITS, f)) as fh:
-                week, resets, _, _, at = (fh.readline().rstrip("\n").split("\t") + [""] * 5)[:5]
-            pct = float(week)
-        except (OSError, ValueError):
-            continue
-        if not at.isdigit() or now - int(at) > 8 * 86400:
-            continue
-        try:
-            import datetime
-            if resets and datetime.datetime.fromisoformat(resets.replace("Z", "+00:00")).timestamp() < now:
-                pct = 0.0
-        except ValueError:
-            pass
-        rows.append((f[:-4], pct))
+            with open(os.path.join(LIMITS, name + ".tsv")) as fh:
+                row = (fh.readline().rstrip("\n").split("\t") + [""] * 5)[:5]
+        except OSError:
+            row = [""] * 5
+        got = []
+        for used, resets in ((row[0], row[1]), (row[2], row[3])):
+            try:
+                pct = float(used)
+            except ValueError:
+                pct = None
+            if pct is not None and (not row[4].isdigit() or now - int(row[4]) > 8 * 86400):
+                pct = None
+            try:
+                if pct is not None and resets and datetime.datetime.fromisoformat(resets.replace("Z", "+00:00")).timestamp() < now:
+                    pct = 0.0
+            except ValueError:
+                pass
+            got.append(pct)
+        rows.append((name, *got))
+    # only the default account and nothing known: no rows / 기본 계정 하나에 아는 것이 없으면 줄을 두지 않는다
+    if len(rows) == 1 and rows[0][1] is None and rows[0][2] is None:
+        rows = []
     _limits[:] = [now, rows]
     return rows
+
+
+def limit_bar(ln, pct, n):
+    """A low bar of n cells, pct full; rows under each other stay apart / n 칸 낮은 막대. 위아래 줄이 붙지 않는다"""
+    col = C["wait"] if pct >= 70 else C["run"]
+    full = round(max(0.0, min(100.0, pct)) * n / 100)
+    ln.put("▃" * full, col).put("▃" * (n - full), C["rule"])
+    return ln
 
 
 def update_new():
@@ -816,7 +837,7 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
     global SCROLL, SCROLL_TO, SPOTS, GLOWS
     # each account's week (share/claude-mod), a row under the list's rule / 계정마다 주간 한도. 목록 아래 구분선 밑 한 줄
     wl = week_limits()
-    foot = 4 if wl else 3
+    foot = 3 + (len(wl) + 1 if wl else 0)
     avail = h - foot - len(lines)       # rows for the list / 목록에 쓸 줄 수
     # If it does not fit, the list scrolls (cards stay two lines, projects stay apart)
     # 넘치면 목록을 스크롤한다 (카드는 두 줄, 프로젝트 사이 빈 줄은 그대로)
@@ -850,13 +871,21 @@ def render(items, current, w, h, cur_sess="", sessions=(), homes=()):
     if more_below:
         lines[-1].cells[w - 5:w - 2] = [(c, BG, C["text2"], True) for c in " ▼ "]
     if wl:
-        lim = L().put(tr("  주간 ", "  week "), C["text3"])
-        for i, (acc, pct) in enumerate(wl):
-            if i:
-                lim.put(" · ", C["text3"])
-            name = tr("기본", "default") if acc == "default" else acc
-            lim.put(f"{name} ", C["text2"]).put(f"{pct:.0f}%", C["wait"] if pct >= 70 else C["text2"], bold=pct >= 90)
-        lines.append(lim)
+        # a row per account: the week as a bar, then the five hours / 계정마다 한 줄: 주간은 막대, 그 뒤에 5시간
+        names = [tr("기본", "default") if a == "default" else a for a, _, _ in wl]
+        nw = min(10, max(width(n) for n in names))
+        bar = max(4, min(14, w - nw - 18))
+        head = L().put("  " + " " * nw + " ", C["text3"]).put(fit(tr("주간", "week"), bar + 5), C["text3"])
+        lines.append(head.put(" " * max(0, bar + 5 - width(fit(tr("주간", "week"), bar + 5))) + tr(" 5시간", " 5h"), C["text3"]))
+        for name, (acc, week, five) in zip(names, wl):
+            ln = L().put("  " + fit(name, nw) + " " * (nw - width(fit(name, nw))) + " ", C["text2"])
+            if week is None:
+                ln.put(fit(tr("아직 모름", "not known yet"), w - ln.used() - 1), C["text3"])
+            else:
+                limit_bar(ln, week, bar).put(f" {week:3.0f}%", C["wait"] if week >= 70 else C["text2"], bold=week >= 90)
+                if five is not None:
+                    ln.put(f"  {five:3.0f}%", C["wait"] if five >= 70 else C["text3"], bold=five >= 90)
+            lines.append(ln)
     k = L().put("  ")
     if n_wait:
         k.put(" ⌥0 ", C["bg"], C["wait"], True).put(tr("  기다리는 작업으로", "  go to waiting"), C["wait"])
