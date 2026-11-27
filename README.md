@@ -20,7 +20,7 @@ when the limit resets. It runs on macOS and Linux (on Linux, `Option` is `Alt`).
 ## What's new
 
 <p align="center">
-  <img src="docs/img/api-en.png" alt="A Claude at its usage limit going on through the Agent SDK in the same pane: it picks up the work that was cut off, edits a file and runs the tests; the status line shows the model, context size and cost, and the sidebar shows it as running" width="880">
+  <img src="docs/img/api-en.png" alt="A Claude at its usage limit going on through the Agent SDK in the same pane, looking like Claude Code: it reads, edits a file and runs the tests; under the prompt are the mode, model, context size and cost, and the sidebar shows it as running" width="880">
 </p>
 
 - **At the usage limit, go on with the API.** Add an API key once; when a
@@ -369,7 +369,9 @@ to it; every Claude carries on in the same conversation.
   which links a Console organization). They cover the Agent SDK with a key of that
   organization and not Claude Code, which stops at "Credit balance too low" on
   them. `bin/hivemux-sdk` is hivemux's own terminal for Claude, made with the SDK
-  and laid out like the one you know: it runs in the pane with the same folder,
+  that looks and works like Claude Code (the end of the conversation drawn
+  again, markdown answers, the tools of a turn folded into one line, edits
+  with their lines, `/` and `@` menus, `!` for a shell command): it runs in the pane with the same folder,
   tools, settings, CLAUDE.md, hooks and team role prompt. The conversation passes as
   documents, as a diet does: it starts from a handoff written from the end of
   the Claude Code conversation (`~/.local/share/hivemux/handoff/<id>.in.md`:
@@ -384,7 +386,7 @@ to it; every Claude carries on in the same conversation.
   paid for): past the line, once you have seen the answer, it brings its notes
   up to date and starts a fresh SDK conversation from them. A team role keeps
   its team's line; any other Claude diets at 150K tokens (`tmux set -g
-  @hivemux-sdk-diet 200`, or `off`). Its Python (`claude-agent-sdk`, `prompt_toolkit`) is
+  @hivemux-sdk-diet 200`, or `off`). Its Python (`claude-agent-sdk`, `prompt_toolkit`, `pygments`) is
   set up once in `~/.local/share/hivemux/sdk/venv`, with Python 3.10 or newer.
   `hivemux account runner api claude` runs Claude Code on the key instead.
 - **Move before the limit.** When a subscription has used 95% of its week or
