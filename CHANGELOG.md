@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.89 — 2026-11-27
 
 - The API terminal (the Agent SDK, at a usage limit) now looks and works like Claude Code. It opens on Claude
   Code's banner and the end of the conversation drawn again. Answers are drawn from their markdown (bold,
