@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- The API terminal (the Agent SDK, at a usage limit) now looks and works like Claude Code. It opens on Claude
+  Code's banner and the end of the conversation drawn again. Answers are drawn from their markdown (bold,
+  code, lists, tables, coloured code blocks) and wrapped under ⏺. The tools a turn reads and runs fold into one
+  line ("Read 2 files, ran 3 shell commands"), and an edit shows its numbered lines on green and red. Your
+  message sits on a grey band; the spinner, its verb and the tool under way sit above the prompt, which lies
+  between two rules with the conversation's name; the mode is underneath. As in Claude Code, / lists the
+  commands and @ the files above the prompt, ! runs a shell command, a long paste stands as [Pasted text #n],
+  and Ctrl+C twice quits. It still says it runs on the API, and what it has cost.
+- The API terminal no longer loses the rule and the mode under its prompt after the window is resized.
+
 ## 0.1.88 — 2026-11-27
 
 - Teams: a restart (an account switch, a usage limit, a Claude Code update) no longer catches a role in the

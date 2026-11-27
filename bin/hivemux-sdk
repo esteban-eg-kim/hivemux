@@ -3,7 +3,7 @@
 구독을 쓸 수 없는 동안 Claude Code 대화를 Claude Agent SDK 로 이어 간다.
 
   hivemux-sdk [claude's arguments]     (bin/hivemux-claude, for an API key account) / (API 키 계정일 때)
-  hivemux-sdk install                  prepare its Python (claude-agent-sdk, prompt_toolkit) / 쓸 파이썬을 준비
+  hivemux-sdk install                  prepare its Python (claude-agent-sdk, prompt_toolkit, pygments) / 쓸 파이썬을 준비
 
 Some API credits (promotion credits) are for the Agent SDK and not for Claude Code itself, so Claude Code on the
 key stops at "Credit balance too low". This is a terminal for Claude made with the Agent SDK: it runs in the
@@ -35,7 +35,7 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "hivemux")
 VENV = os.path.join(DATA, "sdk", "venv")
 HANDOFF = os.path.join(DATA, "handoff")
-PKGS = ["claude-agent-sdk", "prompt_toolkit"]
+PKGS = ["claude-agent-sdk", "prompt_toolkit", "pygments"]
 os.environ["PATH"] = os.environ.get("PATH", "") + ":/opt/homebrew/bin:/usr/local/bin:" + os.path.expanduser("~/.local/bin")
 
 
@@ -78,6 +78,12 @@ def install():
     py = os.path.join(VENV, "bin", "python")
     if os.path.exists(py) and subprocess.run([py, "-c", "import claude_agent_sdk, prompt_toolkit"],
                                              capture_output=True).returncode == 0:
+        # pygments colours code blocks, as Claude Code does; one made before it came gets it meanwhile, without waiting
+        # pygments 는 Claude Code 처럼 코드 블록에 색을 입힌다. 그 전에 만든 것은 기다리지 않고 뒤에서 받는다
+        if not glob.glob(os.path.join(VENV, "lib", "python*", "site-packages", "pygments")):
+            inst = ["uv", "pip", "install", "-q", "-p", py] if shutil.which("uv") else [py, "-m", "pip", "install", "-q"]
+            subprocess.Popen(inst + ["pygments"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL, start_new_session=True)
         return py
     base = python_for_venv()
     if not base:
@@ -471,11 +477,532 @@ def with_images(text, pasted):
     return one()
 
 
+# ── the screen, as Claude Code draws it / 화면: Claude Code 처럼 그린다 ──
+# Its colours (the dark theme in 256 colours, read off its panes in tmux) and its marks: ⏺ before an answer or a tool,
+# ⎿ under it, the user's message on a grey band, the prompt between two rules with the conversation's name on the
+# top one, the spinner and its verb above, the mode under it. What Claude Code says in English stays in English
+# 색 (tmux 칸에서 읽은 어두운 테마의 256 색) 과 표시가 Claude Code 와 같다: 답과 도구 앞에 ⏺, 그 아래 ⎿, 사용자
+# 메시지는 회색 띠, 입력창은 두 선 사이 (위 선에 대화 이름), 그 위에 스피너와 동사, 아래에 모드. Claude Code 가 영어로
+# 쓰는 말은 영어로 둔다
+
+RST, BOLD, ITAL, STRIKE = "\x1b[0m", "\x1b[1m", "\x1b[3m", "\x1b[9m"
+WHITE, GRAY, RULE, CODE, LINK = "\x1b[38;5;231m", "\x1b[38;5;246m", "\x1b[38;5;244m", "\x1b[38;5;153m", "\x1b[94m"
+CLAUDE, SHIMMER, MODE = "\x1b[38;5;174m", "\x1b[38;5;180m", "\x1b[38;5;220m"
+GREEN, RED, PINK = "\x1b[38;5;114m", "\x1b[38;5;210m", "\x1b[38;5;211m"
+USER_BG, ADD_BG, DEL_BG = "\x1b[48;5;237m", "\x1b[48;5;22m", "\x1b[48;5;52m"
+SPIN = "·✢✳✶✻✽✻✶✳✢"
+DOING = ("Thinking", "Pondering", "Unraveling", "Cooking", "Brewing", "Simmering", "Noodling", "Percolating",
+         "Mulling", "Churning", "Crafting", "Musing", "Clauding", "Wrangling", "Forging")
+DONE = ("Cooked", "Baked", "Sautéed", "Brewed", "Churned", "Crunched", "Worked", "Simmered")
+EFFORT = {"low": "○", "medium": "◐", "high": "●", "xhigh": "◉", "max": "◉"}
+ANSI_RE = re.compile(r"\x1b\[[0-9;?>]*[a-zA-Z]|\x1b\]8;[^\x1b]*\x1b\\")
+
+try:
+    from wcwidth import wcswidth      # comes with prompt_toolkit / prompt_toolkit 과 함께 온다
+except ImportError:
+    wcswidth = len
+
+
+def plain(s):
+    return ANSI_RE.sub("", s)
+
+
+def vis(s):
+    """Columns on the screen (Korean takes two) / 화면 칸 수 (한글은 두 칸)"""
+    s = plain(s)
+    n = wcswidth(s)
+    return n if n >= 0 else len(s)
+
+
+def cols():
+    return shutil.get_terminal_size((100, 30)).columns
+
+
+def fit(s, n):
+    """s cut to n columns, its colours kept / 색은 두고 n 칸으로 자른다"""
+    if vis(s) <= n:
+        return s
+    out, w, i = "", 0, 0
+    while i < len(s):
+        m = ANSI_RE.match(s, i)
+        if m:
+            out, i = out + m.group(0), m.end()
+            continue
+        cw = max(0, wcswidth(s[i]))
+        if w + cw > n - 1:
+            break
+        out, w, i = out + s[i], w + cw, i + 1
+    return out + "…" + RST
+
+
+def took(secs):
+    secs = int(secs)
+    return f"{secs // 60}m {secs % 60}s" if secs >= 60 else f"{secs}s"
+
+
+def model_name(m):
+    """claude-opus-5-5 → Opus 5.5, as Claude Code names it / Claude Code 가 부르는 이름으로"""
+    m = (m or "").split("[")[0]
+    x = re.match(r"claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?$", m)
+    if x:
+        return f"{x.group(1).title()} {x.group(2)}" + (f".{x.group(3)}" if x.group(3) else "")
+    return m.title() if m in ("opus", "sonnet", "haiku", "fable") else m
+
+
+def rel(p, cwd):
+    if not p:
+        return ""
+    try:
+        r = os.path.relpath(p, cwd)
+    except ValueError:
+        return p
+    return p if r.startswith("../../../") else r
+
+
+INLINE = re.compile(r"(`+)(.+?)\1|\*\*(.+?)\*\*|__(.+?)__|(?<![\w*])\*(?![\s*])(.+?)(?<![\s*])\*(?![\w*])"
+                    r"|(?<!\w)_(?![\s_])(.+?)(?<![\s_])_(?!\w)|~~(.+?)~~|\[([^\]\n]+)\]\(([^)\s]+)\)"
+                    r"|(https?://[^\s<>()\[\]`]*[^\s<>()\[\]`.,;:!?'\"])")
+
+
+def inline(text, style=""):
+    """[(text, style, link)] of a line's markdown: `code`, **bold**, *italic*, ~~struck~~, links
+    한 줄의 마크다운을 조각으로: `코드`, **굵게**, *기울임*, ~~취소선~~, 링크"""
+    out, pos = [], 0
+    for m in INLINE.finditer(text):
+        if m.start() > pos:
+            out.append((text[pos:m.start()], style, ""))
+        g = m.groups()
+        if g[1] is not None:
+            out.append((g[1], style + CODE, ""))
+        elif g[2] is not None or g[3] is not None:
+            out += inline(g[2] if g[2] is not None else g[3], style + BOLD)
+        elif g[4] is not None or g[5] is not None:
+            out += inline(g[4] if g[4] is not None else g[5], style + ITAL)
+        elif g[6] is not None:
+            out += inline(g[6], style + STRIKE)
+        elif g[7] is not None:
+            out += [(t, s + LINK, g[8]) for t, s, _ in inline(g[7], style)]
+        else:
+            out.append((g[9], style + LINK, g[9]))
+        pos = m.end()
+    if pos < len(text):
+        out.append((text[pos:], style, ""))
+    return out
+
+
+def fold(spans, width, first="  ", rest="  ", base=""):
+    """The spans wrapped at words to width columns, each line starting with first, then rest; base (a background)
+    runs under all of it / 조각을 단어에서 width 칸으로 접는다. 첫 줄은 first, 다음 줄은 rest 로 시작하고 base (배경) 가 깔린다"""
+    lines, cur, used, prefix = [], [], 0, first
+
+    def emit(atoms):
+        while atoms and atoms[-1][0].isspace():
+            atoms = atoms[:-1]
+        return base + prefix + "".join(f"{RST}{base}{s}" + (f"\x1b]8;;{u}\x1b\\{t}\x1b]8;;\x1b\\" if u else t)
+                                       for t, s, u in atoms) + RST
+
+    for text, style, link in spans:
+        for word in re.findall(r"\s+|\S+", text.replace("\t", "    ")):
+            # a word longer than a line breaks anywhere / 한 줄보다 긴 단어는 아무 데서나 끊는다
+            for piece in ([word] if vis(word) <= width - vis(rest) else list(word)):
+                pw = vis(piece)
+                if piece.isspace():
+                    if cur:
+                        cur.append((piece, style, link))
+                        used += pw
+                    continue
+                if cur and used + pw > width - vis(prefix):
+                    lines.append(emit(cur))
+                    cur, used, prefix = [], 0, rest
+                cur.append((piece, style, link))
+                used += pw
+    lines.append(emit(cur))
+    return lines
+
+
+def code_lines(code, lang):
+    try:
+        from pygments import highlight
+        from pygments.formatters import Terminal256Formatter
+        from pygments.lexers import get_lexer_by_name
+        if lang:
+            return highlight(code, get_lexer_by_name(lang), Terminal256Formatter(style="monokai")).rstrip("\n").split("\n")
+    except Exception:
+        pass
+    return code.split("\n")
+
+
+TABLE_RULE = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$")
+
+
+def table_cells(line):
+    s = line.strip()
+    s = s[1:] if s.startswith("|") else s
+    s = s[:-1] if s.endswith("|") and not s.endswith("\\|") else s
+    return [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", s)]
+
+
+def table(rows, width):
+    """A markdown table in box lines, a rule under every row, cells wrapped to fit; None when it cannot fit
+    마크다운 표를 상자 선으로. 줄마다 선, 칸 안에서 접는다. 들어가지 않으면 None"""
+    n = max(len(r) for r in rows)
+    sp = [[inline(c, BOLD if k == 0 else "") for c in r + [""] * (n - len(r))] for k, r in enumerate(rows)]
+    ws = [max(max(1, sum(vis(t) for t, _, _ in r[c])) for r in sp) for c in range(n)]
+    room = width - 2 - (3 * n + 1)
+    while sum(ws) > room and max(ws) > 6:
+        ws[ws.index(max(ws))] -= 1
+    if sum(ws) > room:
+        return None
+
+    def rule(a, b, c):
+        return "  " + a + b.join("─" * (w + 2) for w in ws) + c
+
+    out = [rule("┌", "┬", "┐")]
+    for k, r in enumerate(sp):
+        parts = [fold(r[c], ws[c], "", "") for c in range(n)]
+        for y in range(max(len(p) for p in parts)):
+            out.append("  │" + "│".join(" " + (parts[c][y] if y < len(parts[c]) else "")
+                                        + " " * (ws[c] - (vis(parts[c][y]) if y < len(parts[c]) else 0)) + " "
+                                        for c in range(n)) + "│")
+        out.append(rule("├", "┼", "┤") if k < len(sp) - 1 else rule("└", "┴", "┘"))
+    return out
+
+
+def render_md(text, width):
+    """Claude's answer as Claude Code shows it: the markdown drawn, every line two columns in, under the mark
+    Claude 의 답을 Claude Code 처럼: 마크다운을 그리고, 모든 줄을 표시 다음 칸 (두 칸 안) 에 둔다"""
+    out, src, i = [], text.replace("\t", "    ").split("\n"), 0
+    while i < len(src):
+        ln = src[i]
+        fence = re.match(r"^\s*(```+|~~~+)\s*([\w+#.-]*)", ln)
+        if fence:
+            j = i + 1
+            while j < len(src) and not src[j].strip().startswith(fence.group(1)):
+                j += 1
+            out += ["  " + c for c in code_lines("\n".join(src[i + 1:j]), fence.group(2))]
+            i = j + 1
+            continue
+        if ln.lstrip().startswith("|") and i + 1 < len(src) and TABLE_RULE.match(src[i + 1]):
+            j, rows = i + 2, [table_cells(ln)]
+            while j < len(src) and src[j].lstrip().startswith("|"):
+                rows.append(table_cells(src[j]))
+                j += 1
+            t = table(rows, width)
+            if t:
+                out += t
+                i = j
+                continue
+        i += 1
+        m = re.match(r"^\s{0,3}#{1,6}\s+(.*?)\s*#*\s*$", ln)
+        if m:
+            out += fold(inline(m.group(1), BOLD), width)
+            continue
+        if re.match(r"^\s{0,3}([-*_])(\s*\1){2,}\s*$", ln):
+            out.append(f"  {RULE}{'─' * max(4, width - 2)}{RST}")
+            continue
+        m = re.match(r"^\s*>\s?(.*)$", ln)
+        if m:
+            out += fold(inline(m.group(1), GRAY + ITAL), width, f"  {GRAY}▎{RST} ", f"  {GRAY}▎{RST} ")
+            continue
+        m = re.match(r"^(\s*)([-*+]|\d+[.)])\s+(.*)$", ln)
+        if m:
+            ind, mark = m.group(1), "-" if m.group(2) in ("*", "+") else m.group(2)
+            out += fold(inline(m.group(3)), width, f"  {ind}{mark} ", "  " + ind + " " * (len(mark) + 1))
+            continue
+        out += fold(inline(ln.strip()), width) if ln.strip() else [""]
+    while out and not plain(out[0]).strip():
+        out.pop(0)
+    while out and not plain(out[-1]).strip():
+        out.pop()
+    return out or ["  "]
+
+
+def user_lines(text, width, mark="❯", color=GRAY):
+    """The user's message on Claude Code's grey band, across the whole width / 사용자 메시지: 폭 전체의 회색 띠"""
+    rows = []
+    for k, para in enumerate(text.replace("\t", "    ").split("\n")):
+        rows += fold([(para, WHITE, "")], width - 1, f"{color}{mark}{WHITE} " if k == 0 else "  ", "  ", base=USER_BG)
+    return [r + USER_BG + " " * max(0, width - vis(r)) + RST for r in rows]
+
+
+# the tools Claude Code folds into one line, and how it counts them / Claude Code 가 한 줄로 접는 도구와 세는 말
+COLLAPSE = {"Read": ("read", "file", "files"), "Grep": ("searched for", "pattern", "patterns"),
+            "Glob": ("searched for", "pattern", "patterns"), "LS": ("listed", "directory", "directories"),
+            "Bash": ("ran", "shell command", "shell commands"), "WebFetch": ("fetched", "page", "pages"),
+            "WebSearch": ("searched the web for", "query", "queries")}
+SILENT = {"ToolSearch"}
+
+
+def label(name, inp, cwd):
+    """(title, argument) of a tool as Claude Code writes it: Update(bin/x), Search(pattern: "y"), Fetch(url)
+    Claude Code 가 쓰는 도구 이름과 인수"""
+    inp = inp if isinstance(inp, dict) else {}
+    f = rel(inp.get("file_path") or inp.get("notebook_path") or "", cwd)
+    if name in ("Read", "Write"):
+        return name, f
+    if name in ("Edit", "MultiEdit"):
+        return "Update", f
+    if name == "NotebookEdit":
+        return "Edit Notebook", f
+    if name == "Bash":
+        return name, (str(inp.get("command") or "").strip().splitlines() or [""])[0]
+    if name in ("Grep", "Glob"):
+        a = f'pattern: "{inp.get("pattern", "")}"'
+        return "Search", a + (f', path: "{rel(inp["path"], cwd)}"' if inp.get("path") else "")
+    if name == "WebFetch":
+        return "Fetch", inp.get("url", "")
+    if name == "WebSearch":
+        return "Web Search", f'"{inp.get("query", "")}"'
+    if name == "TodoWrite":
+        return "Update Todos", ""
+    if name in ("Task", "Agent"):
+        return name, inp.get("description", "")
+    if name == "Skill":
+        return name, inp.get("skill", "")
+    if name.startswith("mcp__"):
+        _, srv, *rest = name.split("__")
+        return f"{srv} - {'__'.join(rest)} (MCP)", short(inp)
+    return name, short(inp)
+
+
+def result_text(content):
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text")
+    return ""
+
+
+def guess_patch(inp):
+    """An edit's patch when its result carries none: the lines changed, numbered from where they are now
+    결과에 패치가 없을 때 편집에서 만든다: 바뀐 줄, 지금 있는 자리부터 번호"""
+    import difflib
+    try:
+        body = open(inp.get("file_path") or "", errors="ignore").read()
+    except OSError:
+        body = ""
+    out = []
+    for e in inp.get("edits") or [inp]:
+        old, new = e.get("old_string") or "", e.get("new_string") or ""
+        at = body.find(new) if new else -1
+        start = body.count("\n", 0, at) + 1 if at >= 0 else 1
+        out.append({"oldStart": start, "newStart": start, "lines": [
+            (" " if d[0] == " " else d[0]) + d[2:] for d in difflib.ndiff(old.splitlines(), new.splitlines()) if d[0] != "?"]})
+    return out
+
+
+def patch_lines(patch, width, most=16):
+    """"Added 2 lines, removed 1 line" and the numbered lines on green and red, as Claude Code shows an edit
+    Claude Code 가 편집을 보여 주듯: "Added 2 lines, removed 1 line" 과 번호 붙은 줄 (초록, 빨강 바탕)"""
+    rows, add, rem = [], 0, 0
+    for h in patch or []:
+        o, n = int(h.get("oldStart") or 1), int(h.get("newStart") or 1)
+        for ln in h.get("lines") or []:
+            sign, body = (ln[:1] if ln[:1] in "+-" else " "), ln[1:].replace("\t", "    ")
+            if sign == "-":
+                rows.append((o, sign, body))
+                o, rem = o + 1, rem + 1
+            elif sign == "+":
+                rows.append((n, sign, body))
+                n, add = n + 1, add + 1
+            else:
+                rows.append((n, sign, body))
+                o, n = o + 1, n + 1
+
+    def lines_of(k):
+        return f"{BOLD}{k}{RST} line{'' if k == 1 else 's'}"
+
+    head = ", ".join(p for p in (f"added {lines_of(add)}" if add else "", f"removed {lines_of(rem)}" if rem else "") if p)
+    out = [head[:1].upper() + head[1:] if head else "Updated"]
+    nw = len(str(max((r[0] for r in rows), default=1)))
+    room = width - 5
+    for num, sign, body in rows[:most]:
+        if sign == " ":
+            out.append(f"{GRAY}{num:>{nw}}{RST}   {fit(body, room - nw - 3)}")
+        else:
+            line = fit(f"{num:>{nw}} {sign} {body}", room)
+            out.append(f"{ADD_BG if sign == '+' else DEL_BG}{line}{' ' * max(0, room - vis(line))}{RST}")
+    if len(rows) > most:
+        out.append(f"{GRAY}… +{len(rows) - most} lines{RST}")
+    return out
+
+
+def todo_lines(inp):
+    out = []
+    for t in (inp or {}).get("todos") or []:
+        s, c = t.get("status"), t.get("content") or t.get("activeForm") or ""
+        out.append(f"{GRAY}☒ {STRIKE}{c}{RST}" if s == "completed" else f"☐ {BOLD}{c}{RST}" if s == "in_progress" else f"☐ {c}")
+    return out or ["(empty)"]
+
+
+def tool_lines(name, inp, content, is_error, extra, cwd, width, inner=0):
+    inp = inp if isinstance(inp, dict) else {}
+    extra = extra if isinstance(extra, dict) else {}
+    title, arg = label(name, inp, cwd)
+    head = f"{RED if is_error else GREEN}⏺{RST} {BOLD}{title}{RST}" + (f"({arg})" if arg else "")
+    text = result_text(content).strip()
+    if is_error:
+        body = [f"{RED}{fit(ln, width - 5)}{RST}" for ln in (text or "Error").splitlines()[:4]]
+    elif name in ("Edit", "MultiEdit"):
+        body = patch_lines(extra.get("structuredPatch") or guess_patch(inp), width)
+    elif name == "Write":
+        n = len(str(inp.get("content") or "").splitlines())
+        body = [f"Wrote {BOLD}{n}{RST} lines to {BOLD}{rel(inp.get('file_path') or '', cwd)}{RST}"]
+    elif name == "TodoWrite":
+        body = todo_lines(inp)
+    elif name in ("Task", "Agent"):
+        body = [f"Done ({inner} tool use{'' if inner == 1 else 's'})" if inner else "Done"]
+    else:
+        ls = text.splitlines() or ["(No content)"]
+        body = [f"{GRAY}{fit(ln, width - 5)}{RST}" for ln in ls[:3]] + ([f"{GRAY}… +{len(ls) - 3} lines{RST}"] if len(ls) > 3 else [])
+    return [fit(head, width)] + [(f"  {GRAY}⎿{RST}  " if k == 0 else "     ") + ln for k, ln in enumerate(body)]
+
+
+def group_line(group):
+    s = ", ".join(f"{verb} {BOLD}{n}{RST}{GRAY} {one if n == 1 else many}" for (verb, one, many), n in group.items())
+    return f"  {GRAY}{s[:1].upper()}{s[1:]}{RST}"
+
+
+class Transcript:
+    """What goes into the scroll above the prompt, in Claude Code's marks. The tools a turn reads and runs are folded
+    into one line when the turn goes on to something else ("Read 2 files, ran 3 shell commands"), as Claude Code
+    folds them; an edit, a todo list, an agent and a failure are shown each
+    입력창 위 스크롤에 Claude Code 의 표시로 적는다. 턴이 읽고 돌린 도구는 다른 것으로 넘어갈 때 Claude Code 처럼 한 줄로
+    접고 ("Read 2 files, ran 3 shell commands"), 편집, 할 일 목록, 에이전트, 실패는 하나씩 보인다"""
+
+    def __init__(self, out, cwd):
+        self.out, self.cwd = out, cwd
+        self.pending, self.group, self.failed, self.inner = {}, {}, [], {}
+
+    def put(self, lines):
+        self.out("\n".join(lines))
+
+    def flush(self):
+        if self.group:
+            self.put(["", group_line(self.group)])
+            self.group = {}
+        for lines in self.failed:
+            self.put([""] + lines)
+        self.failed = []
+
+    def user(self, text, mark="❯", color=GRAY):
+        self.flush()
+        self.put([""] + user_lines(text, cols(), mark, color))
+
+    def text(self, md, error=False):
+        self.flush()
+        if error:
+            self.put([f"  {GRAY}⎿{RST}  {RED}API Error: {fit(md.strip(), cols() - 18)}{RST}"])
+            return
+        lines = render_md(md, cols() - 1)
+        lines[0] = f"{WHITE}⏺{RST} " + lines[0][2:]
+        self.put([""] + lines)
+
+    def note(self, *lines):
+        self.flush()
+        self.put(list(lines))
+
+    def system(self, msg, color=GRAY):
+        """A notice of its own, grey, as Claude Code's / Claude Code 처럼 회색 알림"""
+        self.flush()
+        rows = []
+        for k, para in enumerate(msg.split("\n")):
+            rows += fold([(para, color, "")], cols() - 1, f"{GRAY}⏺{RST} " if k == 0 else "  ", "  ")
+        self.put([""] + rows)
+
+    def reply(self, *lines):
+        """Under the user's line: ⎿ and what came of it / 사용자 줄 아래: ⎿ 와 그 결과"""
+        self.flush()
+        self.put([(f"  {GRAY}⎿{RST}  " if k == 0 else "     ") + ln for k, ln in enumerate(lines)])
+
+    def tool_use(self, tid, name, inp):
+        self.pending[tid] = (name, inp)
+
+    def inner_use(self, parent):
+        self.inner[parent] = self.inner.get(parent, 0) + 1
+
+    def doing(self):
+        """The tool under way, for the row under the spinner / 스피너 아래 줄에 보일 지금 도구"""
+        for name, inp in reversed(list(self.pending.values())):
+            title, arg = label(name, inp, self.cwd)
+            return f"$ {arg}" if name == "Bash" else f"{title}({arg})" if arg else title
+        return ""
+
+    def tool_result(self, tid, content, is_error, extra=None):
+        name, inp = self.pending.pop(tid, (None, None))
+        if not name or name in SILENT:
+            return
+        w = cols() - 1
+        if name in COLLAPSE:
+            k = COLLAPSE[name]
+            self.group[k] = self.group.get(k, 0) + 1
+            if is_error:
+                self.failed.append(tool_lines(name, inp, content, True, extra, self.cwd, w))
+            return
+        self.flush()
+        self.put([""] + tool_lines(name, inp, content, is_error, extra, self.cwd, w, self.inner.pop(tid, 0)))
+
+    def end(self):
+        self.flush()
+        self.pending.clear()
+
+
+def replay(tx, path, most=60):
+    """The end of a conversation drawn again, as Claude Code shows it on --resume: from the request that leaves
+    about `most` steps / 대화의 끝을 다시 그린다. Claude Code 가 --resume 때 보여 주듯: 걸음이 대략 most 개 남는 요청부터"""
+    events = []
+    try:
+        size = os.path.getsize(path)
+        with open(path, errors="ignore") as f:
+            if size > 8 << 20:              # the end is enough / 끝만으로 충분하다
+                f.seek(size - (8 << 20))
+                f.readline()
+            for ln in f:
+                try:
+                    e = json.loads(ln)
+                except ValueError:
+                    continue
+                if e.get("isSidechain") or e.get("isMeta") or e.get("isCompactSummary"):
+                    continue
+                m = e.get("message") or {}
+                c = m.get("content")
+                if e.get("type") == "user":
+                    results = [b for b in c if isinstance(b, dict) and b.get("type") == "tool_result"] if isinstance(c, list) else []
+                    for b in results:
+                        events.append(("result", b.get("tool_use_id"), b.get("content"), b.get("is_error"), e.get("toolUseResult")))
+                    s = "" if results else " ".join(texts(c)).strip()
+                    if s.startswith("This session goes on with a Claude Code conversation"):
+                        s = s.split("\n\n", 1)[1].strip() if "\n\n" in s else ""
+                    if s and not s.startswith(("<", "(hivemux", "[Request interrupted")):
+                        events.append(("user", s))
+                elif e.get("type") == "assistant":
+                    for b in c or []:
+                        if not isinstance(b, dict):
+                            continue
+                        if b.get("type") == "text" and b.get("text", "").strip():
+                            events.append(("text", b["text"], bool(e.get("isApiErrorMessage"))))
+                        elif b.get("type") == "tool_use":
+                            events.append(("tool", b.get("id"), b.get("name"), b.get("input")))
+    except OSError:
+        return
+    start = max(0, len(events) - most)
+    for k in reversed([k for k, ev in enumerate(events) if ev[0] == "user"]):
+        start = k
+        if len(events) - k >= most:
+            break
+    for ev in events[start:]:
+        if ev[0] == "user":
+            tx.user(ev[1])
+        elif ev[0] == "text":
+            tx.text(ev[1], ev[2])
+        elif ev[0] == "tool":
+            tx.tool_use(ev[1], ev[2], ev[3])
+        else:
+            tx.tool_result(*ev[1:])
+    tx.end()
+
+
 # ── the session / 세션 ──
-
-DIM, BOLD, RST, GREEN, BLUE, RED, GRAY = "\x1b[2m", "\x1b[1m", "\x1b[0m", "\x1b[32m", "\x1b[34m", "\x1b[31m", "\x1b[90m"
-SPIN = "✻✶✳✢·✢✳✶"
-
 
 def short(inp):
     for k in ("command", "file_path", "pattern", "path", "url", "query", "description", "prompt"):
@@ -488,7 +1015,7 @@ def commands():
     """The slash commands it answers itself; others go to the SDK as they are (/compact...)
     스스로 답하는 슬래시 명령. 나머지는 그대로 SDK 로 간다 (/compact...)"""
     return {
-        "/help": tr("명령 보기", "show the commands"),
+        "/help": tr("명령과 단축키 보기", "show the commands and keys"),
         "/clear": tr("새 대화로 (넘김 문서 없이)", "a new conversation (without the handoff)"),
         "/model": tr("모델 바꾸기: /model opus|sonnet|haiku", "change the model: /model opus|sonnet|haiku"),
         "/effort": tr("생각하는 정도: /effort low|medium|high|xhigh|max", "how hard it thinks: /effort low|medium|high|xhigh|max"),
@@ -500,17 +1027,18 @@ def commands():
 
 
 class Pinned:
-    """The prompt pinned to the bottom rows, as in Claude Code: the rows above are the terminal's scroll region, and
-    the answer is written at its bottom so it scrolls there (into tmux's history as well), with the cursor saved and
-    put back, so the prompt is never erased and drawn again. Printing above the prompt redrew it on every line, and
-    the prompt shook while the answer came
-    입력창을 Claude Code 처럼 아래 줄에 고정한다: 위쪽 줄은 터미널의 스크롤 영역이고, 답은 그 맨 아래에 써서 거기서
-    올라간다 (tmux 기록에도 남는다). 커서는 저장했다 되돌려서 입력창은 지웠다 다시 그리지 않는다. 입력창 위에 찍으면
-    줄마다 입력창을 다시 그려, 답이 오는 동안 입력창이 흔들렸다"""
-    N = 7            # spinner, rule, three lines of input, rule, status / 스피너, 선, 입력 세 줄, 선, 상태줄
+    """The prompt pinned to the bottom rows, as in Claude Code: the rows above are the terminal's scroll region,
+    filled from the top and then scrolled at its bottom (into tmux's history as well), with the cursor saved and put
+    back, so the prompt is never erased and drawn again. Printing above the prompt redrew it on every line, and the
+    prompt shook while the answer came
+    입력창을 Claude Code 처럼 아래 줄에 고정한다: 위쪽 줄은 터미널의 스크롤 영역으로, 위에서부터 채우고 다 차면 맨 아래에서
+    올린다 (tmux 기록에도 남는다). 커서는 저장했다 되돌려서 입력창은 지웠다 다시 그리지 않는다. 입력창 위에 찍으면 줄마다
+    입력창을 다시 그려, 답이 오는 동안 입력창이 흔들렸다"""
+    N = 8            # two rows (spinner, tip or notice), rule, three lines of input, rule, mode
+    INPUT = 3        # 두 줄 (스피너, 팁이나 알림), 선, 입력 세 줄, 선, 모드
 
     def __init__(self):
-        self.rows, self.on = 0, False
+        self.rows, self.on, self.row = 0, False, 0
 
     @staticmethod
     def lines():
@@ -519,17 +1047,24 @@ class Pinned:
     def place(self):
         """The region above the pinned rows, and the cursor where the prompt starts / 고정한 줄 위의 영역과 입력창 시작 위치"""
         self.rows = self.lines()
+        self.row = min(self.row, self.rows - self.N)
         sys.__stdout__.write(f"\x1b[1;{self.rows - self.N}r\x1b[{self.rows - self.N + 1};1H\x1b[J")
         sys.__stdout__.flush()
+
+    def clear(self):
+        """An empty screen, as Claude Code's own (full screen) starts / Claude Code (전체 화면) 처럼 빈 화면에서"""
+        if self.on:
+            sys.__stdout__.write("\x1b[r\x1b[H\x1b[2J")
+            self.row = 0
+            self.place()
 
     def __enter__(self):
         if sys.__stdout__.isatty():
             # extended keys (modifyOtherKeys 1), as Claude Code asks for: tmux then tells Shift+Enter from Enter
             # 확장 키 (modifyOtherKeys 1). Claude Code 처럼 요청한다: 그래야 tmux 가 Shift+Enter 를 Enter 와 구별해 보낸다
             sys.__stdout__.write("\x1b[>4;1m")
-            sys.__stdout__.write("\n" * self.N)        # room under what is on the screen / 화면에 있는 것 아래 자리
-            self.place()
             self.on = True
+            self.clear()
         return self
 
     def __exit__(self, *exc):
@@ -540,10 +1075,16 @@ class Pinned:
 
     def out(self, text=""):
         if not self.on:
-            print(text, flush=True)
+            print(plain(str(text)) if not sys.__stdout__.isatty() else text, flush=True)
             return
-        rows = "".join("\r\n" + ln + RST for ln in str(text).split("\n"))
-        sys.__stdout__.write(f"\x1b7\x1b[{self.rows - self.N};1H{rows}\x1b8")
+        bottom, w, buf = self.rows - self.N, cols(), "\x1b7"
+        for ln in str(text).split("\n"):
+            if self.row < bottom:          # still room under what is there / 아직 아래에 자리가 있다
+                buf += f"\x1b[{self.row + 1};1H{ln}{RST}"
+                self.row = min(bottom, self.row + max(1, -(-vis(ln) // w)))
+            else:
+                buf += f"\x1b[{bottom};1H\r\n{ln}{RST}"
+        sys.__stdout__.write(buf + "\x1b8")
         sys.__stdout__.flush()
 
     def follow(self, app):
@@ -557,20 +1098,25 @@ class Pinned:
             app.renderer.erase(leave_alternate_screen=False)
             self.place()
             app.renderer.reset()
+            # as its own resize does: until the terminal says where the cursor is, the rows under the input
+            # (the rule and the mode) are not drawn / 원래 크기 바꿈처럼: 터미널이 커서 자리를 알려 주기 전에는
+            # 입력 아래 줄 (선과 모드) 을 그리지 않는다
+            app._request_absolute_cursor_position()
             app._redraw()
 
         app._on_resize = on_resize
 
 
 async def run(argv):
-    import anyio, asyncio
-    from claude_agent_sdk import (ClaudeAgentOptions, ClaudeSDKClient, AssistantMessage, ResultMessage, TextBlock,
-                                  ToolUseBlock, UserMessage, ToolResultBlock)
+    import anyio, asyncio, random
+    from claude_agent_sdk import (ClaudeAgentOptions, ClaudeSDKClient, AssistantMessage, ResultMessage, SystemMessage,
+                                  TextBlock, ToolUseBlock, UserMessage, ToolResultBlock)
     from prompt_toolkit import PromptSession
-    from prompt_toolkit.completion import WordCompleter
+    from prompt_toolkit.filters import Condition
     from prompt_toolkit.formatted_text import ANSI
     from prompt_toolkit.history import FileHistory
     from prompt_toolkit.key_binding import KeyBindings
+    from prompt_toolkit.keys import Keys
     from prompt_toolkit.styles import Style
 
     vals, bools, prompt = parse(argv)
@@ -599,12 +1145,12 @@ async def run(argv):
     role = tmux("show", "-pqv", "-t", pane, "@hivemux-role").strip() if pane else ""
     proj = tmux("display", "-p", "-t", pane, "#{session_name}").strip() if pane else ""
     peer = f"{proj}-{role}" if role and proj else title_of(sid, pane)
+    perm = vals.get("--permission-mode") or "auto"
 
     def options():
         r, resume[0] = resume[0], ""
         return ClaudeAgentOptions(resume=r or None, extra_args={"name": peer} if peer else {},
-            cwd=cwd, model=model[0] or None, effort=effort[0] or None,
-            permission_mode=vals.get("--permission-mode") or "auto",
+            cwd=cwd, model=model[0] or None, effort=effort[0] or None, permission_mode=perm,
             disallowed_tools=[t.strip() for t in (vals.get("--disallowedTools") or vals.get("--disallowed-tools") or "").split(",") if t.strip()],
             system_prompt={"type": "preset", "preset": "claude_code", **({"append": append} if append else {})},
             setting_sources=["user", "project", "local"],
@@ -616,6 +1162,7 @@ async def run(argv):
             stderr=lambda line: pin.out(f"{GRAY}{line.rstrip()}{RST}"),
         )
 
+    seen = transcript_of(resume[0]) if resume[0] else transcript_of(sid) if sid else ""
     doc = handoff_in(sid, cwd, pane) if sid and not resume[0] else ""
     # the one the limit cut off goes on at once; the others wait for you (bin/hivemux-account at_limit)
     # 한도로 끊긴 것은 바로 이어 가고, 나머지는 입력을 기다린다 (bin/hivemux-account at_limit)
@@ -628,14 +1175,6 @@ async def run(argv):
              f"in the user's language.") if doc else ""
     title = title_of(sid, pane)
     set_title(title)
-    print(f"{BOLD}hivemux{RST} {GRAY}· API (Agent SDK) · "
-          + tr("구독을 다시 쓸 수 있으면 Claude Code 로 돌아갑니다", "goes back to Claude Code when the subscription can be used")
-          + RST)
-    if resume[0]:
-        print(GRAY + tr(f"API 로 하던 대화를 이어 갑니다{f' (키: {key})' if key else ''}",
-                        f"Going on with the API conversation{f' (key: {key})' if key else ''}") + RST)
-    elif doc:
-        print(GRAY + tr(f"넘김 문서: {doc}", f"Handoff: {doc}") + RST)
 
     os.makedirs(os.path.join(DATA, "sdk"), exist_ok=True)
     # the prompt stays while it works, as in Claude Code: what you send then goes into the work under way (the SDK
@@ -644,27 +1183,139 @@ async def run(argv):
     # 답은 입력창 위에 찍힌다
     st = {"total": 0.0, "first": bool(intro), "busy": False, "t0": 0.0, "doing": "", "back": False, "done": False,
           "switch": False, "img": 0, "pasted": {}, "ctx": 0, "ctx_first": 0, "diet": "", "diet_before": 0,
-          "diet_start": False, "next": None,
-          "clear": False, "asked": [], "shown": [], "i": 0, "client": None}
+          "diet_start": False, "next": None, "clear": False, "asked": [], "shown": [], "client": None,
+          "verb": DOING[0], "tokens": {}, "interrupted": False, "model": model_name(model[0]),
+          "bash": False, "bash_ctx": [], "pastes": {}, "sel": 0, "menu_for": None, "flash": ("", 0.0), "cc_at": 0.0}
 
+    pin = Pinned()
+    tx = Transcript(pin.out, cwd)
+
+    def flash(text):
+        """A notice in the mode's row for a moment, as Claude Code's / Claude Code 처럼 모드 줄에 잠깐 보이는 알림"""
+        st["flash"] = (text, time.time())
+
+    def begin():
+        st.update(busy=True, t0=time.time(), doing="", verb=random.choice(DOING), tokens={}, interrupted=False)
+
+    def interrupt():
+        st["interrupted"] = True
+        asyncio.ensure_future(st["client"].interrupt())
+        tx.reply(f"{RED}Interrupted{GRAY} · What should Claude do instead?{RST}")
+
+    def banner():
+        home = os.path.expanduser("~")
+        where = "~" + cwd[len(home):] if cwd == home or cwd.startswith(home + "/") else cwd
+        who = tr(f"API 키 {key}", f"API key {key}") if key else "API"
+        tx.note(f"{CLAUDE} ▐\x1b[48;5;16m▛███▛█{RST}   {BOLD}Claude Code{RST} {GRAY}· Agent SDK{RST}",
+                f"{CLAUDE}▝▜\x1b[48;5;16m█████\x1b[49m█▀{RST}  {GRAY}{st['model'] + ' · ' if st['model'] else ''}{who}{RST}",
+                f"{CLAUDE} ▝▝   ▝▝ {RST}  {GRAY}{where}{RST}")
+
+    # ── files for @ / @ 에 쓸 파일 ──
+    files = []
+
+    def project_files():
+        if not files:
+            try:
+                r = subprocess.run(["git", "ls-files", "-co", "--exclude-standard"], cwd=cwd, capture_output=True,
+                                   text=True, timeout=3)
+                fs = r.stdout.splitlines() if r.returncode == 0 else []
+            except (OSError, subprocess.TimeoutExpired):
+                fs = []
+            if not fs:
+                for top, dirs, names in os.walk(cwd):
+                    dirs[:] = [d for d in dirs if not d.startswith(".") and d != "node_modules"]
+                    fs += [os.path.relpath(os.path.join(top, n), cwd) for n in names]
+                    if len(fs) > 5000:
+                        break
+            files.extend(fs[:20000] + sorted({os.path.dirname(p) + "/" for p in fs if os.path.dirname(p)}))
+        return files
+
+    # ── the menu above the prompt: / commands and @ files, as Claude Code lists them there ──
+    # ── 입력창 위 목록: / 명령과 @ 파일. Claude Code 가 거기에 보이듯 ──
+    words, descs = [list(commands())], dict(commands())
+
+    def menu_items():
+        b = session.default_buffer
+        if st["bash"] or "\n" in b.text:
+            return []
+        if re.fullmatch(r"/[\w:.-]*", b.text):
+            q = b.text
+            hits = [c for c in words[0] if c.startswith(q)]
+            hits += [c for c in words[0] if len(q) > 1 and q[1:] in c[1:] and c not in hits]
+            return [("cmd", c, descs.get(c, "")) for c in hits]
+        m = re.search(r"(?:^|\s)@([^\s@]*)$", b.document.text_before_cursor)
+        if m:
+            q = m.group(1).lower()
+            fs = project_files()
+            hits = [p for p in fs if os.path.basename(p.rstrip("/")).lower().startswith(q)]
+            got = set(hits)
+            hits += [p for p in fs if q in p.lower() and p not in got]
+            return [("file", p, "") for p in hits[:50]]
+        return []
+
+    def menu_rows(items, n):
+        if st["menu_for"] != session.default_buffer.text:
+            st["sel"], st["menu_for"] = 0, session.default_buffer.text
+        sel = st["sel"] = min(st["sel"], len(items) - 1)
+        start = max(0, sel - n + 1)
+        shown = items[start:start + n]
+        nw = min(max(vis(("@" if k == "file" else "") + c) for k, c, _ in shown) + 4, 36)
+        w, rows = cols(), []
+        for i, (kind, c, d) in enumerate(shown, start):
+            name = ("@" if kind == "file" else "") + c
+            line = f"{'❯' if i == sel else ' '} {name}" + " " * max(2, nw - vis(name)) + d
+            rows.append(f"  {CODE if i == sel else GRAY}{fit(line, w - 3)}{RST}")
+        return rows
+
+    def pick(b, item, run_it):
+        kind, c, _ = item
+        if kind == "file":
+            m = re.search(r"@([^\s@]*)$", b.document.text_before_cursor)
+            b.delete_before_cursor(len(m.group(1)) if m else 0)
+            b.insert_text(c + ("" if c.endswith("/") else " "))
+        elif run_it:
+            b.text = c
+            b.validate_and_handle()
+        else:
+            b.text = c + " "
+            b.cursor_position = len(b.text)
+
+    menu_on = Condition(lambda: bool(menu_items()))
     keys = KeyBindings()
 
     @keys.add("enter")
     def _(event):
-        # Enter sends; a line ending in \ goes on to the next, as in Claude Code. With the completion menu open it
-        # takes the command picked ("/eff" went to Claude as it was)
-        # Enter 는 보낸다. \ 로 끝나면 줄바꿈. 자동완성 메뉴가 열려 있으면 고른 명령을 넣는다 ("/eff" 가 그대로 Claude 에게 갔다)
+        # Enter sends; a line ending in \ goes on to the next, as in Claude Code. With the menu up it runs the command
+        # picked, or puts in the file picked
+        # Enter 는 보낸다. \ 로 끝나면 줄바꿈. 목록이 떠 있으면 고른 명령을 실행하거나 고른 파일을 넣는다
         b = event.current_buffer
-        if b.complete_state:
-            c = b.complete_state.current_completion or (b.complete_state.completions or [None])[0]
-            if c:
-                b.apply_completion(c)
-                return
-        if b.document.text_before_cursor.endswith("\\"):
+        items = menu_items()
+        if items:
+            pick(b, items[min(st["sel"], len(items) - 1)], True)
+        elif b.document.text_before_cursor.endswith("\\"):
             b.delete_before_cursor(1)
             b.insert_text("\n")
         else:
             b.validate_and_handle()
+
+    @keys.add("tab", filter=menu_on)
+    def _(event):
+        items = menu_items()
+        pick(event.current_buffer, items[min(st["sel"], len(items) - 1)], False)
+
+    @keys.add("up", filter=menu_on)
+    def _(event):
+        st["sel"] = (st["sel"] - 1) % len(menu_items())
+
+    @keys.add("down", filter=menu_on)
+    def _(event):
+        st["sel"] = (st["sel"] + 1) % len(menu_items())
+
+    @keys.add("!", filter=Condition(lambda: not session.default_buffer.text and not st["bash"]))
+    def _(event):
+        # ! at the start: bash mode, as in Claude Code: the command runs here and its output goes with the next message
+        # 맨 앞의 ! 는 Claude Code 처럼 bash 모드: 명령을 여기서 돌리고 그 출력은 다음 메시지와 함께 간다
+        st["bash"] = True
 
     @keys.add("c-v")
     def _(event):
@@ -672,29 +1323,47 @@ async def run(argv):
         # Ctrl+V 는 클립보드 이미지를 [Image #n] 으로 붙인다 (Claude Code 처럼. Cmd+V 는 글을 붙인다)
         path = clipboard_image()
         if not path:
-            out(GRAY + tr("  클립보드에 이미지가 없습니다 (글은 Cmd+V)", "  No image on the clipboard (text: Cmd+V)") + RST)
+            flash(tr("클립보드에 이미지가 없습니다 (글은 Cmd+V)", "No image found in clipboard (text: Cmd+V)"))
             return
         st["img"] += 1
         st["pasted"][st["img"]] = path
         event.current_buffer.insert_text(f"[Image #{st['img']}]")
 
+    @keys.add(Keys.BracketedPaste)
+    def _(event):
+        # a long paste stands as [Pasted text #n +N lines] and goes in whole when sent, as in Claude Code
+        # 긴 붙여 넣기는 Claude Code 처럼 [Pasted text #n +N lines] 로 두고 보낼 때 통째로 넣는다
+        data = event.data.replace("\r\n", "\n").replace("\r", "\n")
+        n = len(data.rstrip("\n").split("\n"))
+        if n <= 8 and len(data) <= 1000:
+            event.current_buffer.insert_text(data)
+            return
+        mark = f"[Pasted text #{len(st['pastes']) + 1} +{n} lines]"
+        st["pastes"][mark] = data
+        event.current_buffer.insert_text(mark)
+
+    PIECE = r"\[(?:Image #\d+|Pasted text #\d+ \+\d+ lines)\]"
+
     @keys.add("backspace")
     def _(event):
-        # an [Image #n] goes in one press, as in Claude Code / [Image #n] 은 Claude Code 처럼 한 번에 지운다
+        # an [Image #n] or a pasted text goes in one press, as in Claude Code; on nothing it leaves bash mode
+        # [Image #n] 과 붙여 넣은 글은 Claude Code 처럼 한 번에 지운다. 빈 줄에서는 bash 모드를 끝낸다
         b = event.current_buffer
-        m = re.search(r"\[Image #\d+\]$", b.document.text_before_cursor)
+        if st["bash"] and not b.text:
+            st["bash"] = False
+            return
+        m = re.search(PIECE + "$", b.document.text_before_cursor)
         b.delete_before_cursor(len(m.group(0)) if m else 1)
 
     @keys.add("delete")
     def _(event):
         b = event.current_buffer
-        m = re.match(r"\[Image #\d+\]", b.document.text_after_cursor)
+        m = re.match(PIECE, b.document.text_after_cursor)
         b.delete(len(m.group(0)) if m else 1)
 
     # Shift+Enter as tmux sends it with extended keys (xterm's and the CSI u form) is a new line
     # 확장 키로 tmux 가 보내는 Shift+Enter (xterm 형식과 CSI u 형식) 는 줄바꿈
     from prompt_toolkit.input.ansi_escape_sequences import ANSI_SEQUENCES
-    from prompt_toolkit.keys import Keys
     for seq in ("\x1b[27;2;13~", "\x1b[13;2u"):
         ANSI_SEQUENCES[seq] = Keys.ControlJ
 
@@ -707,57 +1376,90 @@ async def run(argv):
     def _(event):
         # Esc stops the work under way; with nothing under way it clears the line / Esc 는 하던 일을 멈춘다. 없으면 줄을 지운다
         if st["busy"] and st["client"]:
-            asyncio.ensure_future(st["client"].interrupt())
-            out(f"{GRAY}  ⎿ {tr('멈췄습니다', 'Stopped')}{RST}")
+            interrupt()
         else:
+            st["bash"] = False
             event.current_buffer.reset()
 
     @keys.add("c-c")
     def _(event):
-        if st["busy"] and st["client"] and not event.current_buffer.text:
-            asyncio.ensure_future(st["client"].interrupt())
-            out(f"{GRAY}  ⎿ {tr('멈췄습니다', 'Stopped')}{RST}")
+        # as in Claude Code: stops the work, else clears the line, else twice quits
+        # Claude Code 처럼: 하던 일을 멈추고, 없으면 줄을 지우고, 빈 줄에서 두 번 누르면 끝낸다
+        b = event.current_buffer
+        if st["busy"] and st["client"] and not b.text:
+            interrupt()
+        elif b.text or st["bash"]:
+            st["bash"] = False
+            b.reset()
+        elif time.time() - st["cc_at"] < 1.5:
+            st["done"] = True
+            event.app.exit(result="")
         else:
-            event.current_buffer.reset()
+            st["cc_at"] = time.time()
+            flash("Press Ctrl-C again to exit")
+
+    def mode():
+        return {"auto": f"{MODE}⏵⏵ auto mode on", "bypassPermissions": f"{RED}⏵⏵ bypass permissions on",
+                "acceptEdits": "\x1b[38;5;177m⏵⏵ accept edits on", "plan": "\x1b[38;5;73m⏸ plan mode on"}.get(perm, "")
 
     def toolbar():
-        st_ = (f" API · Agent SDK · {model[0] or tr('기본 모델', 'default model')} · effort {effort[0] or tr('기본', 'default')}"
-               f" · {st['ctx'] // 1000}K · ${st['total']:.2f} · auto")
-        w = shutil.get_terminal_size((100, 20)).columns
-        return ANSI(f"{GRAY}{'─' * w}\n{st_}   " + tr("Shift+Enter 줄바꿈 · Ctrl+V 이미지 · / 명령 · Esc 멈추기",
-                                                       "Shift+Enter new line · Ctrl+V image · / commands · Esc stop") + RST)
+        # the rule under the prompt and the mode's row: the mode, then what this terminal runs on and has cost
+        # 입력창 아래 선과 모드 줄: 모드, 그다음 이 터미널이 무엇으로 돌고 얼마를 썼는지
+        w = cols()
+        text, at = st["flash"]
+        if time.time() - at < (1.5 if text.startswith("Press Ctrl-C") else 3):
+            s = f"{GRAY}{text}"
+        elif st["bash"]:
+            s = f"{PINK}! for bash mode{GRAY} · " + tr("이 폴더에서 셸 명령을 돌립니다", "runs a shell command in this folder")
+        else:
+            parts = ([mode()] if mode() else []) + [f"{GRAY}API · {st['model'] or tr('기본 모델', 'default model')}"]
+            if st["ctx"]:
+                parts.append(f"{GRAY}{st['ctx'] // 1000}K")
+            parts.append(f"{GRAY}${st['total']:.2f}")
+            if st["busy"]:
+                parts.append(f"{GRAY}esc to interrupt")
+            s = f"{GRAY} · ".join(parts)
+        return ANSI(f"{PINK if st['bash'] else RULE}{'─' * w}{RST}\n{fit('  ' + s + RST, w - 1)}")
 
     def message():
-        w = shutil.get_terminal_size((100, 20)).columns
-        # the prompt fills the pinned rows: blank lines on top for what the input does not take
-        # 입력창이 고정한 줄을 채운다: 입력이 쓰지 않는 만큼 위에 빈 줄
-        n = min(session.default_buffer.document.line_count, Pinned.N - 4)
-        top = "\n" * max(0, Pinned.N - 4 - n)
-        if not st["busy"]:
-            top += "\n"
+        # the rows above the prompt (the menu; or the spinner, what it is doing, the effort), then the rule with the
+        # conversation's name / 입력창 위 줄 (목록, 또는 스피너, 하는 일, effort), 그다음 대화 이름이 붙은 선
+        w = cols()
+        n = min(session.default_buffer.document.line_count, Pinned.INPUT)
+        room = Pinned.N - 3 - n
+        items = menu_items()
+        if items:
+            rows = menu_rows(items, room)
         else:
-            st["i"] += 1
-            secs = int(time.time() - st["t0"])
-            top += (f"{GREEN}{SPIN[st['i'] % len(SPIN)]}{RST} {st['doing'] or tr('일하는 중…', 'Working…')}{GRAY} ({secs}s · "
-                   + tr("Esc 멈추기 · 입력하면 하던 일에 더합니다", "Esc to stop · what you type joins the work") + f"){RST}\n")
-        return ANSI(f"{top}{GRAY}{'─' * w}{RST}\n{BOLD}❯{RST} ")
+            rows = []
+            if st["busy"]:
+                frame = SPIN[int(time.time() / 0.12) % len(SPIN)]
+                tok = sum(st["tokens"].values())
+                tok = f" · ↓ {tok / 1000:.1f}k tokens" if tok >= 1000 else f" · ↓ {tok} tokens" if tok else ""
+                rows.append(fit(f"{CLAUDE}{frame}{RST} {SHIMMER}{st['verb']}…{RST} {GRAY}({took(time.time() - st['t0'])}{tok}){RST}", w - 1))
+                tip = st["doing"] or "Tip: " + tr("입력하면 하던 일에 더합니다", "what you type joins the work under way")
+                rows.append(fit(f"  {GRAY}⎿  {tip}{RST}", w - 1))
+            if effort[0] and len(rows) < room:
+                s = f"{EFFORT.get(effort[0], '◐')} {effort[0]} · /effort"
+                rows.append(" " * max(0, w - vis(s) - 2) + f"{GRAY}{s}{RST}")
+        rows = [""] * max(0, room - len(rows)) + rows[-room:]
+        color = PINK if st["bash"] else RULE
+        name = fit(title, w // 2) if title else ""
+        top = f"{color}{'─' * (w - vis(name) - 3)} {name} ─{RST}" if name else f"{color}{'─' * w}{RST}"
+        mark = f"{PINK}!{RST} " if st["bash"] else f"{GRAY}❯{RST} " if st["busy"] else "❯ "
+        return ANSI("\n".join(rows + [top]) + "\n" + mark)
 
-    # erased when sent: the line is printed once above, without the spinner and the rules of the prompt
-    # 보내면 지운다: 그 줄은 위에 한 번만 찍는다. 입력창의 스피너와 선 없이
-    # ours, then the SDK's own (its slash commands, skills, the project's commands), read when it connects
-    # 우리 것, 그다음 SDK 의 것 (슬래시 명령, 스킬, 프로젝트 명령). 연결할 때 읽는다
-    words, sdk_cmds = [list(commands())], set()
-    pin = Pinned()
-    out = pin.out
-    session = PromptSession(multiline=True, key_bindings=keys, bottom_toolbar=toolbar, refresh_interval=0.3,
+    # erased when sent: the line is printed once above, on the grey band / 보내면 지운다: 그 줄은 위에 회색 띠로 한 번 찍는다
+    session = PromptSession(multiline=True, key_bindings=keys, bottom_toolbar=toolbar, refresh_interval=0.12,
                             erase_when_done=True,
-                            # the status line is plain text under the rule, not a filled bar / 상태줄은 선 아래 글자다. 칠한 막대가 아니다
+                            # the mode's row is plain text under the rule, not a filled bar / 모드 줄은 선 아래 글자다. 칠한 막대가 아니다
                             style=Style.from_dict({"bottom-toolbar": "noreverse"}),
                             history=FileHistory(os.path.join(DATA, "sdk", "history")),
-                            completer=WordCompleter(lambda: words[0], sentence=True), complete_while_typing=True,
+                            placeholder=lambda: ANSI("\x1b[2m" + fit(tr("API (Agent SDK) 로 이어 가는 중 · 구독을 다시 쓸 수 있으면 Claude Code 로 돌아갑니다",
+                                                                         "Going on through the API (Agent SDK) · back to Claude Code when the subscription can be used"), cols() - 4) + RST),
                             prompt_continuation=lambda width, n, soft: "  ")
 
-    def wrap(text):
+    def with_intro(text):
         if st["first"]:
             st["first"] = False
             return f"{intro}\n\n{text}"
@@ -765,11 +1467,35 @@ async def run(argv):
 
     async def send(client, text):
         if st["busy"]:
-            out(f"{GRAY}  ⎿ {tr('하던 일에 더했습니다', 'Added to the work under way')}{RST}")
+            tx.reply(GRAY + tr("하던 일에 더했습니다", "Added to the work under way") + RST)
         else:
-            st["busy"], st["t0"], st["doing"] = True, time.time(), ""
+            begin()
         st["asked"].append(text)
-        await client.query(with_images(wrap(text), st["pasted"]))
+        for mark, data in st["pastes"].items():
+            text = text.replace(mark, data)
+        if st["bash_ctx"]:
+            text, st["bash_ctx"] = "\n\n".join(st["bash_ctx"] + [text]), []
+        await client.query(with_images(with_intro(text), st["pasted"]))
+
+    async def shell(cmd):
+        """! in bash mode: run here, show it as Claude Code does, keep it for the next message (in Claude Code's form)
+        bash 모드의 !: 여기서 돌리고, Claude Code 처럼 보여 주고, 다음 메시지에 붙인다 (Claude Code 의 형식으로)"""
+        tx.user(cmd, "!", PINK)
+
+        def go():
+            try:
+                r = subprocess.run([os.environ.get("SHELL") or "/bin/sh", "-c", cmd], cwd=cwd, capture_output=True,
+                                   text=True, timeout=600, stdin=subprocess.DEVNULL)
+                return r.stdout, r.stderr
+            except (OSError, subprocess.TimeoutExpired) as e:
+                return "", str(e)
+
+        o, e = await anyio.to_thread.run_sync(go)
+        o, e = o.rstrip(), e.rstrip()
+        ls = [f"{GRAY}{fit(x, cols() - 6)}{RST}" for x in o.splitlines()] + [f"{RED}{fit(x, cols() - 6)}{RST}" for x in e.splitlines()]
+        tx.reply(*(ls[:10] + ([f"{GRAY}… +{len(ls) - 10} lines{RST}"] if len(ls) > 10 else [])) if ls else f"{GRAY}(No content){RST}")
+        st["bash_ctx"].append(f"<bash-input>{cmd}</bash-input>\n<bash-stdout>{clip(o, 30000)}</bash-stdout>"
+                              f"<bash-stderr>{clip(e, 10000)}</bash-stderr>")
 
     async def reader(client):
         try:
@@ -777,8 +1503,8 @@ async def run(argv):
         except Exception as e:
             # the stream broke: connect again on the same conversation, not die
             # 흐름이 끊겼다: 죽지 않고 같은 대화로 다시 연결한다
-            out(RED + tr(f"  연결이 끊겼습니다 ({clip(str(e), 120)}). 같은 대화로 다시 연결합니다…",
-                         f"  The connection broke ({clip(str(e), 120)}). Connecting again on the same conversation…") + RST)
+            tx.system(tr(f"연결이 끊겼습니다 ({clip(str(e), 120)}). 같은 대화로 다시 연결합니다…",
+                         f"The connection broke ({clip(str(e), 120)}). Connecting again on the same conversation…"), RED)
             resume[0] = st.get("sdk_sid") or sdk_session(sid)
             if st["busy"] and not st["next"]:
                 st["next"] = tr("연결이 끊겨 마지막 답을 받지 못했습니다. 하던 일이 남았으면 이어서 하고, 끝났으면 그 답을 짧게 다시 알려 주세요.",
@@ -792,41 +1518,59 @@ async def run(argv):
             # keep the conversation from its first message, so a break mid-turn still resumes it
             # 첫 메시지부터 대화를 잡아 둔다. 턴 중간에 끊겨도 이어 간다
             st["sdk_sid"] = getattr(m, "session_id", None) or (getattr(m, "data", None) or {}).get("session_id") or st.get("sdk_sid", "")
+            if isinstance(m, SystemMessage):
+                if m.subtype == "init" and (m.data or {}).get("model"):
+                    st["model"] = model_name(m.data["model"])
+                elif m.subtype == "compact_boundary":
+                    tx.note("", f"{GRAY}✻ Conversation compacted{RST}")
+                continue
             if isinstance(m, AssistantMessage) and not st["busy"]:
                 # what was sent during the last turn (after Esc, say) runs as a turn of its own
                 # 지난 턴 동안 보낸 것 (Esc 뒤 등) 은 따로 한 턴으로 돈다
-                st["busy"], st["t0"], st["doing"] = True, time.time(), ""
-            if isinstance(m, AssistantMessage) and not getattr(m, "parent_tool_use_id", None):
-                n = usage_tokens(getattr(m, "usage", None))
+                begin()
+            parent = getattr(m, "parent_tool_use_id", None)
+            if parent:
+                # an agent's own steps stay inside its line, as in Claude Code: counted, and shown under the spinner
+                # 에이전트 안의 걸음은 Claude Code 처럼 그 줄 안에: 세고, 스피너 아래에 보인다
+                for b in (m.content if isinstance(m, AssistantMessage) else []):
+                    if isinstance(b, ToolUseBlock):
+                        tx.inner_use(parent)
+                        st["doing"] = f"{label(b.name, b.input, cwd)[0]}({fit(label(b.name, b.input, cwd)[1], 60)})"
+                continue
+            if isinstance(m, AssistantMessage):
+                u = getattr(m, "usage", None)
+                n = usage_tokens(u)
                 if n:
                     st["ctx"] = n
                     st["ctx_first"] = st["ctx_first"] or n
-            if isinstance(m, AssistantMessage):
+                if isinstance(u, dict):
+                    st["tokens"][getattr(m, "message_id", None) or id(m)] = int(u.get("output_tokens") or 0)
                 for b in m.content:
                     if isinstance(b, TextBlock) and b.text.strip():
-                        out(f"\n{GREEN}⏺{RST} {b.text.strip()}")
+                        tx.text(b.text, bool(getattr(m, "error", None)))
                         st["shown"].append(b.text.strip())
                     elif isinstance(b, ToolUseBlock):
-                        out(f"{BLUE}⏺{RST} {BOLD}{b.name}{RST}{GRAY}({short(b.input)}){RST}")
-                        st["doing"] = tr(f"{b.name} 실행 중…", f"Running {b.name}…")
+                        tx.tool_use(b.id, b.name, b.input)
+                st["doing"] = tx.doing()
             elif isinstance(m, UserMessage) and isinstance(m.content, list):
                 for b in m.content:
                     if isinstance(b, ToolResultBlock):
-                        body = b.content if isinstance(b.content, str) else json.dumps(b.content, ensure_ascii=False)
-                        line = (body or "").strip().splitlines()[0] if (body or "").strip() else ""
-                        out(f"  {RED if b.is_error else GRAY}⎿ {clip(line, 160)}{RST}")
-                st["doing"] = ""
+                        tx.tool_result(b.tool_use_id, b.content, b.is_error, getattr(m, "tool_use_result", None))
+                st["doing"] = tx.doing()
             elif isinstance(m, ResultMessage):
+                tx.end()
                 cost = m.total_cost_usd or 0.0
                 st["total"] += cost
-                out(f"{GRAY}✻ {tr('끝', 'done')} · {int(time.time() - st['t0'])}s · ${cost:.3f}{RST}")
+                if m.is_error and not st["interrupted"]:
+                    tx.reply(f"{RED}{fit(str(m.result or m.subtype), cols() - 8)}{RST}")
+                tx.note("", f"{GRAY}✻ {random.choice(DONE)} for {took(time.time() - st['t0'])} · ${cost:.3f}{RST}")
                 note_back(sid, "\n\n".join(st["asked"]), "\n\n".join(st["shown"][-2:]), cost)
                 st["sdk_sid"] = m.session_id or st.get("sdk_sid", "")
                 if sid and m.session_id:
                     with open(sdk_file(sid), "w") as f:
                         f.write(m.session_id + "\n")
                 last = st["shown"][-1] if st["shown"] else ""
-                st["busy"], st["asked"], st["shown"] = False, [], []
+                st["busy"], st["asked"], st["shown"], st["doing"] = False, [], [], ""
                 set_title(title)            # a tool may have set another / 도구가 다른 것으로 바꿨을 수 있다
                 after_turn(last)
 
@@ -908,8 +1652,8 @@ async def run(argv):
             st["diet"] = ""
             return
         st["diet"], st["diet_before"] = "notes", st["ctx"]
-        out(GRAY + tr(f"  ⎿ 다이어트: 대화가 {st['ctx'] // 1000}K 토큰이라 노트를 정리하고 새로 시작합니다",
-                      f"  ⎿ Diet: the conversation is {st['ctx'] // 1000}K tokens; bringing the notes up to date, then a fresh start") + RST)
+        tx.system(tr(f"다이어트: 대화가 {st['ctx'] // 1000}K 토큰이라 노트를 정리하고 새로 시작합니다",
+                     f"Diet: the conversation is {st['ctx'] // 1000}K tokens; bringing the notes up to date, then a fresh start"))
         t = team_module()
         await send(client, t.notes_ask(plan["notes"], plan["most"], plan["ref"], plan["questions"]))
 
@@ -921,62 +1665,65 @@ async def run(argv):
         if os.path.isfile(last):
             again = tr(f" 먼저 {last} 를 읽고, 그 내용을 사용자에게 고치지 말고 그대로 다시 보여 줘라 (다이어트 직전에 사용자가 읽던 답이다).",
                        f" First read {last} and show it to the user again exactly as written (the answer they were reading right before the diet).")
-        files = " ".join(([plan["start"]()] if plan.get("start") else []) + [plan["notes"]])
+        notes = " ".join(([plan["start"]()] if plan.get("start") else []) + [plan["notes"]])
         try:
             os.unlink(sdk_file(sid))
         except OSError:
             pass
         resume[0], st["first"], st["ctx_first"], st["diet"] = "", False, 0, "after"
-        st["next"] = tr(f"(hivemux 다이어트 뒤 새로 시작){again} {files} 를 읽고 하던 일을 이어서 해라. 사용자의 답을 기다리는 질문이 있으면 "
+        st["next"] = tr(f"(hivemux 다이어트 뒤 새로 시작){again} {notes} 를 읽고 하던 일을 이어서 해라. 사용자의 답을 기다리는 질문이 있으면 "
                         "그 질문을 원문 그대로 다시 보여 줘라. 미리 다 알아 두려 하지 말고 지금 할 한 가지에 필요한 줄만 찾아 읽어라. 이어서 할 일이 없으면 기다려라.",
-                        f"(hivemux: fresh start after a diet){again} Read {files} and carry on with your work. If questions to the "
+                        f"(hivemux: fresh start after a diet){again} Read {notes} and carry on with your work. If questions to the "
                         "user are still unanswered, show them again word for word. Do not catch up on everything first: find and read only the lines the next step needs. If nothing is left, wait.")
-        out(GRAY + tr("  ⎿ 새 대화로 시작합니다", "  ⎿ Starting a fresh conversation") + RST)
+        tx.note("", f"{GRAY}✻ " + tr("새 대화로 시작합니다 (노트를 읽고 이어 갑니다)", "Starting a fresh conversation (it reads the notes and goes on)") + RST)
 
     async def slash(client, text):
         """True when handled here / 여기서 처리했으면 True"""
         cmd, _, arg = text.strip().partition(" ")
+        arg = arg.strip()
         if cmd == "/help":
-            for k, v in commands().items():
-                out(f"  {BOLD}{k}{RST}  {GRAY}{v}{RST}")
+            w = max(len(k) for k in commands())
+            tx.reply(*[f"{BOLD}{k}{RST}{' ' * (w - len(k) + 2)}{GRAY}{v}{RST}" for k, v in commands().items()],
+                     "", f"{GRAY}! for bash mode · / for commands · @ for file paths · \\⏎ or shift+⏎ for newline{RST}",
+                     f"{GRAY}ctrl+v to paste images · esc to interrupt · ctrl+c twice to exit{RST}")
         elif cmd == "/cost":
-            out(f"  ${st['total']:.3f}")
+            tx.reply(f"Total cost: ${st['total']:.4f}")
         elif cmd == "/model":
-            if arg.strip():
-                model[0] = arg.strip()
-                await client.set_model(model[0])
-                out(GRAY + tr(f"  모델: {model[0]}", f"  Model: {model[0]}") + RST)
+            if arg:
+                model[0] = arg
+                await client.set_model(arg)
+                st["model"] = model_name(arg)
+                tx.reply(f"Set model to {BOLD}{st['model']}{RST}")
             else:
-                out(GRAY + tr(f"  지금 모델: {model[0] or '기본'} · /model opus|sonnet|haiku",
-                                f"  Model: {model[0] or 'default'} · /model opus|sonnet|haiku") + RST)
+                tx.reply(f"{GRAY}Model: {st['model'] or tr('기본', 'default')} · /model opus|sonnet|haiku{RST}")
         elif cmd == "/effort":
             levels = ("low", "medium", "high", "xhigh", "max")
-            if arg.strip() in levels and st["busy"]:
-                out(GRAY + tr("  일하는 중에는 바꿀 수 없습니다 (Esc 로 멈춘 뒤)", "  Not while it works (Esc first)") + RST)
-            elif arg.strip() in levels:
+            if arg in levels and st["busy"]:
+                tx.reply(GRAY + tr("일하는 중에는 바꿀 수 없습니다 (Esc 로 멈춘 뒤)", "Not while it works (Esc first)") + RST)
+            elif arg in levels:
                 # the SDK takes the effort at the start only: connect again on the same conversation
                 # SDK 는 effort 를 시작할 때만 받는다: 같은 대화로 다시 연결한다
-                effort[0] = arg.strip()
+                effort[0] = arg
                 resume[0] = st.get("sdk_sid", "")
                 st["clear"] = True
-                out(GRAY + tr(f"  effort: {effort[0]} (같은 대화로 다시 연결합니다)", f"  Effort: {effort[0]} (connecting again on the same conversation)") + RST)
+                tx.reply(f"Set effort level to {BOLD}{arg}{RST}" + GRAY + tr(" (같은 대화로 다시 연결합니다)", " (connecting again on the same conversation)") + RST)
             else:
-                out(GRAY + tr(f"  지금 effort: {effort[0] or '기본'} · /effort low|medium|high|xhigh|max",
-                                f"  Effort: {effort[0] or 'default'} · /effort low|medium|high|xhigh|max") + RST)
+                tx.reply(f"{GRAY}Effort: {effort[0] or tr('기본', 'default')} · /effort low|medium|high|xhigh|max{RST}")
         elif cmd == "/back":
             st["back"] = True
         elif cmd in ("/exit", "/quit"):
             st["done"] = True
         elif cmd == "/clear":
             if st["busy"]:
-                out(GRAY + tr("  일하는 중에는 새 대화로 바꿀 수 없습니다 (Esc 로 멈춘 뒤)", "  Not while it works (Esc first)") + RST)
+                tx.reply(GRAY + tr("일하는 중에는 새 대화로 바꿀 수 없습니다 (Esc 로 멈춘 뒤)", "Not while it works (Esc first)") + RST)
             else:
-                st["clear"], st["first"] = True, False
+                st["clear"], st["first"], st["ctx"] = True, False, 0
                 try:
                     os.unlink(sdk_file(sid))
                 except OSError:
                     pass
-                out(GRAY + tr("  새 대화를 시작합니다.", "  Starting a new conversation.") + RST)
+                pin.clear()             # as Claude Code's /clear: an empty screen / Claude Code 의 /clear 처럼 빈 화면
+                banner()
         else:
             return False
         return True
@@ -986,18 +1733,34 @@ async def run(argv):
     from prompt_toolkit.layout.dimension import Dimension
     for win in session.app.layout.find_all_windows():
         if getattr(win.content, "buffer", None) is session.default_buffer:
-            win.height = lambda: Dimension(min=1, max=Pinned.N - 4,
-                                           preferred=min(session.default_buffer.document.line_count, Pinned.N - 4))
+            win.height = lambda: Dimension(min=1, max=Pinned.INPUT,
+                                           preferred=min(session.default_buffer.document.line_count, Pinned.INPUT))
     with pin:
         pin.follow(session.app)
+        # as Claude Code on --resume: its banner, then the end of the conversation, then where this goes on
+        # Claude Code 의 --resume 처럼: 배너, 대화의 끝, 그다음 어디서 이어 가는지
+        banner()
+        if seen:
+            replay(tx, seen)
+        if resume[0]:
+            tx.system(tr(f"API (Agent SDK) 로 하던 대화를 이어 갑니다{f' · 키 {key}' if key else ''}. 구독을 다시 쓸 수 있으면 Claude Code 로 돌아갑니다.",
+                         f"Going on with the API (Agent SDK) conversation{f' · key {key}' if key else ''}. Back to Claude Code when the subscription can be used."))
+        elif doc:
+            tx.system(tr("구독을 쓸 수 없어 이 대화를 API (Agent SDK) 로 이어 갑니다. 구독을 다시 쓸 수 있으면 Claude Code 로 돌아가고, 그사이 한 일을 먼저 읽게 합니다.",
+                         "The subscription cannot be used, so this conversation goes on through the API (Agent SDK). When it can, it goes back to Claude Code, which reads what was done meanwhile first.")
+                      + "\n" + tr(f"넘김 문서: {doc}", f"Handoff: {doc}"))
         while not st["back"] and not st["done"] and not st["switch"]:
             st["clear"] = False
             async with ClaudeSDKClient(options=options()) as client:
                 st["client"] = client
                 try:
+                    # ours, then the SDK's own (its slash commands, skills, the project's commands), with what they do
+                    # 우리 것, 그다음 SDK 의 것 (슬래시 명령, 스킬, 프로젝트 명령) 과 그 설명
                     info = await client.get_server_info() or {}
-                    sdk_cmds.update("/" + (c.get("name") if isinstance(c, dict) else str(c)) for c in info.get("commands") or [])
-                    words[0] = list(commands()) + sorted(sdk_cmds - set(commands()))
+                    for c in info.get("commands") or []:
+                        name = "/" + (c.get("name") if isinstance(c, dict) else str(c)).lstrip("/")
+                        descs.setdefault(name, (c.get("description") or "") if isinstance(c, dict) else "")
+                    words[0] = list(commands()) + sorted(set(descs) - set(commands()))
                 except Exception:
                     pass
                 async with anyio.create_task_group() as tg:
@@ -1009,7 +1772,7 @@ async def run(argv):
                     elif go_on or prompt:
                         text = prompt or tr("구독을 쓸 수 없어 끊겼던 일을 이어서 해 주세요.", "Please go on with the work that was cut off.")
                         go_on, prompt = False, None
-                        out(f"\n{BOLD}❯{RST} {text}")
+                        tx.user(text)
                         await send(client, text)
                     while not st["back"] and not st["done"] and not st["clear"] and not st["switch"]:
                         if st["diet_start"]:
@@ -1025,15 +1788,19 @@ async def run(argv):
                             break
                         except KeyboardInterrupt:
                             continue
+                        was_bash, st["bash"] = st["bash"], False
                         if not text or not text.strip():
                             continue
-                        out(f"{BOLD}❯{RST} {text}")
+                        if was_bash:
+                            await shell(text.strip())
+                            continue
+                        tx.user(text)
                         # a command is one word after the slash; "/Users/…/a.png" is a path / 명령은 / 뒤 한 단어. 경로는 아니다
                         is_cmd = bool(re.match(r"/[\w:.-]+(\s|$)", text.strip()))
                         if is_cmd and await slash(client, text):
                             continue
-                        if is_cmd and sdk_cmds and text.split()[0] not in sdk_cmds:
-                            out(GRAY + tr(f"  없는 명령입니다: {text.split()[0]} (/help)", f"  No such command: {text.split()[0]} (/help)") + RST)
+                        if is_cmd and len(descs) > len(commands()) and text.split()[0] not in descs:
+                            tx.reply(f"{GRAY}Unknown slash command: {text.split()[0]} (/help){RST}")
                             continue
                         await send(client, text)
                     tg.cancel_scope.cancel()
