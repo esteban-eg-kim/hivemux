@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- The API terminal now sees the account you choose for its project while it runs, not only the one it started
+  for: choose a subscription and it goes back to Claude Code, choose another API key and it goes on with that
+  key. Before, it kept going on with the first key, even with no credit left.
+- Going back to Claude Code no longer loses the API terminal's conversation when the subscription turns out to
+  be at its limit still. Its conversation and what it did are kept until Claude Code answers; at the limit
+  again, the API terminal goes on with them.
+- A Claude brought back (a restart, an account switch, a reboot) keeps its conversation's name in the Claude
+  app, instead of a title made from its messages.
+
 ## 0.1.89 — 2026-11-27
 
 - The API terminal (the Agent SDK, at a usage limit) now looks and works like Claude Code. It opens on Claude

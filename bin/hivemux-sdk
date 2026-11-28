@@ -258,14 +258,28 @@ def account_module():
     return mod
 
 
+def chosen_now(a):
+    """(the account chosen for this project now, the project). Read each time, not the one at the start: the project
+    may be set to another account meanwhile (a subscription, another API key)
+    (이 프로젝트에 지금 정한 계정, 프로젝트). 시작할 때의 것이 아니라 매번 읽는다: 그 사이 프로젝트를 다른 계정
+    (구독, 다른 API 키) 으로 바꿨을 수 있다"""
+    acc, proj = os.environ.get("HIVEMUX_SDK_ACCOUNT", ""), os.environ.get("HIVEMUX_SDK_PROJECT") or None
+    if acc and proj:
+        try:
+            acc = a.resolve(proj)
+        except Exception:
+            pass
+    return acc, proj
+
+
 def can_go_back():
     """The subscription chosen for this project can be used again: not at its limit, or no fallback any more
     이 프로젝트에 정한 구독을 다시 쓸 수 있다: 한도가 풀렸거나, 이어 갈 계정 설정이 없어졌다"""
-    acc, proj = os.environ.get("HIVEMUX_SDK_ACCOUNT", ""), os.environ.get("HIVEMUX_SDK_PROJECT") or None
     try:
         a = account_module()
     except Exception:
         return False
+    acc, proj = chosen_now(a)
     if not acc or a.api_key(acc):          # chosen as the account itself: nowhere to go back / 이 계정 자체를 골랐다
         return False
     return a.effective(acc, None, proj) == acc
@@ -289,11 +303,11 @@ def sdk_session(sid):
 
 def wanted_key():
     """The API key account this project should go on with now ("" = none) / 이 프로젝트가 지금 이어 갈 API 키 계정"""
-    acc, proj = os.environ.get("HIVEMUX_SDK_ACCOUNT", ""), os.environ.get("HIVEMUX_SDK_PROJECT") or None
     try:
         a = account_module()
     except Exception:
         return ""
+    acc, proj = chosen_now(a)
     w = a.effective(acc, None, proj) if acc else ""
     return w if w and a.api_key(w) else ""
 
@@ -313,6 +327,66 @@ def switch(argv):
     os.execv(hc, [hc, *argv])
 
 
+def pending_file(sid):
+    """<id>.back-pending: gone back to Claude Code, not known yet whether it could answer (its mtime: when)
+    <id>.back-pending: Claude Code 로 돌아갔고, 답할 수 있었는지 아직 모른다 (수정 시각: 그때)"""
+    return os.path.join(HANDOFF, f"{sid}.back-pending")
+
+
+def answered_since(sid, since):
+    """Claude Code answered in the conversation after since (epoch): a reply of the model, not an API error such as
+    the limit ("<synthetic>", isApiErrorMessage) / since 뒤에 Claude Code 가 그 대화에서 답했다: 모델의 답. 한도 같은
+    API 오류 ("<synthetic>", isApiErrorMessage) 가 아니다"""
+    import datetime
+    path = transcript_of(sid)
+    if not path:
+        return False
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, 2)
+            f.seek(max(0, f.tell() - 8_000_000))
+            tail = f.read().decode(errors="ignore")
+    except OSError:
+        return False
+    for ln in reversed(tail.splitlines()):
+        if '"assistant"' not in ln:
+            continue
+        try:
+            d = json.loads(ln)
+            at = datetime.datetime.fromisoformat(d["timestamp"].replace("Z", "+00:00")).timestamp()
+        except (ValueError, KeyError, TypeError, AttributeError):
+            continue
+        if d.get("type") != "assistant":
+            continue
+        if at <= since:
+            return False
+        if not d.get("isApiErrorMessage") and (d.get("message") or {}).get("model") != "<synthetic>":
+            return True
+    return False
+
+
+def settle(sid):
+    """After a way back (pending_file): Claude Code answered, so the SDK conversation and its notes are done and go;
+    it did not (the limit again, the API key now), so they stay and the SDK goes on with its conversation
+    돌아간 뒤 (pending_file): Claude Code 가 답했으면 SDK 대화와 그 기록은 끝났으니 지운다. 답하지 못했으면 (다시
+    한도, 지금 API 키) 그대로 두고 SDK 가 하던 대화를 이어 간다"""
+    mark = pending_file(sid)
+    try:
+        since = os.path.getmtime(mark)
+    except OSError:
+        return
+    if answered_since(sid, since):
+        for p in (os.path.join(HANDOFF, f"{sid}.back.md"), sdk_file(sid)):
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
+    try:
+        os.unlink(mark)
+    except OSError:
+        pass
+
+
 def go_back(sid, argv):
     """exec Claude Code on the conversation, asked to read what was done meanwhile
     그 대화의 Claude Code 를 exec 한다. 그 사이 한 일을 먼저 읽게 한다"""
@@ -327,19 +401,21 @@ def go_back(sid, argv):
         # still running in Claude Code's daemon, the resume would be refused (bin/hivemux-claude-update resume)
         # Claude Code 데몬에서 아직 돌면 재개가 거절된다 (bin/hivemux-claude-update resume)
         subprocess.run(["pkill", "-TERM", "-f", "--", f"--session-id {sid} "], capture_output=True)
+        settle(sid)         # an earlier way back Claude Code went on with: read then / 앞서 돌아가 이어 간 것: 그때 읽었다
         back = os.path.join(HANDOFF, f"{sid}.back.md")
+        # kept, as the SDK conversation (sdk_file), until Claude Code answers (settle): at the limit again it comes
+        # back here and goes on with them / Claude Code 가 답할 때까지 (settle) SDK 대화 (sdk_file) 와 함께 둔다.
+        # 다시 한도에 걸리면 여기로 돌아와 그것들로 이어 간다
+        if os.path.exists(back) or os.path.exists(sdk_file(sid)):
+            open(pending_file(sid), "w").close()
         if os.path.exists(back):
             kept = os.path.join(HANDOFF, f"{sid}.back-{time.strftime('%Y%m%d-%H%M%S')}.md")
-            os.replace(back, kept)
+            shutil.copyfile(back, kept)
             args.append(tr(f"이 대화가 구독을 쓸 수 없어 멈춘 동안 API (Agent SDK) 로 일을 이어 했습니다. 한 일은 {kept} 에 있습니다. "
                            "먼저 읽고 지금 상태를 짧게 알려 준 뒤 이어 가 주세요.",
                            f"While this conversation was stopped (its subscription could not be used), the work went on "
                            f"through the API (Agent SDK). What was done is in {kept}. Read it first, tell me briefly where "
                            "things stand, then go on."))
-        try:
-            os.unlink(sdk_file(sid))
-        except OSError:
-            pass
     clean_env()
     hc = os.path.join(HERE, "hivemux-claude")
     os.execv(hc, [hc, *args])
@@ -1136,6 +1212,9 @@ async def run(argv):
     os.environ["HIVEMUX_SDK"], os.environ["HIVEMUX_SDK_FOR"] = "1", sid
 
     key = os.environ.get("HIVEMUX_SDK_KEY_ACCOUNT", "")
+    if sid:
+        settle(sid)     # back here after a way back: go on with the SDK conversation unless Claude Code answered
+                        # 돌아갔다가 다시 옴: Claude Code 가 답하지 않았으면 SDK 대화를 이어 간다
     resume = [sdk_session(sid) if sid else ""]
 
     # the name other sessions message it by: a team role's "<project>-<role>" (its teammates use it), else the

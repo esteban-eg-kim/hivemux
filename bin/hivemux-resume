@@ -41,11 +41,15 @@ done
 # a team role (bin/hivemux-team) comes back with its model, effort and prompt / 팀 역할은 모델, 노력, 지시문과 함께 돌아온다
 role="$("$HM_BIN/hivemux-team" resume-args "$pane" "$sid" "$cwd" 2>/dev/null)"
 fresh=0
+# the conversation's name goes with a resume too: Remote Control connects at startup, and without it the Claude
+# app titled the session from its messages ("ds2 ds3 띄우기") rather than the name the conversation had
+# 대화의 이름은 재개에도 준다: Remote Control 이 시작할 때 연결되는데, 없으면 Claude 앱이 대화의 이름 대신 메시지로
+# 제목을 지었다 ("ds2 ds3 띄우기")
+name="$([ -n "$tr_" ] && grep -o '"type":"custom-title","customTitle":"[^"]*"' "$tr_" | tail -1 | cut -d'"' -f8)"
 if [ -n "$tr_" ] && grep -q '"type":"\(user\|assistant\)"' "$tr_"; then
-  run="$claude_cmd --resume $sid"
+  run="$claude_cmd --resume $sid${name:+ -n $(printf '%q' "$name")}"
 else
-  # its name: the conversation's, else the pane's / 이름: 대화의 것, 없으면 칸의 것
-  name="$([ -n "$tr_" ] && grep -o '"type":"custom-title","customTitle":"[^"]*"' "$tr_" | tail -1 | cut -d'"' -f8)"
+  # a fresh one: the conversation's name, else the pane's / 새로 시작: 대화의 이름, 없으면 칸의 것
   name="${name:-$(t show -pqv -t "$pane" @claude_title)}"
   run="$claude_cmd${name:+ -n $(printf '%q' "$name")}"; fresh=3
   log "fresh $pane: $sid has no messages$([ -n "$tr_" ] || echo " (no transcript)")"
