@@ -192,6 +192,13 @@ def handoff_in(sid, cwd, pane):
     back = os.path.join(HANDOFF, f"{sid}.back.md")
     if sid and os.path.exists(back):
         out.append(f"- Work already done through the API since the stop: {back}")
+    # written by the conversation itself just before it moved, near its usage limit (bin/hivemux-account early):
+    # the best account of where things stand / 사용 한도 가까이 옮기기 직전에 그 대화가 직접 쓴 것
+    # (bin/hivemux-account early): 지금 상태를 가장 잘 말한다
+    wrap = os.path.join(HANDOFF, f"{sid}.wrap.md")
+    if sid and os.path.exists(wrap):
+        out.append(f"- Read this first: the conversation's own notes on where things stand, written just before it "
+                   f"moved here: {wrap}")
     if summary:
         out += ["", "## The summary at its last compaction", "", clip(summary, 6000)]
     if asks:
@@ -376,7 +383,7 @@ def settle(sid):
     except OSError:
         return
     if answered_since(sid, since):
-        for p in (os.path.join(HANDOFF, f"{sid}.back.md"), sdk_file(sid)):
+        for p in (os.path.join(HANDOFF, f"{sid}.back.md"), sdk_file(sid), os.path.join(HANDOFF, f"{sid}.wrap.md")):
             try:
                 os.unlink(p)
             except OSError:
@@ -1110,19 +1117,58 @@ class Pinned:
     입력창을 Claude Code 처럼 아래 줄에 고정한다: 위쪽 줄은 터미널의 스크롤 영역으로, 위에서부터 채우고 다 차면 맨 아래에서
     올린다 (tmux 기록에도 남는다). 커서는 저장했다 되돌려서 입력창은 지웠다 다시 그리지 않는다. 입력창 위에 찍으면 줄마다
     입력창을 다시 그려, 답이 오는 동안 입력창이 흔들렸다"""
-    N = 8            # two rows (spinner, tip or notice), rule, three lines of input, rule, mode
-    INPUT = 3        # 두 줄 (스피너, 팁이나 알림), 선, 입력 세 줄, 선, 모드
+    # two rows (spinner, tip or notice), rule, the input's rows (three at least), rule, mode: 8 rows, more as the input
+    # grows past three, as Claude Code's prompt grows with what you type
+    # 두 줄 (스피너, 팁이나 알림), 선, 입력 줄 (적어도 세 줄), 선, 모드: 8 줄. Claude Code 처럼 입력이 세 줄을 넘으면 늘어난다
+    INPUT = 3
 
     def __init__(self):
-        self.rows, self.on, self.row = 0, False, 0
+        self.rows, self.on, self.row, self.n = 0, False, 0, self.INPUT
+        self.want = lambda: 1       # the rows the input takes now (set by run) / 지금 입력이 차지하는 줄 수 (run 이 정한다)
+
+    @property
+    def N(self):
+        return 5 + self.n
 
     @staticmethod
     def lines():
         return shutil.get_terminal_size((100, 30)).lines
 
+    def most(self):
+        """The input's rows at most: half the screen, then it scrolls inside them / 입력은 많아야 화면 반. 그 안에서 스크롤한다"""
+        return max(self.INPUT, self.lines() // 2 - 5)
+
+    def shown(self):
+        """The rows the input shows / 입력이 보이는 줄 수"""
+        return max(1, min(self.want(), self.n))
+
+    def fit_input(self, app):
+        """The pinned rows follow the input: when it grows, what is above goes up (into tmux's history, as a line
+        printed at the bottom does) to make room; when it shrinks, the rows it leaves go back to the region. The prompt
+        is drawn again from its new start, as on a resize
+        고정한 줄이 입력을 따른다: 늘면 위의 내용을 올려 (맨 아래에 찍은 줄처럼 tmux 기록으로) 자리를 만들고, 줄면 남은 줄을
+        영역에 돌려준다. 입력창은 크기를 바꿀 때처럼 새 시작 위치에서 다시 그린다"""
+        n = max(self.INPUT, min(self.want(), self.most()))
+        if n == self.n:
+            return
+        if not self.on:
+            self.n = n
+            return
+        app.renderer.erase(leave_alternate_screen=False)
+        old = self.rows - self.N
+        self.n = n
+        bottom = self.rows - self.N
+        if self.row > bottom > 0:
+            sys.__stdout__.write(f"\x1b[{old};1H" + "\n" * (self.row - bottom))
+            self.row = bottom
+        self.place()
+        app.renderer.reset()
+        app._request_absolute_cursor_position()
+
     def place(self):
         """The region above the pinned rows, and the cursor where the prompt starts / 고정한 줄 위의 영역과 입력창 시작 위치"""
         self.rows = self.lines()
+        self.n = max(self.INPUT, min(self.want(), self.most()))
         self.row = min(self.row, self.rows - self.N)
         sys.__stdout__.write(f"\x1b[1;{self.rows - self.N}r\x1b[{self.rows - self.N + 1};1H\x1b[J")
         sys.__stdout__.flush()
@@ -1504,8 +1550,7 @@ async def run(argv):
         # the rows above the prompt (the menu; or the spinner, what it is doing, the effort), then the rule with the
         # conversation's name / 입력창 위 줄 (목록, 또는 스피너, 하는 일, effort), 그다음 대화 이름이 붙은 선
         w = cols()
-        n = min(session.default_buffer.document.line_count, Pinned.INPUT)
-        room = Pinned.N - 3 - n
+        room = pin.N - 3 - pin.shown()
         items = menu_items()
         if items:
             rows = menu_rows(items, room)
@@ -1807,13 +1852,26 @@ async def run(argv):
             return False
         return True
 
-    # the input takes at most the pinned rows left for it, and scrolls inside them
-    # 입력은 고정한 줄 중 남은 만큼만 쓰고 그 안에서 스크롤한다
+    # the input shows all its rows, the wrapped ones too, up to the pinned rows kept for it, and scrolls inside them;
+    # the pinned rows grow and shrink with it. It counted lines, not rows: a long line wrapped into one row
+    # 입력은 줄바꿈된 줄까지 모든 줄을 고정한 줄이 허락하는 만큼 보이고, 그 안에서 스크롤한다. 고정한 줄은 입력을 따라
+    # 늘고 준다. 줄이 아니라 행을 세야 한다: 긴 줄은 한 행에 접혀 보였다
     from prompt_toolkit.layout.dimension import Dimension
+    from prompt_toolkit.utils import get_cwidth
+
+    def input_rows():
+        # as prompt_toolkit wraps: "❯ " or "  " before each row, and a cell after each line for the cursor
+        # prompt_toolkit 이 접는 대로: 행마다 앞에 "❯ " 나 "  ", 줄마다 뒤에 커서 자리 한 칸
+        w = max(1, cols() - 2)
+        return sum(-(-(get_cwidth(ln) + 1) // w) for ln in session.default_buffer.text.split("\n"))
+
+    pin.want = input_rows
+    # before each drawing, not on a text change: Esc, Ctrl+C and sending empty the input without one
+    # 글이 바뀔 때가 아니라 그릴 때마다: Esc, Ctrl+C, 보내기는 글이 바뀐다는 알림 없이 입력을 비운다
+    session.app.before_render += lambda app: None if app.is_done else pin.fit_input(app)
     for win in session.app.layout.find_all_windows():
         if getattr(win.content, "buffer", None) is session.default_buffer:
-            win.height = lambda: Dimension(min=1, max=Pinned.INPUT,
-                                           preferred=min(session.default_buffer.document.line_count, Pinned.INPUT))
+            win.height = lambda: Dimension.exact(pin.shown())
     with pin:
         pin.follow(session.app)
         # as Claude Code on --resume: its banner, then the end of the conversation, then where this goes on
@@ -1825,9 +1883,13 @@ async def run(argv):
             tx.system(tr(f"API (Agent SDK) 로 하던 대화를 이어 갑니다{f' · 키 {key}' if key else ''}. 구독을 다시 쓸 수 있으면 Claude Code 로 돌아갑니다.",
                          f"Going on with the API (Agent SDK) conversation{f' · key {key}' if key else ''}. Back to Claude Code when the subscription can be used."))
         elif doc:
-            tx.system(tr("구독을 쓸 수 없어 이 대화를 API (Agent SDK) 로 이어 갑니다. 구독을 다시 쓸 수 있으면 Claude Code 로 돌아가고, 그사이 한 일을 먼저 읽게 합니다.",
-                         "The subscription cannot be used, so this conversation goes on through the API (Agent SDK). When it can, it goes back to Claude Code, which reads what was done meanwhile first.")
-                      + "\n" + tr(f"넘김 문서: {doc}", f"Handoff: {doc}"))
+            wrap = os.path.join(HANDOFF, f"{sid}.wrap.md")
+            early = os.path.exists(wrap)
+            tx.system((tr("구독이 사용 한도 가까이라 한도가 일을 끊기 전에 이 대화를 API (Agent SDK) 로 넘겼습니다. 넘기기 전에 정리한 노트를 먼저 읽고 이어 갑니다. 한도가 초기화되면 Claude Code 로 돌아가고, 그사이 한 일을 먼저 읽게 합니다.",
+                          "The subscription was near its usage limit, so this conversation moved to the API (Agent SDK) before the limit cut it; it reads the notes written before the move first. At the reset it goes back to Claude Code, which reads what was done meanwhile first.") if early else
+                       tr("구독을 쓸 수 없어 이 대화를 API (Agent SDK) 로 이어 갑니다. 구독을 다시 쓸 수 있으면 Claude Code 로 돌아가고, 그사이 한 일을 먼저 읽게 합니다.",
+                          "The subscription cannot be used, so this conversation goes on through the API (Agent SDK). When it can, it goes back to Claude Code, which reads what was done meanwhile first."))
+                      + "\n" + tr(f"넘김 문서: {doc}", f"Handoff: {doc}") + (("\n" + tr(f"정리 노트: {wrap}", f"Notes: {wrap}")) if early else ""))
         while not st["back"] and not st["done"] and not st["switch"]:
             st["clear"] = False
             async with ClaudeSDKClient(options=options()) as client:

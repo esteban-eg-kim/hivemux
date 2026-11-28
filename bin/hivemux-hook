@@ -400,12 +400,23 @@ case "$event" in
     # the context size, and a team role past its line goes on a diet (bin/hivemux-team)
     # 컨텍스트 크기. 기준을 넘은 팀 역할은 다이어트한다 (bin/hivemux-team)
     ( "$(dirname "$0")/hivemux-team" stop "$TMUX_PANE" "$(field transcript_path)" >/dev/null 2>&1 & )
-    # near its usage limit (hivemux's mod puts the figures on the pane), a popup asks to go on with the fallback before
-    # a limit cuts a turn: Settings → Move before the limit, 95% of the week and of five hours by default
-    # (bin/hivemux-account early) / 사용 한도 가까이 (hivemux mod 가 칸에 적는다): 한도가 턴을 끊기 전에 이어 갈 계정으로 갈지 팝업으로 묻는다.
+    # near its usage limit (hivemux's mod puts the figures on the pane), its Claudes wrap up and move to the fallback
+    # before a limit cuts a turn: Settings → Move before the limit, 95% of the week and of five hours by default
+    # (bin/hivemux-account early) / 사용 한도 가까이 (hivemux mod 가 칸에 적는다): 한도가 턴을 끊기 전에 일을 정리하고 이어 갈 계정으로 옮긴다.
     # 설정 → 미리 넘어가기, 기본은 주간과 5시간 모두 95%
-    IFS=$'\t' read -r lw l5 ew e5 < <(t display -p -t "$TMUX_PANE" '#{@claude_limit_7d}	#{@claude_limit_5h}	#{@hivemux-early-week}	#{@hivemux-early-5h}' 2>/dev/null)
-    if awk -v lw="$lw" -v l5="$l5" -v ew="${ew:-95}" -v e5="${e5:-95}" 'BEGIN { exit !((lw != "" && ew != "off" && lw + 0 >= ew + 0) || (l5 != "" && e5 != "off" && l5 + 0 >= e5 + 0)) }'; then
+    # A Claude writing down its work before it moves (@hivemux-wrap) is looked at after each turn too
+    # 옮기기 전에 일을 적는 Claude (@hivemux-wrap) 도 턴마다 본다
+    # "|", not a tab: read joins the empty fields between tabs, and the values slid (the line unset, no 5 hours)
+    # 탭이 아니라 "|": read 는 탭 사이 빈 칸을 합쳐서 값이 밀렸다 (기준을 정하지 않았거나 5시간 값이 없을 때)
+    IFS='|' read -r lw l5 ew e5 wr < <(t display -p -t "$TMUX_PANE" '#{@claude_limit_7d}|#{@claude_limit_5h}|#{@hivemux-early-week}|#{@hivemux-early-5h}|#{@hivemux-wrap}' 2>/dev/null)
+    # a Claude started before hivemux's mod has no figures on its pane: its account's, as another Claude on it last
+    # wrote them (share/claude-mod: <data>/limits/<account>.tsv, "<week %>\t<resets>\t<5h %>\t<resets>\t<read at>")
+    # hivemux mod 전에 시작한 Claude 는 칸에 값이 없다: 같은 계정의 다른 Claude 가 마지막으로 적은 계정의 값
+    if [ -z "$lw$l5" ]; then
+      acct=default; [[ "$CLAUDE_CONFIG_DIR" == */hivemux/accounts/* ]] && acct="${CLAUDE_CONFIG_DIR%/}" && acct="${acct##*/}"
+      IFS='|' read -r lw _ l5 _ < <(tr '\t' '|' < "${XDG_DATA_HOME:-$HOME/.local/share}/hivemux/limits/$acct.tsv" 2>/dev/null)
+    fi
+    if [ -n "$wr" ] || awk -v lw="$lw" -v l5="$l5" -v ew="${ew:-95}" -v e5="${e5:-95}" 'BEGIN { exit !((lw != "" && ew != "off" && lw + 0 >= ew + 0) || (l5 != "" && e5 != "off" && l5 + 0 >= e5 + 0)) }'; then
       ( "$(dirname "$0")/hivemux-account" early "$TMUX_PANE" >/dev/null 2>&1 & )
     fi
     # If a sidebar rename is pending, send it now that the turn has ended

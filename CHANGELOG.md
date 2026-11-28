@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- Move before the limit no longer asks: when a subscription has used 95% of its week or five hours (Settings →
+  Move early), its Claudes wrap up and move to the account set for a usage limit, and every screen says how much
+  is used, when it resets and where they go. The popup came at night unanswered, and the limit cut the work.
+  Going on through the Agent SDK starts a new conversation, so each Claude first finishes its turn, starts
+  nothing new, brings the step under way to a safe point and writes down where things stand; the API terminal
+  reads that first. After 20 minutes it moves anyway.
+- Move before the limit also works for a Claude started before hivemux's mod (it had no figures on its pane, so
+  it never moved early): it takes its account's, as another Claude on it last reported them.
+- The API terminal's prompt grows to show all of what you type, wrapped lines too, up to half the screen, then
+  scrolls inside; before, a long line showed only its end on one row, and the box never passed three rows.
+
 ## 0.1.90 — 2026-11-28
 
 - The API terminal now sees the account you choose for its project while it runs, not only the one it started

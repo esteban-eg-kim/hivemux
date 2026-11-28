@@ -390,10 +390,15 @@ to it; every Claude carries on in the same conversation.
   set up once in `~/.local/share/hivemux/sdk/venv`, with Python 3.10 or newer.
   `hivemux account runner api claude` runs Claude Code on the key instead.
 - **Move before the limit.** When a subscription has used 95% of its week or
-  of its five hours, a popup asks whether to go on with the account set for a
-  usage limit before the limit cuts a turn. On **Move**, each Claude moves once
-  it is free and off the screen and comes back when the window resets; on
-  **Stay** it asks no more until then. Settings → **Move early · week** and
+  of its five hours, its Claudes wrap up and move to the account set for a
+  usage limit before the limit cuts a turn, without asking; every screen is
+  told how much is used, when it resets and where they go. Going on through
+  the Agent SDK starts a new conversation, so each Claude first finishes its
+  turn, starts nothing new, brings the step under way to a safe point and
+  writes down the goal, what is done, where things stand and what comes next;
+  the other side reads that first (after 20 minutes it moves anyway). Each
+  moves once it is free and off the screen, and comes back when the window
+  resets. Settings → **Move early · week** and
   **· 5 hours**: off, or 80 to 98% (95% by default).
 - **How much of each account's week is used.** The sidebar's bottom shows
   every account's weekly limit as its Claudes last reported it (`week default

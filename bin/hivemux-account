@@ -326,7 +326,6 @@ def at_limit(pane, msg, transcript="", error="rate_limit"):
 
 
 EARLY = {"week": ("early-week", "@claude_limit_7d", 0), "5h": ("early-5h", "@claude_limit_5h", 2)}
-EARLY_ASKED = os.path.join(DATA, "early-asked")     # <account>\t<until>: asked for that window / 그 창에 대해 물었다
 
 
 def early_at(kind):
@@ -341,106 +340,184 @@ def early_at(kind):
     return float(v) if v.replace(".", "", 1).isdigit() else 95.0
 
 
+def wraps(name):
+    """A Claude moving to name starts a new conversation there (an API key through the Agent SDK, bin/hivemux-sdk),
+    so it writes down where it is first; Claude Code on the key goes on in the same one
+    name 으로 옮기는 Claude 는 거기서 새 대화로 시작한다 (Agent SDK 로 도는 API 키, bin/hivemux-sdk). 그래서 먼저
+    어디까지 했는지 적는다. 키로 도는 Claude Code 는 같은 대화로 이어 간다"""
+    try:
+        return open(os.path.join(config_dir(name), "runner")).read().strip() != "claude"
+    except OSError:
+        return True
+
+
+WRAP_WAIT = 20 * 60     # a wrap-up not done by then moves anyway / 이때까지 정리하지 못해도 옮긴다
+
+
+def wrap_note(sid):
+    """Where a Claude writes down its work before it moves (read first by bin/hivemux-sdk handoff_in)
+    옮기기 전에 Claude 가 일을 적어 두는 곳 (bin/hivemux-sdk handoff_in 이 먼저 읽게 한다)"""
+    return os.path.join(DATA, "handoff", f"{sid}.wrap.md")
+
+
+def wrap_ask(name, fb, note, why):
+    return tr(f"[hivemux] 이 계정({name})이 {why}. 한도가 일을 끊기 전에 이 대화는 곧 {fb} (API) 로 넘어갑니다. "
+              f"거기서는 새 대화로 이어 가서 지금 맥락이 다 넘어가지 않습니다.\n\n"
+              f"새 일은 시작하지 말고, 하던 단계는 안전한 곳까지만 마무리해 주세요 (편집 중인 파일이 깨진 채로 남지 않게). "
+              f"그런 다음 이어 받을 쪽이 바로 이어 갈 수 있게 {note} 에 정리해 주세요: 목표, 끝낸 것, 하던 것과 지금 상태, "
+              f"다음 할 일 (순서대로), 정한 것과 그 까닭, 주의할 점, 관련 파일과 명령. 쓰고 나면 짧게 알려 주세요. "
+              f"hivemux 가 그 뒤에 넘깁니다.",
+              f"[hivemux] This account ({name}) {why}. Before the limit cuts a turn, this conversation moves to {fb} (the "
+              f"API) soon; it goes on there as a new conversation, so not all of this context goes with it.\n\n"
+              f"Start nothing new; bring the step under way to a safe point only (no file left half edited). Then write "
+              f"down in {note} what the one taking over needs to go on at once: the goal, what is done, what was under way "
+              f"and where it stands, what comes next (in order), what was decided and why, what to watch out for, the "
+              f"files and commands involved. Say so briefly when it is written; hivemux moves it then.")
+
+
+def tell(text, ms=12000):
+    """A notice on every screen, and in shift.log / 모든 화면에 알림, shift.log 에도"""
+    for c in tmux("list-clients", "-F", "#{client_name}").split():
+        tmux("display", "-d", str(ms), "-c", c, text)
+    try:
+        with open(os.path.join(DATA, "shift.log"), "a") as f:
+            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} early {text}\n")
+    except OSError:
+        pass
+
+
 def early(pane):
-    """(the Stop hook) The pane's subscription has used past the week's or five hours' line in Settings: ask in a popup
-    whether its Claudes go on with the fallback until that window resets, as at the limit (each once it is free and
-    off the screens, so no turn is cut). Asked once per account and window; nothing without a fallback, on an API
-    key, for an account already moved, or with no screen to ask on
-    (Stop 훅) 칸의 구독이 설정의 주간이나 5시간 기준을 넘게 썼다: 한도에 걸렸을 때처럼 그 창이 풀릴 때까지 그 Claude
-    들을 이어 갈 계정으로 보낼지 팝업으로 묻는다 (하나씩 한가하고 화면에 없을 때 가서 턴이 끊기지 않는다). 계정과 창마다
-    한 번만 묻는다. 이어 갈 계정이 없거나, API 키이거나, 이미 옮긴 계정이거나, 물을 화면이 없으면 하지 않는다"""
+    """(the Stop hook) The pane's subscription has used past the week's or five hours' line in Settings (95% by
+    default). Its Claudes stop taking up new work and move to the fallback until that window resets, as at the limit
+    but before it cuts a turn: no question (it came at night, unanswered, and the limit cut the work). Every screen is
+    told. Moving to a new conversation (an API key through the Agent SDK), each first writes down its work
+    (wrap_ask), then moves once free and off the screens; one moving in the same conversation just moves.
+    Nothing without a fallback or on an API key. A later Stop of a Claude asked to wrap up looks at its note
+    (wrapped)
+    (Stop 훅) 칸의 구독이 설정의 주간이나 5시간 기준 (기본 95%) 을 넘게 썼다. 그 Claude 들은 새 일을 받지 않고, 그 창이
+    풀릴 때까지 이어 갈 계정으로 옮긴다. 한도에 걸렸을 때처럼 하되 턴이 끊기기 전에. 묻지 않는다 (밤에 물어 답이 없었고,
+    한도가 일을 끊었다). 모든 화면에 알린다. 새 대화로 옮겨 가면 (Agent SDK 로 도는 API 키) 먼저 하던 일을 적고
+    (wrap_ask), 한가하고 화면에 없을 때 옮긴다. 같은 대화로 옮겨 가면 그냥 옮긴다. 이어 갈 계정이 없거나 API 키면
+    하지 않는다. 정리를 부탁한 Claude 의 다음 Stop 은 그 노트를 본다 (wrapped)"""
+    if tmux("show", "-pqv", "-t", pane, "@hivemux-wrap").strip():
+        wrapped(pane)
+        return
     session = tmux("display", "-p", "-t", pane, "#{session_name}").strip()
-    name = tmux("show", "-pqv", "-t", pane, "@hivemux-mod-account").strip()
+    name = tmux("show", "-pqv", "-t", pane, "@hivemux-mod-account").strip() or running_account(pane)
     fb = fallback(session)
     if not name or api_key(name) or name in limited() or not fb:
         return
     try:
         row = (open(os.path.join(DATA, "limits", f"{name}.tsv")).readline().rstrip("\n").split("\t") + [""] * 5)[:5]
     except OSError:
-        return
+        row = [""] * 5
+    # the pane's own figures are the newest (the mod puts them there after each turn) / 칸의 값이 가장 새롭다
+    live = {"week": tmux("show", "-pqv", "-t", pane, "@claude_limit_7d").strip(),
+            "5h": tmux("show", "-pqv", "-t", pane, "@claude_limit_5h").strip()}
     until, why = 0, []
     for kind, (_, opt, i) in EARLY.items():
         line = early_at(kind)
         try:
-            used = float(row[i])
+            used = float(live[kind] or row[i])
             end = datetime.datetime.fromisoformat(row[i + 1].replace("Z", "+00:00")).timestamp()
         except ValueError:
-            continue
+            # no reset time known: the five hours' window lasts five hours at most / 풀리는 시각을 모름: 5시간 창은 길어야 5시간
+            if kind != "5h" or not live[kind]:
+                continue
+            used, end = float(live[kind]), time.time() + 5 * 3600
         if line is not None and used >= line and end > time.time():
             until = max(until, int(end))
-            why.append(f"{kind}:{used:.0f}:{int(end)}")
+            why.append((kind, used, int(end)))
     if not until:
         return
-    # one question at a time: other panes' Stops while it is open ask nothing / 한 번에 하나: 떠 있는 동안 다른 칸은 묻지 않는다
+    # one at a time: the other panes' Stops meanwhile find it moved / 한 번에 하나: 그사이 다른 칸의 Stop 은 옮긴 것을 본다
     os.makedirs(DATA, exist_ok=True)
     lock = open(os.path.join(DATA, ".early.lock"), "w")
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:
         return
-    asked = {}
-    try:
-        for ln in open(EARLY_ASKED):
-            a, _, u = ln.rstrip("\n").partition("\t")
-            if a and u.isdigit() and int(u) > time.time():
-                asked[a] = int(u)
-    except OSError:
-        pass
-    if asked.get(name, 0) >= until:
-        return
-    # the screen looking at this project, else the one used last / 이 프로젝트를 보는 화면, 없으면 마지막에 쓴 화면
-    rows = [l.split(" ", 2) for l in tmux("list-clients", "-F", "#{client_activity} #{session_name} #{client_name}").splitlines()]
-    rows = sorted((r for r in rows if len(r) == 3), key=lambda r: (r[1] == session, int(r[0]) if r[0].isdigit() else 0))
-    if not rows:
-        return
-    asked[name] = until
-    write_atomic(EARLY_ASKED, "".join(f"{a}\t{u}\n" for a, u in sorted(asked.items())))
-    pause = f"/tmp/hivemux-pause-{os.getuid()}-{tmux('display', '-p', '#{pid}').strip()}"   # per tmux server / tmux 서버마다
-    open(pause, "w").close()
-    try:
-        cmd = shlex.join([os.path.realpath(__file__), "--early-ui", name, fb, str(until), *why])
-        subprocess.run([os.path.join(HERE, "hivemux-modal"), rows[-1][2], "-E", "-w", "76", "-h", "13", "-b", "rounded",
-                        "-T", "#[fg=#e6e9ef,bold] " + tr("사용 한도 가까이", "Near the usage limit") + " ",
-                        "-S", "fg=#5aa9ff", "-s", "bg=#1e2128", cmd],
-                       stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    finally:
-        try:
-            os.unlink(pause)
-        except OSError:
-            pass
-
-
-def early_ui(name, fb, until, why):
-    """The question early() asks, inside its popup; yes moves name's Claudes to fb until <until>
-    early() 가 묻는 팝업 안. 예면 until 까지 name 의 Claude 를 fb 로 옮긴다"""
-    out = sys.stdout
-    out.write("\n")
-    for w in why:
-        kind, used, end = w.split(":")
-        at = time.strftime("%m-%d %H:%M", time.localtime(int(end)))
-        out.write("  " + (tr(f"{name} 계정이 주간 한도의 {used}%를 썼습니다 ({at} 초기화).",
-                             f"{name} has used {used}% of its week (resets {at}).") if kind == "week" else
-                          tr(f"{name} 계정이 5시간 한도의 {used}%를 썼습니다 ({at} 초기화).",
-                             f"{name} has used {used}% of its five hours (resets {at}).")) + "\n")
-    out.write("\n  " + tr(f"한도가 일을 끊기 전에 {fb} 계정으로 넘어갈까요?", f"Go on with {fb} before the limit cuts a turn?") + "\n")
-    out.write(f"  {fg(T2)}" + tr("Claude마다 일을 마치고 화면에 없을 때 같은 대화로 넘어가고,\n  초기화되면 돌아옵니다.",
-                                 "Each Claude moves in the same conversation once free and off the\n  screen, and comes back at the reset.") + "\n")
-    out.write("  " + tr("그대로 두면 이 한도가 초기화될 때까지 다시 묻지 않습니다.",
-                        "Staying asks no more until this limit resets.") + f"{RST}\n")
-    out.flush()
-    if subprocess.run([os.path.join(HERE, "hivemux-confirm"), tr("넘어가기", "Move"), tr("그대로", "Stay")]).returncode:
+    if name in limited():
         return
     lim = limited()
     lim[name] = max(until, lim.get(name, 0))
     write_atomic(LIMITED, "".join(f"{a}\t{u}\n" for a, u in sorted(lim.items())))
     env()
-    n = restart(now=False)
+    said = []
+    for kind, used, end in why:
+        at = time.strftime("%m-%d %H:%M", time.localtime(end))
+        said.append(tr(f"{'주간' if kind == 'week' else '5시간'} 한도의 {used:.0f}%를 썼습니다 ({at} 초기화)",
+                       f"has used {used:.0f}% of its {'week' if kind == 'week' else 'five hours'} (resets {at})"))
+    why_text = tr(", ".join(said), " and ".join(said))
+    moving = movers(*chosen())
+    asked = 0
+    for p, sess in moving:
+        to = fallback(sess)
+        if to and wraps(to):
+            sid = tmux("show", "-pqv", "-t", p, "@claude_session").strip()
+            if not sid:
+                continue
+            note = wrap_note(sid)
+            os.makedirs(os.path.dirname(note), exist_ok=True)
+            if ask_in(p, wrap_ask(name, to, note, why_text)):
+                tmux("set", "-p", "-t", p, "@hivemux-wrap", f"{int(time.time())} {note}")
+                asked += 1
+    n = restart(now=False)          # the ones wrapping up wait for their note (restart) / 정리 중인 것은 노트를 기다린다
     watch_limits()
-    out.write(f"\n  {fg(OK)}" + (tr(f"✓ Claude {n}개를 {fb} 로 옮깁니다 (일하는 중이면 끝난 뒤).",
-                                    f"✓ Moving {n} Claude(s) to {fb} (busy ones once done).") if n
-                                 else tr(f"✓ 넘어갔습니다: 새로 띄우는 Claude 는 {fb} 로 돕니다.", f"✓ Moved: new Claudes run on {fb}.")) + RST)
-    out.flush()
-    time.sleep(1.6)
+    tell("⚠ " + tr(f"{name} 계정이 {why_text}. Claude {len(moving)}개가 지금 일을 마치면 {fb} 로 "
+                   f"넘어갑니다" + (f" ({asked}개는 먼저 한 일을 노트로 정리)" if asked else "") + ". 초기화되면 돌아옵니다.",
+                   f"{name} {why_text}. {len(moving)} Claude(s) move to {fb} once done" +
+                   (f" ({asked} write down their work first)" if asked else "") + "; they come back at the reset."))
+    return n
+
+
+def running_account(pane):
+    """The account the pane's Claude runs on, by its config dir ("" = no Claude) / 칸의 Claude 가 도는 계정 (설정 폴더로)"""
+    shell = tmux("display", "-p", "-t", pane, "#{pane_pid}").strip()
+    pid = claude_pid(shell) if shell else None
+    if not pid:
+        return ""
+    d = os.path.normpath(running_dir(pid) or HOME_DIR)
+    return "default" if d == os.path.normpath(HOME_DIR) else os.path.basename(d)
+
+
+def ask_in(pane, text):
+    """Have the pane's Claude take text as the person's prompt: through hivemux's mod, which runs it once the turn
+    under way is done; a Claude started before the mod has it typed in, only when it is off the screens (nobody
+    typing there) and not waiting for an answer (it would land in the dialog) / 칸의 Claude 에게 text 를 사람의
+    프롬프트로 준다: hivemux mod 로 (하던 턴이 끝나면 실행한다). mod 전에 시작한 Claude 는 쳐 넣되, 화면에 없고 (거기서
+    치는 사람이 없다) 답을 기다리지 않을 때만 (대화창에 들어간다)"""
+    if tmux("show", "-pqv", "-t", pane, "@hivemux-mod").strip() == "1":
+        return subprocess.run([os.path.join(HERE, "hivemux-mod"), "send", pane, text],
+                              stdin=subprocess.DEVNULL, capture_output=True).returncode == 0
+    win = tmux("display", "-p", "-t", pane, "#{window_id}").strip()
+    if win in tmux("list-clients", "-F", "#{window_id}").split():
+        return False
+    if tmux("show", "-pqv", "-t", pane, "@claude_state").strip() == "wait":
+        return False
+    # one line: a newline typed would send what comes before it / 한 줄로: 줄바꿈을 치면 그 앞까지 보낸다
+    tmux("send-keys", "-t", pane, "-l", " ".join(text.split()))
+    tmux("send-keys", "-t", pane, "Enter")
+    return True
+
+
+def wrapped(pane):
+    """(the Stop hook) A Claude asked to wrap up (early) ended a turn: moves once its note is written since, or after
+    WRAP_WAIT anyway / (Stop 훅) 정리를 부탁한 Claude 가 턴을 마쳤다: 그 뒤 노트를 썼으면, 아니어도 WRAP_WAIT 이 지나면 옮긴다"""
+    v = tmux("show", "-pqv", "-t", pane, "@hivemux-wrap").strip()
+    at, _, note = v.partition(" ")
+    try:
+        at = int(at)
+    except ValueError:
+        at = 0
+    try:
+        done = os.path.getmtime(note) >= at
+    except OSError:
+        done = False
+    if not done and time.time() - at < WRAP_WAIT:
+        return
+    tmux("set", "-pu", "-t", pane, "@hivemux-wrap")
+    restart(now=False)
 
 
 def watch_limits():
@@ -467,7 +544,12 @@ def watch_loop():
             restart(now=False)
             known = set(lim)
             continue
-        time.sleep(max(5, min(600, min(lim.values()) - time.time() + 5)))
+        # a Claude asked to wrap up (early) that wrote its note but did not stop again, or took too long: moves
+        # 정리를 부탁한 Claude 가 노트를 쓰고 멈추지 않았거나 너무 오래 걸림: 옮긴다
+        wrapping = [p for p in tmux("list-panes", "-a", "-F", "#{pane_id} #{@hivemux-wrap}").splitlines() if " " in p.strip()]
+        for ln in wrapping:
+            wrapped(ln.split(" ", 1)[0])
+        time.sleep(max(5, min(60 if wrapping else 600, min(lim.values()) - time.time() + 5)))
 
 
 # ── an account's config dir / 계정의 설정 폴더 ──
@@ -767,6 +849,13 @@ def restart(now=True):
     고른 것이므로), 한도에 걸려 멈춘 것도. 몇 개인지 돌려준다. now=False: 화면에 없고 일하지 않을 때 (한도가 풀림).
     API 오류로 멈춘 것도"""
     moved = movers(*chosen())
+    # one writing down its work before it moves (early) waits for it, unless you chose the account just now
+    # 옮기기 전에 일을 적는 중인 것 (early) 은 그것을 기다린다. 방금 계정을 고른 것이면 기다리지 않는다
+    if now:
+        for pane, _ in moved:
+            tmux("set", "-pu", "-t", pane, "@hivemux-wrap")
+    else:
+        moved = [(p, s) for p, s in moved if not tmux("show", "-pqv", "-t", p, "@hivemux-wrap").strip()]
     for pane, _ in moved:
         tmux("set", "-p", "-t", pane, "@claude_restart_pending", "now" if now else "back")
     n = len(moved)
@@ -1269,8 +1358,6 @@ def main(argv):
         env()
     elif cmd == "early" and len(argv) > 1:
         early(argv[1])
-    elif cmd == "--early-ui" and len(argv) > 3:
-        early_ui(argv[1], argv[2], int(argv[3]), argv[4:])
     elif cmd == "--popup" and len(argv) > 1:
         popup(argv[1], session)
     elif cmd == "--ui":

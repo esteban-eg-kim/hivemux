@@ -222,7 +222,7 @@ def main():
                     buf.append(f"\x1b[{y};1H   {fg(T2)}{label}\x1b[{y};{vx}H  {fg(T2)}{v}")
             note = tr("새 대화부터. 공유는 말할 때만 claude.ai 에", "From the next conversation; shared when you ask") \
                 if items[sel][0] == "pages" else \
-                tr("넘으면 한도 시 이어 갈 계정으로 갈지 묻습니다", "Past it, asks to go on with the limit's account") \
+                tr("넘으면 일을 정리하고 한도 시 이어 갈 계정으로 넘어갑니다", "Past it, Claudes wrap up and move to the limit's account") \
                 if items[sel][0].startswith("early") else tr("언어를 바꾸면 사이드바를 다시 띄웁니다", "Changing the language restarts the sidebars")
             buf.append(f"\x1b[{rows - 3};1H  {fg(T3)}{note}")
             buf.append(f"\x1b[{rows - 1};1H{fg(RULE)}  " + "─" * max(0, cols - 4))
