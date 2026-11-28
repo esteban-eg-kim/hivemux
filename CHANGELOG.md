@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.91 — 2026-11-28
 
 - Move before the limit no longer asks: when a subscription has used 95% of its week or five hours (Settings →
   Move early), its Claudes wrap up and move to the account set for a usage limit, and every screen says how much
