@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.90 — 2026-11-28
 
 - The API terminal now sees the account you choose for its project while it runs, not only the one it started
   for: choose a subscription and it goes back to Claude Code, choose another API key and it goes on with that
